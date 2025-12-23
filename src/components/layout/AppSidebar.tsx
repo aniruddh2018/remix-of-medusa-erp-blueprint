@@ -81,6 +81,11 @@ const managementMenuItems = [
     icon: Users,
     path: "/suppliers",
   },
+  {
+    title: "Customers",
+    icon: Users,
+    path: "/customers",
+  },
 ];
 
 const adminMenuItems = [

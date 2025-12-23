@@ -11,17 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Printer, FileText, FileSpreadsheet, Code, Zap, Search, Keyboard } from "lucide-react";
+import { Trash2, AlertTriangle, Printer, Zap, Search, User, UserPlus, X } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
-import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
+import { printBill, type BillData } from "@/utils/billGenerator";
 import type { Tables } from "@/integrations/supabase/types";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Command,
   CommandEmpty,
@@ -35,9 +29,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type Product = Tables<"products">;
 type InventoryBatch = Tables<"inventory_batches">;
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+}
 
 interface CartItem {
   product_id: string;
@@ -83,6 +90,14 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   
+  // Customer state
+  const [showCustomerSection, setShowCustomerSection] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", address: "" });
+  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false);
+  
   // Narcotic info for scheduled drugs
   const [narcoticInfo, setNarcoticInfo] = useState<NarcoticInfo>({
     prescription_number: "",
@@ -117,6 +132,20 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     enabled: open,
   });
 
+  // Fetch customers for search
+  const { data: customers } = useQuery({
+    queryKey: ["customers-for-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id, name, phone, email, address")
+        .order("name");
+      if (error) throw error;
+      return data as Customer[];
+    },
+    enabled: open,
+  });
+
   const { data: batches } = useQuery({
     queryKey: ["batches-for-counter-product", selectedProduct],
     queryFn: async () => {
@@ -139,6 +168,33 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     return cart.some(item => item.drug_schedule !== "none");
   }, [cart]);
 
+  // Create new customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async (customer: { name: string; phone: string; address: string }) => {
+      const { data, error } = await supabase
+        .from("customers")
+        .insert({
+          name: customer.name,
+          phone: customer.phone || null,
+          address: customer.address || null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
+      setSelectedCustomer(data as Customer);
+      setIsAddingNewCustomer(false);
+      setNewCustomer({ name: "", phone: "", address: "" });
+      toast({ title: "Customer added", description: `${data.name} saved successfully` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const createCounterSaleMutation = useMutation({
     mutationFn: async () => {
       const invoiceNumber = `CS-${Date.now()}`;
@@ -160,12 +216,16 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
       const totalAmount = itemsSubtotal + gstAmount;
 
-      // Create sales order with "Counter Sale" as customer
+      // Create sales order with customer info if provided
+      const customerName = selectedCustomer?.name || "Counter Sale";
       const { data: order, error: orderError } = await supabase
         .from("sales_orders")
         .insert({
           invoice_number: invoiceNumber,
-          customer_name: "Counter Sale",
+          customer_name: customerName,
+          customer_phone: selectedCustomer?.phone || null,
+          customer_address: selectedCustomer?.address || null,
+          customer_id: selectedCustomer?.id || null,
           payment_method: paymentMethod,
           total_amount: totalAmount,
           gst_amount: gstAmount,
@@ -178,6 +238,14 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         .single();
 
       if (orderError) throw orderError;
+
+      // Update customer total purchases if customer selected
+      if (selectedCustomer?.id) {
+        await supabase
+          .from("customers")
+          .update({ total_purchases: (selectedCustomer as any).total_purchases + totalAmount })
+          .eq("id", selectedCustomer.id);
+      }
 
       // Create order items
       const orderItems = cart.map((item) => ({
@@ -248,7 +316,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         type: "sale",
         invoice_number: data.invoiceNumber,
         date: new Date().toISOString(),
-        customer_name: "Counter Sale",
+        customer_name: selectedCustomer?.name || "Counter Sale",
         items: cart.map(item => ({
           product_name: item.product_name,
           batch_number: item.batch_number,
@@ -290,6 +358,12 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     setItemQuantity(1);
     setItemDiscount(0);
     setPaymentMethod("cash");
+    setShowCustomerSection(false);
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setCustomerPopoverOpen(false);
+    setNewCustomer({ name: "", phone: "", address: "" });
+    setIsAddingNewCustomer(false);
     setNarcoticInfo({
       prescription_number: "",
       doctor_name: "",
@@ -300,6 +374,33 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     setPendingNarcoticProduct(null);
     onOpenChange(false);
   };
+
+  // Enter key to complete sale when cart has items
+  useEffect(() => {
+    if (!open) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "Enter" && 
+        cart.length > 0 && 
+        !createCounterSaleMutation.isPending &&
+        !productPopoverOpen &&
+        !customerPopoverOpen &&
+        !showNarcoticForm &&
+        !isAddingNewCustomer
+      ) {
+        const activeEl = document.activeElement;
+        const isInputFocused = activeEl?.tagName === "INPUT" || activeEl?.tagName === "BUTTON";
+        if (!isInputFocused) {
+          e.preventDefault();
+          createCounterSaleMutation.mutate();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, cart.length, createCounterSaleMutation.isPending, productPopoverOpen, customerPopoverOpen, showNarcoticForm, isAddingNewCustomer]);
 
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
@@ -630,6 +731,149 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
             </div>
           </div>
 
+          {/* Optional Customer Section */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showCustomerSection ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowCustomerSection(!showCustomerSection)}
+              className="gap-2"
+            >
+              <User className="h-4 w-4" />
+              {selectedCustomer ? selectedCustomer.name : "Add Customer"}
+              {selectedCustomer && (
+                <X 
+                  className="h-3 w-3 ml-1 hover:text-destructive" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCustomer(null);
+                    setShowCustomerSection(false);
+                  }}
+                />
+              )}
+            </Button>
+            {selectedCustomer && (
+              <span className="text-xs text-muted-foreground">{selectedCustomer.phone}</span>
+            )}
+          </div>
+
+          {showCustomerSection && !selectedCustomer && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-3 space-y-3">
+                {!isAddingNewCustomer ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between h-9">
+                            <span className="text-muted-foreground">Search by name or phone...</span>
+                            <Search className="h-4 w-4 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[calc(100vw-3rem)] sm:w-[350px] p-0" align="start">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Search customers..." 
+                              value={customerSearch}
+                              onValueChange={setCustomerSearch}
+                            />
+                            <CommandList>
+                              <CommandEmpty>No customer found.</CommandEmpty>
+                              <CommandGroup className="max-h-48 overflow-auto">
+                                {customers
+                                  ?.filter(c => 
+                                    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                    c.phone?.includes(customerSearch)
+                                  )
+                                  .slice(0, 10)
+                                  .map((customer) => (
+                                    <CommandItem
+                                      key={customer.id}
+                                      value={customer.id}
+                                      onSelect={() => {
+                                        setSelectedCustomer(customer);
+                                        setCustomerPopoverOpen(false);
+                                        setCustomerSearch("");
+                                        setShowCustomerSection(false);
+                                      }}
+                                      className="flex items-center justify-between py-2"
+                                    >
+                                      <div>
+                                        <span className="font-medium">{customer.name}</span>
+                                        {customer.phone && (
+                                          <span className="text-xs text-muted-foreground ml-2">{customer.phone}</span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setIsAddingNewCustomer(true)}
+                        title="Add new customer"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <UserPlus className="h-4 w-4" /> Add New Customer
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <Input
+                        placeholder="Name *"
+                        value={newCustomer.name}
+                        onChange={(e) => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="Phone"
+                        value={newCustomer.phone}
+                        onChange={(e) => setNewCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="Address"
+                        value={newCustomer.address}
+                        onChange={(e) => setNewCustomer(prev => ({ ...prev, address: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          if (!newCustomer.name.trim()) {
+                            toast({ title: "Name required", variant: "destructive" });
+                            return;
+                          }
+                          createCustomerMutation.mutate(newCustomer);
+                        }}
+                        disabled={createCustomerMutation.isPending}
+                      >
+                        {createCustomerMutation.isPending ? "Saving..." : "Save Customer"}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => {
+                          setIsAddingNewCustomer(false);
+                          setNewCustomer({ name: "", phone: "", address: "" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Cart */}
           {cart.length > 0 && (
             <Card>
@@ -698,16 +942,21 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button
-            onClick={() => createCounterSaleMutation.mutate()}
-            disabled={cart.length === 0 || createCounterSaleMutation.isPending}
-            className="gap-2"
-          >
-            <Printer className="h-4 w-4" />
-            {createCounterSaleMutation.isPending ? "Processing..." : "Complete & Print"}
-          </Button>
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <div className="text-xs text-muted-foreground hidden sm:block">
+            Press <kbd className="px-1.5 py-0.5 bg-muted rounded">Enter</kbd> to complete
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button
+              onClick={() => createCounterSaleMutation.mutate()}
+              disabled={cart.length === 0 || createCounterSaleMutation.isPending}
+              className="gap-2 flex-1 sm:flex-none"
+            >
+              <Printer className="h-4 w-4" />
+              {createCounterSaleMutation.isPending ? "Processing..." : "Complete & Print"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

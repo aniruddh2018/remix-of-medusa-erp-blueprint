@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
@@ -55,6 +55,13 @@ export default function PurchaseOrders() {
   const [freightCharges, setFreightCharges] = useState<number>(0);
   const [handlingCharges, setHandlingCharges] = useState<number>(0);
   const [otherCharges, setOtherCharges] = useState<number>(0);
+  
+  // Challan/Invoice state
+  const [challanNumber, setChallanNumber] = useState("");
+  const [isChallan, setIsChallan] = useState(true);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [selectedChallanId, setSelectedChallanId] = useState<string | null>(null);
+  const [newInvoiceNumber, setNewInvoiceNumber] = useState("");
   
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
@@ -138,6 +145,9 @@ export default function PurchaseOrders() {
           other_charges: otherCharges,
           created_by: user?.id,
           status: "pending",
+          challan_number: challanNumber || null,
+          is_challan: isChallan,
+          invoice_number: !isChallan ? `INV-${Date.now()}` : null,
         })
         .select()
         .single();
@@ -202,6 +212,38 @@ export default function PurchaseOrders() {
     setFreightCharges(0);
     setHandlingCharges(0);
     setOtherCharges(0);
+    setChallanNumber("");
+    setIsChallan(true);
+  };
+
+  // Convert challan to invoice mutation
+  const convertToInvoiceMutation = useMutation({
+    mutationFn: async ({ challanId, invoiceNumber }: { challanId: string; invoiceNumber: string }) => {
+      const { error } = await supabase
+        .from("purchase_orders")
+        .update({
+          is_challan: false,
+          invoice_number: invoiceNumber,
+        })
+        .eq("id", challanId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Converted to Invoice", description: "Challan has been converted to an invoice successfully." });
+      setConvertDialogOpen(false);
+      setSelectedChallanId(null);
+      setNewInvoiceNumber("");
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleConvertToInvoice = (orderId: string) => {
+    setSelectedChallanId(orderId);
+    setNewInvoiceNumber(`INV-${Date.now()}`);
+    setConvertDialogOpen(true);
   };
 
   const handleProductSelect = (productId: string) => {
@@ -366,6 +408,37 @@ export default function PurchaseOrders() {
                     value={expectedDeliveryDate}
                     onChange={(e) => setExpectedDeliveryDate(e.target.value)}
                   />
+                </div>
+              </div>
+
+              {/* Challan/Invoice Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Document Type</Label>
+                  <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => setIsChallan(v === "challan")}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="challan">Challan (Temporary)</SelectItem>
+                      <SelectItem value="invoice">Invoice (Final)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isChallan ? "Challan Number" : "Invoice Number"}</Label>
+                  <Input
+                    placeholder={isChallan ? "Supplier challan no." : "Supplier invoice no."}
+                    value={challanNumber}
+                    onChange={(e) => setChallanNumber(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs block">
+                    {isChallan 
+                      ? "Challan is a temporary goods receipt. Convert to invoice when bill arrives."
+                      : "Invoice is the final billing document from supplier."}
+                  </Label>
                 </div>
               </div>
 
@@ -606,9 +679,10 @@ export default function PurchaseOrders() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order #</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Challan/Invoice #</TableHead>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Expected</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Actions</TableHead>
@@ -618,35 +692,52 @@ export default function PurchaseOrders() {
                   {filteredOrders?.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>
+                        <Badge variant={(order as any).is_challan ? "secondary" : "default"}>
+                          {(order as any).is_challan ? "Challan" : "Invoice"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {(order as any).is_challan 
+                          ? (order as any).challan_number || "-"
+                          : (order as any).invoice_number || "-"}
+                      </TableCell>
                       <TableCell>{(order.suppliers as any)?.name || "-"}</TableCell>
                       <TableCell>{format(new Date(order.order_date), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>
-                        {order.expected_delivery_date
-                          ? format(new Date(order.expected_delivery_date), "dd/MM/yyyy")
-                          : "-"}
-                      </TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                       <TableCell>
-                        <Select
-                          value={order.status}
-                          onValueChange={(status: OrderStatus) =>
-                            updateStatusMutation.mutate({ id: order.id, status })
-                          }
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="shipped">Shipped</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={order.status}
+                            onValueChange={(status: OrderStatus) =>
+                              updateStatusMutation.mutate({ id: order.id, status })
+                            }
+                          >
+                            <SelectTrigger className="w-28">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="shipped">Shipped</SelectItem>
+                              <SelectItem value="delivered">Delivered</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {(order as any).is_challan && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleConvertToInvoice(order.id)}
+                              title="Convert to Invoice"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -668,6 +759,41 @@ export default function PurchaseOrders() {
         onOpenChange={setShowSupplierDialog}
         onSuccess={handleSupplierCreated}
       />
+
+      {/* Convert Challan to Invoice Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Convert Challan to Invoice</DialogTitle>
+            <DialogDescription>
+              Enter the invoice number from the supplier's bill
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Invoice Number *</Label>
+              <Input
+                value={newInvoiceNumber}
+                onChange={(e) => setNewInvoiceNumber(e.target.value)}
+                placeholder="Enter supplier invoice number"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => selectedChallanId && convertToInvoiceMutation.mutate({
+                challanId: selectedChallanId,
+                invoiceNumber: newInvoiceNumber
+              })}
+              disabled={!newInvoiceNumber || convertToInvoiceMutation.isPending}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Convert to Invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

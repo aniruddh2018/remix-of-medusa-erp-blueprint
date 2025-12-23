@@ -92,6 +92,7 @@ export type Database = {
           name: string
           purchase_price: number
           reorder_level: number
+          sale_price: number | null
           strength: string | null
           unit: string
           updated_at: string
@@ -113,6 +114,7 @@ export type Database = {
           name: string
           purchase_price: number
           reorder_level?: number
+          sale_price?: number | null
           strength?: string | null
           unit?: string
           updated_at?: string
@@ -134,6 +136,7 @@ export type Database = {
           name?: string
           purchase_price?: number
           reorder_level?: number
+          sale_price?: number | null
           strength?: string | null
           unit?: string
           updated_at?: string
@@ -220,6 +223,8 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          challan_number: string | null
+          converted_from_challan_id: string | null
           created_at: string
           created_by: string | null
           discount_amount: number
@@ -228,6 +233,8 @@ export type Database = {
           gst_amount: number
           handling_charges: number
           id: string
+          invoice_number: string | null
+          is_challan: boolean | null
           notes: string | null
           order_date: string
           order_number: string
@@ -238,6 +245,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          challan_number?: string | null
+          converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
           discount_amount?: number
@@ -246,6 +255,8 @@ export type Database = {
           gst_amount?: number
           handling_charges?: number
           id?: string
+          invoice_number?: string | null
+          is_challan?: boolean | null
           notes?: string | null
           order_date?: string
           order_number: string
@@ -256,6 +267,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          challan_number?: string | null
+          converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
           discount_amount?: number
@@ -264,6 +277,8 @@ export type Database = {
           gst_amount?: number
           handling_charges?: number
           id?: string
+          invoice_number?: string | null
+          is_challan?: boolean | null
           notes?: string | null
           order_date?: string
           order_number?: string
@@ -274,6 +289,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_orders_converted_from_challan_id_fkey"
+            columns: ["converted_from_challan_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_orders_supplier_id_fkey"
             columns: ["supplier_id"]

@@ -72,6 +72,7 @@ interface ProductFormData {
   reorder_level: number;
   mrp: number;
   purchase_price: number;
+  sale_price: number;
   gst_percentage: number;
 }
 
@@ -90,6 +91,7 @@ const initialFormData: ProductFormData = {
   reorder_level: 20,
   mrp: 0,
   purchase_price: 0,
+  sale_price: 0,
   gst_percentage: 12,
 };
 
@@ -331,6 +333,22 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                   setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })
                 }
                 required
+              />
+            </div>
+
+            {/* Sale Price */}
+            <div className="space-y-2">
+              <Label htmlFor="sale_price">Sale Price (₹)</Label>
+              <Input
+                id="sale_price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.sale_price || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })
+                }
+                placeholder="Optional - defaults to MRP"
               />
             </div>
 

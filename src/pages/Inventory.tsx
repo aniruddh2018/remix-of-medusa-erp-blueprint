@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Table,
   TableBody,
@@ -123,11 +124,12 @@ export default function Inventory() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Inventory</h1>
-        <p className="text-muted-foreground">Track stock levels and batch information</p>
-      </div>
+    <div className="page-container">
+      <PageHeader 
+        title="Inventory" 
+        description="Track stock levels and batch information"
+        breadcrumbs={[{ label: "Inventory" }]}
+      />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">

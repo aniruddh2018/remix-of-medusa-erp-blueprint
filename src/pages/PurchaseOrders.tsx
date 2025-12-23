@@ -13,10 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
+import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
+import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -72,6 +74,14 @@ export default function PurchaseOrders() {
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  
+  // Receive inventory dialog
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [selectedOrderForReceive, setSelectedOrderForReceive] = useState<{ id: string; supplierId: string } | null>(null);
+  
+  // Linked challans dialog
+  const [linkedChallansDialogOpen, setLinkedChallansDialogOpen] = useState(false);
+  const [selectedInvoiceForChallans, setSelectedInvoiceForChallans] = useState<string | null>(null);
 
   const { data: purchaseOrders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -227,19 +237,15 @@ export default function PurchaseOrders() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
+    mutationFn: async ({ id, status, skipReceive }: { id: string; status: OrderStatus; skipReceive?: boolean }) => {
       const { error } = await supabase
         .from("purchase_orders")
         .update({ status })
         .eq("id", id);
       if (error) throw error;
-
-      // Auto-receive to inventory when delivered
-      if (status === "delivered") {
-        await receiveToInventory(id);
-      }
+      return { id, status, skipReceive };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
       toast({ title: "Status updated" });
@@ -249,54 +255,16 @@ export default function PurchaseOrders() {
     },
   });
 
-  // Auto-receive PO to inventory
-  const receiveToInventory = async (orderId: string) => {
-    // Get order details
-    const { data: order, error: orderError } = await supabase
-      .from("purchase_orders")
-      .select("supplier_id")
-      .eq("id", orderId)
-      .single();
-    
-    if (orderError) throw orderError;
-
-    // Get order items
-    const { data: items, error: itemsError } = await supabase
-      .from("purchase_order_items")
-      .select("product_id, quantity, unit_price")
-      .eq("purchase_order_id", orderId);
-    
-    if (itemsError) throw itemsError;
-
-    // Create inventory batches for each item
-    const batches = items.map((item) => {
-      const batchNumber = `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-      // Default expiry date to 2 years from now (can be edited later)
-      const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + 2);
-      
-      return {
-        product_id: item.product_id,
-        batch_number: batchNumber,
-        quantity: item.quantity,
-        purchase_price: item.unit_price,
-        mrp: item.unit_price * 1.2, // Default 20% margin, can be edited
-        expiry_date: expiryDate.toISOString().split("T")[0],
-        received_date: new Date().toISOString().split("T")[0],
-        supplier_id: order.supplier_id,
-      };
-    });
-
-    const { error: batchError } = await supabase
-      .from("inventory_batches")
-      .insert(batches);
-
-    if (batchError) throw batchError;
-    
-    toast({ 
-      title: "Inventory Updated", 
-      description: `${batches.length} batch(es) added to inventory.` 
-    });
+  // Open receive dialog for manual receive
+  const handleReceiveInventory = (orderId: string, supplierId: string) => {
+    setSelectedOrderForReceive({ id: orderId, supplierId });
+    setReceiveDialogOpen(true);
+  };
+  
+  // Show linked challans for invoice
+  const handleShowLinkedChallans = (invoiceId: string) => {
+    setSelectedInvoiceForChallans(invoiceId);
+    setLinkedChallansDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
@@ -979,7 +947,7 @@ export default function PurchaseOrders() {
                           <Select
                             value={order.status}
                             onValueChange={(status: OrderStatus) =>
-                              updateStatusMutation.mutate({ id: order.id, status })
+                              updateStatusMutation.mutate({ id: order.id, status, skipReceive: true })
                             }
                           >
                             <SelectTrigger className="w-28">
@@ -993,6 +961,16 @@ export default function PurchaseOrders() {
                               <SelectItem value="cancelled">Cancelled</SelectItem>
                             </SelectContent>
                           </Select>
+                          {order.status !== "delivered" && order.status !== "cancelled" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReceiveInventory(order.id, order.supplier_id)}
+                              title="Receive to Inventory"
+                            >
+                              <Package className="h-4 w-4" />
+                            </Button>
+                          )}
                           {(order as any).is_challan && (
                             <Button
                               variant="outline"
@@ -1001,6 +979,16 @@ export default function PurchaseOrders() {
                               title="Convert to Invoice"
                             >
                               <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {!(order as any).is_challan && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleShowLinkedChallans(order.id)}
+                              title="View Linked Challans"
+                            >
+                              <Link2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -1060,6 +1048,25 @@ export default function PurchaseOrders() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Receive Inventory Dialog */}
+      <ReceiveInventoryDialog
+        open={receiveDialogOpen}
+        onOpenChange={setReceiveDialogOpen}
+        orderId={selectedOrderForReceive?.id || null}
+        supplierId={selectedOrderForReceive?.supplierId || null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
+        }}
+      />
+      
+      {/* Linked Challans Dialog */}
+      <LinkedChallansDialog
+        open={linkedChallansDialogOpen}
+        onOpenChange={setLinkedChallansDialogOpen}
+        invoiceId={selectedInvoiceForChallans}
+      />
     </div>
   );
 }

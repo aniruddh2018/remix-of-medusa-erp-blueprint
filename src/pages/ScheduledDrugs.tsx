@@ -95,14 +95,14 @@ export default function ScheduledDrugs() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-container">
       <div>
-        <h1 className="text-2xl font-bold">Scheduled Drugs</h1>
-        <p className="text-muted-foreground">Manage controlled substances and compliance register</p>
+        <h1 className="text-responsive-xl font-bold">Scheduled Drugs</h1>
+        <p className="text-muted-foreground text-responsive-sm">Manage controlled substances and compliance register</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products, patients, doctors..."
@@ -112,7 +112,7 @@ export default function ScheduledDrugs() {
           />
         </div>
         <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by schedule" />
           </SelectTrigger>
           <SelectContent>
@@ -126,12 +126,13 @@ export default function ScheduledDrugs() {
       </div>
 
       <Tabs defaultValue="register" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="register" className="gap-2">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="register" className="gap-2 flex-1 sm:flex-none">
             <ClipboardList className="h-4 w-4" />
-            Drug Register
+            <span className="mobile-hide">Drug Register</span>
+            <span className="mobile-show">Register</span>
           </TabsTrigger>
-          <TabsTrigger value="products" className="gap-2">
+          <TabsTrigger value="products" className="gap-2 flex-1 sm:flex-none">
             <Pill className="h-4 w-4" />
             Products
           </TabsTrigger>
@@ -139,13 +140,13 @@ export default function ScheduledDrugs() {
 
         <TabsContent value="register">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-responsive-base flex items-center justify-between">
                 <span>Transaction Register</span>
-                <Badge variant="secondary">{filteredRegister?.length || 0} entries</Badge>
+                <Badge variant="secondary" className="badge-responsive">{filteredRegister?.length || 0} entries</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6 pt-0">
               {registerLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -156,70 +157,109 @@ export default function ScheduledDrugs() {
                   <p className="text-muted-foreground">No register entries found</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead>Prescription</TableHead>
-                      <TableHead>Patient</TableHead>
-                      <TableHead>Doctor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  {/* Mobile Card View */}
+                  <div className="mobile-card-table">
                     {filteredRegister.map((entry) => {
                       const product = entry.products as any;
                       const batch = entry.inventory_batches as any;
                       return (
-                        <TableRow key={entry.id}>
-                          <TableCell className="whitespace-nowrap">
-                            {format(new Date(entry.transaction_date), "dd MMM yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {product?.name}{product?.strength ? ` ${product.strength}` : ""}
-                              </span>
-                              <Badge className={scheduleColors[product?.drug_schedule] || ""}>
-                                {scheduleLabels[product?.drug_schedule] || product?.drug_schedule}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{batch?.batch_number}</TableCell>
-                          <TableCell>
-                            <Badge variant={entry.transaction_type === "sale" ? "default" : "secondary"}>
+                        <div key={entry.id} className="mobile-card">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(entry.transaction_date), "dd MMM yyyy")}
+                            </span>
+                            <Badge variant={entry.transaction_type === "sale" ? "default" : "secondary"} className="badge-responsive">
                               {entry.transaction_type === "sale" ? "Sale" : "Receipt"}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {entry.transaction_type === "sale" ? "-" : "+"}{entry.quantity}
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-medium">
-                            {entry.balance_quantity}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {entry.prescription_number || "-"}
-                          </TableCell>
-                          <TableCell>{entry.patient_name || "-"}</TableCell>
-                          <TableCell>
-                            <div>
-                              <span>{entry.doctor_name || "-"}</span>
-                              {entry.doctor_registration_number && (
-                                <span className="text-xs text-muted-foreground block">
-                                  Reg: {entry.doctor_registration_number}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                          <div className="font-medium text-sm mb-1">
+                            {product?.name}{product?.strength ? ` ${product.strength}` : ""}
+                          </div>
+                          <Badge className={`${scheduleColors[product?.drug_schedule] || ""} badge-responsive mb-2`}>
+                            {scheduleLabels[product?.drug_schedule] || product?.drug_schedule}
+                          </Badge>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">Batch:</span> {batch?.batch_number}</div>
+                            <div><span className="text-muted-foreground">Qty:</span> {entry.transaction_type === "sale" ? "-" : "+"}{entry.quantity}</div>
+                            <div><span className="text-muted-foreground">Balance:</span> {entry.balance_quantity}</div>
+                            <div><span className="text-muted-foreground">Rx#:</span> {entry.prescription_number || "-"}</div>
+                            {entry.patient_name && <div className="col-span-2"><span className="text-muted-foreground">Patient:</span> {entry.patient_name}</div>}
+                            {entry.doctor_name && <div className="col-span-2"><span className="text-muted-foreground">Doctor:</span> {entry.doctor_name}</div>}
+                          </div>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="desktop-table overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Batch</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead className="text-right">Qty</TableHead>
+                          <TableHead className="text-right">Balance</TableHead>
+                          <TableHead className="tablet-hide">Prescription</TableHead>
+                          <TableHead className="tablet-hide">Patient</TableHead>
+                          <TableHead className="tablet-hide">Doctor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRegister.map((entry) => {
+                          const product = entry.products as any;
+                          const batch = entry.inventory_batches as any;
+                          return (
+                            <TableRow key={entry.id}>
+                              <TableCell className="whitespace-nowrap">
+                                {format(new Date(entry.transaction_date), "dd MMM yyyy")}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {product?.name}{product?.strength ? ` ${product.strength}` : ""}
+                                  </span>
+                                  <Badge className={scheduleColors[product?.drug_schedule] || ""}>
+                                    {scheduleLabels[product?.drug_schedule] || product?.drug_schedule}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{batch?.batch_number}</TableCell>
+                              <TableCell>
+                                <Badge variant={entry.transaction_type === "sale" ? "default" : "secondary"}>
+                                  {entry.transaction_type === "sale" ? "Sale" : "Receipt"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-mono">
+                                {entry.transaction_type === "sale" ? "-" : "+"}{entry.quantity}
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-medium">
+                                {entry.balance_quantity}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm tablet-hide">
+                                {entry.prescription_number || "-"}
+                              </TableCell>
+                              <TableCell className="tablet-hide">{entry.patient_name || "-"}</TableCell>
+                              <TableCell className="tablet-hide">
+                                <div>
+                                  <span>{entry.doctor_name || "-"}</span>
+                                  {entry.doctor_registration_number && (
+                                    <span className="text-xs text-muted-foreground block">
+                                      Reg: {entry.doctor_registration_number}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -227,13 +267,13 @@ export default function ScheduledDrugs() {
 
         <TabsContent value="products">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-responsive-base flex items-center justify-between">
                 <span>Scheduled Drug Products</span>
-                <Badge variant="secondary">{filteredProducts?.length || 0} products</Badge>
+                <Badge variant="secondary" className="badge-responsive">{filteredProducts?.length || 0} products</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6 pt-0">
               {productsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -244,39 +284,66 @@ export default function ScheduledDrugs() {
                   <p className="text-muted-foreground">No scheduled drugs found</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Manufacturer</TableHead>
-                      <TableHead>Schedule</TableHead>
-                      <TableHead>Composition</TableHead>
-                      <TableHead className="text-right">MRP</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  {/* Mobile Card View */}
+                  <div className="mobile-card-table">
                     {filteredProducts.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>
-                          <span className="font-medium">{product.name}</span>
-                          {product.strength && (
-                            <span className="text-muted-foreground ml-1">{product.strength}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{product.manufacturer}</TableCell>
-                        <TableCell>
+                      <div key={product.id} className="mobile-card">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">
+                            {product.name}
+                            {product.strength && <span className="text-muted-foreground ml-1">{product.strength}</span>}
+                          </span>
                           <Badge className={scheduleColors[product.drug_schedule]}>
                             {scheduleLabels[product.drug_schedule]}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                          {product.composition || "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">₹{Number(product.mrp).toFixed(2)}</TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{product.manufacturer}</div>
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t text-sm">
+                          <span className="text-muted-foreground">{product.composition || "-"}</span>
+                          <span className="font-mono font-medium">₹{Number(product.mrp).toFixed(2)}</span>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="desktop-table overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Manufacturer</TableHead>
+                          <TableHead>Schedule</TableHead>
+                          <TableHead className="tablet-hide">Composition</TableHead>
+                          <TableHead className="text-right">MRP</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell>
+                              <span className="font-medium">{product.name}</span>
+                              {product.strength && (
+                                <span className="text-muted-foreground ml-1">{product.strength}</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{product.manufacturer}</TableCell>
+                            <TableCell>
+                              <Badge className={scheduleColors[product.drug_schedule]}>
+                                {scheduleLabels[product.drug_schedule]}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-xs truncate tablet-hide">
+                              {product.composition || "-"}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">₹{Number(product.mrp).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

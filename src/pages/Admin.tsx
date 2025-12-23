@@ -202,27 +202,28 @@ export default function Admin() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="page-container">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">Manage user roles and permissions</p>
+          <h1 className="text-responsive-xl font-bold">User Management</h1>
+          <p className="text-muted-foreground text-responsive-sm">Manage user roles and permissions</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 mobile-full">
               <UserPlus className="h-4 w-4" />
-              Add New User
+              <span className="mobile-hide">Add New User</span>
+              <span className="mobile-show">Add User</span>
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="dialog-responsive">
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>
                 Add a new user to the system. They will receive login credentials.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="form-grid py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -269,11 +270,11 @@ export default function Admin() {
                 </Select>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreating}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreating} className="mobile-full">
                 Cancel
               </Button>
-              <Button onClick={handleCreateUser} disabled={isCreating}>
+              <Button onClick={handleCreateUser} disabled={isCreating} className="mobile-full">
                 {isCreating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -288,16 +289,54 @@ export default function Admin() {
         </Dialog>
       </div>
 
+      {/* Stats Cards - Mobile optimized */}
+      <div className="card-grid-3">
+        <Card className="stat-card">
+          <CardHeader className="pb-2 p-3 sm:p-6">
+            <CardTitle className="text-responsive-sm font-medium text-muted-foreground">
+              Total Users
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{users?.length || 0}</div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardHeader className="pb-2 p-3 sm:p-6">
+            <CardTitle className="text-responsive-sm font-medium text-muted-foreground">
+              Pharmacists
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
+              {users?.filter((u) => u.role === "pharmacist").length || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardHeader className="pb-2 p-3 sm:p-6">
+            <CardTitle className="text-responsive-sm font-medium text-muted-foreground">
+              Admins
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
+              {users?.filter((u) => u.role === "admin").length || 0}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-          <CardDescription>
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-responsive-base">All Users</CardTitle>
+          <CardDescription className="text-responsive-sm">
             Promote staff to pharmacist or admin roles
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1 max-w-sm">
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search users..."
@@ -317,93 +356,93 @@ export default function Admin() {
               No users found
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Current Role</TableHead>
-                    <TableHead>Change Role</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers?.map((user) => (
-                    <TableRow key={user.user_id}>
-                      <TableCell>
-                        <div className="font-medium">{user.full_name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1">
-                          {getRoleIcon(user.role)}
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(value: AppRole) =>
-                            updateRoleMutation.mutate({
-                              roleId: user.role_id,
-                              userId: user.user_id,
-                              newRole: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="staff">Staff</SelectItem>
-                            <SelectItem value="pharmacist">Pharmacist</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
+            <>
+              {/* Mobile Card View */}
+              <div className="mobile-card-table">
+                {filteredUsers?.map((user) => (
+                  <div key={user.user_id} className="mobile-card">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">{user.full_name}</span>
+                      <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1 badge-responsive">
+                        {getRoleIcon(user.role)}
+                        {user.role}
+                      </Badge>
+                    </div>
+                    <Select
+                      value={user.role}
+                      onValueChange={(value: AppRole) =>
+                        updateRoleMutation.mutate({
+                          roleId: user.role_id,
+                          userId: user.user_id,
+                          newRole: value,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="desktop-table rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Current Role</TableHead>
+                      <TableHead>Change Role</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers?.map((user) => (
+                      <TableRow key={user.user_id}>
+                        <TableCell>
+                          <div className="font-medium">{user.full_name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1">
+                            {getRoleIcon(user.role)}
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={user.role}
+                            onValueChange={(value: AppRole) =>
+                              updateRoleMutation.mutate({
+                                roleId: user.role_id,
+                                userId: user.user_id,
+                                newRole: value,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Users
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{users?.length || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pharmacists
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users?.filter((u) => u.role === "pharmacist").length || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Admins
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users?.filter((u) => u.role === "admin").length || 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
   LogOut,
   Users,
   Settings,
+  Shield,
 } from "lucide-react";
 
 const mainMenuItems = [
@@ -72,11 +73,19 @@ const complianceMenuItems = [
   },
 ];
 
-const adminMenuItems = [
+const managementMenuItems = [
   {
     title: "Suppliers",
     icon: Users,
     path: "/suppliers",
+  },
+];
+
+const adminMenuItems = [
+  {
+    title: "User Management",
+    icon: Shield,
+    path: "/admin",
   },
   {
     title: "Settings",
@@ -163,6 +172,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {complianceMenuItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    isActive={location.pathname === item.path}
+                    onClick={() => navigate(item.path)}
+                    tooltip={item.title}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Management</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {managementMenuItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
                     isActive={location.pathname === item.path}

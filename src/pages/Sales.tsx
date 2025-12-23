@@ -1,13 +1,536 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Search, Eye, Trash2, Receipt, CreditCard, Banknote } from "lucide-react";
+import { format } from "date-fns";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+
+type SalesOrder = Tables<"sales_orders">;
+type SalesOrderItem = Tables<"sales_order_items">;
+type Product = Tables<"products">;
+type InventoryBatch = Tables<"inventory_batches">;
+
+interface CartItem {
+  product_id: string;
+  batch_id: string;
+  product_name: string;
+  batch_number: string;
+  quantity: number;
+  unit_price: number;
+  gst_percentage: number;
+  discount_percentage: number;
+  total_price: number;
+  max_quantity: number;
+}
+
 export default function Sales() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [prescriptionNumber, setPrescriptionNumber] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  const [notes, setNotes] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedBatch, setSelectedBatch] = useState<string>("");
+  const [itemQuantity, setItemQuantity] = useState<number>(1);
+  const [itemDiscount, setItemDiscount] = useState<number>(0);
+
+  const { data: salesOrders, isLoading } = useQuery({
+    queryKey: ["sales-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as SalesOrder[];
+    },
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products-for-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
+  const { data: batches } = useQuery({
+    queryKey: ["batches-for-product", selectedProduct],
+    queryFn: async () => {
+      if (!selectedProduct) return [];
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("*")
+        .eq("product_id", selectedProduct)
+        .gt("quantity", 0)
+        .gt("expiry_date", new Date().toISOString().split("T")[0])
+        .order("expiry_date", { ascending: true }); // FEFO - First Expiry First Out
+      if (error) throw error;
+      return data as InventoryBatch[];
+    },
+    enabled: !!selectedProduct,
+  });
+
+  const createSaleMutation = useMutation({
+    mutationFn: async () => {
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now()}`;
+      
+      // Calculate totals
+      const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+      const gstAmount = cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + (basePrice * item.gst_percentage / 100);
+      }, 0);
+      const discountAmount = cart.reduce((sum, item) => {
+        return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
+      }, 0);
+
+      // Create sales order
+      const { data: order, error: orderError } = await supabase
+        .from("sales_orders")
+        .insert({
+          invoice_number: invoiceNumber,
+          customer_name: customerName,
+          customer_phone: customerPhone || null,
+          customer_address: customerAddress || null,
+          prescription_number: prescriptionNumber || null,
+          payment_method: paymentMethod,
+          notes: notes || null,
+          total_amount: subtotal + gstAmount,
+          gst_amount: gstAmount,
+          discount_amount: discountAmount,
+          created_by: user?.id,
+          status: "confirmed",
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = cart.map((item) => ({
+        sales_order_id: order.id,
+        product_id: item.product_id,
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        gst_percentage: item.gst_percentage,
+        discount_percentage: item.discount_percentage,
+        total_price: item.total_price,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("sales_order_items")
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // Update batch quantities
+      for (const item of cart) {
+        const batch = batches?.find(b => b.id === item.batch_id);
+        if (batch) {
+          const { error: batchError } = await supabase
+            .from("inventory_batches")
+            .update({ quantity: batch.quantity - item.quantity })
+            .eq("id", item.batch_id);
+          if (batchError) throw batchError;
+        }
+      }
+
+      return order;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["batches-for-product"] });
+      toast({ title: "Sale completed", description: "Invoice has been generated successfully." });
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setCart([]);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerAddress("");
+    setPrescriptionNumber("");
+    setPaymentMethod("cash");
+    setNotes("");
+    setSelectedProduct("");
+    setSelectedBatch("");
+    setItemQuantity(1);
+    setItemDiscount(0);
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedProduct || !selectedBatch || itemQuantity <= 0) return;
+
+    const product = products?.find((p) => p.id === selectedProduct);
+    const batch = batches?.find((b) => b.id === selectedBatch);
+
+    if (!product || !batch) return;
+
+    if (itemQuantity > batch.quantity) {
+      toast({ title: "Insufficient stock", description: `Only ${batch.quantity} units available.`, variant: "destructive" });
+      return;
+    }
+
+    const existingIndex = cart.findIndex((item) => item.batch_id === selectedBatch);
+    
+    if (existingIndex >= 0) {
+      const newCart = [...cart];
+      const newQuantity = newCart[existingIndex].quantity + itemQuantity;
+      if (newQuantity > batch.quantity) {
+        toast({ title: "Insufficient stock", variant: "destructive" });
+        return;
+      }
+      newCart[existingIndex].quantity = newQuantity;
+      newCart[existingIndex].total_price = calculateItemTotal(
+        batch.mrp,
+        newQuantity,
+        product.gst_percentage,
+        itemDiscount
+      );
+      setCart(newCart);
+    } else {
+      const totalPrice = calculateItemTotal(batch.mrp, itemQuantity, product.gst_percentage, itemDiscount);
+      setCart([
+        ...cart,
+        {
+          product_id: product.id,
+          batch_id: batch.id,
+          product_name: product.name,
+          batch_number: batch.batch_number,
+          quantity: itemQuantity,
+          unit_price: batch.mrp,
+          gst_percentage: product.gst_percentage,
+          discount_percentage: itemDiscount,
+          total_price: totalPrice,
+          max_quantity: batch.quantity,
+        },
+      ]);
+    }
+
+    setSelectedProduct("");
+    setSelectedBatch("");
+    setItemQuantity(1);
+    setItemDiscount(0);
+  };
+
+  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
+    const basePrice = price * qty;
+    const discountedPrice = basePrice * (1 - discount / 100);
+    const gstAmount = discountedPrice * (gst / 100);
+    return discountedPrice + gstAmount;
+  };
+
+  const removeFromCart = (index: number) => {
+    setCart(cart.filter((_, i) => i !== index));
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+
+  const filteredOrders = salesOrders?.filter(
+    (order) =>
+      order.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "default";
+      case "pending":
+        return "secondary";
+      case "cancelled":
+        return "destructive";
+      default:
+        return "outline";
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Sales Orders</h1>
-        <p className="text-muted-foreground">Manage customer sales and invoices</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Sales & Billing</h1>
+          <p className="text-muted-foreground">Create invoices and manage sales</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Sale
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Sale</DialogTitle>
+              <DialogDescription>Add products and complete the sale</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customer_name">Customer Name *</Label>
+                  <Input
+                    id="customer_name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer_phone">Phone</Label>
+                  <Input
+                    id="customer_phone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prescription">Prescription #</Label>
+                  <Input
+                    id="prescription"
+                    value={prescriptionNumber}
+                    onChange={(e) => setPrescriptionNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Add Product to Cart */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Add Products</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="md:col-span-2">
+                      <Label>Product</Label>
+                      <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products?.map((product) => (
+                            <SelectItem key={product.id} value={product.id}>
+                              {product.name} - ₹{product.mrp}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Batch (FEFO)</Label>
+                      <Select 
+                        value={selectedBatch} 
+                        onValueChange={setSelectedBatch}
+                        disabled={!selectedProduct}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select batch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {batches?.map((batch) => (
+                            <SelectItem key={batch.id} value={batch.id}>
+                              {batch.batch_number} | Qty: {batch.quantity} | Exp: {format(new Date(batch.expiry_date), "MMM yy")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Qty</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={itemQuantity}
+                        onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={handleAddToCart} className="w-full" disabled={!selectedBatch}>
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cart */}
+              {cart.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Cart Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Batch</TableHead>
+                          <TableHead className="text-right">Price</TableHead>
+                          <TableHead className="text-right">Qty</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cart.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.product_name}</TableCell>
+                            <TableCell>{item.batch_number}</TableCell>
+                            <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(index)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-right font-bold">Grand Total</TableCell>
+                          <TableCell className="text-right font-bold text-lg">₹{cartTotal.toFixed(2)}</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Payment */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">
+                        <span className="flex items-center gap-2"><Banknote className="h-4 w-4" /> Cash</span>
+                      </SelectItem>
+                      <SelectItem value="card">
+                        <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Card</span>
+                      </SelectItem>
+                      <SelectItem value="upi">
+                        <span className="flex items-center gap-2"><Receipt className="h-4 w-4" /> UPI</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
+                <Button 
+                  onClick={() => createSaleMutation.mutate()}
+                  disabled={cart.length === 0 || !customerName || createSaleMutation.isPending}
+                >
+                  Complete Sale (₹{cartTotal.toFixed(2)})
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-      <div className="text-center py-12 text-muted-foreground">
-        Sales module - Coming soon
-      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search invoices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading sales...</div>
+          ) : filteredOrders?.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No sales found. Create your first sale.
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders?.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono">{order.invoice_number}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{order.customer_name}</div>
+                          {order.customer_phone && (
+                            <div className="text-sm text-muted-foreground">{order.customer_phone}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{format(new Date(order.sale_date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{order.payment_method}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">₹{order.total_amount.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

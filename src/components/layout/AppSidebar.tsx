@@ -28,6 +28,7 @@ import {
   Settings,
   Shield,
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const mainMenuItems = [
   {
@@ -112,12 +113,10 @@ export function AppSidebar() {
     <Sidebar className="border-r-0 gradient-sidebar">
       <SidebarHeader className="p-4 border-b border-sidebar-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
-            <Pill className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="MedikaRP" className="w-10 h-10 rounded-lg object-contain bg-white" />
           <div>
-            <h1 className="font-bold text-sidebar-foreground text-base">Pharma ERP</h1>
-            <p className="text-xs text-sidebar-foreground/50">Management System</p>
+            <h1 className="font-bold text-sidebar-foreground text-base">MedikaRP</h1>
+            <p className="text-xs text-sidebar-foreground/50">Pharmacy Management</p>
           </div>
         </div>
       </SidebarHeader>

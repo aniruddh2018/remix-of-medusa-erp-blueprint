@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,12 +10,32 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle, ShieldAlert } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 
 type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
 
 const Reports = () => {
+  const { isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      navigate("/", { replace: true });
+    }
+  }, [isAdmin, loading, navigate]);
+
+  // Show access denied for non-admin
+  if (!loading && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
+        <ShieldAlert className="h-16 w-16 mb-4" />
+        <h2 className="text-xl font-semibold">Access Denied</h2>
+        <p className="text-sm">Only administrators can access reports</p>
+      </div>
+    );
+  }
   const [dateRange, setDateRange] = useState<DateRange>("30days");
 
   // Calculate date boundaries

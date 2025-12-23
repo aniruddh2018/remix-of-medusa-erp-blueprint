@@ -81,14 +81,14 @@ const managementMenuItems = [
     icon: Users,
     path: "/suppliers",
   },
+];
+
+const adminMenuItems = [
   {
     title: "Reports",
     icon: BarChart3,
     path: "/reports",
   },
-];
-
-const adminMenuItems = [
   {
     title: "User Management",
     icon: Shield,

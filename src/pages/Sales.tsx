@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
+import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import type { Tables } from "@/integrations/supabase/types";
 
 type SalesOrder = Tables<"sales_orders">;
@@ -34,6 +35,7 @@ interface CartItem {
   discount_percentage: number;
   total_price: number;
   max_quantity: number;
+  expiry_date: string;
 }
 
 export default function Sales() {
@@ -51,7 +53,6 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
-  const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   
@@ -217,7 +218,6 @@ export default function Sales() {
     setPaymentMethod("cash");
     setNotes("");
     setSelectedProduct("");
-    setSelectedBatch("");
     setItemQuantity(1);
     setItemDiscount(0);
     setFreightCharges(0);
@@ -226,61 +226,97 @@ export default function Sales() {
     setOtherCharges(0);
   };
 
+  // Get existing cart quantities for the selected product to account for already allocated stock
+  const existingCartQuantities = useMemo(() => {
+    const map = new Map<string, number>();
+    cart.forEach(item => {
+      if (item.product_id === selectedProduct) {
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity);
+      }
+    });
+    return map;
+  }, [cart, selectedProduct]);
+
+  // Calculate available stock for selected product
+  const availableStock = useMemo(() => {
+    if (!batches) return 0;
+    return getTotalAvailableStock(batches, existingCartQuantities);
+  }, [batches, existingCartQuantities]);
+
   const handleAddToCart = () => {
-    if (!selectedProduct || !selectedBatch || itemQuantity <= 0) return;
+    if (!selectedProduct || itemQuantity <= 0) return;
 
     const product = products?.find((p) => p.id === selectedProduct);
-    const batch = batches?.find((b) => b.id === selectedBatch);
+    if (!product || !batches || batches.length === 0) {
+      toast({ title: "No stock available", description: "This product has no available batches.", variant: "destructive" });
+      return;
+    }
 
-    if (!product || !batch) return;
+    // Use FIFO allocation to distribute quantity across batches
+    const allocationResult = allocateBatchesFIFO(batches, itemQuantity, existingCartQuantities);
 
-    if (itemQuantity > batch.quantity) {
-      toast({ title: "Insufficient stock", description: `Only ${batch.quantity} units available.`, variant: "destructive" });
+    if (!allocationResult.success) {
+      toast({ 
+        title: "Insufficient stock", 
+        description: allocationResult.message, 
+        variant: "destructive" 
+      });
       return;
     }
 
     const gstPercentage = Number(product.gst_percentage);
-    const existingIndex = cart.findIndex((item) => item.batch_id === selectedBatch);
+    const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+    const hsnCode = product.hsn_code || "";
+
+    // Add each allocated batch to cart
+    let newCart = [...cart];
     
-    if (existingIndex >= 0) {
-      const newCart = [...cart];
-      const newQuantity = newCart[existingIndex].quantity + itemQuantity;
-      if (newQuantity > batch.quantity) {
-        toast({ title: "Insufficient stock", variant: "destructive" });
-        return;
-      }
-      newCart[existingIndex].quantity = newQuantity;
-      newCart[existingIndex].total_price = calculateItemTotal(
-        Number(batch.mrp),
-        newQuantity,
-        gstPercentage,
-        itemDiscount
-      );
-      setCart(newCart);
-    } else {
-      const totalPrice = calculateItemTotal(Number(batch.mrp), itemQuantity, gstPercentage, itemDiscount);
-      setCart([
-        ...cart,
-        {
+    for (const allocation of allocationResult.allocations) {
+      const existingIndex = newCart.findIndex((item) => item.batch_id === allocation.batch_id);
+      
+      if (existingIndex >= 0) {
+        // Update existing cart item
+        const newQuantity = newCart[existingIndex].quantity + allocation.quantity;
+        newCart[existingIndex].quantity = newQuantity;
+        newCart[existingIndex].total_price = calculateItemTotal(
+          allocation.mrp,
+          newQuantity,
+          gstPercentage,
+          newCart[existingIndex].discount_percentage
+        );
+        newCart[existingIndex].max_quantity = allocation.available_quantity;
+      } else {
+        // Add new cart item
+        const totalPrice = calculateItemTotal(allocation.mrp, allocation.quantity, gstPercentage, itemDiscount);
+        newCart.push({
           product_id: product.id,
-          batch_id: batch.id,
-          product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
-          batch_number: batch.batch_number,
-          hsn_code: product.hsn_code || "",
-          quantity: itemQuantity,
-          unit_price: Number(batch.mrp),
+          batch_id: allocation.batch_id,
+          product_name: productName,
+          batch_number: allocation.batch_number,
+          hsn_code: hsnCode,
+          quantity: allocation.quantity,
+          unit_price: allocation.mrp,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
-          max_quantity: batch.quantity,
-        },
-      ]);
+          max_quantity: allocation.available_quantity,
+          expiry_date: allocation.expiry_date,
+        });
+      }
     }
 
+    setCart(newCart);
     setSelectedProduct("");
-    setSelectedBatch("");
     setItemQuantity(1);
     setItemDiscount(0);
+
+    // Show info if quantity was split across batches
+    if (allocationResult.allocations.length > 1) {
+      toast({ 
+        title: "FIFO Applied", 
+        description: `Quantity split across ${allocationResult.allocations.length} batches (nearest expiry first)` 
+      });
+    }
   };
 
   const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
@@ -415,29 +451,28 @@ export default function Sales() {
                       </div>
                     </div>
                     <div>
-                      <Label>Batch (FEFO)</Label>
-                      <Select 
-                        value={selectedBatch} 
-                        onValueChange={setSelectedBatch}
-                        disabled={!selectedProduct}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select batch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {batches?.map((batch) => (
-                            <SelectItem key={batch.id} value={batch.id}>
-                              {batch.batch_number} | Qty: {batch.quantity} | Exp: {format(new Date(batch.expiry_date), "MMM yy")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>Available Stock</Label>
+                      <div className="h-10 px-3 py-2 bg-muted rounded-md flex items-center gap-2 text-sm">
+                        {selectedProduct ? (
+                          <>
+                            <span className={availableStock > 0 ? "text-green-600 font-medium" : "text-destructive font-medium"}>
+                              {availableStock} units
+                            </span>
+                            {availableStock === 0 && (
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">Select product</span>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <Label>Qty</Label>
                       <Input
                         type="number"
                         min={1}
+                        max={availableStock || undefined}
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
                       />
@@ -453,8 +488,12 @@ export default function Sales() {
                       />
                     </div>
                     <div className="flex items-end">
-                      <Button onClick={handleAddToCart} className="w-full" disabled={!selectedBatch}>
-                        Add
+                      <Button 
+                        onClick={handleAddToCart} 
+                        className="w-full" 
+                        disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0}
+                      >
+                        Add (FIFO)
                       </Button>
                     </div>
                   </div>
@@ -473,7 +512,7 @@ export default function Sales() {
                         <TableRow>
                           <TableHead>Product</TableHead>
                           <TableHead>Batch</TableHead>
-                          <TableHead>HSN</TableHead>
+                          <TableHead>Expiry</TableHead>
                           <TableHead className="text-right">Price</TableHead>
                           <TableHead className="text-right">Qty</TableHead>
                           <TableHead className="text-right">GST</TableHead>
@@ -486,7 +525,11 @@ export default function Sales() {
                           <TableRow key={index}>
                             <TableCell className="font-medium">{item.product_name}</TableCell>
                             <TableCell>{item.batch_number}</TableCell>
-                            <TableCell className="text-muted-foreground">{item.hsn_code || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {format(new Date(item.expiry_date), "MMM yy")}
+                              </Badge>
+                            </TableCell>
                             <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
                             <TableCell className="text-right">{item.gst_percentage}%</TableCell>

@@ -55,9 +55,9 @@ export function AppLayout() {
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <SidebarInset className="flex-1 flex flex-col">
-          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-            <SidebarTrigger className="-ml-2 hover:bg-muted rounded-lg" />
-            <Separator orientation="vertical" className="h-4 mx-2" />
+          <header className="sticky top-0 z-10 flex h-14 sm:h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3 sm:px-6 safe-top">
+            <SidebarTrigger className="-ml-1 sm:-ml-2 hover:bg-muted rounded-lg touch-target" />
+            <Separator orientation="vertical" className="h-4 mx-1 sm:mx-2 hidden sm:block" />
             
             {/* Quick Actions */}
             <TooltipProvider>
@@ -65,12 +65,12 @@ export function AppLayout() {
                 <TooltipTrigger asChild>
                   <Button 
                     onClick={() => setCounterSaleOpen(true)}
-                    className="gap-2 bg-primary hover:bg-primary/90 shadow-md"
+                    className="gap-1 sm:gap-2 bg-primary hover:bg-primary/90 shadow-md h-9 sm:h-9 px-3 sm:px-4"
                     size="sm"
                   >
                     <Zap className="h-4 w-4" />
-                    <span className="hidden sm:inline">Quick Sale</span>
-                    <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0 hidden md:inline-flex">
+                    <span className="hidden xs:inline sm:inline">Quick Sale</span>
+                    <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0 hidden lg:inline-flex">
                       Alt+A
                     </Badge>
                   </Button>
@@ -83,11 +83,11 @@ export function AppLayout() {
 
             <div className="flex-1" />
 
-            {/* Keyboard shortcuts hint */}
+            {/* Keyboard shortcuts hint - hidden on mobile */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex">
                     <Keyboard className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -101,7 +101,7 @@ export function AppLayout() {
               </Tooltip>
             </TooltipProvider>
           </header>
-          <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          <main className="flex-1 overflow-auto p-3 sm:p-6 bg-muted/30 safe-bottom">
             <div className="max-w-7xl mx-auto">
               <Outlet />
             </div>

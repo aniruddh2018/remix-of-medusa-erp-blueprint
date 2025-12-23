@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
@@ -34,6 +34,7 @@ interface OrderItem {
   gst_percentage: number;
   discount_percentage: number;
   total_price: number;
+  fromChallan?: boolean; // Track if item was imported from challan
 }
 
 export default function PurchaseOrders() {
@@ -115,6 +116,25 @@ export default function PurchaseOrders() {
 
   const createOrderMutation = useMutation({
     mutationFn: async () => {
+      // Validate duplicate challan/invoice number
+      if (challanNumber) {
+        const { data: existing, error: checkError } = await supabase
+          .from("purchase_orders")
+          .select("id")
+          .eq("supplier_id", selectedSupplier)
+          .or(
+            isChallan 
+              ? `challan_number.eq.${challanNumber}` 
+              : `invoice_number.eq.${challanNumber}`
+          )
+          .limit(1);
+        
+        if (checkError) throw checkError;
+        if (existing && existing.length > 0) {
+          throw new Error(`${isChallan ? "Challan" : "Invoice"} number "${challanNumber}" already exists for this supplier.`);
+        }
+      }
+
       const orderNumber = `PO-${Date.now()}`;
 
       // Calculate item totals
@@ -174,21 +194,25 @@ export default function PurchaseOrders() {
         }
       }
 
-      const items = orderItems.map((item) => ({
-        purchase_order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        gst_percentage: item.gst_percentage,
-        discount_percentage: item.discount_percentage,
-        total_price: item.total_price,
-      }));
+      // Only insert items that are NOT from challans (challan items already exist in purchase_order_items)
+      const newItems = orderItems.filter(item => !item.fromChallan);
+      if (newItems.length > 0) {
+        const items = newItems.map((item) => ({
+          purchase_order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          gst_percentage: item.gst_percentage,
+          discount_percentage: item.discount_percentage,
+          total_price: item.total_price,
+        }));
 
-      const { error: itemsError } = await supabase
-        .from("purchase_order_items")
-        .insert(items);
+        const { error: itemsError } = await supabase
+          .from("purchase_order_items")
+          .insert(items);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
+      }
 
       return order;
     },
@@ -337,13 +361,14 @@ export default function PurchaseOrders() {
         gst_percentage: Number(item.gst_percentage),
         discount_percentage: Number(item.discount_percentage),
         total_price: Number(item.total_price),
+        fromChallan: true, // Mark as imported from challan
       }));
 
-      // Merge with existing items
+      // Add challan items to the list (don't merge - keep separate)
       setOrderItems((prev) => [...prev, ...newItems]);
       toast({ 
         title: "Items Imported", 
-        description: `${newItems.length} items imported from ${selectedChallanIds.length} challan(s).` 
+        description: `${newItems.length} items imported from ${selectedChallanIds.length} challan(s). These items are locked and cannot be modified.` 
       });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -397,7 +422,10 @@ export default function PurchaseOrders() {
     const gstPercentage = Number(product.gst_percentage);
     const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount);
 
-    const existingIndex = orderItems.findIndex((item) => item.product_id === selectedProduct);
+    // Find existing non-challan item with same product to merge quantities
+    const existingIndex = orderItems.findIndex(
+      (item) => item.product_id === selectedProduct && !item.fromChallan
+    );
 
     if (existingIndex >= 0) {
       const newItems = [...orderItems];
@@ -410,6 +438,7 @@ export default function PurchaseOrders() {
       );
       setOrderItems(newItems);
     } else {
+      // Always add as new line (don't merge with challan items)
       setOrderItems([
         ...orderItems,
         {
@@ -421,6 +450,7 @@ export default function PurchaseOrders() {
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
+          fromChallan: false,
         },
       ]);
     }
@@ -439,6 +469,15 @@ export default function PurchaseOrders() {
   };
 
   const removeItem = (index: number) => {
+    const item = orderItems[index];
+    if (item.fromChallan) {
+      toast({ 
+        title: "Cannot Remove", 
+        description: "Items imported from challans cannot be removed.", 
+        variant: "destructive" 
+      });
+      return;
+    }
     setOrderItems(orderItems.filter((_, i) => i !== index));
   };
 
@@ -752,8 +791,16 @@ export default function PurchaseOrders() {
                       </TableHeader>
                       <TableBody>
                         {orderItems.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{item.product_name}</TableCell>
+                          <TableRow key={index} className={item.fromChallan ? "bg-muted/30" : ""}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {item.fromChallan && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                {item.product_name}
+                                {item.fromChallan && (
+                                  <Badge variant="outline" className="text-xs">From Challan</Badge>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{item.hsn_code || "-"}</TableCell>
                             <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
@@ -761,9 +808,11 @@ export default function PurchaseOrders() {
                             <TableCell className="text-right">{item.discount_percentage}%</TableCell>
                             <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {!item.fromChallan && (
+                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

@@ -9,15 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Eye, Trash2, Receipt, CreditCard, Banknote } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
+import type { Tables } from "@/integrations/supabase/types";
 
 type SalesOrder = Tables<"sales_orders">;
-type SalesOrderItem = Tables<"sales_order_items">;
 type Product = Tables<"products">;
 type InventoryBatch = Tables<"inventory_batches">;
 
@@ -26,6 +27,7 @@ interface CartItem {
   batch_id: string;
   product_name: string;
   batch_number: string;
+  hsn_code: string;
   quantity: number;
   unit_price: number;
   gst_percentage: number;
@@ -51,6 +53,15 @@ export default function Sales() {
   const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  
+  // Other charges
+  const [freightCharges, setFreightCharges] = useState<number>(0);
+  const [handlingCharges, setHandlingCharges] = useState<number>(0);
+  const [deliveryCharges, setDeliveryCharges] = useState<number>(0);
+  const [otherCharges, setOtherCharges] = useState<number>(0);
+  
+  // Inline add product
+  const [showProductDialog, setShowProductDialog] = useState(false);
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders"],
@@ -64,7 +75,7 @@ export default function Sales() {
     },
   });
 
-  const { data: products } = useQuery({
+  const { data: products, refetch: refetchProducts } = useQuery({
     queryKey: ["products-for-sale"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -87,7 +98,7 @@ export default function Sales() {
         .eq("product_id", selectedProduct)
         .gt("quantity", 0)
         .gt("expiry_date", new Date().toISOString().split("T")[0])
-        .order("expiry_date", { ascending: true }); // FEFO - First Expiry First Out
+        .order("expiry_date", { ascending: true }); // FEFO
       if (error) throw error;
       return data as InventoryBatch[];
     },
@@ -96,20 +107,26 @@ export default function Sales() {
 
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}`;
       
-      // Calculate totals
-      const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+      // Calculate item totals
+      const itemsSubtotal = cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + basePrice;
+      }, 0);
+      
       const gstAmount = cart.reduce((sum, item) => {
         const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
         return sum + (basePrice * item.gst_percentage / 100);
       }, 0);
+      
       const discountAmount = cart.reduce((sum, item) => {
         return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
       }, 0);
 
-      // Create sales order
+      const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
+      const totalAmount = itemsSubtotal + gstAmount + totalCharges;
+
       const { data: order, error: orderError } = await supabase
         .from("sales_orders")
         .insert({
@@ -120,9 +137,13 @@ export default function Sales() {
           prescription_number: prescriptionNumber || null,
           payment_method: paymentMethod,
           notes: notes || null,
-          total_amount: subtotal + gstAmount,
+          total_amount: totalAmount,
           gst_amount: gstAmount,
           discount_amount: discountAmount,
+          freight_charges: freightCharges,
+          handling_charges: handlingCharges,
+          delivery_charges: deliveryCharges,
+          other_charges: otherCharges,
           created_by: user?.id,
           status: "confirmed",
         })
@@ -131,7 +152,6 @@ export default function Sales() {
 
       if (orderError) throw orderError;
 
-      // Create order items
       const orderItems = cart.map((item) => ({
         sales_order_id: order.id,
         product_id: item.product_id,
@@ -151,14 +171,11 @@ export default function Sales() {
 
       // Update batch quantities
       for (const item of cart) {
-        const batch = batches?.find(b => b.id === item.batch_id);
-        if (batch) {
-          const { error: batchError } = await supabase
-            .from("inventory_batches")
-            .update({ quantity: batch.quantity - item.quantity })
-            .eq("id", item.batch_id);
-          if (batchError) throw batchError;
-        }
+        const { error: batchError } = await supabase
+          .from("inventory_batches")
+          .update({ quantity: item.max_quantity - item.quantity })
+          .eq("id", item.batch_id);
+        if (batchError) throw batchError;
       }
 
       return order;
@@ -187,6 +204,10 @@ export default function Sales() {
     setSelectedBatch("");
     setItemQuantity(1);
     setItemDiscount(0);
+    setFreightCharges(0);
+    setHandlingCharges(0);
+    setDeliveryCharges(0);
+    setOtherCharges(0);
   };
 
   const handleAddToCart = () => {
@@ -202,6 +223,7 @@ export default function Sales() {
       return;
     }
 
+    const gstPercentage = Number(product.gst_percentage);
     const existingIndex = cart.findIndex((item) => item.batch_id === selectedBatch);
     
     if (existingIndex >= 0) {
@@ -213,24 +235,25 @@ export default function Sales() {
       }
       newCart[existingIndex].quantity = newQuantity;
       newCart[existingIndex].total_price = calculateItemTotal(
-        batch.mrp,
+        Number(batch.mrp),
         newQuantity,
-        product.gst_percentage,
+        gstPercentage,
         itemDiscount
       );
       setCart(newCart);
     } else {
-      const totalPrice = calculateItemTotal(batch.mrp, itemQuantity, product.gst_percentage, itemDiscount);
+      const totalPrice = calculateItemTotal(Number(batch.mrp), itemQuantity, gstPercentage, itemDiscount);
       setCart([
         ...cart,
         {
           product_id: product.id,
           batch_id: batch.id,
-          product_name: product.name,
+          product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
           batch_number: batch.batch_number,
+          hsn_code: product.hsn_code || "",
           quantity: itemQuantity,
-          unit_price: batch.mrp,
-          gst_percentage: product.gst_percentage,
+          unit_price: Number(batch.mrp),
+          gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
           max_quantity: batch.quantity,
@@ -255,7 +278,19 @@ export default function Sales() {
     setCart(cart.filter((_, i) => i !== index));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+  // Calculate totals
+  const itemsSubtotal = cart.reduce((sum, item) => {
+    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    return sum + basePrice;
+  }, 0);
+  
+  const totalGst = cart.reduce((sum, item) => {
+    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    return sum + (basePrice * item.gst_percentage / 100);
+  }, 0);
+  
+  const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
+  const grandTotal = itemsSubtotal + totalGst + totalCharges;
 
   const filteredOrders = salesOrders?.filter(
     (order) =>
@@ -265,14 +300,10 @@ export default function Sales() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return "default";
-      case "pending":
-        return "secondary";
-      case "cancelled":
-        return "destructive";
-      default:
-        return "outline";
+      case "confirmed": return "default";
+      case "pending": return "secondary";
+      case "cancelled": return "destructive";
+      default: return "outline";
     }
   };
 
@@ -331,21 +362,32 @@ export default function Sales() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
-                      <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products?.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name} - ₹{product.mrp}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products?.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name}{product.strength ? ` ${product.strength}` : ""} - ₹{product.mrp}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setShowProductDialog(true)}
+                          title="Add new product"
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label>Batch (FEFO)</Label>
@@ -375,6 +417,16 @@ export default function Sales() {
                         onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
                       />
                     </div>
+                    <div>
+                      <Label>Disc %</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={itemDiscount || ""}
+                        onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
                     <div className="flex items-end">
                       <Button onClick={handleAddToCart} className="w-full" disabled={!selectedBatch}>
                         Add
@@ -396,8 +448,10 @@ export default function Sales() {
                         <TableRow>
                           <TableHead>Product</TableHead>
                           <TableHead>Batch</TableHead>
+                          <TableHead>HSN</TableHead>
                           <TableHead className="text-right">Price</TableHead>
                           <TableHead className="text-right">Qty</TableHead>
+                          <TableHead className="text-right">GST</TableHead>
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
@@ -405,10 +459,12 @@ export default function Sales() {
                       <TableBody>
                         {cart.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell>{item.product_name}</TableCell>
+                            <TableCell className="font-medium">{item.product_name}</TableCell>
                             <TableCell>{item.batch_number}</TableCell>
+                            <TableCell className="text-muted-foreground">{item.hsn_code || "-"}</TableCell>
                             <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right">{item.gst_percentage}%</TableCell>
                             <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(index)}>
@@ -417,13 +473,88 @@ export default function Sales() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-right font-bold">Grand Total</TableCell>
-                          <TableCell className="text-right font-bold text-lg">₹{cartTotal.toFixed(2)}</TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Other Charges */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Other Charges</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Freight (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={freightCharges || ""}
+                        onChange={(e) => setFreightCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Handling (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={handlingCharges || ""}
+                        onChange={(e) => setHandlingCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Delivery (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={deliveryCharges || ""}
+                        onChange={(e) => setDeliveryCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Other (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={otherCharges || ""}
+                        onChange={(e) => setOtherCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Totals Summary */}
+              {cart.length > 0 && (
+                <Card className="bg-muted/50">
+                  <CardContent className="pt-4">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₹{itemsSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>GST (CGST + SGST):</span>
+                        <span>₹{totalGst.toFixed(2)}</span>
+                      </div>
+                      {totalCharges > 0 && (
+                        <div className="flex justify-between">
+                          <span>Other Charges:</span>
+                          <span>₹{totalCharges.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Grand Total:</span>
+                        <span>₹{grandTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -451,17 +582,21 @@ export default function Sales() {
                 </div>
                 <div className="space-y-2">
                   <Label>Notes</Label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+                  <Input
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Optional notes"
+                  />
                 </div>
               </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
-                <Button 
+                <Button
                   onClick={() => createSaleMutation.mutate()}
                   disabled={cart.length === 0 || !customerName || createSaleMutation.isPending}
                 >
-                  Complete Sale (₹{cartTotal.toFixed(2)})
+                  Complete Sale (₹{grandTotal.toFixed(2)})
                 </Button>
               </DialogFooter>
             </div>
@@ -487,8 +622,9 @@ export default function Sales() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading sales...</div>
           ) : filteredOrders?.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No sales found. Create your first sale.
+            <div className="text-center py-8">
+              <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">No sales found.</p>
             </div>
           ) : (
             <div className="rounded-md border">
@@ -506,23 +642,21 @@ export default function Sales() {
                 <TableBody>
                   {filteredOrders?.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-mono">{order.invoice_number}</TableCell>
+                      <TableCell className="font-medium">{order.invoice_number}</TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{order.customer_name}</div>
+                          <div>{order.customer_name}</div>
                           {order.customer_phone && (
                             <div className="text-sm text-muted-foreground">{order.customer_phone}</div>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{format(new Date(order.sale_date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{order.payment_method}</Badge>
-                      </TableCell>
+                      <TableCell>{format(new Date(order.sale_date), "dd/MM/yyyy")}</TableCell>
+                      <TableCell className="capitalize">{order.payment_method}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">₹{order.total_amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -531,6 +665,12 @@ export default function Sales() {
           )}
         </CardContent>
       </Card>
+
+      <ProductFormDialog
+        open={showProductDialog}
+        onOpenChange={setShowProductDialog}
+        onSuccess={() => refetchProducts()}
+      />
     </div>
   );
 }

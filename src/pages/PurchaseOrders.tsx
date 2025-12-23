@@ -11,10 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Eye, Package } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
+import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
+import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
 type PurchaseOrder = Tables<"purchase_orders">;
@@ -25,6 +28,7 @@ type OrderStatus = Database["public"]["Enums"]["order_status"];
 interface OrderItem {
   product_id: string;
   product_name: string;
+  hsn_code: string;
   quantity: number;
   unit_price: number;
   gst_percentage: number;
@@ -46,6 +50,15 @@ export default function PurchaseOrders() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  
+  // Other charges state
+  const [freightCharges, setFreightCharges] = useState<number>(0);
+  const [handlingCharges, setHandlingCharges] = useState<number>(0);
+  const [otherCharges, setOtherCharges] = useState<number>(0);
+  
+  // Inline add dialogs
+  const [showProductDialog, setShowProductDialog] = useState(false);
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
 
   const { data: purchaseOrders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -62,7 +75,7 @@ export default function PurchaseOrders() {
     },
   });
 
-  const { data: suppliers } = useQuery({
+  const { data: suppliers, refetch: refetchSuppliers } = useQuery({
     queryKey: ["suppliers-active"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -75,7 +88,7 @@ export default function PurchaseOrders() {
     },
   });
 
-  const { data: products } = useQuery({
+  const { data: products, refetch: refetchProducts } = useQuery({
     queryKey: ["products-active"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -90,20 +103,26 @@ export default function PurchaseOrders() {
 
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      // Generate order number
       const orderNumber = `PO-${Date.now()}`;
 
-      // Calculate totals
-      const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+      // Calculate item totals
+      const itemsSubtotal = orderItems.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + basePrice;
+      }, 0);
+      
       const gstAmount = orderItems.reduce((sum, item) => {
         const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
         return sum + (basePrice * item.gst_percentage / 100);
       }, 0);
+      
       const discountAmount = orderItems.reduce((sum, item) => {
         return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
       }, 0);
 
-      // Create purchase order
+      const totalCharges = freightCharges + handlingCharges + otherCharges;
+      const totalAmount = itemsSubtotal + gstAmount + totalCharges;
+
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
         .insert({
@@ -111,9 +130,12 @@ export default function PurchaseOrders() {
           supplier_id: selectedSupplier,
           expected_delivery_date: expectedDeliveryDate || null,
           notes: notes || null,
-          total_amount: subtotal + gstAmount,
+          total_amount: totalAmount,
           gst_amount: gstAmount,
           discount_amount: discountAmount,
+          freight_charges: freightCharges,
+          handling_charges: handlingCharges,
+          other_charges: otherCharges,
           created_by: user?.id,
           status: "pending",
         })
@@ -122,7 +144,6 @@ export default function PurchaseOrders() {
 
       if (orderError) throw orderError;
 
-      // Create order items
       const items = orderItems.map((item) => ({
         purchase_order_id: order.id,
         product_id: item.product_id,
@@ -178,13 +199,16 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setFreightCharges(0);
+    setHandlingCharges(0);
+    setOtherCharges(0);
   };
 
   const handleProductSelect = (productId: string) => {
     setSelectedProduct(productId);
     const product = products?.find((p) => p.id === productId);
     if (product) {
-      setItemPrice(product.purchase_price);
+      setItemPrice(Number(product.purchase_price));
     }
   };
 
@@ -194,7 +218,8 @@ export default function PurchaseOrders() {
     const product = products?.find((p) => p.id === selectedProduct);
     if (!product) return;
 
-    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, product.gst_percentage, itemDiscount);
+    const gstPercentage = Number(product.gst_percentage);
+    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount);
 
     const existingIndex = orderItems.findIndex((item) => item.product_id === selectedProduct);
 
@@ -204,7 +229,7 @@ export default function PurchaseOrders() {
       newItems[existingIndex].total_price = calculateItemTotal(
         itemPrice,
         newItems[existingIndex].quantity,
-        product.gst_percentage,
+        gstPercentage,
         itemDiscount
       );
       setOrderItems(newItems);
@@ -213,10 +238,11 @@ export default function PurchaseOrders() {
         ...orderItems,
         {
           product_id: product.id,
-          product_name: product.name,
+          product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
+          hsn_code: product.hsn_code || "",
           quantity: itemQuantity,
           unit_price: itemPrice,
-          gst_percentage: product.gst_percentage,
+          gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
         },
@@ -240,7 +266,19 @@ export default function PurchaseOrders() {
     setOrderItems(orderItems.filter((_, i) => i !== index));
   };
 
-  const orderTotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+  // Calculate totals
+  const itemsSubtotal = orderItems.reduce((sum, item) => {
+    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    return sum + basePrice;
+  }, 0);
+  
+  const totalGst = orderItems.reduce((sum, item) => {
+    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    return sum + (basePrice * item.gst_percentage / 100);
+  }, 0);
+  
+  const totalCharges = freightCharges + handlingCharges + otherCharges;
+  const grandTotal = itemsSubtotal + totalGst + totalCharges;
 
   const filteredOrders = purchaseOrders?.filter(
     (order) =>
@@ -250,19 +288,27 @@ export default function PurchaseOrders() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return "default";
-      case "pending":
-        return "secondary";
-      case "shipped":
-        return "outline";
-      case "delivered":
-        return "default";
-      case "cancelled":
-        return "destructive";
-      default:
-        return "outline";
+      case "confirmed": return "default";
+      case "pending": return "secondary";
+      case "shipped": return "outline";
+      case "delivered": return "default";
+      case "cancelled": return "destructive";
+      default: return "outline";
     }
+  };
+
+  const handleProductCreated = (productId: string) => {
+    refetchProducts();
+    setSelectedProduct(productId);
+    const product = products?.find((p) => p.id === productId);
+    if (product) {
+      setItemPrice(Number(product.purchase_price));
+    }
+  };
+
+  const handleSupplierCreated = (supplierId: string) => {
+    refetchSuppliers();
+    setSelectedSupplier(supplierId);
   };
 
   return (
@@ -289,18 +335,29 @@ export default function PurchaseOrders() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Supplier *</Label>
-                  <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers?.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select supplier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {suppliers?.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowSupplierDialog(true)}
+                      title="Add new supplier"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Expected Delivery Date</Label>
@@ -318,29 +375,40 @@ export default function PurchaseOrders() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
-                      <Select value={selectedProduct} onValueChange={handleProductSelect}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products?.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select value={selectedProduct} onValueChange={handleProductSelect}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products?.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name}{product.strength ? ` ${product.strength}` : ""} ({product.gst_percentage}% GST)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setShowProductDialog(true)}
+                          title="Add new product"
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div>
-                      <Label>Unit Price</Label>
+                      <Label>Unit Price (₹)</Label>
                       <Input
                         type="number"
                         min={0}
                         step={0.01}
-                        value={itemPrice}
+                        value={itemPrice || ""}
                         onChange={(e) => setItemPrice(parseFloat(e.target.value) || 0)}
                       />
                     </div>
@@ -351,6 +419,16 @@ export default function PurchaseOrders() {
                         min={1}
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Disc %</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={itemDiscount || ""}
+                        onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div className="flex items-end">
@@ -373,9 +451,11 @@ export default function PurchaseOrders() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Product</TableHead>
+                          <TableHead>HSN</TableHead>
                           <TableHead className="text-right">Price</TableHead>
                           <TableHead className="text-right">Qty</TableHead>
                           <TableHead className="text-right">GST</TableHead>
+                          <TableHead className="text-right">Disc %</TableHead>
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
@@ -383,10 +463,12 @@ export default function PurchaseOrders() {
                       <TableBody>
                         {orderItems.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell>{item.product_name}</TableCell>
+                            <TableCell className="font-medium">{item.product_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{item.hsn_code || "-"}</TableCell>
                             <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
                             <TableCell className="text-right">{item.gst_percentage}%</TableCell>
+                            <TableCell className="text-right">{item.discount_percentage}%</TableCell>
                             <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
@@ -395,13 +477,78 @@ export default function PurchaseOrders() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-right font-bold">Grand Total</TableCell>
-                          <TableCell className="text-right font-bold text-lg">₹{orderTotal.toFixed(2)}</TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Other Charges */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Other Charges</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Freight Charges (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={freightCharges || ""}
+                        onChange={(e) => setFreightCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Handling Charges (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={handlingCharges || ""}
+                        onChange={(e) => setHandlingCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Other Charges (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={otherCharges || ""}
+                        onChange={(e) => setOtherCharges(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Totals Summary */}
+              {orderItems.length > 0 && (
+                <Card className="bg-muted/50">
+                  <CardContent className="pt-4">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₹{itemsSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>GST (CGST + SGST):</span>
+                        <span>₹{totalGst.toFixed(2)}</span>
+                      </div>
+                      {totalCharges > 0 && (
+                        <div className="flex justify-between">
+                          <span>Other Charges:</span>
+                          <span>₹{totalCharges.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Grand Total:</span>
+                        <span>₹{grandTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -423,7 +570,7 @@ export default function PurchaseOrders() {
                   onClick={() => createOrderMutation.mutate()}
                   disabled={orderItems.length === 0 || !selectedSupplier || createOrderMutation.isPending}
                 >
-                  Create Order (₹{orderTotal.toFixed(2)})
+                  Create Order (₹{grandTotal.toFixed(2)})
                 </Button>
               </DialogFooter>
             </div>
@@ -449,8 +596,9 @@ export default function PurchaseOrders() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading orders...</div>
           ) : filteredOrders?.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No purchase orders found. Create your first order.
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">No purchase orders found.</p>
             </div>
           ) : (
             <div className="rounded-md border">
@@ -469,18 +617,18 @@ export default function PurchaseOrders() {
                 <TableBody>
                   {filteredOrders?.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-mono">{order.order_number}</TableCell>
-                      <TableCell>{(order.suppliers as any)?.name || "Unknown"}</TableCell>
-                      <TableCell>{format(new Date(order.order_date), "dd MMM yyyy")}</TableCell>
+                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>{(order.suppliers as any)?.name || "-"}</TableCell>
+                      <TableCell>{format(new Date(order.order_date), "dd/MM/yyyy")}</TableCell>
                       <TableCell>
                         {order.expected_delivery_date
-                          ? format(new Date(order.expected_delivery_date), "dd MMM yyyy")
+                          ? format(new Date(order.expected_delivery_date), "dd/MM/yyyy")
                           : "-"}
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">₹{order.total_amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                       <TableCell>
                         <Select
                           value={order.status}
@@ -488,7 +636,7 @@ export default function PurchaseOrders() {
                             updateStatusMutation.mutate({ id: order.id, status })
                           }
                         >
-                          <SelectTrigger className="w-[120px]">
+                          <SelectTrigger className="w-32">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -508,6 +656,18 @@ export default function PurchaseOrders() {
           )}
         </CardContent>
       </Card>
+
+      {/* Inline Add Dialogs */}
+      <ProductFormDialog
+        open={showProductDialog}
+        onOpenChange={setShowProductDialog}
+        onSuccess={handleProductCreated}
+      />
+      <SupplierFormDialog
+        open={showSupplierDialog}
+        onOpenChange={setShowSupplierDialog}
+        onSuccess={handleSupplierCreated}
+      />
     </div>
   );
 }

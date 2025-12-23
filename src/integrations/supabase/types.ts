@@ -77,6 +77,7 @@ export type Database = {
       products: {
         Row: {
           category: string | null
+          composition: string | null
           created_at: string
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
           generic_name: string | null
@@ -91,11 +92,13 @@ export type Database = {
           name: string
           purchase_price: number
           reorder_level: number
+          strength: string | null
           unit: string
           updated_at: string
         }
         Insert: {
           category?: string | null
+          composition?: string | null
           created_at?: string
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           generic_name?: string | null
@@ -110,11 +113,13 @@ export type Database = {
           name: string
           purchase_price: number
           reorder_level?: number
+          strength?: string | null
           unit?: string
           updated_at?: string
         }
         Update: {
           category?: string | null
+          composition?: string | null
           created_at?: string
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           generic_name?: string | null
@@ -129,6 +134,7 @@ export type Database = {
           name?: string
           purchase_price?: number
           reorder_level?: number
+          strength?: string | null
           unit?: string
           updated_at?: string
         }
@@ -218,11 +224,14 @@ export type Database = {
           created_by: string | null
           discount_amount: number
           expected_delivery_date: string | null
+          freight_charges: number
           gst_amount: number
+          handling_charges: number
           id: string
           notes: string | null
           order_date: string
           order_number: string
+          other_charges: number
           status: Database["public"]["Enums"]["order_status"]
           supplier_id: string
           total_amount: number
@@ -233,11 +242,14 @@ export type Database = {
           created_by?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
+          freight_charges?: number
           gst_amount?: number
+          handling_charges?: number
           id?: string
           notes?: string | null
           order_date?: string
           order_number: string
+          other_charges?: number
           status?: Database["public"]["Enums"]["order_status"]
           supplier_id: string
           total_amount?: number
@@ -248,11 +260,14 @@ export type Database = {
           created_by?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
+          freight_charges?: number
           gst_amount?: number
+          handling_charges?: number
           id?: string
           notes?: string | null
           order_date?: string
           order_number?: string
+          other_charges?: number
           status?: Database["public"]["Enums"]["order_status"]
           supplier_id?: string
           total_amount?: number
@@ -336,11 +351,15 @@ export type Database = {
           customer_address: string | null
           customer_name: string
           customer_phone: string | null
+          delivery_charges: number
           discount_amount: number
+          freight_charges: number
           gst_amount: number
+          handling_charges: number
           id: string
           invoice_number: string
           notes: string | null
+          other_charges: number
           payment_method: string | null
           prescription_number: string | null
           sale_date: string
@@ -354,11 +373,15 @@ export type Database = {
           customer_address?: string | null
           customer_name: string
           customer_phone?: string | null
+          delivery_charges?: number
           discount_amount?: number
+          freight_charges?: number
           gst_amount?: number
+          handling_charges?: number
           id?: string
           invoice_number: string
           notes?: string | null
+          other_charges?: number
           payment_method?: string | null
           prescription_number?: string | null
           sale_date?: string
@@ -372,11 +395,15 @@ export type Database = {
           customer_address?: string | null
           customer_name?: string
           customer_phone?: string | null
+          delivery_charges?: number
           discount_amount?: number
+          freight_charges?: number
           gst_amount?: number
+          handling_charges?: number
           id?: string
           invoice_number?: string
           notes?: string | null
+          other_charges?: number
           payment_method?: string | null
           prescription_number?: string | null
           sale_date?: string

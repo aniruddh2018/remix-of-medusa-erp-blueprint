@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Printer, FileText, FileSpreadsheet, Code, Zap } from "lucide-react";
+import { Trash2, AlertTriangle, Printer, FileText, FileSpreadsheet, Code, Zap, Search, Keyboard } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
@@ -22,6 +22,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type Product = Tables<"products">;
 type InventoryBatch = Tables<"inventory_batches">;
@@ -58,9 +71,14 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  const productSearchRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
@@ -74,6 +92,13 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   });
   const [showNarcoticForm, setShowNarcoticForm] = useState(false);
   const [pendingNarcoticProduct, setPendingNarcoticProduct] = useState<string | null>(null);
+
+  // Auto-focus product search when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => productSearchRef.current?.focus(), 100);
+    }
+  }, [open]);
 
   const { data: products } = useQuery({
     queryKey: ["products-for-counter-sale"],
@@ -257,6 +282,8 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const handleClose = () => {
     setCart([]);
     setSelectedProduct("");
+    setProductSearch("");
+    setProductPopoverOpen(false);
     setItemQuantity(1);
     setItemDiscount(0);
     setPaymentMethod("cash");
@@ -488,45 +515,112 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         )}
 
         <div className="space-y-4">
-          {/* Product Selection */}
-          <div className="grid grid-cols-6 gap-3">
-            <div className="col-span-3">
-              <Label className="text-xs">Product</Label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products?.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      <span className="flex items-center gap-2">
-                        {product.name}{product.strength ? ` ${product.strength}` : ""} - ₹{product.mrp}
-                        {product.drug_schedule !== "none" && getScheduleBadge(product.drug_schedule)}
+          {/* Fast Product Search */}
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-6">
+              <Label className="text-xs flex items-center gap-1">
+                Product
+                <Badge variant="outline" className="text-xs px-1 py-0 ml-1">Type to search</Badge>
+              </Label>
+              <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={productPopoverOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedProduct ? (
+                      <span className="truncate">
+                        {products?.find(p => p.id === selectedProduct)?.name}
+                        {products?.find(p => p.id === selectedProduct)?.strength && 
+                          ` ${products?.find(p => p.id === selectedProduct)?.strength}`}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ) : (
+                      <span className="text-muted-foreground">Search products...</span>
+                    )}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      ref={productSearchRef}
+                      placeholder="Type product name..." 
+                      value={productSearch}
+                      onValueChange={setProductSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No product found.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {products
+                          ?.filter(product => 
+                            product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                            product.generic_name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+                            product.manufacturer?.toLowerCase().includes(productSearch.toLowerCase())
+                          )
+                          .slice(0, 20) // Limit for performance
+                          .map((product) => (
+                            <CommandItem
+                              key={product.id}
+                              value={product.id}
+                              onSelect={(value) => {
+                                setSelectedProduct(value);
+                                setProductPopoverOpen(false);
+                                setProductSearch("");
+                                setTimeout(() => quantityInputRef.current?.focus(), 50);
+                              }}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{product.name}</span>
+                                {product.strength && <span className="text-muted-foreground text-xs">({product.strength})</span>}
+                                {product.drug_schedule !== "none" && getScheduleBadge(product.drug_schedule)}
+                              </div>
+                              <span className="text-sm font-mono text-muted-foreground">₹{product.mrp}</span>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div>
+            <div className="col-span-2">
               <Label className="text-xs">Stock</Label>
-              <div className="h-9 px-3 py-2 bg-muted rounded-md flex items-center text-sm">
-                {selectedProduct ? availableStock : "-"}
+              <div className="h-9 px-3 py-2 bg-muted rounded-md flex items-center justify-center text-sm font-medium">
+                {selectedProduct ? (
+                  <span className={availableStock > 0 ? "text-green-600" : "text-destructive"}>
+                    {availableStock}
+                  </span>
+                ) : "-"}
               </div>
             </div>
-            <div>
+            <div className="col-span-2">
               <Label className="text-xs">Qty</Label>
               <Input
+                ref={quantityInputRef}
                 type="number"
                 min={1}
                 max={availableStock}
                 value={itemQuantity}
                 onChange={(e) => setItemQuantity(Number(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && selectedProduct && itemQuantity > 0) {
+                    e.preventDefault();
+                    handleAddToCart();
+                  }
+                }}
               />
             </div>
-            <div className="flex items-end">
-              <Button onClick={() => handleAddToCart()} disabled={!selectedProduct || itemQuantity <= 0}>
+            <div className="col-span-2 flex items-end">
+              <Button 
+                onClick={() => handleAddToCart()} 
+                disabled={!selectedProduct || itemQuantity <= 0}
+                className="w-full gap-1"
+              >
                 Add
+                <Badge variant="secondary" className="text-xs px-1 py-0">↵</Badge>
               </Button>
             </div>
           </div>

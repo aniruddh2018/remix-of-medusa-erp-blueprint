@@ -93,10 +93,13 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const [showNarcoticForm, setShowNarcoticForm] = useState(false);
   const [pendingNarcoticProduct, setPendingNarcoticProduct] = useState<string | null>(null);
 
-  // Auto-focus product search when dialog opens
+  // Auto-open popover and focus product search when dialog opens
   useEffect(() => {
     if (open) {
-      setTimeout(() => productSearchRef.current?.focus(), 100);
+      // Open the product popover automatically
+      setProductPopoverOpen(true);
+      // Focus the search input after popover opens
+      setTimeout(() => productSearchRef.current?.focus(), 150);
     }
   }, [open]);
 

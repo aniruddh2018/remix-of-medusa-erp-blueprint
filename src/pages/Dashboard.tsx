@@ -222,25 +222,25 @@ export default function Dashboard() {
         description="Welcome back! Here's your pharmacy overview."
       />
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Stats Grid - Responsive */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
         {statCards.map((stat) => (
           <Card 
             key={stat.title} 
             className="stat-card cursor-pointer group"
             onClick={() => navigate(stat.href)}
           >
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{stat.title}</p>
+                  <p className="text-lg sm:text-2xl font-bold mt-1 truncate">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl ${stat.bgColor} shrink-0 ml-2`}>
+                  <stat.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="flex items-center gap-1 mt-4 text-sm text-muted-foreground group-hover:text-primary transition-colors">
+              <div className="hidden sm:flex items-center gap-1 mt-4 text-sm text-muted-foreground group-hover:text-primary transition-colors">
                 <span>View details</span>
                 <ArrowUpRight className="h-4 w-4" />
               </div>

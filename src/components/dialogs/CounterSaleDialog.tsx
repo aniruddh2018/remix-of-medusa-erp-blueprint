@@ -455,14 +455,15 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Zap className="h-5 w-5 text-primary" />
-            Quick Counter Sale
-            <Badge variant="outline" className="ml-2">Alt+A</Badge>
+            <span className="hidden sm:inline">Quick Counter Sale</span>
+            <span className="sm:hidden">Quick Sale</span>
+            <Badge variant="outline" className="ml-2 hidden sm:inline-flex">Alt+A</Badge>
           </DialogTitle>
-          <DialogDescription>Fast billing without customer details</DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">Fast billing without customer details</DialogDescription>
         </DialogHeader>
 
         {/* Narcotic Form Modal */}
@@ -515,12 +516,12 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         )}
 
         <div className="space-y-4">
-          {/* Fast Product Search */}
+          {/* Fast Product Search - Mobile Responsive */}
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-6">
+            <div className="col-span-12 sm:col-span-6">
               <Label className="text-xs flex items-center gap-1">
                 Product
-                <Badge variant="outline" className="text-xs px-1 py-0 ml-1">Type to search</Badge>
+                <Badge variant="outline" className="text-xs px-1 py-0 ml-1 hidden sm:inline-flex">Type to search</Badge>
               </Label>
               <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
                 <PopoverTrigger asChild>
@@ -528,7 +529,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                     variant="outline"
                     role="combobox"
                     aria-expanded={productPopoverOpen}
-                    className="w-full justify-between font-normal"
+                    className="w-full justify-between font-normal h-10 sm:h-9"
                   >
                     {selectedProduct ? (
                       <span className="truncate">
@@ -542,7 +543,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                     <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
+                <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0" align="start">
                   <Command>
                     <CommandInput 
                       ref={productSearchRef}
@@ -559,7 +560,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                             product.generic_name?.toLowerCase().includes(productSearch.toLowerCase()) ||
                             product.manufacturer?.toLowerCase().includes(productSearch.toLowerCase())
                           )
-                          .slice(0, 20) // Limit for performance
+                          .slice(0, 20)
                           .map((product) => (
                             <CommandItem
                               key={product.id}
@@ -570,14 +571,14 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                                 setProductSearch("");
                                 setTimeout(() => quantityInputRef.current?.focus(), 50);
                               }}
-                              className="flex items-center justify-between"
+                              className="flex items-center justify-between py-3 sm:py-2"
                             >
-                              <div className="flex items-center gap-2">
-                                <span>{product.name}</span>
-                                {product.strength && <span className="text-muted-foreground text-xs">({product.strength})</span>}
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="truncate">{product.name}</span>
+                                {product.strength && <span className="text-muted-foreground text-xs hidden sm:inline">({product.strength})</span>}
                                 {product.drug_schedule !== "none" && getScheduleBadge(product.drug_schedule)}
                               </div>
-                              <span className="text-sm font-mono text-muted-foreground">₹{product.mrp}</span>
+                              <span className="text-sm font-mono text-muted-foreground ml-2">₹{product.mrp}</span>
                             </CommandItem>
                           ))}
                       </CommandGroup>
@@ -586,9 +587,9 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-4 sm:col-span-2">
               <Label className="text-xs">Stock</Label>
-              <div className="h-9 px-3 py-2 bg-muted rounded-md flex items-center justify-center text-sm font-medium">
+              <div className="h-10 sm:h-9 px-3 py-2 bg-muted rounded-md flex items-center justify-center text-sm font-medium">
                 {selectedProduct ? (
                   <span className={availableStock > 0 ? "text-green-600" : "text-destructive"}>
                     {availableStock}
@@ -596,7 +597,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                 ) : "-"}
               </div>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-4 sm:col-span-2">
               <Label className="text-xs">Qty</Label>
               <Input
                 ref={quantityInputRef}
@@ -611,16 +612,17 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                     handleAddToCart();
                   }
                 }}
+                className="h-10 sm:h-9"
               />
             </div>
-            <div className="col-span-2 flex items-end">
+            <div className="col-span-4 sm:col-span-2 flex items-end">
               <Button 
                 onClick={() => handleAddToCart()} 
                 disabled={!selectedProduct || itemQuantity <= 0}
-                className="w-full gap-1"
+                className="w-full gap-1 h-10 sm:h-9"
               >
                 Add
-                <Badge variant="secondary" className="text-xs px-1 py-0">↵</Badge>
+                <Badge variant="secondary" className="text-xs px-1 py-0 hidden sm:inline-flex">↵</Badge>
               </Button>
             </div>
           </div>

@@ -33,16 +33,21 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
-      </SidebarInset>
+      <div className="flex min-h-screen w-full bg-background">
+        <AppSidebar />
+        <SidebarInset className="flex-1 flex flex-col">
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
+            <SidebarTrigger className="-ml-2 hover:bg-muted rounded-lg" />
+            <Separator orientation="vertical" className="h-4 mx-2" />
+            <div className="flex-1" />
+          </header>
+          <main className="flex-1 overflow-auto p-6 bg-muted/30">
+            <div className="max-w-7xl mx-auto">
+              <Outlet />
+            </div>
+          </main>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }

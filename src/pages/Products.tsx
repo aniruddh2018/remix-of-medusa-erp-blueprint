@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Table,
   TableBody,
@@ -248,206 +249,205 @@ export default function Products() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Products</h1>
-          <p className="text-muted-foreground">Manage your medicine catalog</p>
-        </div>
+    <div className="page-container">
+      <PageHeader 
+        title="Products" 
+        description="Manage your medicine catalog"
+        breadcrumbs={[{ label: "Products" }]}
+        actions={
+          isPharmacist && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          )
+        }
+      />
 
-        {isPharmacist && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingProduct ? "Edit Product" : "Add New Product"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Product Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generic_name">Generic Name</Label>
+                <Input
+                  id="generic_name"
+                  value={formData.generic_name}
+                  onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manufacturer">Manufacturer *</Label>
+                <Input
+                  id="manufacturer"
+                  value={formData.manufacturer}
+                  onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="drug_schedule">Drug Schedule *</Label>
+                <Select
+                  value={formData.drug_schedule}
+                  onValueChange={(value: DrugSchedule) =>
+                    setFormData({ ...formData, drug_schedule: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(drugScheduleLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit</Label>
+                <Select
+                  value={formData.unit}
+                  onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pcs">Pieces</SelectItem>
+                    <SelectItem value="strip">Strip</SelectItem>
+                    <SelectItem value="bottle">Bottle</SelectItem>
+                    <SelectItem value="box">Box</SelectItem>
+                    <SelectItem value="tube">Tube</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mrp">MRP (₹) *</Label>
+                <Input
+                  id="mrp"
+                  type="number"
+                  step="0.01"
+                  value={formData.mrp}
+                  onChange={(e) => setFormData({ ...formData, mrp: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchase_price">Purchase Price (₹) *</Label>
+                <Input
+                  id="purchase_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.purchase_price}
+                  onChange={(e) => setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sale_price">Sale Price (₹)</Label>
+                <Input
+                  id="sale_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.sale_price}
+                  onChange={(e) => setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gst_percentage">GST %</Label>
+                <Input
+                  id="gst_percentage"
+                  type="number"
+                  step="0.01"
+                  value={formData.gst_percentage}
+                  onChange={(e) => setFormData({ ...formData, gst_percentage: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="strength">Strength</Label>
+                <Input
+                  id="strength"
+                  placeholder="e.g., 500mg, 10ml"
+                  value={formData.strength}
+                  onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="composition">Composition</Label>
+                <Input
+                  id="composition"
+                  placeholder="Active ingredients"
+                  value={formData.composition}
+                  onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hsn_code">HSN Code</Label>
+                <Input
+                  id="hsn_code"
+                  value={formData.hsn_code}
+                  onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reorder_level">Reorder Level</Label>
+                <Input
+                  id="reorder_level"
+                  type="number"
+                  value={formData.reorder_level}
+                  onChange={(e) => setFormData({ ...formData, reorder_level: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="min_stock_level">Min Stock Level</Label>
+                <Input
+                  id="min_stock_level"
+                  type="number"
+                  value={formData.min_stock_level}
+                  onChange={(e) => setFormData({ ...formData, min_stock_level: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProduct ? "Edit Product" : "Add New Product"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Product Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="generic_name">Generic Name</Label>
-                    <Input
-                      id="generic_name"
-                      value={formData.generic_name}
-                      onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="manufacturer">Manufacturer *</Label>
-                    <Input
-                      id="manufacturer"
-                      value={formData.manufacturer}
-                      onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="drug_schedule">Drug Schedule *</Label>
-                    <Select
-                      value={formData.drug_schedule}
-                      onValueChange={(value: DrugSchedule) =>
-                        setFormData({ ...formData, drug_schedule: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(drugScheduleLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unit</Label>
-                    <Select
-                      value={formData.unit}
-                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pcs">Pieces</SelectItem>
-                        <SelectItem value="strip">Strip</SelectItem>
-                        <SelectItem value="bottle">Bottle</SelectItem>
-                        <SelectItem value="box">Box</SelectItem>
-                        <SelectItem value="tube">Tube</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="mrp">MRP (₹) *</Label>
-                    <Input
-                      id="mrp"
-                      type="number"
-                      step="0.01"
-                      value={formData.mrp}
-                      onChange={(e) => setFormData({ ...formData, mrp: parseFloat(e.target.value) || 0 })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="purchase_price">Purchase Price (₹) *</Label>
-                    <Input
-                      id="purchase_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.purchase_price}
-                      onChange={(e) => setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sale_price">Sale Price (₹)</Label>
-                    <Input
-                      id="sale_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.sale_price}
-                      onChange={(e) => setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="gst_percentage">GST %</Label>
-                    <Input
-                      id="gst_percentage"
-                      type="number"
-                      step="0.01"
-                      value={formData.gst_percentage}
-                      onChange={(e) => setFormData({ ...formData, gst_percentage: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="strength">Strength</Label>
-                    <Input
-                      id="strength"
-                      placeholder="e.g., 500mg, 10ml"
-                      value={formData.strength}
-                      onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="composition">Composition</Label>
-                    <Input
-                      id="composition"
-                      placeholder="Active ingredients"
-                      value={formData.composition}
-                      onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="hsn_code">HSN Code</Label>
-                    <Input
-                      id="hsn_code"
-                      value={formData.hsn_code}
-                      onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reorder_level">Reorder Level</Label>
-                    <Input
-                      id="reorder_level"
-                      type="number"
-                      value={formData.reorder_level}
-                      onChange={(e) => setFormData({ ...formData, reorder_level: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="min_stock_level">Min Stock Level</Label>
-                    <Input
-                      id="min_stock_level"
-                      type="number"
-                      value={formData.min_stock_level}
-                      onChange={(e) => setFormData({ ...formData, min_stock_level: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    {editingProduct ? "Update" : "Add"} Product
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {editingProduct ? "Update" : "Add"} Product
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

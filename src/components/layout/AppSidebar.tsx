@@ -109,15 +109,15 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className="border-r-0">
-      <SidebarHeader className="p-4">
+    <Sidebar className="border-r-0 gradient-sidebar">
+      <SidebarHeader className="p-4 border-b border-sidebar-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
             <Pill className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-bold text-sidebar-foreground">Pharma ERP</h1>
-            <p className="text-xs text-sidebar-foreground/60">Management System</p>
+            <h1 className="font-bold text-sidebar-foreground text-base">Pharma ERP</h1>
+            <p className="text-xs text-sidebar-foreground/50">Management System</p>
           </div>
         </div>
       </SidebarHeader>
@@ -235,10 +235,10 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
+      <SidebarFooter className="p-4 border-t border-sidebar-border/50 bg-sidebar-accent/30">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-sm">
+          <Avatar className="h-9 w-9 ring-2 ring-sidebar-border/50">
+            <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-sm font-medium">
               {user?.email ? getInitials(user.email) : "?"}
             </AvatarFallback>
           </Avatar>
@@ -246,12 +246,13 @@ export function AppSidebar() {
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {user?.email}
             </p>
+            <p className="text-xs text-sidebar-foreground/50">Logged in</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleSignOut}
-            className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg"
           >
             <LogOut className="h-4 w-4" />
           </Button>

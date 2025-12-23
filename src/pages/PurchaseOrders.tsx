@@ -150,14 +150,29 @@ export default function PurchaseOrders() {
           other_charges: otherCharges,
           created_by: user?.id,
           status: "pending",
-          challan_number: challanNumber || null,
+          challan_number: isChallan ? (challanNumber || null) : null,
           is_challan: isChallan,
-          invoice_number: !isChallan ? `INV-${Date.now()}` : null,
+          invoice_number: !isChallan ? (challanNumber || `INV-${Date.now()}`) : null,
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
+
+      // If invoice is merging challans, mark those challans as converted
+      if (!isChallan && selectedChallanIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from("purchase_orders")
+          .update({ 
+            converted_from_challan_id: order.id,
+            is_challan: false 
+          })
+          .in("id", selectedChallanIds);
+        
+        if (updateError) {
+          console.error("Error marking challans as converted:", updateError);
+        }
+      }
 
       const items = orderItems.map((item) => ({
         purchase_order_id: order.id,
@@ -277,15 +292,17 @@ export default function PurchaseOrders() {
     setIsChallan(true);
     setPendingChallans([]);
     setSelectedChallanIds([]);
+    setShowChallanSelector(false);
   };
 
-  // Fetch pending challans for a supplier
+  // Fetch pending challans for a supplier (only those not yet converted)
   const fetchPendingChallans = async (supplierId: string) => {
     const { data, error } = await supabase
       .from("purchase_orders")
       .select("*")
       .eq("supplier_id", supplierId)
       .eq("is_challan", true)
+      .is("converted_from_challan_id", null) // Only unconverted challans
       .order("order_date", { ascending: false });
     
     if (error) {
@@ -569,7 +586,7 @@ export default function PurchaseOrders() {
               </div>
               
               {/* Pending Challans Selection for Invoice */}
-              {!isChallan && selectedSupplier && pendingChallans.length > 0 && (
+              {!isChallan && selectedSupplier && (
                 <Card className="border-primary/20 bg-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -579,42 +596,65 @@ export default function PurchaseOrders() {
                     <CardDescription>Select challans to include in this invoice</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {pendingChallans.map((challan) => (
-                        <div key={challan.id} className="flex items-center gap-3 p-2 rounded border bg-background">
-                          <input
-                            type="checkbox"
-                            checked={selectedChallanIds.includes(challan.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedChallanIds([...selectedChallanIds, challan.id]);
-                              } else {
-                                setSelectedChallanIds(selectedChallanIds.filter(id => id !== challan.id));
-                              }
-                            }}
-                            className="h-4 w-4 rounded border-muted-foreground"
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">
-                              {challan.challan_number || challan.order_number}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(challan.order_date), "dd/MM/yyyy")} • ₹{Number(challan.total_amount).toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                      {selectedChallanIds.length > 0 && (
-                        <Button 
-                          type="button"
-                          variant="secondary" 
-                          className="w-full mt-2"
-                          onClick={importChallanItems}
-                        >
-                          Import Items from {selectedChallanIds.length} Challan(s)
-                        </Button>
-                      )}
-                    </div>
+                    {!showChallanSelector ? (
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          fetchPendingChallans(selectedSupplier);
+                          setShowChallanSelector(true);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Pending Challans from this Supplier
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
+                        {pendingChallans.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No pending challans from this supplier
+                          </p>
+                        ) : (
+                          <>
+                            {pendingChallans.map((challan) => (
+                              <div key={challan.id} className="flex items-center gap-3 p-2 rounded border bg-background">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedChallanIds.includes(challan.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedChallanIds([...selectedChallanIds, challan.id]);
+                                    } else {
+                                      setSelectedChallanIds(selectedChallanIds.filter(id => id !== challan.id));
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-muted-foreground"
+                                />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">
+                                    {challan.challan_number || challan.order_number}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(challan.order_date), "dd/MM/yyyy")} • ₹{Number(challan.total_amount).toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                            {selectedChallanIds.length > 0 && (
+                              <Button 
+                                type="button"
+                                variant="secondary" 
+                                className="w-full mt-2"
+                                onClick={importChallanItems}
+                              >
+                                Import Items from {selectedChallanIds.length} Challan(s)
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

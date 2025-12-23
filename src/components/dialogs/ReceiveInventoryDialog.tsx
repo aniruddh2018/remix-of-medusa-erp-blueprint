@@ -14,7 +14,7 @@ interface OrderItem {
   product_id: string;
   quantity: number;
   unit_price: number;
-  product: {
+  products: {
     name: string;
     strength: string | null;
     mrp: number;
@@ -87,13 +87,13 @@ export function ReceiveInventoryDialog({
 
       const initialBatches: BatchDetail[] = items.map((item, index) => ({
         product_id: item.product_id,
-        product_name: `${item.product.name}${item.product.strength ? ` ${item.product.strength}` : ""}`,
+        product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
         quantity: item.quantity,
         batch_number: `BATCH-${Date.now()}-${index + 1}`,
         expiry_date: defaultExpiry.toISOString().split("T")[0],
         manufacturing_date: today,
         purchase_price: Number(item.unit_price),
-        mrp: Number(item.product.mrp) || Number(item.unit_price) * 1.2,
+        mrp: Number(item.products.mrp) || Number(item.unit_price) * 1.2,
       }));
 
       setBatchDetails(initialBatches);

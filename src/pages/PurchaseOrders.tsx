@@ -944,34 +944,53 @@ export default function PurchaseOrders() {
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Select
-                            value={order.status}
-                            onValueChange={(status: OrderStatus) =>
-                              updateStatusMutation.mutate({ id: order.id, status, skipReceive: true })
-                            }
-                          >
-                            <SelectTrigger className="w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {order.status !== "delivered" && order.status !== "cancelled" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleReceiveInventory(order.id, order.supplier_id)}
-                              title="Receive to Inventory"
-                            >
-                              <Package className="h-4 w-4" />
-                            </Button>
+                          {/* Status is final for delivered/cancelled - no changes allowed */}
+                          {order.status === "delivered" || order.status === "cancelled" ? (
+                            <div className="flex items-center gap-1 text-muted-foreground text-sm px-2">
+                              <Lock className="h-3 w-3" />
+                              <span className="capitalize">{order.status}</span>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Receive button - primary action to deliver and add to inventory */}
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleReceiveInventory(order.id, order.supplier_id)}
+                                title="Receive to Inventory (Mark as Delivered)"
+                                className="gap-1"
+                              >
+                                <Package className="h-4 w-4" />
+                                Receive
+                              </Button>
+                              
+                              {/* Status dropdown - only for non-delivered status changes */}
+                              <Select
+                                value={order.status}
+                                onValueChange={(status: OrderStatus) => {
+                                  // Don't allow direct "delivered" selection - must use Receive button
+                                  if (status === "delivered") {
+                                    handleReceiveInventory(order.id, order.supplier_id);
+                                    return;
+                                  }
+                                  updateStatusMutation.mutate({ id: order.id, status, skipReceive: true });
+                                }}
+                              >
+                                <SelectTrigger className="w-28">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
                           )}
-                          {(order as any).is_challan && (
+                          
+                          {/* Convert challan to invoice (only for non-delivered challans) */}
+                          {(order as any).is_challan && order.status !== "delivered" && order.status !== "cancelled" && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -981,6 +1000,8 @@ export default function PurchaseOrders() {
                               <ArrowRight className="h-4 w-4" />
                             </Button>
                           )}
+                          
+                          {/* View linked challans for invoices */}
                           {!(order as any).is_challan && (
                             <Button
                               variant="ghost"

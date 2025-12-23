@@ -61,7 +61,6 @@ export default function Inventory() {
           product:products(id, name, manufacturer, reorder_level),
           supplier:suppliers(name)
         `)
-        .gt("quantity", 0)
         .order("expiry_date", { ascending: true });
 
       if (error) throw error;

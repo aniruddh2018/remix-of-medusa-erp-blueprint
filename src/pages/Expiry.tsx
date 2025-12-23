@@ -132,62 +132,62 @@ export default function Expiry() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-container">
       <div>
-        <h1 className="text-2xl font-bold">Expiry Tracking</h1>
-        <p className="text-muted-foreground">Monitor and manage expiring inventory</p>
+        <h1 className="text-responsive-xl font-bold">Expiry Tracking</h1>
+        <p className="text-muted-foreground text-responsive-sm">Monitor and manage expiring inventory</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Stats - Responsive grid */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card className="border-destructive/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 sm:p-3 rounded-xl bg-destructive/10">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Expired</p>
-                <p className="text-2xl font-bold text-destructive">{stats.expired}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Expired</p>
+                <p className="text-lg sm:text-2xl font-bold text-destructive">{stats.expired}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-destructive/30">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <Clock className="h-5 w-5 text-destructive" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 sm:p-3 rounded-xl bg-destructive/10">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Critical (&lt;30 days)</p>
-                <p className="text-2xl font-bold">{stats.critical}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">&lt;30 days</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.critical}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-warning/30">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-5 w-5 text-warning" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 sm:p-3 rounded-xl bg-warning/10">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Warning (&lt;90 days)</p>
-                <p className="text-2xl font-bold">{stats.warning}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">&lt;90 days</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.warning}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-info/10">
-                <Calendar className="h-5 w-5 text-info" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 sm:p-3 rounded-xl bg-info/10">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-info" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">At Risk Value</p>
-                <p className="text-2xl font-bold">₹{stats.totalValue.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">At Risk</p>
+                <p className="text-lg sm:text-2xl font-bold">₹{stats.totalValue.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -195,9 +195,9 @@ export default function Expiry() {
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <CardHeader className="p-3 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search products or batches..."
@@ -207,7 +207,7 @@ export default function Expiry() {
               />
             </div>
             <Select value={filter} onValueChange={(v: ExpiryFilter) => setFilter(v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by expiry" />
               </SelectTrigger>
               <SelectContent>
@@ -218,10 +218,10 @@ export default function Expiry() {
                 <SelectItem value="180days">Within 180 Days</SelectItem>
               </SelectContent>
             </Select>
-            <Badge variant="secondary">{filteredItems.length} items</Badge>
+            <Badge variant="secondary" className="self-start">{filteredItems.length} items</Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6 pt-0">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -232,52 +232,87 @@ export default function Expiry() {
               <p className="text-muted-foreground">No items matching your criteria</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Batch No.</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Value (MRP)</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Days Left</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map((item) => {
-                    const status = getExpiryStatus(item.expiry_date);
-                    return (
-                      <TableRow key={item.id} className="table-hover-row">
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{item.product.name}</p>
-                            <p className="text-sm text-muted-foreground">{item.product.manufacturer}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono">{item.batch_number}</TableCell>
-                        <TableCell>{format(new Date(item.expiry_date), "MMM dd, yyyy")}</TableCell>
-                        <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          ₹{(item.quantity * Number(item.mrp)).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={status.color}>{status.label}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {status.days < 0 ? (
-                            <span className="text-destructive">{Math.abs(status.days)} days ago</span>
-                          ) : (
-                            `${status.days} days`
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              {/* Mobile Card View */}
+              <div className="mobile-card-table">
+                {filteredItems.map((item) => {
+                  const status = getExpiryStatus(item.expiry_date);
+                  return (
+                    <div key={item.id} className="mobile-card">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.product.manufacturer}</p>
+                        </div>
+                        <Badge className={`${status.color} badge-responsive`}>{status.label}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Batch:</span> {item.batch_number}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Qty:</span> {item.quantity}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Expiry:</span> {format(new Date(item.expiry_date), "MMM dd, yyyy")}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Value:</span> ₹{(item.quantity * Number(item.mrp)).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="desktop-table overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Batch No.</TableHead>
+                      <TableHead>Expiry Date</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right tablet-hide">Value (MRP)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Days Left</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredItems.map((item) => {
+                      const status = getExpiryStatus(item.expiry_date);
+                      return (
+                        <TableRow key={item.id} className="table-hover-row">
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{item.product.name}</p>
+                              <p className="text-sm text-muted-foreground">{item.product.manufacturer}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono">{item.batch_number}</TableCell>
+                          <TableCell>{format(new Date(item.expiry_date), "MMM dd, yyyy")}</TableCell>
+                          <TableCell className="text-right font-mono">{item.quantity}</TableCell>
+                          <TableCell className="text-right font-mono tablet-hide">
+                            ₹{(item.quantity * Number(item.mrp)).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={status.color}>{status.label}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {status.days < 0 ? (
+                              <span className="text-destructive">{Math.abs(status.days)} days ago</span>
+                            ) : (
+                              `${status.days} days`
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

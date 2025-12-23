@@ -15,7 +15,10 @@ serve(async (req) => {
   try {
     // Get the authorization header to verify the caller is authenticated
     const authHeader = req.headers.get("Authorization");
+    console.log("Auth header present:", !!authHeader);
+    
     if (!authHeader) {
+      console.log("Missing authorization header");
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -27,15 +30,19 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    console.log("Creating user client...");
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     // Get the calling user
     const { data: { user: callingUser }, error: userError } = await userClient.auth.getUser();
+    console.log("Calling user result:", callingUser?.id, "Error:", userError?.message);
+    
     if (userError || !callingUser) {
+      console.log("Unauthorized - no valid user");
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized - please sign in again" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -47,9 +54,12 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", callingUser.id)
-      .single();
+      .maybeSingle();
+
+    console.log("Role check:", roleData?.role, "Error:", roleError?.message);
 
     if (roleError || roleData?.role !== "admin") {
+      console.log("Not an admin:", roleData?.role);
       return new Response(
         JSON.stringify({ error: "Only admins can create users" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -58,6 +68,7 @@ serve(async (req) => {
 
     // Parse request body
     const { email, password, fullName, role } = await req.json();
+    console.log("Creating user:", email, "with role:", role);
 
     if (!email || !password || !fullName) {
       return new Response(
@@ -75,21 +86,38 @@ serve(async (req) => {
     });
 
     if (createError) {
+      console.log("Create user error:", createError.message);
       return new Response(
         JSON.stringify({ error: createError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // If a specific role is provided (other than default 'staff'), update it
-    if (role && role !== "staff" && newUser.user) {
-      const { error: updateRoleError } = await adminClient
-        .from("user_roles")
-        .update({ role })
-        .eq("user_id", newUser.user.id);
+    console.log("User created:", newUser.user?.id);
 
-      if (updateRoleError) {
-        console.error("Failed to update role:", updateRoleError);
+    // Create profile for the new user
+    if (newUser.user) {
+      const { error: profileError } = await adminClient
+        .from("profiles")
+        .insert({ 
+          user_id: newUser.user.id, 
+          full_name: fullName 
+        });
+      
+      if (profileError) {
+        console.log("Profile creation error:", profileError.message);
+      }
+
+      // If a specific role is provided (other than default 'staff'), update it
+      if (role && role !== "staff") {
+        const { error: updateRoleError } = await adminClient
+          .from("user_roles")
+          .update({ role })
+          .eq("user_id", newUser.user.id);
+
+        if (updateRoleError) {
+          console.log("Failed to update role:", updateRoleError.message);
+        }
       }
     }
 

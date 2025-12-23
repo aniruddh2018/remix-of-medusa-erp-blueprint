@@ -27,6 +27,7 @@ import {
   Users,
   Settings,
   Shield,
+  BarChart3,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -79,6 +80,11 @@ const managementMenuItems = [
     title: "Suppliers",
     icon: Users,
     path: "/suppliers",
+  },
+  {
+    title: "Reports",
+    icon: BarChart3,
+    path: "/reports",
   },
 ];
 

@@ -13,8 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import type { Tables } from "@/integrations/supabase/types";
@@ -526,9 +526,21 @@ export default function Sales() {
                             <TableCell className="font-medium">{item.product_name}</TableCell>
                             <TableCell>{item.batch_number}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {format(new Date(item.expiry_date), "MMM yy")}
-                              </Badge>
+                              {(() => {
+                                const daysUntilExpiry = differenceInDays(new Date(item.expiry_date), new Date());
+                                const isNearExpiry = daysUntilExpiry <= 60;
+                                const isVeryNearExpiry = daysUntilExpiry <= 30;
+                                return (
+                                  <Badge 
+                                    variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"} 
+                                    className={`text-xs gap-1 ${isNearExpiry ? "animate-pulse" : ""}`}
+                                  >
+                                    {isNearExpiry && <Clock className="h-3 w-3" />}
+                                    {format(new Date(item.expiry_date), "MMM yy")}
+                                    {isVeryNearExpiry && ` (${daysUntilExpiry}d)`}
+                                  </Badge>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>

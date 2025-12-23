@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          total_purchases: number
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          total_purchases?: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          total_purchases?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_batches: {
         Row: {
           batch_number: string
@@ -371,6 +407,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_address: string | null
+          customer_id: string | null
           customer_name: string
           customer_phone: string | null
           delivery_charges: number
@@ -393,6 +430,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_address?: string | null
+          customer_id?: string | null
           customer_name: string
           customer_phone?: string | null
           delivery_charges?: number
@@ -415,6 +453,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_address?: string | null
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string | null
           delivery_charges?: number
@@ -433,7 +472,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scheduled_drug_register: {
         Row: {

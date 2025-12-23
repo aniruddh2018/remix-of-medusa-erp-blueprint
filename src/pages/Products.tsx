@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, Package, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -75,8 +75,15 @@ export default function Products() {
     reorder_level: 20,
     mrp: 0,
     purchase_price: 0,
+    sale_price: 0,
     gst_percentage: 12,
+    strength: "",
+    composition: "",
   });
+
+  // Inline editing state
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const fetchProducts = async () => {
     try {
@@ -116,7 +123,10 @@ export default function Products() {
       reorder_level: 20,
       mrp: 0,
       purchase_price: 0,
+      sale_price: 0,
       gst_percentage: 12,
+      strength: "",
+      composition: "",
     });
     setEditingProduct(null);
   };
@@ -169,9 +179,48 @@ export default function Products() {
       reorder_level: product.reorder_level,
       mrp: Number(product.mrp),
       purchase_price: Number(product.purchase_price),
+      sale_price: Number(product.sale_price || 0),
       gst_percentage: Number(product.gst_percentage),
+      strength: product.strength || "",
+      composition: product.composition || "",
     });
     setDialogOpen(true);
+  };
+
+  // Inline edit handlers
+  const startInlineEdit = (productId: string, field: string, currentValue: string | number) => {
+    setEditingCell({ id: productId, field });
+    setEditValue(String(currentValue));
+  };
+
+  const saveInlineEdit = async () => {
+    if (!editingCell) return;
+    
+    try {
+      const value = ["mrp", "purchase_price", "sale_price", "gst_percentage"].includes(editingCell.field)
+        ? parseFloat(editValue) || 0
+        : editValue;
+
+      const { error } = await supabase
+        .from("products")
+        .update({ [editingCell.field]: value })
+        .eq("id", editingCell.id);
+
+      if (error) throw error;
+      
+      toast({ title: "Updated successfully" });
+      fetchProducts();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+      setEditingCell(null);
+      setEditValue("");
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setEditingCell(null);
+    setEditValue("");
   };
 
   const handleDelete = async (id: string) => {
@@ -320,6 +369,16 @@ export default function Products() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="sale_price">Sale Price (₹)</Label>
+                    <Input
+                      id="sale_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.sale_price}
+                      onChange={(e) => setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="gst_percentage">GST %</Label>
                     <Input
                       id="gst_percentage"
@@ -327,6 +386,24 @@ export default function Products() {
                       step="0.01"
                       value={formData.gst_percentage}
                       onChange={(e) => setFormData({ ...formData, gst_percentage: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="strength">Strength</Label>
+                    <Input
+                      id="strength"
+                      placeholder="e.g., 500mg, 10ml"
+                      value={formData.strength}
+                      onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="composition">Composition</Label>
+                    <Input
+                      id="composition"
+                      placeholder="Active ingredients"
+                      value={formData.composition}
+                      onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -409,10 +486,12 @@ export default function Products() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Strength</TableHead>
                     <TableHead>Manufacturer</TableHead>
                     <TableHead>Schedule</TableHead>
                     <TableHead className="text-right">MRP</TableHead>
-                    <TableHead className="text-right">Purchase Price</TableHead>
+                    <TableHead className="text-right">Purchase</TableHead>
+                    <TableHead className="text-right">Sale</TableHead>
                     <TableHead className="text-right">GST</TableHead>
                     {isPharmacist && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
@@ -426,16 +505,116 @@ export default function Products() {
                           {product.generic_name && (
                             <p className="text-sm text-muted-foreground">{product.generic_name}</p>
                           )}
+                          {product.composition && (
+                            <p className="text-xs text-muted-foreground/70 truncate max-w-[200px]" title={product.composition}>
+                              {product.composition}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
+                      <TableCell className="text-muted-foreground">{product.strength || "-"}</TableCell>
                       <TableCell>{product.manufacturer}</TableCell>
                       <TableCell>
                         <Badge className={drugScheduleColors[product.drug_schedule]}>
                           {drugScheduleLabels[product.drug_schedule]}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono">₹{Number(product.mrp).toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">₹{Number(product.purchase_price).toFixed(2)}</TableCell>
+                      {/* Inline editable MRP */}
+                      <TableCell className="text-right font-mono">
+                        {editingCell?.id === product.id && editingCell?.field === "mrp" ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-7 text-right"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveInlineEdit();
+                                if (e.key === "Escape") cancelInlineEdit();
+                              }}
+                            />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveInlineEdit}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelInlineEdit}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span 
+                            className={isPharmacist ? "cursor-pointer hover:bg-muted px-1 rounded" : ""}
+                            onClick={() => isPharmacist && startInlineEdit(product.id, "mrp", product.mrp)}
+                          >
+                            ₹{Number(product.mrp).toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* Inline editable Purchase Price */}
+                      <TableCell className="text-right font-mono">
+                        {editingCell?.id === product.id && editingCell?.field === "purchase_price" ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-7 text-right"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveInlineEdit();
+                                if (e.key === "Escape") cancelInlineEdit();
+                              }}
+                            />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveInlineEdit}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelInlineEdit}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span 
+                            className={isPharmacist ? "cursor-pointer hover:bg-muted px-1 rounded" : ""}
+                            onClick={() => isPharmacist && startInlineEdit(product.id, "purchase_price", product.purchase_price)}
+                          >
+                            ₹{Number(product.purchase_price).toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* Inline editable Sale Price */}
+                      <TableCell className="text-right font-mono">
+                        {editingCell?.id === product.id && editingCell?.field === "sale_price" ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-7 text-right"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveInlineEdit();
+                                if (e.key === "Escape") cancelInlineEdit();
+                              }}
+                            />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveInlineEdit}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelInlineEdit}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span 
+                            className={isPharmacist ? "cursor-pointer hover:bg-muted px-1 rounded" : ""}
+                            onClick={() => isPharmacist && startInlineEdit(product.id, "sale_price", product.sale_price || 0)}
+                          >
+                            ₹{Number(product.sale_price || 0).toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">{product.gst_percentage}%</TableCell>
                       {isPharmacist && (
                         <TableCell className="text-right">

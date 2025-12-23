@@ -63,6 +63,11 @@ export default function PurchaseOrders() {
   const [selectedChallanId, setSelectedChallanId] = useState<string | null>(null);
   const [newInvoiceNumber, setNewInvoiceNumber] = useState("");
   
+  // Multi-challan invoice state
+  const [pendingChallans, setPendingChallans] = useState<any[]>([]);
+  const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
+  const [showChallanSelector, setShowChallanSelector] = useState(false);
+  
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
@@ -189,15 +194,71 @@ export default function PurchaseOrders() {
         .update({ status })
         .eq("id", id);
       if (error) throw error;
+
+      // Auto-receive to inventory when delivered
+      if (status === "delivered") {
+        await receiveToInventory(id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
       toast({ title: "Status updated" });
     },
     onError: (error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  // Auto-receive PO to inventory
+  const receiveToInventory = async (orderId: string) => {
+    // Get order details
+    const { data: order, error: orderError } = await supabase
+      .from("purchase_orders")
+      .select("supplier_id")
+      .eq("id", orderId)
+      .single();
+    
+    if (orderError) throw orderError;
+
+    // Get order items
+    const { data: items, error: itemsError } = await supabase
+      .from("purchase_order_items")
+      .select("product_id, quantity, unit_price")
+      .eq("purchase_order_id", orderId);
+    
+    if (itemsError) throw itemsError;
+
+    // Create inventory batches for each item
+    const batches = items.map((item) => {
+      const batchNumber = `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      // Default expiry date to 2 years from now (can be edited later)
+      const expiryDate = new Date();
+      expiryDate.setFullYear(expiryDate.getFullYear() + 2);
+      
+      return {
+        product_id: item.product_id,
+        batch_number: batchNumber,
+        quantity: item.quantity,
+        purchase_price: item.unit_price,
+        mrp: item.unit_price * 1.2, // Default 20% margin, can be edited
+        expiry_date: expiryDate.toISOString().split("T")[0],
+        received_date: new Date().toISOString().split("T")[0],
+        supplier_id: order.supplier_id,
+      };
+    });
+
+    const { error: batchError } = await supabase
+      .from("inventory_batches")
+      .insert(batches);
+
+    if (batchError) throw batchError;
+    
+    toast({ 
+      title: "Inventory Updated", 
+      description: `${batches.length} batch(es) added to inventory.` 
+    });
+  };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
@@ -214,6 +275,62 @@ export default function PurchaseOrders() {
     setOtherCharges(0);
     setChallanNumber("");
     setIsChallan(true);
+    setPendingChallans([]);
+    setSelectedChallanIds([]);
+  };
+
+  // Fetch pending challans for a supplier
+  const fetchPendingChallans = async (supplierId: string) => {
+    const { data, error } = await supabase
+      .from("purchase_orders")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .eq("is_challan", true)
+      .order("order_date", { ascending: false });
+    
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    
+    setPendingChallans(data || []);
+  };
+
+  // Import items from selected challans
+  const importChallanItems = async () => {
+    if (selectedChallanIds.length === 0) return;
+
+    try {
+      const { data: items, error } = await supabase
+        .from("purchase_order_items")
+        .select(`
+          *,
+          products (name, strength, hsn_code, gst_percentage)
+        `)
+        .in("purchase_order_id", selectedChallanIds);
+
+      if (error) throw error;
+
+      const newItems: OrderItem[] = items.map((item) => ({
+        product_id: item.product_id,
+        product_name: `${(item.products as any).name}${(item.products as any).strength ? ` ${(item.products as any).strength}` : ""}`,
+        hsn_code: (item.products as any).hsn_code || "",
+        quantity: item.quantity,
+        unit_price: Number(item.unit_price),
+        gst_percentage: Number(item.gst_percentage),
+        discount_percentage: Number(item.discount_percentage),
+        total_price: Number(item.total_price),
+      }));
+
+      // Merge with existing items
+      setOrderItems((prev) => [...prev, ...newItems]);
+      toast({ 
+        title: "Items Imported", 
+        description: `${newItems.length} items imported from ${selectedChallanIds.length} challan(s).` 
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   // Convert challan to invoice mutation
@@ -415,7 +532,16 @@ export default function PurchaseOrders() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Document Type</Label>
-                  <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => setIsChallan(v === "challan")}>
+                  <Select 
+                    value={isChallan ? "challan" : "invoice"} 
+                    onValueChange={(v) => {
+                      const isNowChallan = v === "challan";
+                      setIsChallan(isNowChallan);
+                      if (!isNowChallan && selectedSupplier) {
+                        fetchPendingChallans(selectedSupplier);
+                      }
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -441,6 +567,57 @@ export default function PurchaseOrders() {
                   </Label>
                 </div>
               </div>
+              
+              {/* Pending Challans Selection for Invoice */}
+              {!isChallan && selectedSupplier && pendingChallans.length > 0 && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Merge Pending Challans
+                    </CardTitle>
+                    <CardDescription>Select challans to include in this invoice</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {pendingChallans.map((challan) => (
+                        <div key={challan.id} className="flex items-center gap-3 p-2 rounded border bg-background">
+                          <input
+                            type="checkbox"
+                            checked={selectedChallanIds.includes(challan.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedChallanIds([...selectedChallanIds, challan.id]);
+                              } else {
+                                setSelectedChallanIds(selectedChallanIds.filter(id => id !== challan.id));
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-muted-foreground"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {challan.challan_number || challan.order_number}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(challan.order_date), "dd/MM/yyyy")} • ₹{Number(challan.total_amount).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {selectedChallanIds.length > 0 && (
+                        <Button 
+                          type="button"
+                          variant="secondary" 
+                          className="w-full mt-2"
+                          onClick={importChallanItems}
+                        >
+                          Import Items from {selectedChallanIds.length} Challan(s)
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Add Product */}
               <Card>

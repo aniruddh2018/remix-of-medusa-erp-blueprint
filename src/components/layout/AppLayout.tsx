@@ -1,14 +1,25 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 
 export function AppLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [counterSaleOpen, setCounterSaleOpen] = useState(false);
+
+  // Alt+A keyboard shortcut for counter sale
+  useKeyboardShortcut({
+    key: "a",
+    modifiers: ["alt"],
+    callback: () => setCounterSaleOpen(true),
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,6 +59,9 @@ export function AppLayout() {
           </main>
         </SidebarInset>
       </div>
+      
+      {/* Counter Sale Dialog - accessible via Alt+A */}
+      <CounterSaleDialog open={counterSaleOpen} onOpenChange={setCounterSaleOpen} />
     </SidebarProvider>
   );
 }

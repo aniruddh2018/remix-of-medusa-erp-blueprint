@@ -43,6 +43,7 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -107,7 +108,21 @@ export default function Sales() {
 
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      const invoiceNumber = `INV-${Date.now()}`;
+      const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;
+      
+      // Validate duplicate invoice number
+      if (invoiceNumber.trim()) {
+        const { data: existing, error: checkError } = await supabase
+          .from("sales_orders")
+          .select("id")
+          .eq("invoice_number", invoiceNumber.trim())
+          .limit(1);
+        
+        if (checkError) throw checkError;
+        if (existing && existing.length > 0) {
+          throw new Error(`Invoice number "${invoiceNumber}" already exists. Please use a unique invoice number.`);
+        }
+      }
       
       // Calculate item totals
       const itemsSubtotal = cart.reduce((sum, item) => {
@@ -130,7 +145,7 @@ export default function Sales() {
       const { data: order, error: orderError } = await supabase
         .from("sales_orders")
         .insert({
-          invoice_number: invoiceNumber,
+          invoice_number: finalInvoiceNumber,
           customer_name: customerName,
           customer_phone: customerPhone || null,
           customer_address: customerAddress || null,
@@ -194,6 +209,7 @@ export default function Sales() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setCart([]);
+    setInvoiceNumber("");
     setCustomerName("");
     setCustomerPhone("");
     setCustomerAddress("");
@@ -327,8 +343,17 @@ export default function Sales() {
               <DialogDescription>Add products and complete the sale</DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
-              {/* Customer Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Invoice & Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="invoice_number">Invoice # (Optional)</Label>
+                  <Input
+                    id="invoice_number"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="Auto-generated if empty"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="customer_name">Customer Name *</Label>
                   <Input

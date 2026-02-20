@@ -28,7 +28,17 @@ export function useKeyboardShortcut({
         (!modifiers.includes("shift") || event.shiftKey) &&
         (!modifiers.includes("meta") || event.metaKey);
 
-      const keyMatches = event.key.toLowerCase() === key.toLowerCase();
+      // On macOS, Alt+key produces special characters (e.g. Alt+1 → ¡)
+      // so we also match against event.code (e.g. "Digit1", "KeyA") as a fallback
+      const codeFromKey =
+        key.length === 1 && key >= "0" && key <= "9"
+          ? `Digit${key}`
+          : key.length === 1
+          ? `Key${key.toUpperCase()}`
+          : null;
+      const keyMatches =
+        event.key.toLowerCase() === key.toLowerCase() ||
+        (codeFromKey !== null && event.code === codeFromKey);
 
       const isInputActive =
         document.activeElement?.tagName === "INPUT" ||

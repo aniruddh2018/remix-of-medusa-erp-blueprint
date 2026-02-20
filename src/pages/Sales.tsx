@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Code } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
@@ -74,6 +74,72 @@ export default function Sales() {
   
   // Inline add product
   const [showProductDialog, setShowProductDialog] = useState(false);
+
+  // Bill loading state
+  const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+
+  const handleBillAction = async (order: SalesOrder, action: "print" | "pdf" | "html" | "csv") => {
+    setBillLoadingId(order.id);
+    try {
+      const { data: items, error } = await supabase
+        .from("sales_order_items")
+        .select(`
+          *,
+          products (name, strength, hsn_code, gst_percentage),
+          inventory_batches (batch_number)
+        `)
+        .eq("sales_order_id", order.id);
+
+      if (error) throw error;
+
+      const billItems = (items || []).map((item) => {
+        const product = item.products as any;
+        const batch = item.inventory_batches as any;
+        return {
+          product_name: `${product?.name || ""}${product?.strength ? ` ${product.strength}` : ""}`,
+          batch_number: batch?.batch_number || "-",
+          hsn_code: product?.hsn_code || "",
+          quantity: item.quantity,
+          unit_price: Number(item.unit_price),
+          gst_percentage: Number(item.gst_percentage),
+          discount_percentage: Number(item.discount_percentage),
+          total_price: Number(item.total_price),
+        };
+      });
+
+      const subtotal = billItems.reduce((sum, item) => {
+        return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      }, 0);
+
+      const billData: BillData = {
+        type: "sale",
+        invoice_number: order.invoice_number,
+        date: order.sale_date,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone || undefined,
+        customer_address: order.customer_address || undefined,
+        payment_method: order.payment_method || "cash",
+        items: billItems,
+        subtotal,
+        gst_amount: Number(order.gst_amount),
+        discount_amount: Number(order.discount_amount),
+        freight_charges: Number(order.freight_charges),
+        handling_charges: Number(order.handling_charges),
+        delivery_charges: Number(order.delivery_charges),
+        other_charges: Number(order.other_charges),
+        total_amount: Number(order.total_amount),
+      };
+
+      if (action === "print") printBill(billData);
+      else if (action === "pdf") downloadBillPDF(billData);
+      else if (action === "html") downloadBillHTML(billData);
+      else if (action === "csv") downloadBillCSV(billData);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setBillLoadingId(null);
+    }
+  };
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders"],
@@ -726,9 +792,8 @@ export default function Sales() {
                     <TableHead>Date</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    {isAdmin && <TableHead className="w-16">Actions</TableHead>}
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -749,21 +814,50 @@ export default function Sales() {
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
-                      {isAdmin && (
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditSaleId(order.id);
-                              setEditDialogOpen(true);
-                            }}
-                            title="Edit bill (Admin only)"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      )}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="gap-1" disabled={billLoadingId === order.id}>
+                                {billLoadingId === order.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Printer className="h-3 w-3" />
+                                )}
+                                Bill
+                                <ChevronDown className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover z-50">
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "print")}>
+                                <Printer className="h-4 w-4 mr-2" /> Print
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "pdf")}>
+                                <Download className="h-4 w-4 mr-2" /> Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "html")}>
+                                <FileText className="h-4 w-4 mr-2" /> Download HTML
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "csv")}>
+                                <FileSpreadsheet className="h-4 w-4 mr-2" /> Download CSV
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditSaleId(order.id);
+                                setEditDialogOpen(true);
+                              }}
+                              title="Edit bill (Admin only)"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

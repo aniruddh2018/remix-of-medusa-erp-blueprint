@@ -13,7 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2 } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2 } from "lucide-react";
+import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
@@ -82,6 +89,66 @@ export default function PurchaseOrders() {
   // Linked challans dialog
   const [linkedChallansDialogOpen, setLinkedChallansDialogOpen] = useState(false);
   const [selectedInvoiceForChallans, setSelectedInvoiceForChallans] = useState<string | null>(null);
+
+  // Bill loading state
+  const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+
+  const handleBillAction = async (order: any, action: "print" | "pdf" | "html" | "csv") => {
+    setBillLoadingId(order.id);
+    try {
+      const { data: items, error } = await supabase
+        .from("purchase_order_items")
+        .select(`
+          *,
+          products (name, strength, hsn_code, gst_percentage)
+        `)
+        .eq("purchase_order_id", order.id);
+
+      if (error) throw error;
+
+      const billItems = (items || []).map((item) => {
+        const product = item.products as any;
+        return {
+          product_name: `${product?.name || ""}${product?.strength ? ` ${product.strength}` : ""}`,
+          batch_number: "-",
+          hsn_code: product?.hsn_code || "",
+          quantity: item.quantity,
+          unit_price: Number(item.unit_price),
+          gst_percentage: Number(item.gst_percentage),
+          discount_percentage: Number(item.discount_percentage),
+          total_price: Number(item.total_price),
+        };
+      });
+
+      const subtotal = billItems.reduce((sum, item) => {
+        return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      }, 0);
+
+      const billData: BillData = {
+        type: "purchase",
+        invoice_number: order.invoice_number || order.challan_number || order.order_number,
+        date: order.order_date,
+        supplier_name: order.suppliers?.name || "-",
+        items: billItems,
+        subtotal,
+        gst_amount: Number(order.gst_amount),
+        discount_amount: Number(order.discount_amount),
+        freight_charges: Number(order.freight_charges),
+        handling_charges: Number(order.handling_charges),
+        other_charges: Number(order.other_charges),
+        total_amount: Number(order.total_amount),
+      };
+
+      if (action === "print") printBill(billData);
+      else if (action === "pdf") downloadBillPDF(billData);
+      else if (action === "html") downloadBillHTML(billData);
+      else if (action === "csv") downloadBillCSV(billData);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setBillLoadingId(null);
+    }
+  };
 
   const { data: purchaseOrders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -943,7 +1010,36 @@ export default function PurchaseOrders() {
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Bill dropdown - available to all */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="gap-1" disabled={billLoadingId === order.id}>
+                                {billLoadingId === order.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Printer className="h-3 w-3" />
+                                )}
+                                Bill
+                                <ChevronDown className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover z-50">
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "print")}>
+                                <Printer className="h-4 w-4 mr-2" /> Print
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "pdf")}>
+                                <Download className="h-4 w-4 mr-2" /> Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "html")}>
+                                <FileText className="h-4 w-4 mr-2" /> Download HTML
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBillAction(order, "csv")}>
+                                <FileSpreadsheet className="h-4 w-4 mr-2" /> Download CSV
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
                           {/* Status is final for delivered/cancelled - no changes allowed */}
                           {order.status === "delivered" || order.status === "cancelled" ? (
                             <div className="flex items-center gap-1 text-muted-foreground text-sm px-2">
@@ -968,7 +1064,6 @@ export default function PurchaseOrders() {
                               <Select
                                 value={order.status}
                                 onValueChange={(status: OrderStatus) => {
-                                  // Don't allow direct "delivered" selection - must use Receive button
                                   if (status === "delivered") {
                                     handleReceiveInventory(order.id, order.supplier_id);
                                     return;

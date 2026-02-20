@@ -77,6 +77,7 @@ export default function Sales() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [itemRate, setItemRate] = useState<number>(0);
   const [draftRestored, setDraftRestored] = useState(false);
   
   // Other charges
@@ -337,6 +338,7 @@ export default function Sales() {
     setSelectedProduct("");
     setItemQuantity(1);
     setItemDiscount(0);
+    setItemRate(0);
     setFreightCharges(0);
     setHandlingCharges(0);
     setDeliveryCharges(0);
@@ -386,10 +388,14 @@ export default function Sales() {
     const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
     const hsnCode = product.hsn_code || "";
 
+    // Use itemRate if set, otherwise fall back to MRP
+    const effectiveRate = itemRate > 0 ? itemRate : 0;
+
     // Add each allocated batch to cart
     let newCart = [...cart];
     
     for (const allocation of allocationResult.allocations) {
+      const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
       const existingIndex = newCart.findIndex((item) => item.batch_id === allocation.batch_id);
       
       if (existingIndex >= 0) {
@@ -397,7 +403,7 @@ export default function Sales() {
         const newQuantity = newCart[existingIndex].quantity + allocation.quantity;
         newCart[existingIndex].quantity = newQuantity;
         newCart[existingIndex].total_price = calculateItemTotal(
-          allocation.mrp,
+          newCart[existingIndex].unit_price,
           newQuantity,
           gstPercentage,
           newCart[existingIndex].discount_percentage
@@ -405,7 +411,7 @@ export default function Sales() {
         newCart[existingIndex].max_quantity = allocation.available_quantity;
       } else {
         // Add new cart item
-        const totalPrice = calculateItemTotal(allocation.mrp, allocation.quantity, gstPercentage, itemDiscount);
+        const totalPrice = calculateItemTotal(unitPrice, allocation.quantity, gstPercentage, itemDiscount);
         newCart.push({
           product_id: product.id,
           batch_id: allocation.batch_id,
@@ -413,7 +419,7 @@ export default function Sales() {
           batch_number: allocation.batch_number,
           hsn_code: hsnCode,
           quantity: allocation.quantity,
-          unit_price: allocation.mrp,
+          unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
@@ -427,6 +433,7 @@ export default function Sales() {
     setSelectedProduct("");
     setItemQuantity(1);
     setItemDiscount(0);
+    setItemRate(0);
 
     // Show info if quantity was split across batches
     if (allocationResult.allocations.length > 1) {
@@ -567,7 +574,7 @@ export default function Sales() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
@@ -575,11 +582,14 @@ export default function Sales() {
                           value={selectedProduct}
                           onValueChange={(val) => {
                             setSelectedProduct(val);
-                            // Auto-focus qty after product select
+                            // Prefill rate from product MRP
+                            const prod = products?.find((p) => p.id === val);
+                            if (prod) setItemRate(Number(prod.mrp));
+                            // Auto-focus rate input after product select
                             setTimeout(() => {
-                              const qtyInput = document.getElementById("sale-qty-input") as HTMLInputElement;
-                              qtyInput?.focus();
-                              qtyInput?.select();
+                              const rateInput = document.getElementById("sale-rate-input") as HTMLInputElement;
+                              rateInput?.focus();
+                              rateInput?.select();
                             }, 50);
                           }}
                         >
@@ -654,6 +664,24 @@ export default function Sales() {
                           }
                         }}
                         placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label>Rate (₹)</Label>
+                      <Input
+                        id="sale-rate-input"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={itemRate || ""}
+                        onChange={(e) => setItemRate(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
+                        placeholder={selectedProduct ? `MRP: ₹${products?.find(p => p.id === selectedProduct)?.mrp ?? ""}` : "Auto (MRP)"}
                       />
                     </div>
                     <div className="flex items-end">

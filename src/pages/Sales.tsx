@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +77,7 @@ export default function Sales() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [draftRestored, setDraftRestored] = useState(false);
   
   // Other charges
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -88,6 +90,33 @@ export default function Sales() {
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+
+  // ── Draft auto-save ───────────────────────────────────────────────────────
+  const saleDraft = useMemo(() => ({
+    cart, invoiceNumber, customerName, customerPhone, customerAddress,
+    prescriptionNumber, paymentMethod, notes,
+    freightCharges, handlingCharges, deliveryCharges, otherCharges,
+  }), [cart, invoiceNumber, customerName, customerPhone, customerAddress,
+      prescriptionNumber, paymentMethod, notes,
+      freightCharges, handlingCharges, deliveryCharges, otherCharges]);
+
+  const { clearDraft } = useDraftSave("draft_sale", saleDraft, (draft) => {
+    if (draft.cart?.length > 0 || draft.customerName || draft.invoiceNumber) {
+      setCart(draft.cart || []);
+      setInvoiceNumber(draft.invoiceNumber || "");
+      setCustomerName(draft.customerName || "");
+      setCustomerPhone(draft.customerPhone || "");
+      setCustomerAddress(draft.customerAddress || "");
+      setPrescriptionNumber(draft.prescriptionNumber || "");
+      setPaymentMethod(draft.paymentMethod || "cash");
+      setNotes(draft.notes || "");
+      setFreightCharges(draft.freightCharges || 0);
+      setHandlingCharges(draft.handlingCharges || 0);
+      setDeliveryCharges(draft.deliveryCharges || 0);
+      setOtherCharges(draft.otherCharges || 0);
+      setDraftRestored(true);
+    }
+  });
 
   const handleBillAction = async (order: SalesOrder, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
@@ -294,7 +323,8 @@ export default function Sales() {
     },
   });
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
+    clearDraft();
     setIsDialogOpen(false);
     setCart([]);
     setInvoiceNumber("");
@@ -311,7 +341,8 @@ export default function Sales() {
     setHandlingCharges(0);
     setDeliveryCharges(0);
     setOtherCharges(0);
-  };
+    setDraftRestored(false);
+  }, [clearDraft]);
 
   // Get existing cart quantities for the selected product to account for already allocated stock
   const existingCartQuantities = useMemo(() => {
@@ -479,6 +510,18 @@ export default function Sales() {
               <DialogTitle>Create New Sale</DialogTitle>
               <DialogDescription>Add products and complete the sale</DialogDescription>
             </DialogHeader>
+            {draftRestored && (
+              <div className="flex items-center gap-3 rounded-md border border-border bg-muted px-4 py-2.5 text-sm text-foreground">
+                <span className="text-base">💾</span>
+                <span className="flex-1 font-medium">Draft restored — your previous unsaved sale was recovered.</span>
+                <button
+                  onClick={() => { clearDraft(); setCart([]); setInvoiceNumber(""); setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setPrescriptionNumber(""); setPaymentMethod("cash"); setNotes(""); setFreightCharges(0); setHandlingCharges(0); setDeliveryCharges(0); setOtherCharges(0); setDraftRestored(false); }}
+                  className="ml-auto text-xs underline hover:no-underline opacity-70 hover:opacity-100"
+                >
+                  Discard draft
+                </button>
+              </div>
+            )}
             <div className="space-y-6">
               {/* Invoice & Customer Info */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

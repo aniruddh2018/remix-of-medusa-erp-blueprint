@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
+import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,6 +74,7 @@ export default function PurchaseOrders() {
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
+  const [draftRestored, setDraftRestored] = useState(false);
   
   // Other charges state
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -112,6 +114,29 @@ export default function PurchaseOrders() {
 
   // Debit note dialog
   const [debitNoteOpen, setDebitNoteOpen] = useState(false);
+
+  // ── Draft auto-save ─────────────────────────────────────────────────────
+  const poDraft = useMemo(() => ({
+    orderItems, selectedSupplier, expectedDeliveryDate, notes,
+    freightCharges, handlingCharges, otherCharges,
+    challanNumber, isChallan,
+  }), [orderItems, selectedSupplier, expectedDeliveryDate, notes,
+      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan]);
+
+  const { clearDraft: clearPODraft } = useDraftSave("draft_purchase_order", poDraft, (draft) => {
+    if (draft.orderItems?.length > 0 || draft.selectedSupplier || draft.challanNumber) {
+      setOrderItems(draft.orderItems || []);
+      setSelectedSupplier(draft.selectedSupplier || "");
+      setExpectedDeliveryDate(draft.expectedDeliveryDate || "");
+      setNotes(draft.notes || "");
+      setFreightCharges(draft.freightCharges || 0);
+      setHandlingCharges(draft.handlingCharges || 0);
+      setOtherCharges(draft.otherCharges || 0);
+      setChallanNumber(draft.challanNumber || "");
+      setIsChallan(draft.isChallan ?? true);
+      setDraftRestored(true);
+    }
+  });
 
   const handleBillAction = async (order: any, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
@@ -387,7 +412,8 @@ export default function PurchaseOrders() {
     setLinkedChallansDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
+    clearPODraft();
     setIsDialogOpen(false);
     setOrderItems([]);
     setSelectedSupplier("");
@@ -406,7 +432,8 @@ export default function PurchaseOrders() {
     setPendingChallans([]);
     setSelectedChallanIds([]);
     setShowChallanSelector(false);
-  };
+    setDraftRestored(false);
+  }, [clearPODraft]);
 
   // Fetch pending challans for a supplier (only those not yet converted)
   const fetchPendingChallans = async (supplierId: string) => {
@@ -651,6 +678,18 @@ export default function PurchaseOrders() {
               <DialogTitle>Create Purchase Order</DialogTitle>
               <DialogDescription>Order products from a supplier</DialogDescription>
             </DialogHeader>
+            {draftRestored && (
+              <div className="flex items-center gap-3 rounded-md border border-border bg-muted px-4 py-2.5 text-sm text-foreground">
+                <span className="text-base">💾</span>
+                <span className="flex-1 font-medium">Draft restored — your previous unsaved order was recovered.</span>
+                <button
+                  onClick={() => { clearPODraft(); setOrderItems([]); setSelectedSupplier(""); setExpectedDeliveryDate(""); setNotes(""); setFreightCharges(0); setHandlingCharges(0); setOtherCharges(0); setChallanNumber(""); setIsChallan(true); setDraftRestored(false); }}
+                  className="text-xs underline hover:no-underline opacity-70 hover:opacity-100"
+                >
+                  Discard draft
+                </button>
+              </div>
+            )}
             <div className="space-y-6">
               {/* Supplier Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

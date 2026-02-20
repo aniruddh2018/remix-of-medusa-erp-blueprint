@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_note_items: {
+        Row: {
+          batch_id: string | null
+          batch_number: string | null
+          created_at: string
+          credit_note_id: string
+          discount_percentage: number
+          gst_percentage: number
+          id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          batch_id?: string | null
+          batch_number?: string | null
+          created_at?: string
+          credit_note_id: string
+          discount_percentage?: number
+          gst_percentage?: number
+          id?: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          batch_id?: string | null
+          batch_number?: string | null
+          created_at?: string
+          credit_note_id?: string
+          discount_percentage?: number
+          gst_percentage?: number
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_items_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_note_number: string
+          customer_name: string
+          customer_phone: string | null
+          gst_amount: number
+          id: string
+          notes: string | null
+          original_invoice_id: string | null
+          original_invoice_number: string
+          reason: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_number: string
+          customer_name: string
+          customer_phone?: string | null
+          gst_amount?: number
+          id?: string
+          notes?: string | null
+          original_invoice_id?: string | null
+          original_invoice_number: string
+          reason: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_number?: string
+          customer_name?: string
+          customer_phone?: string | null
+          gst_amount?: number
+          id?: string
+          notes?: string | null
+          original_invoice_id?: string | null
+          original_invoice_number?: string
+          reason?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -49,6 +175,139 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      debit_note_items: {
+        Row: {
+          batch_id: string | null
+          batch_number: string | null
+          created_at: string
+          debit_note_id: string
+          discount_percentage: number
+          gst_percentage: number
+          id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          batch_id?: string | null
+          batch_number?: string | null
+          created_at?: string
+          debit_note_id: string
+          discount_percentage?: number
+          gst_percentage?: number
+          id?: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          batch_id?: string | null
+          batch_number?: string | null
+          created_at?: string
+          debit_note_id?: string
+          discount_percentage?: number
+          gst_percentage?: number
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debit_note_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_note_items_debit_note_id_fkey"
+            columns: ["debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "debit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_note_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debit_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          debit_note_number: string
+          gst_amount: number
+          id: string
+          notes: string | null
+          original_order_id: string | null
+          original_order_number: string
+          reason: string
+          status: string
+          supplier_id: string | null
+          supplier_name: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          debit_note_number: string
+          gst_amount?: number
+          id?: string
+          notes?: string | null
+          original_order_id?: string | null
+          original_order_number: string
+          reason: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          debit_note_number?: string
+          gst_amount?: number
+          id?: string
+          notes?: string | null
+          original_order_id?: string | null
+          original_order_number?: string
+          reason?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debit_notes_original_order_id_fkey"
+            columns: ["original_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inventory_batches: {
         Row: {

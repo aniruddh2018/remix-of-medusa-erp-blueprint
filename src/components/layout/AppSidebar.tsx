@@ -28,6 +28,7 @@ import {
   Settings,
   Shield,
   BarChart3,
+  RotateCcw,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -58,6 +59,11 @@ const complianceMenuItems = [
     title: "Scheduled Drugs",
     icon: Pill,
     path: "/scheduled-drugs",
+  },
+  {
+    title: "Credit & Debit Notes",
+    icon: RotateCcw,
+    path: "/notes",
   },
 ];
 

@@ -14,13 +14,16 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, Search, Loader2 } from "lucide-react";
+import { Trash2, Plus, Search, Loader2, PackagePlus } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type PurchaseOrder = Tables<"purchase_orders">;
 type PurchaseOrderItem = Tables<"purchase_order_items"> & {
   products?: { name: string; strength?: string | null; hsn_code?: string | null; gst_percentage: number };
 };
+type Product = Tables<"products">;
 
 interface ReturnItem {
   product_id: string;
@@ -62,9 +65,20 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
   const [customReason, setCustomReason] = useState("");
   const [notes, setNotes] = useState("");
   const [debitNoteNumber, setDebitNoteNumber] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [focusedRowIndex, setFocusedRowIndex] = useState<number>(-1);
 
+  // Manual product addition state
+  const [manualProductOpen, setManualProductOpen] = useState(false);
+  const [manualProductSearch, setManualProductSearch] = useState("");
+  const [manualSelectedProduct, setManualSelectedProduct] = useState<Product | null>(null);
+  const [manualQty, setManualQty] = useState(1);
+  const [manualPrice, setManualPrice] = useState(0);
+  const [manualGst, setManualGst] = useState(0);
+  const [manualDiscount, setManualDiscount] = useState(0);
+
   const orderSearchRef = useRef<HTMLInputElement>(null);
+  const manualQtyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -75,16 +89,36 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     }
   }, [open]);
 
+  // Ctrl+Enter to submit
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && e.ctrlKey) {
+        e.preventDefault();
+        if (returnItems.length > 0 && reason) createDebitNoteMutation.mutate();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, returnItems, reason]);
+
   const reset = () => {
-    setOrderSearch("");
-    setSelectedOrder(null);
-    setReturnItems([]);
-    setReason("");
-    setCustomReason("");
-    setNotes("");
-    setDebitNoteNumber("");
-    setFocusedRowIndex(-1);
+    setOrderSearch(""); setSelectedOrder(null); setReturnItems([]);
+    setReason(""); setCustomReason(""); setNotes(""); setDebitNoteNumber("");
+    setSupplierName(""); setFocusedRowIndex(-1);
+    setManualSelectedProduct(null); setManualQty(1); setManualPrice(0); setManualGst(0); setManualDiscount(0);
   };
+
+  // All products for manual addition
+  const { data: allProducts } = useQuery({
+    queryKey: ["products-for-dn"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("*").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data as Product[];
+    },
+    enabled: open,
+  });
 
   // Search purchase orders
   const { data: matchedOrders, isLoading: searchLoading } = useQuery({
@@ -122,6 +156,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     setSelectedOrder(order);
     const displayNum = order.invoice_number || order.challan_number || order.order_number;
     setOrderSearch(displayNum);
+    setSupplierName(order.suppliers?.name || "");
     setReturnItems([]);
   };
 
@@ -129,7 +164,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     const product = item.products as any;
     const existing = returnItems.find((r) => r.product_id === item.product_id);
     if (existing) return;
-    const newItem: ReturnItem = {
+    setReturnItems((prev) => [...prev, {
       product_id: item.product_id,
       batch_id: null,
       product_name: `${product?.name || ""}${product?.strength ? ` ${product.strength}` : ""}`,
@@ -140,8 +175,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       gst_percentage: Number(item.gst_percentage),
       discount_percentage: Number(item.discount_percentage),
       total_price: Number(item.total_price),
-    };
-    setReturnItems((prev) => [...prev, newItem]);
+    }]);
   };
 
   const handleAddAllItems = () => {
@@ -149,11 +183,35 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     orderItems.forEach(handleAddReturnItem);
   };
 
+  const handleAddManualProduct = () => {
+    if (!manualSelectedProduct || manualQty <= 0 || manualPrice <= 0) {
+      toast({ title: "Please select a product and enter price & quantity", variant: "destructive" });
+      return;
+    }
+    const base = manualPrice * manualQty * (1 - manualDiscount / 100);
+    const gstAmt = base * (manualGst / 100);
+    const total = base + gstAmt;
+    setReturnItems((prev) => [...prev, {
+      product_id: manualSelectedProduct.id,
+      batch_id: null,
+      product_name: `${manualSelectedProduct.name}${manualSelectedProduct.strength ? ` ${manualSelectedProduct.strength}` : ""}`,
+      batch_number: "-",
+      original_qty: manualQty,
+      quantity: manualQty,
+      unit_price: manualPrice,
+      gst_percentage: manualGst,
+      discount_percentage: manualDiscount,
+      total_price: total,
+    }]);
+    setManualSelectedProduct(null);
+    setManualQty(1); setManualPrice(0); setManualGst(0); setManualDiscount(0); setManualProductSearch("");
+  };
+
   const updateQty = (index: number, qty: number) => {
     setReturnItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
-        const clamped = Math.max(1, Math.min(qty, item.original_qty));
+        const clamped = Math.max(1, Math.min(qty, item.original_qty || 9999));
         const base = item.unit_price * clamped * (1 - item.discount_percentage / 100);
         const gst = base * (item.gst_percentage / 100);
         return { ...item, quantity: clamped, total_price: base + gst };
@@ -177,18 +235,16 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       if (!finalReason) throw new Error("Please select a reason for the return.");
       if (returnItems.length === 0) throw new Error("Please add at least one item to return.");
       if (!debitNoteNumber.trim()) throw new Error("Debit note number is required.");
-
-      const supplierName = (selectedOrder as any)?.suppliers?.name || "Unknown Supplier";
+      const suppName = supplierName.trim() || (selectedOrder as any)?.suppliers?.name || "Unknown Supplier";
 
       const { data: dn, error: dnError } = await supabase
         .from("debit_notes")
         .insert({
           debit_note_number: debitNoteNumber.trim(),
           original_order_id: selectedOrder?.id || null,
-          original_order_number:
-            selectedOrder?.invoice_number || selectedOrder?.challan_number || selectedOrder?.order_number || "MANUAL",
+          original_order_number: selectedOrder?.invoice_number || selectedOrder?.challan_number || selectedOrder?.order_number || "MANUAL",
           supplier_id: selectedOrder?.supplier_id || null,
-          supplier_name: supplierName,
+          supplier_name: suppName,
           reason: finalReason,
           notes: notes || null,
           total_amount: totalAmount,
@@ -196,9 +252,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           status: "issued",
           created_by: user?.id || null,
         })
-        .select()
-        .single();
-
+        .select().single();
       if (dnError) throw dnError;
 
       const items = returnItems.map((item) => ({
@@ -213,10 +267,8 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
         discount_percentage: item.discount_percentage,
         total_price: item.total_price,
       }));
-
       const { error: itemsError } = await supabase.from("debit_note_items").insert(items);
       if (itemsError) throw itemsError;
-
       return dn;
     },
     onSuccess: () => {
@@ -229,40 +281,42 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     },
   });
 
-  // Keyboard navigation
   const handleTableKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusedRowIndex(Math.min(index + 1, returnItems.length - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setFocusedRowIndex(Math.max(index - 1, 0)); }
     if (e.key === "Delete" || e.key === "Backspace") { removeReturnItem(index); }
   };
 
+  const filteredProducts = allProducts?.filter(p =>
+    p.name.toLowerCase().includes(manualProductSearch.toLowerCase()) ||
+    p.generic_name?.toLowerCase().includes(manualProductSearch.toLowerCase())
+  ).slice(0, 20) ?? [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2">
             <span className="text-warning font-bold">DN</span> Issue Debit Note
           </DialogTitle>
           <DialogDescription>
-            Pharmacy returns goods to supplier → debit note issued against original purchase order
+            Pharmacy returns goods to supplier → debit note issued
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Step 1: Debit note number + Order search */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Step 1: Debit note number + supplier + Order search */}
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="dn-number">Debit Note Number *</Label>
-              <Input
-                id="dn-number"
-                value={debitNoteNumber}
-                onChange={(e) => setDebitNoteNumber(e.target.value)}
-                placeholder="DN-XXXXXX"
-                autoComplete="off"
-              />
+              <Label htmlFor="dn-number">Debit Note # *</Label>
+              <Input id="dn-number" value={debitNoteNumber} onChange={(e) => setDebitNoteNumber(e.target.value)} placeholder="DN-XXXXXX" autoComplete="off" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="supplier-name">Supplier Name</Label>
+              <Input id="supplier-name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Enter supplier name..." autoComplete="off" />
             </div>
             <div className="space-y-1 relative">
-              <Label htmlFor="order-search">Search Purchase Order / Invoice</Label>
+              <Label htmlFor="order-search">Search Purchase Order (optional)</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -278,15 +332,9 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
               {orderSearch.length >= 2 && !selectedOrder && (
                 <div className="absolute z-50 left-0 right-0 bg-popover border rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
                   {searchLoading && <div className="p-3 text-sm text-muted-foreground">Searching...</div>}
-                  {!searchLoading && matchedOrders?.length === 0 && (
-                    <div className="p-3 text-sm text-muted-foreground">No orders found</div>
-                  )}
+                  {!searchLoading && matchedOrders?.length === 0 && <div className="p-3 text-sm text-muted-foreground">No orders found</div>}
                   {matchedOrders?.map((order: any) => (
-                    <button
-                      key={order.id}
-                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm focus:bg-accent outline-none"
-                      onClick={() => handleSelectOrder(order)}
-                    >
+                    <button key={order.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm focus:bg-accent outline-none" onClick={() => handleSelectOrder(order)}>
                       <span className="font-medium">{order.invoice_number || order.challan_number || order.order_number}</span>
                       <span className="text-muted-foreground ml-2">— {order.suppliers?.name || "Unknown"}</span>
                       <span className="text-muted-foreground ml-2">₹{Number(order.total_amount).toFixed(2)}</span>
@@ -306,14 +354,12 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             </div>
           )}
 
-          {/* Step 2: Order items to select from */}
+          {/* Order items picker */}
           {selectedOrder && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Original Order Items — select items to return</Label>
-                <Button variant="outline" size="sm" onClick={handleAddAllItems} className="h-7 text-xs">
-                  Return All
-                </Button>
+                <Label className="text-sm font-semibold">Original Order Items — click + to add to return</Label>
+                <Button variant="outline" size="sm" onClick={handleAddAllItems} className="h-7 text-xs">Return All</Button>
               </div>
               {itemsLoading ? (
                 <div className="flex justify-center p-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
@@ -334,19 +380,11 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
                         const alreadyAdded = returnItems.some((r) => r.product_id === item.product_id);
                         return (
                           <TableRow key={item.id} className={alreadyAdded ? "opacity-40" : ""}>
-                            <TableCell className="text-sm">
-                              {product?.name}{product?.strength && ` ${product.strength}`}
-                            </TableCell>
+                            <TableCell className="text-sm">{product?.name}{product?.strength && ` ${product.strength}`}</TableCell>
                             <TableCell className="text-right text-sm">{item.quantity}</TableCell>
                             <TableCell className="text-right text-sm">₹{Number(item.unit_price).toFixed(2)}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                disabled={alreadyAdded}
-                                onClick={() => handleAddReturnItem(item)}
-                              >
+                              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={alreadyAdded} onClick={() => handleAddReturnItem(item)}>
                                 <Plus className="h-3 w-3" />
                               </Button>
                             </TableCell>
@@ -360,16 +398,85 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             </div>
           )}
 
-          {/* Step 3: Return items */}
+          {/* ── Manual product addition ── */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <PackagePlus className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-semibold">Add Product Manually</Label>
+            </div>
+            <div className="grid grid-cols-12 gap-2 items-end border rounded-lg p-3 bg-muted/20">
+              <div className="col-span-4 space-y-1">
+                <Label className="text-xs">Product</Label>
+                <Popover open={manualProductOpen} onOpenChange={setManualProductOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal h-9 text-left">
+                      <span className="truncate text-sm">
+                        {manualSelectedProduct ? `${manualSelectedProduct.name}${manualSelectedProduct.strength ? ` ${manualSelectedProduct.strength}` : ""}` : <span className="text-muted-foreground">Search product...</span>}
+                      </span>
+                      <Search className="h-3.5 w-3.5 shrink-0 opacity-50 ml-1" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Type product name..." value={manualProductSearch} onValueChange={setManualProductSearch} />
+                      <CommandList>
+                        <CommandEmpty>No products found.</CommandEmpty>
+                        <CommandGroup className="max-h-56 overflow-auto">
+                          {filteredProducts.map((p) => (
+                            <CommandItem key={p.id} value={p.id} onSelect={() => {
+                              setManualSelectedProduct(p);
+                              setManualPrice(Number(p.purchase_price));
+                              setManualGst(Number(p.gst_percentage));
+                              setManualProductOpen(false);
+                              setManualProductSearch("");
+                              setTimeout(() => manualQtyRef.current?.focus(), 50);
+                            }}>
+                              <span>{p.name}{p.strength && ` (${p.strength})`}</span>
+                              <span className="ml-auto text-xs text-muted-foreground">₹{p.purchase_price}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Qty</Label>
+                <Input ref={manualQtyRef} type="number" min={1} value={manualQty} onChange={(e) => setManualQty(Number(e.target.value))} className="h-9" />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Unit Price ₹</Label>
+                <Input type="number" min={0} value={manualPrice || ""} onChange={(e) => setManualPrice(Number(e.target.value))} className="h-9" placeholder="0" />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">GST %</Label>
+                <Input type="number" min={0} max={100} value={manualGst || ""} onChange={(e) => setManualGst(Number(e.target.value))} className="h-9" placeholder="0" />
+              </div>
+              <div className="col-span-1 space-y-1">
+                <Label className="text-xs">Disc%</Label>
+                <Input type="number" min={0} max={100} value={manualDiscount || ""} onChange={(e) => setManualDiscount(Number(e.target.value))} className="h-9" placeholder="0" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddManualProduct(); }}} />
+              </div>
+              <div className="col-span-1">
+                <Button size="sm" className="w-full h-9" onClick={handleAddManualProduct} disabled={!manualSelectedProduct}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Return items */}
           {returnItems.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-sm font-semibold">Items Being Returned to Supplier</Label>
+              <Label className="text-sm font-semibold">Items Being Returned to Supplier ({returnItems.length})</Label>
               <div className="border rounded-md overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead className="w-28">Return Qty</TableHead>
+                      <TableHead className="text-right">Rate</TableHead>
+                      <TableHead className="text-right">GST%</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -387,24 +494,18 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
                         <TableCell className="text-sm font-medium">{item.product_name}</TableCell>
                         <TableCell>
                           <Input
-                            type="number"
-                            min={1}
-                            max={item.original_qty}
+                            type="number" min={1} max={item.original_qty || 9999}
                             value={item.quantity}
                             onChange={(e) => updateQty(index, parseInt(e.target.value) || 1)}
                             className="h-7 w-20 text-center"
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <span className="text-xs text-muted-foreground ml-1">/ {item.original_qty}</span>
                         </TableCell>
+                        <TableCell className="text-right text-sm">₹{item.unit_price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">{item.gst_percentage}%</TableCell>
                         <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={() => removeReturnItem(index)}
-                          >
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => removeReturnItem(index)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </TableCell>
@@ -416,38 +517,23 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             </div>
           )}
 
-          {/* Step 4: Reason + Notes */}
+          {/* Reason + Notes */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Return Reason *</Label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select reason..." />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
                 <SelectContent>
-                  {RETURN_REASONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
+                  {RETURN_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
               {reason === "Other" && (
-                <Input
-                  placeholder="Describe the reason..."
-                  value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
-                  className="mt-2"
-                  autoFocus
-                />
+                <Input placeholder="Describe the reason..." value={customReason} onChange={(e) => setCustomReason(e.target.value)} className="mt-2" autoFocus />
               )}
             </div>
             <div className="space-y-1">
               <Label>Internal Notes</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional notes..."
-                className="h-[70px] resize-none"
-              />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." className="h-[70px] resize-none" />
             </div>
           </div>
 
@@ -457,6 +543,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
               <Separator />
               <div className="flex justify-end">
                 <div className="space-y-1 text-sm min-w-52">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal:</span><span>₹{(totalAmount - totalGst).toFixed(2)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">GST Adjustment:</span><span>₹{totalGst.toFixed(2)}</span></div>
                   <div className="flex justify-between font-bold text-base border-t pt-1">
                     <span>Debit Amount:</span>

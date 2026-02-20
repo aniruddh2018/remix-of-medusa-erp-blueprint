@@ -48,7 +48,7 @@ interface CartItem {
 
 export default function Sales() {
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isPharmacist } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -843,7 +843,7 @@ export default function Sales() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          {isAdmin && (
+                          {(isAdmin || isPharmacist) && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -851,7 +851,7 @@ export default function Sales() {
                                 setEditSaleId(order.id);
                                 setEditDialogOpen(true);
                               }}
-                              title="Edit bill (Admin only)"
+                              title="Edit bill"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>

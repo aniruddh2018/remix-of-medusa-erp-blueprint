@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2 } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil } from "lucide-react";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
+import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -92,6 +93,10 @@ export default function PurchaseOrders() {
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+
+  // Edit order dialog state
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
 
   const handleBillAction = async (order: any, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
@@ -1009,7 +1014,7 @@ export default function PurchaseOrders() {
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
-                      <TableCell>
+                        <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Bill dropdown - available to all */}
                           <DropdownMenu>
@@ -1040,7 +1045,18 @@ export default function PurchaseOrders() {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          {/* Status is final for delivered/cancelled - no changes allowed */}
+                          {/* Edit bill button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditOrderId(order.id);
+                              setEditOrderDialogOpen(true);
+                            }}
+                            title="Edit bill"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           {order.status === "delivered" || order.status === "cancelled" ? (
                             <div className="flex items-center gap-1 text-muted-foreground text-sm px-2">
                               <Lock className="h-3 w-3" />
@@ -1182,6 +1198,13 @@ export default function PurchaseOrders() {
         open={linkedChallansDialogOpen}
         onOpenChange={setLinkedChallansDialogOpen}
         invoiceId={selectedInvoiceForChallans}
+      />
+
+      {/* Edit Purchase Order Dialog */}
+      <EditPurchaseOrderDialog
+        open={editOrderDialogOpen}
+        onOpenChange={setEditOrderDialogOpen}
+        orderId={editOrderId}
       />
     </div>
   );

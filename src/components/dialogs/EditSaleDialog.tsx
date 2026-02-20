@@ -30,7 +30,7 @@ interface EditSaleDialogProps {
 
 export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogProps) {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isPharmacist } = useAuth();
   const queryClient = useQueryClient();
 
   const [customerName, setCustomerName] = useState("");
@@ -154,14 +154,14 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     },
   });
 
-  if (!isAdmin) {
+  if (!isAdmin && !isPharmacist) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <AlertTriangle className="h-12 w-12 text-destructive" />
             <p className="text-center text-muted-foreground">
-              Only administrators can modify bills.
+              Only administrators and pharmacists can modify bills.
             </p>
           </div>
         </DialogContent>
@@ -371,7 +371,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                     </div>
                   )}
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-primary">
                       <span>Discount:</span>
                       <span>-₹{discountAmount.toFixed(2)}</span>
                     </div>

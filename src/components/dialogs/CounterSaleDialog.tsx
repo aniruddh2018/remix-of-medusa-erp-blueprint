@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -657,36 +656,36 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     return <Badge className={`${colors[schedule]} text-xs`}>{labels[schedule]}</Badge>;
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Zap className="h-5 w-5 text-primary" />
-            <span className="hidden sm:inline">Quick Counter Sale</span>
-            <span className="sm:hidden">Quick Sale</span>
-            <Badge variant="outline" className="ml-2 hidden sm:inline-flex">Alt+A</Badge>
-            <div className="flex-1" />
-            {/* Multi-customer toggle */}
-            <Button
-              variant={multiMode ? "default" : "outline"}
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => {
-                setMultiMode(!multiMode);
-                if (!multiMode && slots.length === 1) {
-                  // entering multi mode — keep existing cart
-                }
-              }}
-            >
-              <span>Multi</span>
-              <Badge variant="secondary" className="text-[10px] px-1 py-0">{slots.length}</Badge>
-            </Button>
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            {multiMode ? "Multi-customer mode — Ctrl+1-9 to switch, N to add new counter" : "Fast billing without customer details"}
-          </DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Header bar */}
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur px-4 sm:px-6">
+        <Zap className="h-5 w-5 text-primary shrink-0" />
+        <span className="font-semibold text-base sm:text-lg">Quick Counter Sale</span>
+        <Badge variant="outline" className="hidden sm:inline-flex">Alt+A</Badge>
+        <div className="flex-1" />
+        <Button
+          variant={multiMode ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs gap-1"
+          onClick={() => { setMultiMode(!multiMode); }}
+        >
+          <span>Multi</span>
+          <Badge variant="secondary" className="text-[10px] px-1 py-0">{slots.length}</Badge>
+        </Button>
+        <Button variant="ghost" size="icon" onClick={handleClose} className="text-muted-foreground hover:text-foreground">
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+      <p className="text-xs sm:text-sm text-muted-foreground px-4 sm:px-6 py-1.5 border-b bg-muted/30 shrink-0">
+        {multiMode ? "Multi-customer mode — Ctrl+1-9 to switch, N to add new counter" : "Fast billing without customer details"}
+      </p>
+
+      {/* Scrollable main content */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        <div className="max-w-5xl mx-auto space-y-4">
 
         {/* ── Multi-customer slot tabs ── */}
         {multiMode && (
@@ -824,7 +823,6 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           </Card>
         )}
 
-        <div className="space-y-4">
           {/* Fast Product Search - Mobile Responsive */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-12 sm:col-span-6">
@@ -1211,28 +1209,29 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
             </div>
           )}
         </div>
+      </div>
 
-        <DialogFooter className="gap-2 flex-col sm:flex-row">
-          <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> complete
-            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> force complete
-            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">C</kbd> cycle payment
-            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> remove row
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none">Cancel</Button>
-            <Button
-              ref={completeButtonRef}
-              onClick={() => createCounterSaleMutation.mutate()}
-              disabled={cart.length === 0 || createCounterSaleMutation.isPending}
-              className="gap-2 flex-1 sm:flex-none"
-            >
-              <Printer className="h-4 w-4" />
-              {createCounterSaleMutation.isPending ? "Processing..." : "Complete & Print"}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* Footer bar */}
+      <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center gap-2">
+        <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 flex-1">
+          <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> complete
+          <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> force complete
+          <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">C</kbd> cycle payment
+          <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> remove row
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none">Cancel</Button>
+          <Button
+            ref={completeButtonRef}
+            onClick={() => createCounterSaleMutation.mutate()}
+            disabled={cart.length === 0 || createCounterSaleMutation.isPending}
+            className="gap-2 flex-1 sm:flex-none"
+          >
+            <Printer className="h-4 w-4" />
+            {createCounterSaleMutation.isPending ? "Processing..." : "Complete & Print"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

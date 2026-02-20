@@ -440,7 +440,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          business_module: string
           created_at: string
           full_name: string
           id: string
@@ -449,7 +448,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          business_module?: string
           created_at?: string
           full_name: string
           id?: string
@@ -458,7 +456,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          business_module?: string
           created_at?: string
           full_name?: string
           id?: string

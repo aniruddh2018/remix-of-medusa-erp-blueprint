@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote } from "lucide-react";
+import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import {
@@ -114,6 +115,11 @@ export default function PurchaseOrders() {
 
   // Debit note dialog
   const [debitNoteOpen, setDebitNoteOpen] = useState(false);
+  // Payment dialog
+  const [paymentDialog, setPaymentDialog] = useState<null | {
+    referenceId: string; referenceNumber: string; partyName: string;
+    totalAmount: number; paidAmount: number;
+  }>(null);
 
   // ── Draft auto-save ─────────────────────────────────────────────────────
   const poDraft = useMemo(() => ({
@@ -209,6 +215,25 @@ export default function PurchaseOrders() {
       return data;
     },
   });
+
+  const { data: poPayments } = useQuery({
+    queryKey: ["payments-purchase"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("reference_id, amount")
+        .eq("reference_type", "purchase_order");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const paidByPoId = useMemo(() => {
+    const map: Record<string, number> = {};
+    poPayments?.forEach(p => { map[p.reference_id] = (map[p.reference_id] || 0) + Number(p.amount); });
+    return map;
+  }, [poPayments]);
+
 
   const { data: suppliers, refetch: refetchSuppliers } = useQuery({
     queryKey: ["suppliers-active"],
@@ -1182,6 +1207,7 @@ export default function PurchaseOrders() {
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Paid</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1228,6 +1254,33 @@ export default function PurchaseOrders() {
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const paid = paidByPoId[order.id] || 0;
+                          const balance = Number(order.total_amount) - paid;
+                          const isPaid = balance <= 0.01;
+                          const isPartial = paid > 0 && !isPaid;
+                          const supplierName = (order.suppliers as any)?.name || "-";
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 text-xs gap-1 px-2 ${isPaid ? "text-green-600" : isPartial ? "text-amber-600" : "text-destructive"}`}
+                              onClick={() => setPaymentDialog({
+                                referenceId: order.id,
+                                referenceNumber: order.invoice_number || order.order_number,
+                                partyName: supplierName,
+                                totalAmount: Number(order.total_amount),
+                                paidAmount: paid,
+                              })}
+                              title={isPaid ? "Fully Paid" : `Balance: ₹${balance.toFixed(2)}`}
+                            >
+                              <Banknote className="h-3 w-3" />
+                              {isPaid ? "Paid" : isPartial ? `₹${paid.toFixed(0)} paid` : "Unpaid"}
+                            </Button>
+                          );
+                        })()}
+                      </TableCell>
                         <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Bill dropdown - available to all */}
@@ -1426,6 +1479,22 @@ export default function PurchaseOrders() {
         open={debitNoteOpen}
         onOpenChange={setDebitNoteOpen}
       />
+
+      {/* Record Payment Dialog */}
+      {paymentDialog && (
+        <RecordPaymentDialog
+          open={!!paymentDialog}
+          onOpenChange={(open) => { if (!open) setPaymentDialog(null); queryClient.invalidateQueries({ queryKey: ["payments-purchase"] }); }}
+          referenceType="purchase_order"
+          referenceId={paymentDialog.referenceId}
+          referenceNumber={paymentDialog.referenceNumber}
+          partyName={paymentDialog.partyName}
+          partyType="supplier"
+          totalAmount={paymentDialog.totalAmount}
+          paidAmount={paymentDialog.paidAmount}
+          paymentType="made"
+        />
+      )}
     </div>
   );
 }

@@ -369,6 +369,63 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          bank_name: string | null
+          cheque_number: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          party_name: string
+          party_type: string
+          payment_date: string
+          payment_method: string
+          payment_type: string
+          reference_id: string
+          reference_number: string
+          reference_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          bank_name?: string | null
+          cheque_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          party_name: string
+          party_type: string
+          payment_date?: string
+          payment_method?: string
+          payment_type: string
+          reference_id: string
+          reference_number: string
+          reference_type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_name?: string | null
+          cheque_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          party_name?: string
+          party_type?: string
+          payment_date?: string
+          payment_method?: string
+          payment_type?: string
+          reference_id?: string
+          reference_number?: string
+          reference_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category: string | null
@@ -848,6 +905,51 @@ export type Database = {
           is_active?: boolean
           name?: string
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          input_gst: number
+          net_tax_liability: number
+          notes: string | null
+          output_gst: number
+          period_month: number
+          period_name: string
+          period_year: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_gst?: number
+          net_tax_liability?: number
+          notes?: string | null
+          output_gst?: number
+          period_month: number
+          period_name: string
+          period_year: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_gst?: number
+          net_tax_liability?: number
+          notes?: string | null
+          output_gst?: number
+          period_month?: number
+          period_name?: string
+          period_year?: number
+          status?: string
           updated_at?: string
         }
         Relationships: []

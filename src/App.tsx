@@ -19,6 +19,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Notes from "./pages/Notes";
+import Accounts from "./pages/Accounts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/notes" element={<Notes />} />
+              <Route path="/accounts" element={<Accounts />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

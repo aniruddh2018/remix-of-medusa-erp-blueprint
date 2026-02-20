@@ -29,6 +29,7 @@ import {
   Shield,
   BarChart3,
   RotateCcw,
+  Wallet,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -64,6 +65,11 @@ const complianceMenuItems = [
     title: "Credit & Debit Notes",
     icon: RotateCcw,
     path: "/notes",
+  },
+  {
+    title: "Accounts",
+    icon: Wallet,
+    path: "/accounts",
   },
 ];
 

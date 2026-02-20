@@ -81,6 +81,9 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   
   const productSearchRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
+  const discountInputRef = useRef<HTMLInputElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const completeButtonRef = useRef<HTMLButtonElement>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
@@ -375,32 +378,71 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     onOpenChange(false);
   };
 
-  // Enter key to complete sale when cart has items
+  // ─────────────────────────────────────────────────────────────
+  //  Global keyboard handler inside the dialog
+  //  Ctrl+Enter → complete sale (from anywhere)
+  //  Enter       → complete sale (when not in input/popover)
+  //  C key       → cycle payment: cash→card→upi→cash
+  //  Delete/Backspace (on cart row) → remove that item
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement;
+      const inInput =
+        activeEl?.tagName === "INPUT" ||
+        activeEl?.tagName === "TEXTAREA" ||
+        activeEl?.getAttribute("contenteditable") === "true";
+
+      // Ctrl+Enter always completes (like most POS software)
+      if (e.key === "Enter" && e.ctrlKey) {
+        if (cart.length > 0 && !createCounterSaleMutation.isPending && !showNarcoticForm) {
+          e.preventDefault();
+          createCounterSaleMutation.mutate();
+        }
+        return;
+      }
+
+      // Plain Enter completes when not in input/popover
       if (
-        e.key === "Enter" && 
-        cart.length > 0 && 
+        e.key === "Enter" &&
+        cart.length > 0 &&
         !createCounterSaleMutation.isPending &&
         !productPopoverOpen &&
         !customerPopoverOpen &&
         !showNarcoticForm &&
-        !isAddingNewCustomer
+        !isAddingNewCustomer &&
+        !inInput
       ) {
-        const activeEl = document.activeElement;
-        const isInputFocused = activeEl?.tagName === "INPUT" || activeEl?.tagName === "BUTTON";
-        if (!isInputFocused) {
-          e.preventDefault();
-          createCounterSaleMutation.mutate();
+        e.preventDefault();
+        createCounterSaleMutation.mutate();
+        return;
+      }
+
+      // 'C' cycles payment method when not in input
+      if (e.key.toLowerCase() === "c" && !inInput && !productPopoverOpen && cart.length > 0) {
+        e.preventDefault();
+        setPaymentMethod((p) => (p === "cash" ? "card" : p === "card" ? "upi" : "cash"));
+        return;
+      }
+
+      // Del/Backspace on a focused cart row removes that item
+      if ((e.key === "Delete" || e.key === "Backspace") && !inInput) {
+        const rowEl = activeEl?.closest("[data-kb-cart-row]") as HTMLElement | null;
+        if (rowEl) {
+          const idx = parseInt(rowEl.dataset.kbCartIdx ?? "-1", 10);
+          if (idx >= 0) {
+            e.preventDefault();
+            setCart((prev) => prev.filter((_, i) => i !== idx));
+          }
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, cart.length, createCounterSaleMutation.isPending, productPopoverOpen, customerPopoverOpen, showNarcoticForm, isAddingNewCustomer]);
+  }, [open, cart, createCounterSaleMutation, productPopoverOpen, customerPopoverOpen, showNarcoticForm, isAddingNewCustomer]);
 
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
@@ -714,14 +756,56 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                   if (e.key === "Enter" && selectedProduct && itemQuantity > 0) {
                     e.preventDefault();
                     handleAddToCart();
+                    // Re-focus product search for fast multi-item entry
+                    setTimeout(() => {
+                      setProductPopoverOpen(true);
+                      setTimeout(() => productSearchRef.current?.focus(), 100);
+                    }, 50);
+                  } else if (e.key === "Tab" && !e.shiftKey) {
+                    // Tab from Qty goes to Discount
+                    e.preventDefault();
+                    discountInputRef.current?.focus();
                   }
                 }}
                 className="h-10 sm:h-9"
               />
             </div>
+            <div className="col-span-4 sm:col-span-2">
+              <Label className="text-xs">Disc %</Label>
+              <Input
+                ref={discountInputRef}
+                type="number"
+                min={0}
+                max={100}
+                value={itemDiscount || ""}
+                onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && selectedProduct && itemQuantity > 0) {
+                    e.preventDefault();
+                    handleAddToCart();
+                    setTimeout(() => {
+                      setProductPopoverOpen(true);
+                      setTimeout(() => productSearchRef.current?.focus(), 100);
+                    }, 50);
+                  } else if (e.key === "Tab" && !e.shiftKey) {
+                    e.preventDefault();
+                    addButtonRef.current?.focus();
+                  }
+                }}
+                className="h-10 sm:h-9"
+                placeholder="0"
+              />
+            </div>
             <div className="col-span-4 sm:col-span-2 flex items-end">
-              <Button 
-                onClick={() => handleAddToCart()} 
+              <Button
+                ref={addButtonRef}
+                onClick={() => {
+                  handleAddToCart();
+                  setTimeout(() => {
+                    setProductPopoverOpen(true);
+                    setTimeout(() => productSearchRef.current?.focus(), 100);
+                  }, 50);
+                }}
                 disabled={!selectedProduct || itemQuantity <= 0}
                 className="w-full gap-1 h-10 sm:h-9"
               >
@@ -874,7 +958,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
             </Card>
           )}
 
-          {/* Cart */}
+          {/* Cart — Arrow keys navigate rows, Del removes focused row */}
           {cart.length > 0 && (
             <Card>
               <CardContent className="p-0">
@@ -885,12 +969,32 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                       <TableHead className="w-20">Qty</TableHead>
                       <TableHead className="text-right w-24">Price</TableHead>
                       <TableHead className="text-right w-24">Total</TableHead>
-                      <TableHead className="w-12"></TableHead>
+                      <TableHead className="w-12 text-xs text-muted-foreground text-center">Del</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {cart.map((item, index) => (
-                      <TableRow key={`${item.batch_id}-${index}`}>
+                      <TableRow
+                        key={`${item.batch_id}-${index}`}
+                        tabIndex={0}
+                        data-kb-cart-row
+                        data-kb-cart-idx={index}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-cart-row]"));
+                            rows[index + 1]?.focus();
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-cart-row]"));
+                            rows[index - 1]?.focus();
+                          } else if (e.key === "Delete" || e.key === "Backspace") {
+                            e.preventDefault();
+                            removeFromCart(index);
+                          }
+                        }}
+                        className="focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                      >
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{item.product_name}</span>
@@ -904,8 +1008,8 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell className="text-right font-mono">₹{item.unit_price.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono font-medium">₹{item.total_price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removeFromCart(index)}>
+                        <TableCell className="text-center">
+                          <Button variant="ghost" size="icon" tabIndex={-1} onClick={() => removeFromCart(index)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -920,8 +1024,11 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           {/* Totals & Payment */}
           {cart.length > 0 && (
             <div className="flex justify-between items-end">
-              <div className="space-y-2">
-                <Label className="text-xs">Payment Method</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Payment Method
+                  <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 hidden sm:inline-flex">C to cycle</Badge>
+                </Label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
@@ -943,12 +1050,16 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         </div>
 
         <DialogFooter className="gap-2 flex-col sm:flex-row">
-          <div className="text-xs text-muted-foreground hidden sm:block">
-            Press <kbd className="px-1.5 py-0.5 bg-muted rounded">Enter</kbd> to complete
+          <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> complete
+            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> force complete
+            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">C</kbd> cycle payment
+            <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> remove row
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none">Cancel</Button>
             <Button
+              ref={completeButtonRef}
               onClick={() => createCounterSaleMutation.mutate()}
               disabled={cart.length === 0 || createCounterSaleMutation.isPending}
               className="gap-2 flex-1 sm:flex-none"

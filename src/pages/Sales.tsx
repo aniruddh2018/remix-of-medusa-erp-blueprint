@@ -512,7 +512,18 @@ export default function Sales() {
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
-                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                        <Select
+                          value={selectedProduct}
+                          onValueChange={(val) => {
+                            setSelectedProduct(val);
+                            // Auto-focus qty after product select
+                            setTimeout(() => {
+                              const qtyInput = document.getElementById("sale-qty-input") as HTMLInputElement;
+                              qtyInput?.focus();
+                              qtyInput?.select();
+                            }, 50);
+                          }}
+                        >
                           <SelectTrigger className="flex-1">
                             <SelectValue placeholder="Select product" />
                           </SelectTrigger>
@@ -555,11 +566,18 @@ export default function Sales() {
                     <div>
                       <Label>Qty</Label>
                       <Input
+                        id="sale-qty-input"
                         type="number"
                         min={1}
                         max={availableStock || undefined}
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
                       />
                     </div>
                     <div>
@@ -570,6 +588,13 @@ export default function Sales() {
                         max={100}
                         value={itemDiscount || ""}
                         onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
+                        placeholder="0"
                       />
                     </div>
                     <div className="flex items-end">
@@ -577,6 +602,7 @@ export default function Sales() {
                         onClick={handleAddToCart} 
                         className="w-full" 
                         disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0}
+                        title="Add item (Enter)"
                       >
                         Add (FIFO)
                       </Button>
@@ -756,10 +782,21 @@ export default function Sales() {
               </div>
 
               <DialogFooter>
+                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> complete sale
+                </div>
                 <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
                 <Button
                   onClick={() => createSaleMutation.mutate()}
                   disabled={cart.length === 0 || !customerName || createSaleMutation.isPending}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || (e.ctrlKey && e.key === "Enter")) {
+                      e.preventDefault();
+                      if (cart.length > 0 && customerName && !createSaleMutation.isPending) {
+                        createSaleMutation.mutate();
+                      }
+                    }
+                  }}
                 >
                   Complete Sale (₹{grandTotal.toFixed(2)})
                 </Button>
@@ -808,8 +845,27 @@ export default function Sales() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders?.map((order) => (
-                    <TableRow key={order.id}>
+                  {filteredOrders?.map((order, idx) => (
+                    <TableRow
+                      key={order.id}
+                      tabIndex={0}
+                      data-kb-row
+                      onKeyDown={(e) => {
+                        const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                        const pos = rows.indexOf(e.currentTarget);
+                        if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                        else if (e.key === "p" || e.key === "P") { e.preventDefault(); handleBillAction(order, "print"); }
+                        else if (e.key === "e" || e.key === "E") {
+                          if (isAdmin || isPharmacist) {
+                            e.preventDefault();
+                            setEditSaleId(order.id);
+                            setEditDialogOpen(true);
+                          }
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
                       <TableCell className="font-medium">{order.invoice_number}</TableCell>
                       <TableCell>
                         <div>
@@ -841,7 +897,7 @@ export default function Sales() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-popover z-50">
                               <DropdownMenuItem onClick={() => handleBillAction(order, "print")}>
-                                <Printer className="h-4 w-4 mr-2" /> Print
+                                <Printer className="h-4 w-4 mr-2" /> Print <kbd className="ml-auto text-[10px] opacity-50">P</kbd>
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleBillAction(order, "pdf")}>
                                 <Download className="h-4 w-4 mr-2" /> Download PDF
@@ -862,7 +918,7 @@ export default function Sales() {
                                 setEditSaleId(order.id);
                                 setEditDialogOpen(true);
                               }}
-                              title="Edit bill"
+                              title="Edit bill (E)"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil } from "lucide-react";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import {
   DropdownMenu,
@@ -51,7 +52,15 @@ export default function PurchaseOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // "/" shortcut — focus search bar
+  useKeyboardShortcut({
+    key: "/",
+    callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
+    enabled: true,
+  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
@@ -963,10 +972,12 @@ export default function PurchaseOrders() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search orders..."
+                ref={searchRef}
+                placeholder="Search orders... ( / )"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
+                autoFocus
               />
             </div>
           </div>

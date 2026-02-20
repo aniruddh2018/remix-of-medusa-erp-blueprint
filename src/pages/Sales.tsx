@@ -417,6 +417,15 @@ export default function Sales() {
     setCart(cart.filter((_, i) => i !== index));
   };
 
+  const updateCartItem = (index: number, field: keyof CartItem, value: string | number) => {
+    const updated = [...cart];
+    (updated[index] as any)[field] = value;
+    // Recalculate total price
+    const item = updated[index];
+    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage);
+    setCart(updated);
+  };
+
   // Calculate totals
   const itemsSubtotal = cart.reduce((sum, item) => {
     const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
@@ -631,9 +640,9 @@ export default function Sales() {
                           <TableHead>Product</TableHead>
                           <TableHead>Batch</TableHead>
                           <TableHead>Expiry</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">GST</TableHead>
+                          <TableHead>Price (₹)</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Disc %</TableHead>
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
@@ -641,8 +650,8 @@ export default function Sales() {
                       <TableBody>
                         {cart.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell className="font-medium">{item.product_name}</TableCell>
-                            <TableCell>{item.batch_number}</TableCell>
+                            <TableCell className="font-medium min-w-[150px]">{item.product_name}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{item.batch_number}</TableCell>
                             <TableCell>
                               {(() => {
                                 const daysUntilExpiry = differenceInDays(new Date(item.expiry_date), new Date());
@@ -660,9 +669,38 @@ export default function Sales() {
                                 );
                               })()}
                             </TableCell>
-                            <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right">{item.gst_percentage}%</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={item.unit_price}
+                                onChange={(e) => updateCartItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                className="w-24 h-8 text-right"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={item.max_quantity}
+                                value={item.quantity}
+                                onChange={(e) => updateCartItem(index, "quantity", parseInt(e.target.value) || 1)}
+                                className="w-16 h-8 text-center"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={item.discount_percentage}
+                                onChange={(e) => updateCartItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
+                                className="w-16 h-8 text-center"
+                                placeholder="0"
+                              />
+                            </TableCell>
                             <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(index)}>

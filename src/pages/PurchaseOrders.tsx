@@ -41,12 +41,13 @@ interface OrderItem {
   product_id: string;
   product_name: string;
   hsn_code: string;
+  batch_number: string;
   quantity: number;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
   total_price: number;
-  fromChallan?: boolean; // Track if item was imported from challan
+  fromChallan?: boolean;
 }
 
 export default function PurchaseOrders() {
@@ -71,6 +72,7 @@ export default function PurchaseOrders() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   
   // Other charges state
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -289,7 +291,7 @@ export default function PurchaseOrders() {
         }
       }
 
-      // Only insert items that are NOT from challans (challan items already exist in purchase_order_items)
+      // Only insert items that are NOT from challans
       const newItems = orderItems.filter(item => !item.fromChallan);
       if (newItems.length > 0) {
         const items = newItems.map((item) => ({
@@ -307,6 +309,39 @@ export default function PurchaseOrders() {
           .insert(items);
 
         if (itemsError) throw itemsError;
+      }
+
+      // Auto-receive: create inventory batches for all items immediately
+      const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
+      if (allItemsToReceive.length > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const defaultExpiry = new Date();
+        defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
+        const defaultExpiryStr = defaultExpiry.toISOString().split("T")[0];
+
+        const batches = allItemsToReceive.map((item) => ({
+          product_id: item.product_id,
+          batch_number: item.batch_number || `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          quantity: item.quantity,
+          purchase_price: item.unit_price,
+          mrp: item.unit_price * 1.2, // default MRP
+          expiry_date: defaultExpiryStr,
+          manufacturing_date: null,
+          received_date: today,
+          supplier_id: selectedSupplier || null,
+        }));
+
+        const { error: batchError } = await supabase
+          .from("inventory_batches")
+          .insert(batches);
+
+        if (batchError) throw batchError;
+
+        // Update order status to delivered since we auto-received
+        await supabase
+          .from("purchase_orders")
+          .update({ status: "delivered" })
+          .eq("id", order.id);
       }
 
       return order;
@@ -362,6 +397,7 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setItemBatchNumber("");
     setFreightCharges(0);
     setHandlingCharges(0);
     setOtherCharges(0);
@@ -409,12 +445,13 @@ export default function PurchaseOrders() {
         product_id: item.product_id,
         product_name: `${(item.products as any).name}${(item.products as any).strength ? ` ${(item.products as any).strength}` : ""}`,
         hsn_code: (item.products as any).hsn_code || "",
+        batch_number: "",
         quantity: item.quantity,
         unit_price: Number(item.unit_price),
         gst_percentage: Number(item.gst_percentage),
         discount_percentage: Number(item.discount_percentage),
         total_price: Number(item.total_price),
-        fromChallan: true, // Mark as imported from challan
+        fromChallan: true,
       }));
 
       // Add challan items to the list (don't merge - keep separate)
@@ -498,6 +535,7 @@ export default function PurchaseOrders() {
           product_id: product.id,
           product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
           hsn_code: product.hsn_code || "",
+          batch_number: itemBatchNumber || `BATCH-${Date.now()}`,
           quantity: itemQuantity,
           unit_price: itemPrice,
           gst_percentage: gstPercentage,
@@ -512,6 +550,16 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setItemBatchNumber("");
+  };
+
+  const updateOrderItem = (index: number, field: keyof OrderItem, value: string | number) => {
+    const updated = [...orderItems];
+    (updated[index] as any)[field] = value;
+    // Recalculate total
+    const item = updated[index];
+    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage);
+    setOrderItems(updated);
   };
 
   const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
@@ -790,6 +838,20 @@ export default function PurchaseOrders() {
                       </div>
                     </div>
                     <div>
+                      <Label>Batch No.</Label>
+                      <Input
+                        placeholder="e.g. BT-2024-01"
+                        value={itemBatchNumber}
+                        onChange={(e) => setItemBatchNumber(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
                       <Label>Unit Price (₹)</Label>
                       <Input
                         id="po-price-input"
@@ -821,23 +883,6 @@ export default function PurchaseOrders() {
                         }}
                       />
                     </div>
-                    <div>
-                      <Label>Disc %</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={itemDiscount || ""}
-                        onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
-                            e.preventDefault();
-                            handleAddItem();
-                          }
-                        }}
-                        placeholder="0"
-                      />
-                    </div>
                     <div className="flex items-end">
                       <Button onClick={handleAddItem} className="w-full" disabled={!selectedProduct || itemPrice <= 0} title="Add item (Enter)">
                         Add
@@ -851,51 +896,104 @@ export default function PurchaseOrders() {
               {orderItems.length > 0 && (
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Order Items</CardTitle>
+                    <CardTitle className="text-base">Order Items <span className="text-xs font-normal text-muted-foreground ml-2">— inventory will be auto-received on save</span></CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>HSN</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">GST</TableHead>
-                          <TableHead className="text-right">Disc %</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {orderItems.map((item, index) => (
-                          <TableRow key={index} className={item.fromChallan ? "bg-muted/30" : ""}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                {item.fromChallan && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                {item.product_name}
-                                {item.fromChallan && (
-                                  <Badge variant="outline" className="text-xs">From Challan</Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{item.hsn_code || "-"}</TableCell>
-                            <TableCell className="text-right">₹{item.unit_price.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right">{item.gst_percentage}%</TableCell>
-                            <TableCell className="text-right">{item.discount_percentage}%</TableCell>
-                            <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
-                            <TableCell>
-                              {!item.fromChallan && (
-                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </TableCell>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Batch No.</TableHead>
+                            <TableHead>Price (₹)</TableHead>
+                            <TableHead>Qty</TableHead>
+                            <TableHead>GST%</TableHead>
+                            <TableHead>Disc%</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead></TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {orderItems.map((item, index) => (
+                            <TableRow key={index} className={item.fromChallan ? "bg-muted/30" : ""}>
+                              <TableCell className="font-medium min-w-[150px]">
+                                <div className="flex items-center gap-2">
+                                  {item.fromChallan && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                  {item.product_name}
+                                  {item.fromChallan && (
+                                    <Badge variant="outline" className="text-xs">Challan</Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.fromChallan ? (
+                                  <span className="text-muted-foreground text-xs">{item.batch_number || "-"}</span>
+                                ) : (
+                                  <Input
+                                    value={item.batch_number}
+                                    onChange={(e) => updateOrderItem(index, "batch_number", e.target.value)}
+                                    className="w-28 h-8"
+                                    placeholder="Batch no."
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.fromChallan ? (
+                                  <span>₹{item.unit_price.toFixed(2)}</span>
+                                ) : (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={item.unit_price}
+                                    onChange={(e) => updateOrderItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                    className="w-24 h-8"
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.fromChallan ? (
+                                  <span>{item.quantity}</span>
+                                ) : (
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={item.quantity}
+                                    onChange={(e) => updateOrderItem(index, "quantity", parseInt(e.target.value) || 1)}
+                                    className="w-16 h-8 text-center"
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{item.gst_percentage}%</TableCell>
+                              <TableCell>
+                                {item.fromChallan ? (
+                                  <span>{item.discount_percentage}%</span>
+                                ) : (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={item.discount_percentage}
+                                    onChange={(e) => updateOrderItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
+                                    className="w-16 h-8 text-center"
+                                    placeholder="0"
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
+                              <TableCell>
+                                {!item.fromChallan && (
+                                  <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               )}

@@ -74,6 +74,17 @@ interface CounterSaleDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// ── Multi-customer support (up to 9 simultaneous counters) ──
+interface CustomerSlot {
+  id: number;
+  cart: CartItem[];
+  paymentMethod: string;
+  customer: Customer | null;
+}
+
+const MAX_CUSTOMERS = 9;
+const makeSlot = (id: number): CustomerSlot => ({ id, cart: [], paymentMethod: "cash", customer: null });
+
 export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -85,13 +96,28 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const completeButtonRef = useRef<HTMLButtonElement>(null);
 
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Multi-customer state
+  const [slots, setSlots] = useState<CustomerSlot[]>([makeSlot(1)]);
+  const [activeSlot, setActiveSlot] = useState(1);
+  const [multiMode, setMultiMode] = useState(false);
+
+  // Derived: current slot's cart
+  const currentSlotData = slots.find(s => s.id === activeSlot) ?? slots[0];
+  const cart = currentSlotData.cart;
+  const paymentMethod = currentSlotData.paymentMethod;
+
+  const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    setSlots(prev => prev.map(s => s.id === activeSlot ? { ...s, cart: typeof updater === "function" ? updater(s.cart) : updater } : s));
+  };
+  const setPaymentMethod = (val: string) => {
+    setSlots(prev => prev.map(s => s.id === activeSlot ? { ...s, paymentMethod: val } : s));
+  };
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [productSearch, setProductSearch] = useState("");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  // paymentMethod / setPaymentMethod are derived from multi-slot state above
   
   // Customer state
   const [showCustomerSection, setShowCustomerSection] = useState(false);
@@ -353,14 +379,31 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     },
   });
 
+  // Add a new customer slot (up to MAX_CUSTOMERS)
+  const addSlot = () => {
+    if (slots.length >= MAX_CUSTOMERS) return;
+    const nextId = Math.max(...slots.map(s => s.id)) + 1;
+    setSlots(prev => [...prev, makeSlot(nextId)]);
+    setActiveSlot(nextId);
+  };
+
+  // Remove a slot (at least one must remain)
+  const removeSlot = (id: number) => {
+    if (slots.length <= 1) { setCart([]); return; }
+    const remaining = slots.filter(s => s.id !== id);
+    setSlots(remaining);
+    if (activeSlot === id) setActiveSlot(remaining[remaining.length - 1].id);
+  };
+
   const handleClose = () => {
-    setCart([]);
+    setSlots([makeSlot(1)]);
+    setActiveSlot(1);
+    setMultiMode(false);
     setSelectedProduct("");
     setProductSearch("");
     setProductPopoverOpen(false);
     setItemQuantity(1);
     setItemDiscount(0);
-    setPaymentMethod("cash");
     setShowCustomerSection(false);
     setSelectedCustomer(null);
     setCustomerSearch("");
@@ -423,7 +466,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
       // 'C' cycles payment method when not in input
       if (e.key.toLowerCase() === "c" && !inInput && !productPopoverOpen && cart.length > 0) {
         e.preventDefault();
-        setPaymentMethod((p) => (p === "cash" ? "card" : p === "card" ? "upi" : "cash"));
+        setPaymentMethod(paymentMethod === "cash" ? "card" : paymentMethod === "card" ? "upi" : "cash");
         return;
       }
 
@@ -438,11 +481,26 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           }
         }
       }
+
+      // Ctrl+1-9 → switch to customer slot (in multi-mode)
+      if (e.ctrlKey && multiMode && /^[1-9]$/.test(e.key)) {
+        const slotNum = parseInt(e.key, 10);
+        const target = slots.find(s => s.id === slotNum);
+        if (target) { e.preventDefault(); setActiveSlot(slotNum); }
+        return;
+      }
+
+      // N key → new customer slot (in multi-mode, when not in input)
+      if (e.key.toLowerCase() === "n" && !inInput && multiMode) {
+        e.preventDefault();
+        addSlot();
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, cart, createCounterSaleMutation, productPopoverOpen, customerPopoverOpen, showNarcoticForm, isAddingNewCustomer]);
+  }, [open, cart, createCounterSaleMutation, productPopoverOpen, customerPopoverOpen, showNarcoticForm, isAddingNewCustomer, multiMode, slots, paymentMethod]);
 
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
@@ -608,9 +666,114 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
             <span className="hidden sm:inline">Quick Counter Sale</span>
             <span className="sm:hidden">Quick Sale</span>
             <Badge variant="outline" className="ml-2 hidden sm:inline-flex">Alt+A</Badge>
+            <div className="flex-1" />
+            {/* Multi-customer toggle */}
+            <Button
+              variant={multiMode ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => {
+                setMultiMode(!multiMode);
+                if (!multiMode && slots.length === 1) {
+                  // entering multi mode — keep existing cart
+                }
+              }}
+            >
+              <span>Multi</span>
+              <Badge variant="secondary" className="text-[10px] px-1 py-0">{slots.length}</Badge>
+            </Button>
           </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">Fast billing without customer details</DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
+            {multiMode ? "Multi-customer mode — Ctrl+1-9 to switch, N to add new counter" : "Fast billing without customer details"}
+          </DialogDescription>
         </DialogHeader>
+
+        {/* ── Multi-customer slot tabs ── */}
+        {multiMode && (
+          <div className="flex items-center gap-1 flex-wrap border-b pb-2">
+            {slots.map((slot, i) => {
+              const slotTotal = slot.cart.reduce((s, item) => {
+                const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+                return s + base + base * item.gst_percentage / 100;
+              }, 0);
+              return (
+                <button
+                  key={slot.id}
+                  onClick={() => setActiveSlot(slot.id)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                    activeSlot === slot.id
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/50 hover:bg-muted border-border"
+                  }`}
+                >
+                  <span>Cust.{slot.id}</span>
+                  {slot.cart.length > 0 && (
+                    <span className={`text-[10px] ${activeSlot === slot.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                      ₹{slotTotal.toFixed(0)}
+                    </span>
+                  )}
+                  {slots.length > 1 && activeSlot === slot.id && (
+                    <span
+                      className="ml-0.5 hover:text-destructive cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); removeSlot(slot.id); }}
+                    >×</span>
+                  )}
+                </button>
+              );
+            })}
+            {slots.length < MAX_CUSTOMERS && (
+              <button
+                onClick={addSlot}
+                className="px-2 py-1 rounded-md text-xs border border-dashed border-muted-foreground/40 hover:border-primary hover:text-primary transition-colors"
+                title="Add new customer (N)"
+              >
+                + Cust.{Math.max(...slots.map(s => s.id)) + 1}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Multi-customer totals summary bar ── */}
+        {multiMode && slots.some(s => s.cart.length > 0) && (
+          <div className="grid gap-1 text-[11px] bg-muted/40 rounded-lg p-2 border">
+            <div className="font-semibold text-xs text-muted-foreground mb-1">All Customers Summary</div>
+            <div className="flex flex-wrap gap-2">
+              {slots.filter(s => s.cart.length > 0).map(slot => {
+                const total = slot.cart.reduce((s, item) => {
+                  const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+                  return s + base + base * item.gst_percentage / 100;
+                }, 0);
+                const itemCount = slot.cart.reduce((s, item) => s + item.quantity, 0);
+                return (
+                  <div
+                    key={slot.id}
+                    onClick={() => setActiveSlot(slot.id)}
+                    className={`flex items-center gap-2 px-2.5 py-1 rounded border cursor-pointer transition-colors ${
+                      activeSlot === slot.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <span className="font-medium">Cust.{slot.id}</span>
+                    <span className="text-muted-foreground">{itemCount} items</span>
+                    <span className="font-bold text-primary">₹{total.toFixed(2)}</span>
+                    <span className="text-muted-foreground capitalize text-[10px]">{slot.paymentMethod}</span>
+                  </div>
+                );
+              })}
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-primary/20 border border-primary/30 ml-auto">
+                <span className="font-semibold">Grand Total:</span>
+                <span className="font-bold text-primary text-sm">
+                  ₹{slots.reduce((sum, slot) => {
+                    return sum + slot.cart.reduce((s, item) => {
+                      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+                      return s + base + base * item.gst_percentage / 100;
+                    }, 0);
+                  }, 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* Narcotic Form Modal */}
         {showNarcoticForm && (

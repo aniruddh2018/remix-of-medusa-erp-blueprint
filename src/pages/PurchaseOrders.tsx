@@ -783,11 +783,18 @@ export default function PurchaseOrders() {
                     <div>
                       <Label>Unit Price (₹)</Label>
                       <Input
+                        id="po-price-input"
                         type="number"
                         min={0}
                         step={0.01}
                         value={itemPrice || ""}
                         onChange={(e) => setItemPrice(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
                       />
                     </div>
                     <div>
@@ -797,6 +804,12 @@ export default function PurchaseOrders() {
                         min={1}
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
                       />
                     </div>
                     <div>
@@ -807,10 +820,17 @@ export default function PurchaseOrders() {
                         max={100}
                         value={itemDiscount || ""}
                         onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        placeholder="0"
                       />
                     </div>
                     <div className="flex items-end">
-                      <Button onClick={handleAddItem} className="w-full" disabled={!selectedProduct || itemPrice <= 0}>
+                      <Button onClick={handleAddItem} className="w-full" disabled={!selectedProduct || itemPrice <= 0} title="Add item (Enter)">
                         Add
                       </Button>
                     </div>
@@ -953,10 +973,23 @@ export default function PurchaseOrders() {
               </div>
 
               <DialogFooter>
+                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> add item
+                  <span className="mx-1">·</span>
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> create order
+                </div>
                 <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
                 <Button
                   onClick={() => createOrderMutation.mutate()}
                   disabled={orderItems.length === 0 || !selectedSupplier || createOrderMutation.isPending}
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey && e.key === "Enter") {
+                      e.preventDefault();
+                      if (orderItems.length > 0 && selectedSupplier && !createOrderMutation.isPending) {
+                        createOrderMutation.mutate();
+                      }
+                    }
+                  }}
                 >
                   Create Order (₹{grandTotal.toFixed(2)})
                 </Button>
@@ -1006,8 +1039,31 @@ export default function PurchaseOrders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders?.map((order) => (
-                    <TableRow key={order.id}>
+                  {filteredOrders?.map((order, idx) => (
+                    <TableRow
+                      key={order.id}
+                      tabIndex={0}
+                      data-kb-row
+                      onKeyDown={(e) => {
+                        const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                        const pos = rows.indexOf(e.currentTarget);
+                        if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                        else if (e.key === "p" || e.key === "P") { e.preventDefault(); handleBillAction(order, "print"); }
+                        else if (e.key === "r" || e.key === "R") {
+                          if (order.status !== "delivered" && order.status !== "cancelled") {
+                            e.preventDefault();
+                            handleReceiveInventory(order.id, order.supplier_id);
+                          }
+                        }
+                        else if (e.key === "e" || e.key === "E") {
+                          e.preventDefault();
+                          setEditOrderId(order.id);
+                          setEditOrderDialogOpen(true);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
                       <TableCell className="font-medium">{order.order_number}</TableCell>
                       <TableCell>
                         <Badge variant={(order as any).is_challan ? "secondary" : "default"}>

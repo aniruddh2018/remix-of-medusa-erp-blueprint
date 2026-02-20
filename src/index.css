@@ -126,6 +126,35 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  /* ───────────────────────────────────────────────
+     KEYBOARD-FIRST FOCUS RING
+     Visible only on keyboard navigation (not click)
+     Uses the primary brand teal colour consistently
+  ─────────────────────────────────────────────── */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* Suppress focus ring for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Table rows that are keyboard-navigable */
+  [data-kb-row]:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+    background-color: hsl(var(--accent));
+    border-radius: 0;
+  }
+
+  [data-kb-row] {
+    cursor: pointer;
+  }
+
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }

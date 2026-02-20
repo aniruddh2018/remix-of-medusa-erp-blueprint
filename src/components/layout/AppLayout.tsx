@@ -120,17 +120,22 @@ export function AppLayout() {
                 <TooltipContent side="bottom" className="max-w-xs">
                   <div className="text-xs space-y-1.5 py-1">
                     <p className="font-semibold text-foreground mb-2">Keyboard Shortcuts</p>
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-1">Global</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+K</kbd> Command palette</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+A</kbd> Quick Counter Sale</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+1</kbd> Dashboard</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+2</kbd> Sales & Billing</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+3</kbd> Purchase Orders</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+4</kbd> Inventory</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+5</kbd> Products</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+6</kbd> Suppliers</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">/</kbd> Focus search (on any list page)</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+1–6</kbd> Navigate pages</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">/</kbd> Focus search bar</p>
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In any table</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">↑ ↓</kbd> Navigate rows</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">P</kbd> Print bill (on focused row)</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">E</kbd> Edit bill (on focused row)</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">R</kbd> Receive order (purchase)</p>
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In Quick Sale / Counter</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> Add product / Complete sale</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> Force complete sale</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">C</kbd> Cycle payment method</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> Remove focused cart row</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Esc</kbd> Close dialogs</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> Submit / Add item</p>
                   </div>
                 </TooltipContent>
               </Tooltip>

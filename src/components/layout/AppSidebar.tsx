@@ -32,26 +32,10 @@ import {
 import logo from "@/assets/logo.png";
 
 const mainMenuItems = [
-  {
-    title: "Dashboard",
-    icon: LayoutDashboard,
-    path: "/",
-  },
-  {
-    title: "Products",
-    icon: Package,
-    path: "/products",
-  },
-  {
-    title: "Inventory",
-    icon: Boxes,
-    path: "/inventory",
-  },
-  {
-    title: "Expiry Tracking",
-    icon: AlertTriangle,
-    path: "/expiry",
-  },
+  { title: "Dashboard", icon: LayoutDashboard, path: "/", shortcut: "Alt+1" },
+  { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
+  { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+4" },
+  { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
 ];
 
 const orderMenuItems = [
@@ -59,11 +43,13 @@ const orderMenuItems = [
     title: "Purchase Orders",
     icon: ShoppingCart,
     path: "/purchase-orders",
+    shortcut: "Alt+3",
   },
   {
     title: "Sales Orders",
     icon: FileText,
     path: "/sales",
+    shortcut: "Alt+2",
   },
 ];
 
@@ -76,16 +62,8 @@ const complianceMenuItems = [
 ];
 
 const managementMenuItems = [
-  {
-    title: "Suppliers",
-    icon: Users,
-    path: "/suppliers",
-  },
-  {
-    title: "Customers",
-    icon: Users,
-    path: "/customers",
-  },
+  { title: "Suppliers", icon: Users, path: "/suppliers", shortcut: "Alt+6" },
+  { title: "Customers", icon: Users, path: "/customers", shortcut: null },
 ];
 
 const adminMenuItems = [
@@ -142,10 +120,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     isActive={location.pathname === item.path}
                     onClick={() => navigate(item.path)}
-                    tooltip={item.title}
+                    tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                    <span className="flex-1">{item.title}</span>
+                    {item.shortcut && (
+                      <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
+                        {item.shortcut}
+                      </span>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -164,10 +147,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     isActive={location.pathname === item.path}
                     onClick={() => navigate(item.path)}
-                    tooltip={item.title}
+                    tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                    <span className="flex-1">{item.title}</span>
+                    {item.shortcut && (
+                      <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
+                        {item.shortcut}
+                      </span>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -208,10 +196,15 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     isActive={location.pathname === item.path}
                     onClick={() => navigate(item.path)}
-                    tooltip={item.title}
+                    tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                    <span className="flex-1">{item.title}</span>
+                    {item.shortcut && (
+                      <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
+                        {item.shortcut}
+                      </span>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

@@ -7,6 +7,8 @@ interface ShortcutOptions {
   modifiers?: ModifierKey[];
   callback: () => void;
   enabled?: boolean;
+  /** Allow this shortcut to fire even when an input/textarea is focused */
+  allowInInput?: boolean;
 }
 
 export function useKeyboardShortcut({
@@ -14,6 +16,7 @@ export function useKeyboardShortcut({
   modifiers = [],
   callback,
   enabled = true,
+  allowInInput = false,
 }: ShortcutOptions) {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -27,27 +30,22 @@ export function useKeyboardShortcut({
 
       const keyMatches = event.key.toLowerCase() === key.toLowerCase();
 
-      // Check if we're inside an input field
       const isInputActive =
         document.activeElement?.tagName === "INPUT" ||
         document.activeElement?.tagName === "TEXTAREA" ||
         document.activeElement?.getAttribute("contenteditable") === "true";
 
-      // For counter sale (Alt+A), allow even in inputs
-      if (modifiers.includes("alt") && key.toLowerCase() === "a") {
-        if (modifiersMatch && keyMatches) {
-          event.preventDefault();
-          callback();
-        }
-        return;
-      }
+      // Always allow shortcuts with Alt or Ctrl modifiers (navigation shortcuts), 
+      // and explicitly allowed shortcuts
+      const isModifierShortcut = modifiers.includes("alt") || modifiers.includes("ctrl");
+      const shouldFire = allowInInput || isModifierShortcut || !isInputActive;
 
-      if (modifiersMatch && keyMatches && !isInputActive) {
+      if (modifiersMatch && keyMatches && shouldFire) {
         event.preventDefault();
         callback();
       }
     },
-    [key, modifiers, callback, enabled]
+    [key, modifiers, callback, enabled, allowInInput]
   );
 
   useEffect(() => {

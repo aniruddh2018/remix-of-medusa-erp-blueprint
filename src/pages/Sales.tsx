@@ -1,5 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useTableKeyboard } from "@/hooks/useTableKeyboard";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,9 +86,6 @@ export default function Sales() {
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
-
-  // Keyboard nav ref — populated below after filteredOrders is computed
-  const salesFilteredRef = useRef<SalesOrder[] | undefined>(undefined);
 
   const handleBillAction = async (order: SalesOrder, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
@@ -438,20 +434,6 @@ export default function Sales() {
       order.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  // Keep ref in sync so keyboard callback always sees current rows
-  salesFilteredRef.current = filteredOrders;
-
-  const { containerProps: salesContainerProps, getRowProps: getSalesRowProps } = useTableKeyboard({
-    rowCount: filteredOrders?.length ?? 0,
-    onEnter: (i) => {
-      const order = salesFilteredRef.current?.[i];
-      if (order && (isAdmin || isPharmacist)) {
-        setEditSaleId(order.id);
-        setEditDialogOpen(true);
-      }
-    },
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -812,7 +794,7 @@ export default function Sales() {
               <p className="text-muted-foreground">No sales found.</p>
             </div>
           ) : (
-            <div className="rounded-md border" {...salesContainerProps}>
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -826,8 +808,8 @@ export default function Sales() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders?.map((order, i) => (
-                    <TableRow key={order.id} {...getSalesRowProps(i)}>
+                  {filteredOrders?.map((order) => (
+                    <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.invoice_number}</TableCell>
                       <TableCell>
                         <div>

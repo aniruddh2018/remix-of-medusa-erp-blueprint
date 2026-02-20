@@ -1,5 +1,4 @@
-import { useState, useRef, useCallback } from "react";
-import { useTableKeyboard } from "@/hooks/useTableKeyboard";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -551,21 +550,6 @@ export default function PurchaseOrders() {
       (order.suppliers as any)?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Keep ref in sync for keyboard callback
-  const poFilteredRef = useRef<typeof filteredOrders | undefined>(undefined);
-  poFilteredRef.current = filteredOrders;
-
-  const { containerProps: poContainerProps, getRowProps: getPORowProps } = useTableKeyboard({
-    rowCount: filteredOrders?.length ?? 0,
-    onEnter: (i) => {
-      const order = poFilteredRef.current?.[i];
-      if (order) {
-        setEditOrderId(order.id);
-        setEditOrderDialogOpen(true);
-      }
-    },
-  });
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed": return "default";
@@ -1007,7 +991,7 @@ export default function PurchaseOrders() {
               <p className="text-muted-foreground">No purchase orders found.</p>
             </div>
           ) : (
-            <div className="rounded-md border" {...poContainerProps}>
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1022,8 +1006,8 @@ export default function PurchaseOrders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders?.map((order, i) => (
-                    <TableRow key={order.id} {...getPORowProps(i)}>
+                  {filteredOrders?.map((order) => (
+                    <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.order_number}</TableCell>
                       <TableCell>
                         <Badge variant={(order as any).is_challan ? "secondary" : "default"}>

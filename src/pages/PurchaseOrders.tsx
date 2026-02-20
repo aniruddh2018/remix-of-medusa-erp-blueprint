@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw } from "lucide-react";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import {
@@ -28,6 +28,7 @@ import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
+import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -106,6 +107,9 @@ export default function PurchaseOrders() {
   // Edit order dialog state
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
+
+  // Debit note dialog
+  const [debitNoteOpen, setDebitNoteOpen] = useState(false);
 
   const handleBillAction = async (order: any, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
@@ -582,13 +586,18 @@ export default function PurchaseOrders() {
           <h1 className="text-2xl font-bold">Purchase Orders</h1>
           <p className="text-muted-foreground">Manage orders from suppliers</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Order
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setDebitNoteOpen(true)}>
+            <RotateCcw className="h-4 w-4" />
+            Debit Note
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Order
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Purchase Order</DialogTitle>
@@ -997,6 +1006,7 @@ export default function PurchaseOrders() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -1272,6 +1282,12 @@ export default function PurchaseOrders() {
         open={editOrderDialogOpen}
         onOpenChange={setEditOrderDialogOpen}
         orderId={editOrderId}
+      />
+
+      {/* Debit Note Dialog */}
+      <DebitNoteDialog
+        open={debitNoteOpen}
+        onOpenChange={setDebitNoteOpen}
       />
     </div>
   );

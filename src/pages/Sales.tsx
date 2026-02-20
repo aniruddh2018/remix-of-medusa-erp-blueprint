@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw } from "lucide-react";
+import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
@@ -91,6 +92,11 @@ export default function Sales() {
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+  // Payment dialog
+  const [paymentDialog, setPaymentDialog] = useState<null | {
+    referenceId: string; referenceNumber: string; partyName: string;
+    totalAmount: number; paidAmount: number;
+  }>(null);
 
   // ── Draft auto-save ───────────────────────────────────────────────────────
   const saleDraft = useMemo(() => ({
@@ -193,6 +199,24 @@ export default function Sales() {
       return data as SalesOrder[];
     },
   });
+
+  const { data: salesPayments } = useQuery({
+    queryKey: ["payments-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("reference_id, amount")
+        .eq("reference_type", "sales_order");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const paidBySalesId = useMemo(() => {
+    const map: Record<string, number> = {};
+    salesPayments?.forEach(p => { map[p.reference_id] = (map[p.reference_id] || 0) + Number(p.amount); });
+    return map;
+  }, [salesPayments]);
 
   const { data: products, refetch: refetchProducts } = useQuery({
     queryKey: ["products-for-sale"],
@@ -958,6 +982,7 @@ export default function Sales() {
                     <TableHead>Payment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Paid</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -998,6 +1023,32 @@ export default function Sales() {
                         <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const paid = paidBySalesId[order.id] || 0;
+                          const balance = Number(order.total_amount) - paid;
+                          const isPaid = balance <= 0.01;
+                          const isPartial = paid > 0 && !isPaid;
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 text-xs gap-1 px-2 ${isPaid ? "text-green-600" : isPartial ? "text-amber-600" : "text-destructive"}`}
+                              onClick={() => setPaymentDialog({
+                                referenceId: order.id,
+                                referenceNumber: order.invoice_number,
+                                partyName: order.customer_name,
+                                totalAmount: Number(order.total_amount),
+                                paidAmount: paid,
+                              })}
+                              title={isPaid ? "Fully Paid" : `Balance: ₹${balance.toFixed(2)}`}
+                            >
+                              <Banknote className="h-3 w-3" />
+                              {isPaid ? "Paid" : isPartial ? `₹${paid.toFixed(0)} paid` : "Unpaid"}
+                            </Button>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <DropdownMenu>
@@ -1069,6 +1120,22 @@ export default function Sales() {
         open={creditNoteOpen}
         onOpenChange={setCreditNoteOpen}
       />
+
+      {/* Record Payment Dialog */}
+      {paymentDialog && (
+        <RecordPaymentDialog
+          open={!!paymentDialog}
+          onOpenChange={(open) => { if (!open) setPaymentDialog(null); queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); }}
+          referenceType="sales_order"
+          referenceId={paymentDialog.referenceId}
+          referenceNumber={paymentDialog.referenceNumber}
+          partyName={paymentDialog.partyName}
+          partyType="customer"
+          totalAmount={paymentDialog.totalAmount}
+          paidAmount={paymentDialog.paidAmount}
+          paymentType="received"
+        />
+      )}
     </div>
   );
 }

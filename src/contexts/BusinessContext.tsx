@@ -7,7 +7,6 @@ export type BusinessType = "pharmacy" | "b2b_electronics" | "general_trading";
 export interface BusinessConfig {
   type: BusinessType;
   label: string;
-  // Feature flags
   hasBatchTracking: boolean;
   hasDrugSchedule: boolean;
   hasExpiryTracking: boolean;
@@ -18,7 +17,6 @@ export interface BusinessConfig {
   hasPrescription: boolean;
   requiresCustomerGST: boolean;
   hasChallanSystem: boolean;
-  // Terminology
   terms: {
     product: string;
     products: string;
@@ -31,11 +29,8 @@ export interface BusinessConfig {
     appName: string;
     tagline: string;
   };
-  // Categories for this business
   categories: string[];
-  // Units for this business
   units: { value: string; label: string }[];
-  // Visible sidebar sections
   visiblePages: string[];
 }
 
@@ -54,35 +49,17 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
     requiresCustomerGST: false,
     hasChallanSystem: true,
     terms: {
-      product: "Product",
-      products: "Products",
-      manufacturer: "Manufacturer",
-      category: "Category",
-      brandName: "Brand Name",
-      mrp: "MRP",
-      unit: "Unit",
-      counterSale: "Quick Counter Sale",
-      appName: "MedikaRP",
-      tagline: "Pharmacy Management",
+      product: "Product", products: "Products", manufacturer: "Manufacturer",
+      category: "Category", brandName: "Brand Name", mrp: "MRP", unit: "Unit",
+      counterSale: "Quick Counter Sale", appName: "MedikaRP", tagline: "Pharmacy Management",
     },
-    categories: [
-      "Tablets", "Capsules", "Syrups", "Injections", "Ointments",
-      "Drops", "Inhalers", "Powders", "Sachets", "Suppositories", "Patches", "Other",
-    ],
+    categories: ["Tablets", "Capsules", "Syrups", "Injections", "Ointments", "Drops", "Inhalers", "Powders", "Sachets", "Suppositories", "Patches", "Other"],
     units: [
-      { value: "pcs", label: "Pieces" },
-      { value: "strip", label: "Strip" },
-      { value: "bottle", label: "Bottle" },
-      { value: "box", label: "Box" },
-      { value: "tube", label: "Tube" },
-      { value: "vial", label: "Vial" },
-      { value: "amp", label: "Ampoule" },
+      { value: "pcs", label: "Pieces" }, { value: "strip", label: "Strip" },
+      { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
+      { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: [
-      "/", "/products", "/inventory", "/expiry", "/scheduled-drugs",
-      "/purchase-orders", "/sales", "/suppliers", "/customers",
-      "/reports", "/admin", "/notes", "/accounts", "/settings",
-    ],
+    visiblePages: ["/", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
   b2b_electronics: {
     type: "b2b_electronics",
@@ -98,36 +75,17 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
     requiresCustomerGST: true,
     hasChallanSystem: true,
     terms: {
-      product: "Product",
-      products: "Products",
-      manufacturer: "Brand / OEM",
-      category: "Category",
-      brandName: "Product Name",
-      mrp: "List Price",
-      unit: "Unit",
-      counterSale: "Quick Sale",
-      appName: "ElectraERP",
-      tagline: "B2B Electronics Management",
+      product: "Product", products: "Products", manufacturer: "Brand / OEM",
+      category: "Category", brandName: "Product Name", mrp: "List Price", unit: "Unit",
+      counterSale: "Quick Sale", appName: "ElectraERP", tagline: "B2B Electronics Management",
     },
-    categories: [
-      "Smartphones", "Laptops", "Tablets", "Monitors", "Printers",
-      "Networking", "Cables & Connectors", "Power Supply", "Storage Devices",
-      "Audio & Video", "Components", "Accessories", "Other",
-    ],
+    categories: ["Smartphones", "Laptops", "Tablets", "Monitors", "Printers", "Networking", "Cables & Connectors", "Power Supply", "Storage Devices", "Audio & Video", "Components", "Accessories", "Other"],
     units: [
-      { value: "pcs", label: "Pieces" },
-      { value: "box", label: "Box" },
-      { value: "carton", label: "Carton" },
-      { value: "set", label: "Set" },
-      { value: "pair", label: "Pair" },
-      { value: "meter", label: "Meter" },
-      { value: "kg", label: "Kilogram" },
+      { value: "pcs", label: "Pieces" }, { value: "box", label: "Box" },
+      { value: "carton", label: "Carton" }, { value: "set", label: "Set" },
+      { value: "pair", label: "Pair" }, { value: "meter", label: "Meter" }, { value: "kg", label: "Kilogram" },
     ],
-    visiblePages: [
-      "/", "/products", "/inventory",
-      "/purchase-orders", "/sales", "/suppliers", "/customers",
-      "/reports", "/admin", "/notes", "/accounts", "/settings",
-    ],
+    visiblePages: ["/", "/products", "/inventory", "/purchase-orders", "/sales", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
   general_trading: {
     type: "general_trading",
@@ -143,41 +101,24 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
     requiresCustomerGST: false,
     hasChallanSystem: true,
     terms: {
-      product: "Product",
-      products: "Products",
-      manufacturer: "Manufacturer / Brand",
-      category: "Category",
-      brandName: "Product Name",
-      mrp: "MRP",
-      unit: "Unit",
-      counterSale: "Quick Sale",
-      appName: "TradeERP",
-      tagline: "Trading & Distribution",
+      product: "Product", products: "Products", manufacturer: "Manufacturer / Brand",
+      category: "Category", brandName: "Product Name", mrp: "MRP", unit: "Unit",
+      counterSale: "Quick Sale", appName: "TradeERP", tagline: "Trading & Distribution",
     },
-    categories: [
-      "FMCG", "Grocery", "Hardware", "Textiles", "Stationery",
-      "Home & Kitchen", "Industrial", "Electrical", "Other",
-    ],
+    categories: ["FMCG", "Grocery", "Hardware", "Textiles", "Stationery", "Home & Kitchen", "Industrial", "Electrical", "Other"],
     units: [
-      { value: "pcs", label: "Pieces" },
-      { value: "box", label: "Box" },
-      { value: "carton", label: "Carton" },
-      { value: "kg", label: "Kilogram" },
-      { value: "liter", label: "Liter" },
-      { value: "meter", label: "Meter" },
-      { value: "dozen", label: "Dozen" },
+      { value: "pcs", label: "Pieces" }, { value: "box", label: "Box" },
+      { value: "carton", label: "Carton" }, { value: "kg", label: "Kilogram" },
+      { value: "liter", label: "Liter" }, { value: "meter", label: "Meter" }, { value: "dozen", label: "Dozen" },
     ],
-    visiblePages: [
-      "/", "/products", "/inventory", "/expiry",
-      "/purchase-orders", "/sales", "/suppliers", "/customers",
-      "/reports", "/admin", "/notes", "/accounts", "/settings",
-    ],
+    visiblePages: ["/", "/products", "/inventory", "/expiry", "/purchase-orders", "/sales", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
 };
 
 interface BusinessContextType {
   config: BusinessConfig;
   businessType: BusinessType;
+  companyId: string | null;
   setBusinessType: (type: BusinessType) => Promise<void>;
   isLoading: boolean;
   needsOnboarding: boolean;
@@ -188,8 +129,9 @@ interface BusinessContextType {
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [businessType, setBusinessTypeState] = useState<BusinessType>("pharmacy");
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [companyName, setCompanyNameState] = useState("");
@@ -203,7 +145,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const fetchProfile = async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("business_module, full_name")
+        .select("business_module, full_name, company_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -217,20 +159,29 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         const module = data.business_module as BusinessType;
         if (module && BUSINESS_CONFIGS[module]) {
           setBusinessTypeState(module);
-          setNeedsOnboarding(false);
+        }
+        setCompanyId(data.company_id || null);
+        setCompanyNameState(data.full_name || "");
+
+        // Only need onboarding if no company_id assigned AND not super admin
+        // Super admins don't need onboarding - they manage companies
+        if (!data.company_id && !isSuperAdmin) {
+          setNeedsOnboarding(true);
         } else {
+          setNeedsOnboarding(false);
+        }
+      } else {
+        // No profile at all — super admins still don't need onboarding
+        if (!isSuperAdmin) {
           setNeedsOnboarding(true);
         }
-        setCompanyNameState(data.full_name || "");
-      } else {
-        setNeedsOnboarding(true);
       }
 
       setIsLoading(false);
     };
 
     fetchProfile();
-  }, [user]);
+  }, [user, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {
     if (!user) return;
@@ -264,6 +215,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       value={{
         config,
         businessType,
+        companyId,
         setBusinessType,
         isLoading,
         needsOnboarding,

@@ -474,6 +474,11 @@ export type Database = {
       }
       invoice_settings: {
         Row: {
+          bank_account_holder: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
           company_address: string | null
           company_email: string | null
           company_gstin: string | null
@@ -495,6 +500,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null
@@ -516,6 +526,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null

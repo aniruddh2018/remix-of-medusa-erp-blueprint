@@ -25,6 +25,11 @@ interface InvoiceSettings {
   show_previous_balance: boolean;
   show_tax_summary: boolean;
   show_amount_in_words: boolean;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_branch?: string;
+  bank_account_holder?: string;
 }
 
 interface ElectronicsInvoiceData {
@@ -314,6 +319,18 @@ function generateElectronicsInvoiceHTML(data: ElectronicsInvoiceData): string {
         <p class="total-line">Current Balance: ₹ ${currentBalance.toFixed(2)}</p>` : `<p class="total-line">Total: ₹ ${grandTotal.toFixed(2)}</p>`}
       </div>
     </div>
+
+    <!-- Bank Details -->
+    ${s.bank_name || s.bank_account_number ? `<div class="footer" style="margin-bottom:8px;">
+      <h4>Bank Details:</h4>
+      <table style="font-size:11px; border:none;">
+        ${s.bank_account_holder ? `<tr><td style="padding:1px 8px 1px 0; border:none;"><strong>A/C Holder:</strong></td><td style="border:none;">${s.bank_account_holder}</td></tr>` : ""}
+        ${s.bank_name ? `<tr><td style="padding:1px 8px 1px 0; border:none;"><strong>Bank:</strong></td><td style="border:none;">${s.bank_name}</td></tr>` : ""}
+        ${s.bank_account_number ? `<tr><td style="padding:1px 8px 1px 0; border:none;"><strong>A/C No:</strong></td><td style="border:none;">${s.bank_account_number}</td></tr>` : ""}
+        ${s.bank_ifsc ? `<tr><td style="padding:1px 8px 1px 0; border:none;"><strong>IFSC:</strong></td><td style="border:none;">${s.bank_ifsc}</td></tr>` : ""}
+        ${s.bank_branch ? `<tr><td style="padding:1px 8px 1px 0; border:none;"><strong>Branch:</strong></td><td style="border:none;">${s.bank_branch}</td></tr>` : ""}
+      </table>
+    </div>` : ""}
 
     <!-- Terms & Footer -->
     ${s.terms_and_conditions ? `<div class="footer">

@@ -19,6 +19,7 @@ import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import SuperAdmin from "./pages/SuperAdmin";
 import Notes from "./pages/Notes";
 import Accounts from "./pages/Accounts";
 import Install from "./pages/Install";
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/super-admin" element={<SuperAdmin />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/settings" element={<Settings />} />

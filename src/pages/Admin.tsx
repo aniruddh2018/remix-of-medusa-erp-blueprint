@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,6 +33,7 @@ const nameSchema = z.string().min(2, "Name must be at least 2 characters");
 
 export default function Admin() {
   const { isAdmin } = useAuth();
+  const { companyId } = useBusiness();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -136,6 +138,7 @@ export default function Admin() {
           password: newUserPassword,
           fullName: newUserName,
           role: newUserRole,
+          companyId: companyId,
         },
       });
 

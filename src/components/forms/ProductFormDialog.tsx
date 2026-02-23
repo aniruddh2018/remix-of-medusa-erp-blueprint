@@ -88,7 +88,7 @@ interface ProductFormDialogProps {
 export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { config } = useBusiness();
+  const { config, companyId } = useBusiness();
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     mutationFn: async (data: ProductFormData) => {
       const { data: product, error } = await supabase
         .from("products")
-        .insert(data)
+        .insert({ ...data, company_id: companyId })
         .select()
         .single();
       if (error) throw error;

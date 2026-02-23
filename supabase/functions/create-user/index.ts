@@ -7,68 +7,56 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the authorization header to verify the caller is authenticated
     const authHeader = req.headers.get("Authorization");
-    console.log("Auth header present:", !!authHeader);
-    
     if (!authHeader) {
-      console.log("Missing authorization header");
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create Supabase client with the user's token to verify they're an admin
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    console.log("Creating user client...");
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get the calling user
     const { data: { user: callingUser }, error: userError } = await userClient.auth.getUser();
-    console.log("Calling user result:", callingUser?.id, "Error:", userError?.message);
-    
     if (userError || !callingUser) {
-      console.log("Unauthorized - no valid user");
       return new Response(
         JSON.stringify({ error: "Unauthorized - please sign in again" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if calling user is an admin using service role client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    
-    const { data: roleData, error: roleError } = await adminClient
+
+    // Check caller role
+    const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", callingUser.id)
       .maybeSingle();
 
-    console.log("Role check:", roleData?.role, "Error:", roleError?.message);
+    const callerRole = roleData?.role;
+    const isSuperAdmin = callerRole === "super_admin";
+    const isAdmin = callerRole === "admin" || isSuperAdmin;
 
-    if (roleError || roleData?.role !== "admin") {
-      console.log("Not an admin:", roleData?.role);
+    if (!isAdmin) {
       return new Response(
         JSON.stringify({ error: "Only admins can create users" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Parse request body
-    const { email, password, fullName, role } = await req.json();
-    console.log("Creating user:", email, "with role:", role);
+    const { email, password, fullName, role, companyId } = await req.json();
 
     if (!email || !password || !fullName) {
       return new Response(
@@ -77,7 +65,28 @@ serve(async (req) => {
       );
     }
 
-    // Create the new user using admin client
+    // Determine target company_id
+    let targetCompanyId = companyId;
+    if (!isSuperAdmin) {
+      // Regular admin can only create users in their own company
+      const { data: callerProfile } = await adminClient
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", callingUser.id)
+        .maybeSingle();
+      targetCompanyId = callerProfile?.company_id;
+    }
+
+    // Super admins can assign any company_id, and can set role to "admin"
+    // Regular admins cannot create admins or super_admins
+    if (!isSuperAdmin && (role === "admin" || role === "super_admin")) {
+      return new Response(
+        JSON.stringify({ error: "Only super admins can assign admin or super_admin roles" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create the new user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -86,29 +95,27 @@ serve(async (req) => {
     });
 
     if (createError) {
-      console.log("Create user error:", createError.message);
       return new Response(
         JSON.stringify({ error: createError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("User created:", newUser.user?.id);
-
-    // Create profile for the new user
     if (newUser.user) {
+      // Create profile with company_id
       const { error: profileError } = await adminClient
         .from("profiles")
-        .insert({ 
-          user_id: newUser.user.id, 
-          full_name: fullName 
+        .insert({
+          user_id: newUser.user.id,
+          full_name: fullName,
+          company_id: targetCompanyId || null,
         });
-      
+
       if (profileError) {
         console.log("Profile creation error:", profileError.message);
       }
 
-      // If a specific role is provided (other than default 'staff'), update it
+      // Update role if not default staff
       if (role && role !== "staff") {
         const { error: updateRoleError } = await adminClient
           .from("user_roles")

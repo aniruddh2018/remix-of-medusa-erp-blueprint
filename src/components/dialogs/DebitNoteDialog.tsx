@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -56,6 +57,7 @@ const RETURN_REASONS = [
 export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
 
   const [orderSearch, setOrderSearch] = useState("");
@@ -251,6 +253,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           gst_amount: totalGst,
           status: "issued",
           created_by: user?.id || null,
+          company_id: companyId,
         })
         .select().single();
       if (dnError) throw dnError;
@@ -266,6 +269,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
         gst_percentage: item.gst_percentage,
         discount_percentage: item.discount_percentage,
         total_price: item.total_price,
+        company_id: companyId,
       }));
       const { error: itemsError } = await supabase.from("debit_note_items").insert(items);
       if (itemsError) throw itemsError;

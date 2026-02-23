@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ export function RecordPaymentDialog({
 }: RecordPaymentDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
 
   const balance = totalAmount - paidAmount;
@@ -66,6 +68,7 @@ export function RecordPaymentDialog({
         bank_name: bankName || null,
         notes: notes || null,
         created_by: user?.id,
+        company_id: companyId,
       });
       if (error) throw error;
     },

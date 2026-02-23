@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import {
   Sidebar,
   SidebarContent,
@@ -33,101 +34,123 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
-const mainMenuItems = [
+interface MenuItem {
+  title: string;
+  icon: React.ElementType;
+  path: string;
+  shortcut?: string | null;
+}
+
+const allMainMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/", shortcut: "Alt+1" },
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+4" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
 ];
 
-const orderMenuItems = [
-  {
-    title: "Purchase Orders",
-    icon: ShoppingCart,
-    path: "/purchase-orders",
-    shortcut: "Alt+3",
-  },
-  {
-    title: "Sales Orders",
-    icon: FileText,
-    path: "/sales",
-    shortcut: "Alt+2",
-  },
+const allOrderMenuItems: MenuItem[] = [
+  { title: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", shortcut: "Alt+3" },
+  { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
 ];
 
-const complianceMenuItems = [
-  {
-    title: "Scheduled Drugs",
-    icon: Pill,
-    path: "/scheduled-drugs",
-  },
-  {
-    title: "Credit & Debit Notes",
-    icon: RotateCcw,
-    path: "/notes",
-  },
-  {
-    title: "Accounts",
-    icon: Wallet,
-    path: "/accounts",
-  },
+const allComplianceMenuItems: MenuItem[] = [
+  { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs" },
+  { title: "Credit & Debit Notes", icon: RotateCcw, path: "/notes" },
+  { title: "Accounts", icon: Wallet, path: "/accounts" },
 ];
 
-const managementMenuItems = [
+const allManagementMenuItems: MenuItem[] = [
   { title: "Suppliers", icon: Users, path: "/suppliers", shortcut: "Alt+6" },
   { title: "Customers", icon: Users, path: "/customers", shortcut: null },
 ];
 
-const adminMenuItems = [
-  {
-    title: "Reports",
-    icon: BarChart3,
-    path: "/reports",
-  },
-  {
-    title: "User Management",
-    icon: Shield,
-    path: "/admin",
-  },
-  {
-    title: "Settings",
-    icon: Settings,
-    path: "/settings",
-  },
+const allAdminMenuItems: MenuItem[] = [
+  { title: "Reports", icon: BarChart3, path: "/reports" },
+  { title: "User Management", icon: Shield, path: "/admin" },
+  { title: "Settings", icon: Settings, path: "/settings" },
 ];
+
+function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {
+  return items.filter((item) => visiblePages.includes(item.path));
+}
+
+function MenuSection({ items, label }: { items: MenuItem[]; label: string }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      <SidebarSeparator />
+      <SidebarGroup>
+        <SidebarGroupLabel>{label}</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {items.map((item) => (
+              <SidebarMenuItem key={item.path}>
+                <SidebarMenuButton
+                  isActive={location.pathname === item.path}
+                  onClick={() => navigate(item.path)}
+                  tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1">{item.title}</span>
+                  {item.shortcut && (
+                    <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
+                      {item.shortcut}
+                    </span>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
+  );
+}
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isAdmin } = useAuth();
+  const { config } = useBusiness();
+
+  const visiblePages = config.visiblePages;
+
+  const mainItems = filterItems(allMainMenuItems, visiblePages);
+  const orderItems = filterItems(allOrderMenuItems, visiblePages);
+  const complianceItems = filterItems(allComplianceMenuItems, visiblePages);
+  const managementItems = filterItems(allManagementMenuItems, visiblePages);
+  const adminItems = filterItems(allAdminMenuItems, visiblePages);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
 
-  const getInitials = (email: string) => {
-    return email.slice(0, 2).toUpperCase();
-  };
+  const getInitials = (email: string) => email.slice(0, 2).toUpperCase();
 
   return (
     <Sidebar className="border-r-0 gradient-sidebar">
       <SidebarHeader className="p-4 border-b border-sidebar-border/50">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="MedikaRP" className="w-10 h-10 rounded-lg object-contain bg-white" />
+          <img src={logo} alt={config.terms.appName} className="w-10 h-10 rounded-lg object-contain bg-white" />
           <div>
-            <h1 className="font-bold text-sidebar-foreground text-base">MedikaRP</h1>
-            <p className="text-xs text-sidebar-foreground/50">Pharmacy Management</p>
+            <h1 className="font-bold text-sidebar-foreground text-base">{config.terms.appName}</h1>
+            <p className="text-xs text-sidebar-foreground/50">{config.terms.tagline}</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
+        {/* Main — no separator before first group */}
         <SidebarGroup>
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item) => (
+              {mainItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
                     isActive={location.pathname === item.path}
@@ -148,105 +171,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
+        <MenuSection items={orderItems} label="Orders" />
+        <MenuSection items={complianceItems} label="Compliance" />
+        <MenuSection items={managementItems} label="Management" />
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Orders</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {orderMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={location.pathname === item.path}
-                    onClick={() => navigate(item.path)}
-                    tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.title}</span>
-                    {item.shortcut && (
-                      <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
-                        {item.shortcut}
-                      </span>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator />
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Compliance</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {complianceMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={location.pathname === item.path}
-                    onClick={() => navigate(item.path)}
-                    tooltip={item.title}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator />
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Management</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {managementMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={location.pathname === item.path}
-                    onClick={() => navigate(item.path)}
-                    tooltip={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.title}</span>
-                    {item.shortcut && (
-                      <span className="text-[10px] text-sidebar-foreground/40 hidden group-data-[collapsible=icon]:hidden">
-                        {item.shortcut}
-                      </span>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin && (
-          <>
-            <SidebarSeparator />
-            <SidebarGroup>
-              <SidebarGroupLabel>Admin</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminMenuItems.map((item) => (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        isActive={location.pathname === item.path}
-                        onClick={() => navigate(item.path)}
-                        tooltip={item.title}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
+        {isAdmin && adminItems.length > 0 && (
+          <MenuSection items={adminItems} label="Admin" />
         )}
       </SidebarContent>
 
@@ -258,9 +188,7 @@ export function AppSidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user?.email}
-            </p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.email}</p>
             <p className="text-xs text-sidebar-foreground/50">Logged in</p>
           </div>
           <Button

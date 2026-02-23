@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,29 +33,12 @@ const drugScheduleLabels: Record<DrugSchedule, string> = {
   narcotic: "Narcotic",
 };
 
-// Common GST rates for pharmaceuticals in India
 const GST_RATES = [
   { value: 0, label: "0% (Exempt)" },
   { value: 5, label: "5% GST" },
   { value: 12, label: "12% GST" },
   { value: 18, label: "18% GST" },
   { value: 28, label: "28% GST" },
-];
-
-// Common drug categories
-const DRUG_CATEGORIES = [
-  "Tablets",
-  "Capsules",
-  "Syrups",
-  "Injections",
-  "Ointments",
-  "Drops",
-  "Inhalers",
-  "Powders",
-  "Sachets",
-  "Suppositories",
-  "Patches",
-  "Other",
 ];
 
 interface ProductFormData {
@@ -92,7 +76,7 @@ const initialFormData: ProductFormData = {
   mrp: 0,
   purchase_price: 0,
   sale_price: 0,
-  gst_percentage: 12,
+  gst_percentage: 18,
 };
 
 interface ProductFormDialogProps {
@@ -104,6 +88,7 @@ interface ProductFormDialogProps {
 export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { config } = useBusiness();
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
 
   useEffect(() => {
@@ -148,61 +133,67 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>Add New {config.terms.product}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-4">
-            {/* Brand/Product Name */}
+            {/* Product / Brand Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Brand Name *</Label>
+              <Label htmlFor="name">{config.terms.brandName} *</Label>
               <Input
                 id="name"
-                placeholder="e.g., Lipitor, Atorva"
+                placeholder={config.type === "pharmacy" ? "e.g., Lipitor, Atorva" : "e.g., Samsung Galaxy S24"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </div>
 
-            {/* Generic/Drug Name */}
-            <div className="space-y-2">
-              <Label htmlFor="generic_name">Drug Name (Generic)</Label>
-              <Input
-                id="generic_name"
-                placeholder="e.g., Atorvastatin"
-                value={formData.generic_name}
-                onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
-              />
-            </div>
+            {/* Generic Name — pharmacy only */}
+            {config.hasGenericName && (
+              <div className="space-y-2">
+                <Label htmlFor="generic_name">Drug Name (Generic)</Label>
+                <Input
+                  id="generic_name"
+                  placeholder="e.g., Atorvastatin"
+                  value={formData.generic_name}
+                  onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
+                />
+              </div>
+            )}
 
-            {/* Strength */}
-            <div className="space-y-2">
-              <Label htmlFor="strength">Strength</Label>
-              <Input
-                id="strength"
-                placeholder="e.g., 40mg, 500mg"
-                value={formData.strength}
-                onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
-              />
-            </div>
+            {/* Strength — pharmacy only */}
+            {config.hasStrength && (
+              <div className="space-y-2">
+                <Label htmlFor="strength">Strength</Label>
+                <Input
+                  id="strength"
+                  placeholder="e.g., 40mg, 500mg"
+                  value={formData.strength}
+                  onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                />
+              </div>
+            )}
 
-            {/* Composition/Combination */}
-            <div className="space-y-2">
-              <Label htmlFor="composition">Composition / Combination</Label>
-              <Input
-                id="composition"
-                placeholder="e.g., Atorvastatin 40mg + Aspirin 75mg"
-                value={formData.composition}
-                onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
-              />
-            </div>
+            {/* Composition — pharmacy only */}
+            {config.hasComposition && (
+              <div className="space-y-2">
+                <Label htmlFor="composition">Composition / Combination</Label>
+                <Input
+                  id="composition"
+                  placeholder="e.g., Atorvastatin 40mg + Aspirin 75mg"
+                  value={formData.composition}
+                  onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
+                />
+              </div>
+            )}
 
-            {/* Manufacturer */}
+            {/* Manufacturer / Brand */}
             <div className="space-y-2">
-              <Label htmlFor="manufacturer">Manufacturer *</Label>
+              <Label htmlFor="manufacturer">{config.terms.manufacturer} *</Label>
               <Input
                 id="manufacturer"
-                placeholder="e.g., Pfizer, Sun Pharma"
+                placeholder={config.type === "pharmacy" ? "e.g., Pfizer, Sun Pharma" : "e.g., Samsung, Dell, HP"}
                 value={formData.manufacturer}
                 onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
                 required
@@ -211,7 +202,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
 
             {/* Category */}
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{config.terms.category}</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -220,43 +211,41 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DRUG_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
+                  {config.categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Drug Schedule */}
-            <div className="space-y-2">
-              <Label htmlFor="drug_schedule">Drug Schedule *</Label>
-              <Select
-                value={formData.drug_schedule}
-                onValueChange={(value: DrugSchedule) =>
-                  setFormData({ ...formData, drug_schedule: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(drugScheduleLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Drug Schedule — pharmacy only */}
+            {config.hasDrugSchedule && (
+              <div className="space-y-2">
+                <Label htmlFor="drug_schedule">Drug Schedule *</Label>
+                <Select
+                  value={formData.drug_schedule}
+                  onValueChange={(value: DrugSchedule) =>
+                    setFormData({ ...formData, drug_schedule: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(drugScheduleLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* HSN Code */}
             <div className="space-y-2">
               <Label htmlFor="hsn_code">HSN Code</Label>
               <Input
                 id="hsn_code"
-                placeholder="e.g., 3004"
+                placeholder={config.type === "pharmacy" ? "e.g., 3004" : "e.g., 8517"}
                 value={formData.hsn_code}
                 onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
               />
@@ -276,9 +265,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                 </SelectTrigger>
                 <SelectContent>
                   {GST_RATES.map((rate) => (
-                    <SelectItem key={rate.value} value={rate.value.toString()}>
-                      {rate.label}
-                    </SelectItem>
+                    <SelectItem key={rate.value} value={rate.value.toString()}>{rate.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -286,7 +273,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
 
             {/* Unit */}
             <div className="space-y-2">
-              <Label htmlFor="unit">Unit</Label>
+              <Label htmlFor="unit">{config.terms.unit}</Label>
               <Select
                 value={formData.unit}
                 onValueChange={(value) => setFormData({ ...formData, unit: value })}
@@ -295,20 +282,16 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pcs">Pieces</SelectItem>
-                  <SelectItem value="strip">Strip</SelectItem>
-                  <SelectItem value="bottle">Bottle</SelectItem>
-                  <SelectItem value="box">Box</SelectItem>
-                  <SelectItem value="tube">Tube</SelectItem>
-                  <SelectItem value="vial">Vial</SelectItem>
-                  <SelectItem value="amp">Ampoule</SelectItem>
+                  {config.units.map((u) => (
+                    <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* MRP */}
+            {/* MRP / List Price */}
             <div className="space-y-2">
-              <Label htmlFor="mrp">MRP (₹) *</Label>
+              <Label htmlFor="mrp">{config.terms.mrp} (₹) *</Label>
               <Input
                 id="mrp"
                 type="number"
@@ -348,7 +331,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                 onChange={(e) =>
                   setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })
                 }
-                placeholder="Optional - defaults to MRP"
+                placeholder={`Optional - defaults to ${config.terms.mrp}`}
               />
             </div>
 
@@ -387,7 +370,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
             </Button>
             <Button type="submit" disabled={createMutation.isPending}>
               {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Add Product
+              Add {config.terms.product}
             </Button>
           </DialogFooter>
         </form>

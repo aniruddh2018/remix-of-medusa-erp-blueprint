@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +20,7 @@ import {
 
 export function AppLayout() {
   const { user, loading } = useAuth();
+  const { config, needsOnboarding, isLoading: bizLoading } = useBusiness();
   const navigate = useNavigate();
   const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -43,7 +45,13 @@ export function AppLayout() {
     }
   }, [user, loading, navigate]);
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !bizLoading && user && needsOnboarding) {
+      navigate("/onboarding", { replace: true });
+    }
+  }, [loading, bizLoading, user, needsOnboarding, navigate]);
+
+  if (loading || bizLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -75,7 +83,7 @@ export function AppLayout() {
                     size="sm"
                   >
                     <Zap className="h-4 w-4" />
-                    <span className="hidden xs:inline sm:inline">Quick Sale</span>
+                    <span className="hidden xs:inline sm:inline">{config.terms.counterSale}</span>
                     <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0 hidden lg:inline-flex">
                       Alt+A
                     </Badge>

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { BusinessProvider } from "@/contexts/BusinessContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -21,6 +22,7 @@ import Admin from "./pages/Admin";
 import Notes from "./pages/Notes";
 import Accounts from "./pages/Accounts";
 import Install from "./pages/Install";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,27 +34,30 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/install" element={<Install />} />
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/expiry" element={<Expiry />} />
-              <Route path="/scheduled-drugs" element={<ScheduledDrugs />} />
-              <Route path="/purchase-orders" element={<PurchaseOrders />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/notes" element={<Notes />} />
-              <Route path="/accounts" element={<Accounts />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <BusinessProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/install" element={<Install />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/expiry" element={<Expiry />} />
+                <Route path="/scheduled-drugs" element={<ScheduledDrugs />} />
+                <Route path="/purchase-orders" element={<PurchaseOrders />} />
+                <Route path="/sales" element={<Sales />} />
+                <Route path="/suppliers" element={<Suppliers />} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="/accounts" element={<Accounts />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BusinessProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

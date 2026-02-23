@@ -133,3 +133,107 @@ When migrating a new client to the system:
 ### Backup Strategy
 - Lovable Cloud / Supabase performs daily backups.
 - For critical milestones, perform a manual database dump (`pg_dump`) if you have direct access, or use the "Backup" feature in the dashboard.
+
+---
+
+## 7. AI Agent Architecture (Planned)
+
+### Overview
+An AI-powered conversational agent embedded within the ERP to help users query data, generate insights, and automate routine lookups using natural language.
+
+### Architecture
+
+```
+┌─────────────────┐     SSE Stream      ┌──────────────────────┐
+│   Chat Panel    │ ◄──────────────────► │  Edge Function       │
+│   (React UI)    │     POST /ai-agent   │  supabase/functions/ │
+│                 │                      │  ai-erp-agent/       │
+└─────────────────┘                      └──────┬───────────────┘
+                                                │
+                                    ┌───────────┴───────────┐
+                                    │                       │
+                              ┌─────▼─────┐          ┌─────▼─────┐
+                              │  Lovable  │          │  Database  │
+                              │  AI GW    │          │  (via RLS) │
+                              │  Gemini   │          │            │
+                              └───────────┘          └────────────┘
+```
+
+### Technology Stack
+- **Model**: `google/gemini-3-flash-preview` via Lovable AI Gateway
+- **API Key**: `LOVABLE_API_KEY` (pre-provisioned, no user config needed)
+- **Gateway URL**: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- **Transport**: Server-Sent Events (SSE) for streaming responses
+- **Frontend**: Chat panel component with `react-markdown` rendering
+
+### Tool-Calling Design (Phase 1 — Read-Only)
+The AI agent uses **function/tool calling** to interact with the database. Tools are defined as JSON schemas passed to the model. The edge function executes tool calls server-side, scoped to the user's `company_id` via RLS.
+
+| Tool Name              | Description                                      | Tables Queried                     |
+|------------------------|--------------------------------------------------|------------------------------------|
+| `search_products`      | Find products by name, category, or HSN code     | `products`                         |
+| `check_inventory`      | Check stock levels, batches, expiry dates         | `inventory_batches`, `products`    |
+| `get_sales_summary`    | Aggregate sales by date range, customer, product  | `sales_orders`, `sales_order_items`|
+| `get_purchase_summary` | Aggregate purchases by supplier, date range       | `purchase_orders`, `purchase_order_items` |
+| `customer_lookup`      | Search customers by name, phone, or GST           | `customers`                        |
+| `supplier_lookup`      | Search suppliers by name or contact               | `suppliers`                        |
+| `low_stock_alerts`     | Products below `reorder_level`                    | `products`, `inventory_batches`    |
+| `expiry_alerts`        | Batches expiring within N days                    | `inventory_batches`, `products`    |
+| `payment_status`       | Outstanding payments by party                     | `payments`, `sales_orders`         |
+
+### Security Model
+- **Authentication**: JWT validated in the edge function via `getClaims()`
+- **Authorization**: All DB queries use `supabase.createClient()` with the user's auth header, inheriting RLS policies
+- **Data Isolation**: Tools automatically scope to the user's `company_id` — no cross-tenant data leakage
+- **No Raw SQL**: Tools use typed Supabase client queries, never raw SQL strings
+
+### Edge Function Structure
+```
+supabase/functions/ai-erp-agent/index.ts
+├── CORS handling
+├── JWT auth validation
+├── System prompt (injected server-side, includes business_type context)
+├── Tool definitions (JSON schemas)
+├── Tool execution handler (switch on tool name → Supabase queries)
+├── AI Gateway call (streaming, with tool_choice: "auto")
+└── SSE response stream to client
+```
+
+### System Prompt Strategy
+The system prompt is constructed dynamically based on:
+- `business_type` (pharmacy / b2b_electronics / general_trading) — adjusts terminology and available tools
+- `user role` (admin / pharmacist / staff) — restricts sensitive data access
+- Current date — for relative date queries ("this month's sales")
+
+### Frontend Integration
+- **Component**: `<AIChatPanel />` — floating or sidebar chat interface
+- **State**: Local `useState` for messages; no DB persistence initially
+- **Streaming**: Token-by-token rendering via SSE parsing
+- **Markdown**: All AI responses rendered with `react-markdown`
+- **Context-Aware**: Passes current page route to the agent for contextual answers
+
+### Example Interactions
+- "What are my top 5 selling products this month?"
+- "Which items are expiring in the next 30 days?"
+- "Show me all pending payments from customers"
+- "How much stock do I have of [product name]?"
+- "What was my total GST liability last month?"
+- "List suppliers I haven't ordered from in 60 days"
+
+### Phase 2 Roadmap (Write Actions)
+| Tool Name              | Description                                      | Risk Level |
+|------------------------|--------------------------------------------------|------------|
+| `create_sales_order`   | Draft a new sale from natural language            | Medium     |
+| `add_customer`         | Create customer record                            | Low        |
+| `generate_po_suggestion` | Auto-generate PO based on low stock + supplier history | Medium |
+| `record_payment`       | Log a payment against an order                    | High       |
+
+Write actions will require:
+- Explicit user confirmation before execution
+- Admin-only access for financial operations
+- Audit logging of AI-initiated mutations
+
+### Cost & Rate Limits
+- **Model**: Gemini Flash (cost-effective, fast)
+- **Rate Limits**: Per-workspace limits via Lovable AI; 429/402 errors surfaced to user
+- **Optimization**: Conversation history trimmed to last 20 messages to control token usage

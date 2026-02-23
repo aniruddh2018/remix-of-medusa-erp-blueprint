@@ -472,6 +472,80 @@ export type Database = {
           },
         ]
       }
+      invoice_settings: {
+        Row: {
+          company_address: string | null
+          company_email: string | null
+          company_gstin: string | null
+          company_id: string
+          company_name: string
+          company_phone: string | null
+          company_state: string | null
+          created_at: string
+          id: string
+          invoice_format: string | null
+          invoice_prefix: string | null
+          logo_url: string | null
+          show_amount_in_words: boolean | null
+          show_due_date: boolean | null
+          show_previous_balance: boolean | null
+          show_ship_to: boolean | null
+          show_tax_summary: boolean | null
+          terms_and_conditions: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_address?: string | null
+          company_email?: string | null
+          company_gstin?: string | null
+          company_id: string
+          company_name?: string
+          company_phone?: string | null
+          company_state?: string | null
+          created_at?: string
+          id?: string
+          invoice_format?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
+          show_amount_in_words?: boolean | null
+          show_due_date?: boolean | null
+          show_previous_balance?: boolean | null
+          show_ship_to?: boolean | null
+          show_tax_summary?: boolean | null
+          terms_and_conditions?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_address?: string | null
+          company_email?: string | null
+          company_gstin?: string | null
+          company_id?: string
+          company_name?: string
+          company_phone?: string | null
+          company_state?: string | null
+          created_at?: string
+          id?: string
+          invoice_format?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
+          show_amount_in_words?: boolean | null
+          show_due_date?: boolean | null
+          show_previous_balance?: boolean | null
+          show_ship_to?: boolean | null
+          show_tax_summary?: boolean | null
+          terms_and_conditions?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number

@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { Search, Shield, ShieldCheck, User, UserPlus, Loader2 } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
+import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { Navigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
@@ -447,6 +448,8 @@ export default function Admin() {
           )}
         </CardContent>
       </Card>
+      {/* Invoice Format */}
+      <InvoiceSettingsSection />
       {/* Data Backup */}
       <BackupSection />
     </div>

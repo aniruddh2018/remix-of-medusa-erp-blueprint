@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
+import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,
@@ -144,6 +145,9 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Invoice Format */}
+      <InvoiceSettingsSection />
 
       {/* Data Backup */}
       <BackupSection />

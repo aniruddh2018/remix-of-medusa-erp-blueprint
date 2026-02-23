@@ -24,6 +24,7 @@ import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
+import { printElectronicsInvoice, downloadElectronicsInvoiceHTML, downloadElectronicsInvoicePDF, type ElectronicsInvoiceData, type InvoiceSettings } from "@/utils/electronicsInvoiceGenerator";
 import type { Tables } from "@/integrations/supabase/types";
 import {
   DropdownMenu,
@@ -100,6 +101,22 @@ export default function Sales() {
     totalAmount: number; paidAmount: number;
   }>(null);
 
+  // Fetch invoice settings for electronics format
+  const { data: invoiceSettings } = useQuery({
+    queryKey: ["invoice-settings", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("invoice_settings")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
   // ── Draft auto-save ───────────────────────────────────────────────────────
   const saleDraft = useMemo(() => ({
     cart, invoiceNumber, customerName, customerPhone, customerAddress,
@@ -134,7 +151,7 @@ export default function Sales() {
         .from("sales_order_items")
         .select(`
           *,
-          products (name, strength, hsn_code, gst_percentage),
+          products (name, strength, hsn_code, gst_percentage, unit),
           inventory_batches (batch_number)
         `)
         .eq("sales_order_id", order.id);
@@ -149,6 +166,7 @@ export default function Sales() {
           batch_number: batch?.batch_number || "-",
           hsn_code: product?.hsn_code || "",
           quantity: item.quantity,
+          unit: product?.unit || "pcs",
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),
@@ -160,29 +178,84 @@ export default function Sales() {
         return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
       }, 0);
 
-      const billData: BillData = {
-        type: "sale",
-        invoice_number: order.invoice_number,
-        date: order.sale_date,
-        customer_name: order.customer_name,
-        customer_phone: order.customer_phone || undefined,
-        customer_address: order.customer_address || undefined,
-        payment_method: order.payment_method || "cash",
-        items: billItems,
-        subtotal,
-        gst_amount: Number(order.gst_amount),
-        discount_amount: Number(order.discount_amount),
-        freight_charges: Number(order.freight_charges),
-        handling_charges: Number(order.handling_charges),
-        delivery_charges: Number(order.delivery_charges),
-        other_charges: Number(order.other_charges),
-        total_amount: Number(order.total_amount),
-      };
+      // Use electronics invoice format for b2b_electronics business type
+      if (config.type === "b2b_electronics" || invoiceSettings) {
+        const settings: InvoiceSettings = {
+          company_name: invoiceSettings?.company_name || "",
+          company_address: invoiceSettings?.company_address || "",
+          company_phone: invoiceSettings?.company_phone || "",
+          company_email: invoiceSettings?.company_email || "",
+          company_gstin: invoiceSettings?.company_gstin || "",
+          company_state: invoiceSettings?.company_state || "",
+          terms_and_conditions: invoiceSettings?.terms_and_conditions || "Thanks for doing business with us!",
+          show_ship_to: invoiceSettings?.show_ship_to ?? true,
+          show_due_date: invoiceSettings?.show_due_date ?? true,
+          show_previous_balance: invoiceSettings?.show_previous_balance ?? true,
+          show_tax_summary: invoiceSettings?.show_tax_summary ?? true,
+          show_amount_in_words: invoiceSettings?.show_amount_in_words ?? true,
+        };
 
-      if (action === "print") printBill(billData);
-      else if (action === "pdf") downloadBillPDF(billData);
-      else if (action === "html") downloadBillHTML(billData);
-      else if (action === "csv") downloadBillCSV(billData);
+        const elecData: ElectronicsInvoiceData = {
+          type: "sale",
+          invoice_number: order.invoice_number,
+          date: order.sale_date,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone || undefined,
+          customer_address: order.customer_address || undefined,
+          items: billItems,
+          subtotal,
+          gst_amount: Number(order.gst_amount),
+          discount_amount: Number(order.discount_amount),
+          freight_charges: Number(order.freight_charges),
+          handling_charges: Number(order.handling_charges),
+          delivery_charges: Number(order.delivery_charges),
+          other_charges: Number(order.other_charges),
+          total_amount: Number(order.total_amount),
+          payment_method: order.payment_method || "cash",
+          settings,
+        };
+
+        if (action === "print") printElectronicsInvoice(elecData);
+        else if (action === "pdf") downloadElectronicsInvoicePDF(elecData);
+        else if (action === "html") downloadElectronicsInvoiceHTML(elecData);
+        else if (action === "csv") {
+          // Fallback to standard CSV for electronics too
+          const billData: BillData = {
+            type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
+            customer_name: order.customer_name, customer_phone: order.customer_phone || undefined,
+            customer_address: order.customer_address || undefined, payment_method: order.payment_method || "cash",
+            items: billItems, subtotal, gst_amount: Number(order.gst_amount),
+            discount_amount: Number(order.discount_amount), freight_charges: Number(order.freight_charges),
+            handling_charges: Number(order.handling_charges), delivery_charges: Number(order.delivery_charges),
+            other_charges: Number(order.other_charges), total_amount: Number(order.total_amount),
+          };
+          downloadBillCSV(billData);
+        }
+      } else {
+        const billData: BillData = {
+          type: "sale",
+          invoice_number: order.invoice_number,
+          date: order.sale_date,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone || undefined,
+          customer_address: order.customer_address || undefined,
+          payment_method: order.payment_method || "cash",
+          items: billItems,
+          subtotal,
+          gst_amount: Number(order.gst_amount),
+          discount_amount: Number(order.discount_amount),
+          freight_charges: Number(order.freight_charges),
+          handling_charges: Number(order.handling_charges),
+          delivery_charges: Number(order.delivery_charges),
+          other_charges: Number(order.other_charges),
+          total_amount: Number(order.total_amount),
+        };
+
+        if (action === "print") printBill(billData);
+        else if (action === "pdf") downloadBillPDF(billData);
+        else if (action === "html") downloadBillHTML(billData);
+        else if (action === "csv") downloadBillCSV(billData);
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {

@@ -56,7 +56,7 @@ interface OrderItem {
 export default function PurchaseOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, config } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -906,20 +906,22 @@ export default function PurchaseOrders() {
                         </Button>
                       </div>
                     </div>
-                    <div>
-                      <Label>Batch No.</Label>
-                      <Input
-                        placeholder="e.g. BT-2024-01"
-                        value={itemBatchNumber}
-                        onChange={(e) => setItemBatchNumber(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
-                            e.preventDefault();
-                            handleAddItem();
-                          }
-                        }}
-                      />
-                    </div>
+                    {config.hasBatchTracking && (
+                      <div>
+                        <Label>Batch No.</Label>
+                        <Input
+                          placeholder="e.g. BT-2024-01"
+                          value={itemBatchNumber}
+                          onChange={(e) => setItemBatchNumber(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                              e.preventDefault();
+                              handleAddItem();
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label>Unit Price (₹)</Label>
                       <Input
@@ -973,7 +975,7 @@ export default function PurchaseOrders() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Product</TableHead>
-                            <TableHead>Batch No.</TableHead>
+                            {config.hasBatchTracking && <TableHead>Batch No.</TableHead>}
                             <TableHead>Price (₹)</TableHead>
                             <TableHead>Qty</TableHead>
                             <TableHead>GST%</TableHead>
@@ -994,18 +996,20 @@ export default function PurchaseOrders() {
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                {item.fromChallan ? (
-                                  <span className="text-muted-foreground text-xs">{item.batch_number || "-"}</span>
-                                ) : (
-                                  <Input
-                                    value={item.batch_number}
-                                    onChange={(e) => updateOrderItem(index, "batch_number", e.target.value)}
-                                    className="w-28 h-8"
-                                    placeholder="Batch no."
-                                  />
-                                )}
-                              </TableCell>
+                              {config.hasBatchTracking && (
+                                <TableCell>
+                                  {item.fromChallan ? (
+                                    <span className="text-muted-foreground text-xs">{item.batch_number || "-"}</span>
+                                  ) : (
+                                    <Input
+                                      value={item.batch_number}
+                                      onChange={(e) => updateOrderItem(index, "batch_number", e.target.value)}
+                                      className="w-28 h-8"
+                                      placeholder="Batch no."
+                                    />
+                                  )}
+                                </TableCell>
+                              )}
                               <TableCell>
                                 {item.fromChallan ? (
                                   <span>₹{item.unit_price.toFixed(2)}</span>

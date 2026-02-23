@@ -15,7 +15,20 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { format, differenceInDays } from "date-fns";
@@ -92,6 +105,13 @@ export default function Sales() {
   
   // Inline add product
   const [showProductDialog, setShowProductDialog] = useState(false);
+  
+  // Customer selector state (electronics)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({ name: "", phone: "", address: "", gst_number: "" });
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
@@ -115,6 +135,52 @@ export default function Sales() {
       return data;
     },
     enabled: !!companyId,
+  });
+
+  // Fetch customers for selector
+  const { data: customers } = useQuery({
+    queryKey: ["customers-for-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id, name, phone, email, address, gst_number")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isDialogOpen,
+  });
+
+  // Create new customer inline
+  const createCustomerMutation = useMutation({
+    mutationFn: async (cust: typeof newCustomerData) => {
+      const { data, error } = await supabase
+        .from("customers")
+        .insert({
+          name: cust.name,
+          phone: cust.phone || null,
+          address: cust.address || null,
+          gst_number: cust.gst_number || null,
+          company_id: companyId,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
+      setSelectedCustomerId(data.id);
+      setCustomerName(data.name);
+      setCustomerPhone(data.phone || "");
+      setCustomerAddress(data.address || "");
+      setIsAddingNewCustomer(false);
+      setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
+      toast({ title: "Customer added", description: `${data.name} saved successfully` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
   });
 
   // ── Draft auto-save ───────────────────────────────────────────────────────
@@ -193,6 +259,11 @@ export default function Sales() {
           show_previous_balance: invoiceSettings?.show_previous_balance ?? true,
           show_tax_summary: invoiceSettings?.show_tax_summary ?? true,
           show_amount_in_words: invoiceSettings?.show_amount_in_words ?? true,
+          bank_name: (invoiceSettings as any)?.bank_name || "",
+          bank_account_number: (invoiceSettings as any)?.bank_account_number || "",
+          bank_ifsc: (invoiceSettings as any)?.bank_ifsc || "",
+          bank_branch: (invoiceSettings as any)?.bank_branch || "",
+          bank_account_holder: (invoiceSettings as any)?.bank_account_holder || "",
         };
 
         const elecData: ElectronicsInvoiceData = {
@@ -366,6 +437,7 @@ export default function Sales() {
           customer_name: customerName,
           customer_phone: customerPhone || null,
           customer_address: customerAddress || null,
+          customer_id: selectedCustomerId || null,
           prescription_number: prescriptionNumber || null,
           payment_method: paymentMethod,
           notes: notes || null,
@@ -445,6 +517,11 @@ export default function Sales() {
     setDeliveryCharges(0);
     setOtherCharges(0);
     setDraftRestored(false);
+    setSelectedCustomerId(null);
+    setCustomerPopoverOpen(false);
+    setCustomerSearchQuery("");
+    setIsAddingNewCustomer(false);
+    setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
   }, [clearDraft]);
 
   // Get existing cart quantities for the selected product to account for already allocated stock
@@ -642,23 +719,103 @@ export default function Sales() {
                     placeholder="Auto-generated if empty"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer_name">Customer Name *</Label>
-                  <Input
-                    id="customer_name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer_phone">Phone</Label>
-                  <Input
-                    id="customer_phone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                  />
-                </div>
+                {config.type === "b2b_electronics" ? (
+                  <>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Customer *</Label>
+                      {isAddingNewCustomer ? (
+                        <div className="space-y-3 p-3 border rounded-md bg-muted/30">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input placeholder="Customer Name *" value={newCustomerData.name} onChange={e => setNewCustomerData(d => ({ ...d, name: e.target.value }))} />
+                            <Input placeholder="Phone" value={newCustomerData.phone} onChange={e => setNewCustomerData(d => ({ ...d, phone: e.target.value }))} />
+                            <Input placeholder="GSTIN" value={newCustomerData.gst_number} onChange={e => setNewCustomerData(d => ({ ...d, gst_number: e.target.value }))} />
+                            <Input placeholder="Address" value={newCustomerData.address} onChange={e => setNewCustomerData(d => ({ ...d, address: e.target.value }))} />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => { if (newCustomerData.name) createCustomerMutation.mutate(newCustomerData); }} disabled={!newCustomerData.name || createCustomerMutation.isPending}>
+                              {createCustomerMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Save
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setIsAddingNewCustomer(false)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                                {selectedCustomerId
+                                  ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName
+                                  : "Select customer..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[350px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search customer..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
+                                <CommandList>
+                                  <CommandEmpty>No customer found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {customers?.filter(c =>
+                                      c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                                      (c.phone && c.phone.includes(customerSearchQuery))
+                                    ).map(c => (
+                                      <CommandItem
+                                        key={c.id}
+                                        value={c.name}
+                                        onSelect={() => {
+                                          setSelectedCustomerId(c.id);
+                                          setCustomerName(c.name);
+                                          setCustomerPhone(c.phone || "");
+                                          setCustomerAddress(c.address || "");
+                                          setCustomerPopoverOpen(false);
+                                        }}
+                                      >
+                                        <Check className={`mr-2 h-4 w-4 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                                        <div>
+                                          <div className="font-medium">{c.name}</div>
+                                          <div className="text-xs text-muted-foreground">{c.phone || ""} {c.gst_number ? `• GST: ${c.gst_number}` : ""}</div>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <Button type="button" variant="outline" size="icon" onClick={() => setIsAddingNewCustomer(true)} title="Add new customer">
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      {selectedCustomerId && customers && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {customerPhone && <span>📞 {customerPhone}</span>}
+                          {customerAddress && <span className="ml-2">📍 {customerAddress}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer_name">Customer Name *</Label>
+                      <Input
+                        id="customer_name"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer_phone">Phone</Label>
+                      <Input
+                        id="customer_phone"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 {config.hasPrescription && (
                   <div className="space-y-2">
                     <Label htmlFor="prescription">Prescription #</Label>

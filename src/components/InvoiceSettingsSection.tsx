@@ -32,6 +32,11 @@ export function InvoiceSettingsSection() {
     show_previous_balance: true,
     show_tax_summary: true,
     show_amount_in_words: true,
+    bank_name: "",
+    bank_account_number: "",
+    bank_ifsc: "",
+    bank_branch: "",
+    bank_account_holder: "",
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -65,6 +70,11 @@ export function InvoiceSettingsSection() {
         show_previous_balance: settings.show_previous_balance ?? true,
         show_tax_summary: settings.show_tax_summary ?? true,
         show_amount_in_words: settings.show_amount_in_words ?? true,
+        bank_name: (settings as any).bank_name || "",
+        bank_account_number: (settings as any).bank_account_number || "",
+        bank_ifsc: (settings as any).bank_ifsc || "",
+        bank_branch: (settings as any).bank_branch || "",
+        bank_account_holder: (settings as any).bank_account_holder || "",
       });
     }
   }, [settings]);
@@ -165,6 +175,33 @@ export function InvoiceSettingsSection() {
                     />
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Bank Details */}
+            <div>
+              <h3 className="font-semibold text-sm mb-3">Bank Details (shown on invoice)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Account Holder Name</Label>
+                  <Input value={form.bank_account_holder} onChange={e => setForm(f => ({ ...f, bank_account_holder: e.target.value }))} placeholder="Account holder name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bank Name</Label>
+                  <Input value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="e.g. State Bank of India" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Number</Label>
+                  <Input value={form.bank_account_number} onChange={e => setForm(f => ({ ...f, bank_account_number: e.target.value }))} placeholder="Account number" />
+                </div>
+                <div className="space-y-2">
+                  <Label>IFSC Code</Label>
+                  <Input value={form.bank_ifsc} onChange={e => setForm(f => ({ ...f, bank_ifsc: e.target.value }))} placeholder="e.g. SBIN0001234" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Branch</Label>
+                  <Input value={form.bank_branch} onChange={e => setForm(f => ({ ...f, bank_branch: e.target.value }))} placeholder="Branch name" />
+                </div>
               </div>
             </div>
 

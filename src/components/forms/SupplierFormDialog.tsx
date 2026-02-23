@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,7 @@ export function SupplierFormDialog({
 }: SupplierFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { companyId } = useBusiness();
+  const { companyId, config } = useBusiness();
   const [formData, setFormData] = useState<SupplierFormData>(initialFormData);
 
   useEffect(() => {
@@ -194,14 +195,16 @@ export function SupplierFormDialog({
                 onChange={(e) => setFormData({ ...formData, gst_number: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="drug_license_number">Drug License Number</Label>
-              <Input
-                id="drug_license_number"
-                value={formData.drug_license_number}
-                onChange={(e) => setFormData({ ...formData, drug_license_number: e.target.value })}
-              />
-            </div>
+            {config.type !== "b2b_electronics" && (
+              <div className="space-y-2">
+                <Label htmlFor="drug_license_number">Drug License Number</Label>
+                <Input
+                  id="drug_license_number"
+                  value={formData.drug_license_number}
+                  onChange={(e) => setFormData({ ...formData, drug_license_number: e.target.value })}
+                />
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>

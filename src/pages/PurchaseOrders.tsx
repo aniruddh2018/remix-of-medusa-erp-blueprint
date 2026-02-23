@@ -3,6 +3,7 @@ import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ interface OrderItem {
 export default function PurchaseOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -320,6 +322,7 @@ export default function PurchaseOrders() {
           challan_number: isChallan ? (challanNumber || null) : null,
           is_challan: isChallan,
           invoice_number: !isChallan ? (challanNumber || `INV-${Date.now()}`) : null,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -352,6 +355,7 @@ export default function PurchaseOrders() {
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
+          company_id: companyId,
         }));
 
         const { error: itemsError } = await supabase
@@ -374,11 +378,12 @@ export default function PurchaseOrders() {
           batch_number: item.batch_number || `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           quantity: item.quantity,
           purchase_price: item.unit_price,
-          mrp: item.unit_price * 1.2, // default MRP
+          mrp: item.unit_price * 1.2,
           expiry_date: defaultExpiryStr,
           manufacturing_date: null,
           received_date: today,
           supplier_id: selectedSupplier || null,
+          company_id: companyId,
         }));
 
         const { error: batchError } = await supabase

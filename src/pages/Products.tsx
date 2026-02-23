@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ const drugScheduleColors: Record<DrugSchedule, string> = {
 export default function Products() {
   const { isPharmacist } = useAuth();
   const { toast } = useToast();
+  const { companyId } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -146,7 +148,7 @@ export default function Products() {
         if (error) throw error;
         toast({ title: "Product updated successfully" });
       } else {
-        const { error } = await supabase.from("products").insert(formData);
+        const { error } = await supabase.from("products").insert({ ...formData, company_id: companyId });
         if (error) throw error;
         toast({ title: "Product added successfully" });
       }

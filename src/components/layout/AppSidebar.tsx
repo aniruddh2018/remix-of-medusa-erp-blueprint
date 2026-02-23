@@ -70,6 +70,10 @@ const allAdminMenuItems: MenuItem[] = [
   { title: "Settings", icon: Settings, path: "/settings" },
 ];
 
+const superAdminMenuItems: MenuItem[] = [
+  { title: "Super Admin", icon: Shield, path: "/super-admin" },
+];
+
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {
   return items.filter((item) => visiblePages.includes(item.path));
 }
@@ -114,7 +118,7 @@ function MenuSection({ items, label }: { items: MenuItem[]; label: string }) {
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, isSuperAdmin } = useAuth();
   const { config } = useBusiness();
 
   const visiblePages = config.visiblePages;
@@ -177,6 +181,10 @@ export function AppSidebar() {
 
         {isAdmin && adminItems.length > 0 && (
           <MenuSection items={adminItems} label="Admin" />
+        )}
+
+        {isSuperAdmin && (
+          <MenuSection items={superAdminMenuItems} label="Platform" />
         )}
       </SidebarContent>
 

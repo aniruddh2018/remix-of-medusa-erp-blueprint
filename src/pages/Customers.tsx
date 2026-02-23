@@ -29,7 +29,7 @@ interface Customer {
 
 export default function Customers() {
   const { toast } = useToast();
-  const { config } = useBusiness();
+  const { config, companyId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,6 +67,7 @@ export default function Customers() {
         address: data.address || null,
         notes: data.notes || null,
         gst_number: data.gst_number || null,
+        company_id: companyId,
       });
       if (error) throw error;
     },

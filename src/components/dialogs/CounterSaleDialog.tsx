@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ const makeSlot = (id: number): CustomerSlot => ({ id, cart: [], paymentMethod: "
 export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -205,6 +207,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           name: customer.name,
           phone: customer.phone || null,
           address: customer.address || null,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -261,6 +264,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           created_by: user?.id,
           status: "confirmed",
           prescription_number: hasScheduledDrugs ? narcoticInfo.prescription_number : null,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -285,6 +289,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         gst_percentage: item.gst_percentage,
         discount_percentage: item.discount_percentage,
         total_price: item.total_price,
+        company_id: companyId,
       }));
 
       const { error: itemsError } = await supabase
@@ -326,6 +331,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
               doctor_registration_number: narcoticInfo.doctor_registration_number,
               patient_name: narcoticInfo.patient_name,
               recorded_by: user?.id,
+              company_id: companyId,
             });
 
           if (drugRegError) throw drugRegError;

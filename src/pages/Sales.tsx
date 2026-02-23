@@ -54,7 +54,7 @@ interface CartItem {
 export default function Sales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { config } = useBusiness();
+  const { config, companyId } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -305,6 +305,7 @@ export default function Sales() {
           other_charges: otherCharges,
           created_by: user?.id,
           status: "confirmed",
+          company_id: companyId,
         })
         .select()
         .single();
@@ -320,6 +321,7 @@ export default function Sales() {
         gst_percentage: item.gst_percentage,
         discount_percentage: item.discount_percentage,
         total_price: item.total_price,
+        company_id: companyId,
       }));
 
       const { error: itemsError } = await supabase

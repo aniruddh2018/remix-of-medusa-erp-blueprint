@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ export function SupplierFormDialog({
 }: SupplierFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { companyId } = useBusiness();
   const [formData, setFormData] = useState<SupplierFormData>(initialFormData);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export function SupplierFormDialog({
     mutationFn: async (data: SupplierInsert) => {
       const { data: supplier, error } = await supabase
         .from("suppliers")
-        .insert(data)
+        .insert({ ...data, company_id: companyId })
         .select()
         .single();
       if (error) throw error;

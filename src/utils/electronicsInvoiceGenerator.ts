@@ -9,7 +9,6 @@ interface InvoiceItem {
   gst_percentage: number;
   discount_percentage: number;
   total_price: number;
-  batch_number?: string;
 }
 
 interface InvoiceSettings {

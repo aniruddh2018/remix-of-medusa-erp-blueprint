@@ -129,7 +129,8 @@ interface BusinessContextType {
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, loading: authLoading, roles } = useAuth();
+  const isSuperAdmin = roles.includes("super_admin");
   const [businessType, setBusinessTypeState] = useState<BusinessType>("pharmacy");
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -137,8 +138,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [companyName, setCompanyNameState] = useState("");
 
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
+    // Wait for auth to finish loading (including roles) before deciding
+    if (!user || authLoading) {
+      if (!authLoading && !user) setIsLoading(false);
       return;
     }
 
@@ -172,33 +174,29 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
             if (companyType && BUSINESS_CONFIGS[companyType]) {
               setBusinessTypeState(companyType);
             }
-            // Use company name if profile name is just email
             if (companyData.name) {
               setCompanyNameState(companyData.name);
             }
           }
           setNeedsOnboarding(false);
-        } else if (!isSuperAdmin) {
-          // Fallback to profile business_module if no company assigned
+        } else {
+          // No company assigned — only show onboarding for non-super-admins
           const module = data.business_module as BusinessType;
           if (module && BUSINESS_CONFIGS[module]) {
             setBusinessTypeState(module);
           }
-          setNeedsOnboarding(true);
-        } else {
-          setNeedsOnboarding(false);
+          setNeedsOnboarding(!isSuperAdmin);
         }
       } else {
-        if (!isSuperAdmin) {
-          setNeedsOnboarding(true);
-        }
+        // No profile at all
+        setNeedsOnboarding(!isSuperAdmin);
       }
 
       setIsLoading(false);
     };
 
     fetchProfile();
-  }, [user, isSuperAdmin]);
+  }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {
     if (!user) return;

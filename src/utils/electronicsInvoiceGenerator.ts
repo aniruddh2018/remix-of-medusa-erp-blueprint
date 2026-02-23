@@ -251,7 +251,9 @@ function generateElectronicsInvoiceHTML(data: ElectronicsInvoiceData): string {
       </div>
       ${s.show_ship_to ? `<div class="info-box">
         <h3>Ship To:</h3>
-        <p>${data.ship_to_address || data.customer_address || ""}</p>
+        <p><strong>${data.customer_name}</strong></p>
+        ${data.ship_to_address || data.customer_address ? `<p>${data.ship_to_address || data.customer_address}</p>` : ""}
+        ${data.customer_phone ? `<p>Contact No: ${data.customer_phone}</p>` : ""}
       </div>` : ""}
     </div>
 

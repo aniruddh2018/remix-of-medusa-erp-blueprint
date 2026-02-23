@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface Customer {
@@ -21,12 +22,14 @@ interface Customer {
   email: string | null;
   address: string | null;
   notes: string | null;
+  gst_number: string | null;
   total_purchases: number;
   created_at: string;
 }
 
 export default function Customers() {
   const { toast } = useToast();
+  const { config } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,6 +40,7 @@ export default function Customers() {
     email: "",
     address: "",
     notes: "",
+    gst_number: "",
   });
 
   const { data: customers, isLoading } = useQuery({
@@ -53,12 +57,16 @@ export default function Customers() {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      if (config.requiresCustomerGST && !data.gst_number.trim()) {
+        throw new Error("GSTIN is required for B2B customers");
+      }
       const { error } = await supabase.from("customers").insert({
         name: data.name,
         phone: data.phone || null,
         email: data.email || null,
         address: data.address || null,
         notes: data.notes || null,
+        gst_number: data.gst_number || null,
       });
       if (error) throw error;
     },
@@ -74,6 +82,9 @@ export default function Customers() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      if (config.requiresCustomerGST && !data.gst_number.trim()) {
+        throw new Error("GSTIN is required for B2B customers");
+      }
       const { error } = await supabase
         .from("customers")
         .update({
@@ -82,6 +93,7 @@ export default function Customers() {
           email: data.email || null,
           address: data.address || null,
           notes: data.notes || null,
+          gst_number: data.gst_number || null,
         })
         .eq("id", id);
       if (error) throw error;
@@ -113,7 +125,7 @@ export default function Customers() {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingCustomer(null);
-    setFormData({ name: "", phone: "", email: "", address: "", notes: "" });
+    setFormData({ name: "", phone: "", email: "", address: "", notes: "", gst_number: "" });
   };
 
   const handleEdit = (customer: Customer) => {
@@ -124,6 +136,7 @@ export default function Customers() {
       email: customer.email || "",
       address: customer.address || "",
       notes: customer.notes || "",
+      gst_number: customer.gst_number || "",
     });
     setDialogOpen(true);
   };
@@ -131,6 +144,10 @@ export default function Customers() {
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
+    if (config.requiresCustomerGST && !formData.gst_number.trim()) {
+      toast({ title: "GSTIN is required for B2B customers", variant: "destructive" });
       return;
     }
 
@@ -145,14 +162,15 @@ export default function Customers() {
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone?.includes(searchQuery) ||
-      c.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.gst_number?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Customers"
-        description="Manage your customer database"
+        description={config.requiresCustomerGST ? "Manage your B2B customer database with GST details" : "Manage your customer database"}
       />
 
       {/* Actions */}
@@ -160,7 +178,7 @@ export default function Customers() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, phone, or email..."
+            placeholder={config.requiresCustomerGST ? "Search by name, phone, email, or GSTIN..." : "Search by name, phone, or email..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -186,6 +204,19 @@ export default function Customers() {
             </div>
           </CardContent>
         </Card>
+        {config.requiresCustomerGST && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{customers?.filter(c => c.gst_number).length || 0}</p>
+                  <p className="text-xs text-muted-foreground">With GSTIN</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Table - Desktop */}
@@ -195,6 +226,7 @@ export default function Customers() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                {config.requiresCustomerGST && <TableHead>GSTIN</TableHead>}
                 <TableHead>Contact</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead className="text-right">Total Purchases</TableHead>
@@ -205,13 +237,13 @@ export default function Customers() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={config.requiresCustomerGST ? 7 : 6} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredCustomers?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={config.requiresCustomerGST ? 7 : 6} className="text-center py-8 text-muted-foreground">
                     No customers found
                   </TableCell>
                 </TableRow>
@@ -221,6 +253,17 @@ export default function Customers() {
                     <TableCell>
                       <span className="font-medium">{customer.name}</span>
                     </TableCell>
+                    {config.requiresCustomerGST && (
+                      <TableCell>
+                        {customer.gst_number ? (
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {customer.gst_number}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="space-y-1">
                         {customer.phone && (
@@ -290,6 +333,11 @@ export default function Customers() {
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
                     <h3 className="font-medium">{customer.name}</h3>
+                    {config.requiresCustomerGST && customer.gst_number && (
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {customer.gst_number}
+                      </Badge>
+                    )}
                     {customer.phone && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Phone className="h-3 w-3" />
@@ -344,9 +392,21 @@ export default function Customers() {
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Customer name"
+                placeholder="Company / Customer name"
               />
             </div>
+            {config.requiresCustomerGST && (
+              <div className="space-y-2">
+                <Label>GSTIN {config.requiresCustomerGST ? "*" : ""}</Label>
+                <Input
+                  value={formData.gst_number}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, gst_number: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. 22AAAAA0000A1Z5"
+                  maxLength={15}
+                  className="font-mono"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Phone</Label>

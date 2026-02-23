@@ -3,6 +3,7 @@ import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ interface CartItem {
 export default function Sales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
+  const { config } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -582,14 +584,16 @@ export default function Sales() {
                     onChange={(e) => setCustomerPhone(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="prescription">Prescription #</Label>
-                  <Input
-                    id="prescription"
-                    value={prescriptionNumber}
-                    onChange={(e) => setPrescriptionNumber(e.target.value)}
-                  />
-                </div>
+                {config.hasPrescription && (
+                  <div className="space-y-2">
+                    <Label htmlFor="prescription">Prescription #</Label>
+                    <Input
+                      id="prescription"
+                      value={prescriptionNumber}
+                      onChange={(e) => setPrescriptionNumber(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Add Product to Cart */}

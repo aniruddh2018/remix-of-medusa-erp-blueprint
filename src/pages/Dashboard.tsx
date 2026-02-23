@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   Clock,
   Pill,
   DollarSign,
+  Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, isBefore } from "date-fns";
@@ -25,6 +27,7 @@ interface DashboardStats {
   scheduledDrugs: number;
   todaySales: number;
   pendingOrders: number;
+  totalCustomers: number;
 }
 
 interface ExpiringBatch {
@@ -46,6 +49,7 @@ interface LowStockProduct {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { config } = useBusiness();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalProducts: 0,
@@ -54,6 +58,7 @@ export default function Dashboard() {
     scheduledDrugs: 0,
     todaySales: 0,
     pendingOrders: 0,
+    totalCustomers: 0,
   });
   const [expiringBatches, setExpiringBatches] = useState<ExpiringBatch[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
@@ -68,22 +73,32 @@ export default function Dashboard() {
           .select("*", { count: "exact", head: true })
           .eq("is_active", true);
 
-        // Fetch scheduled drugs count
-        const { count: scheduledCount } = await supabase
-          .from("products")
-          .select("*", { count: "exact", head: true })
-          .neq("drug_schedule", "none")
-          .eq("is_active", true);
+        // Fetch scheduled drugs count (only for pharmacy)
+        let scheduledCount = 0;
+        if (config.hasDrugSchedule) {
+          const { count } = await supabase
+            .from("products")
+            .select("*", { count: "exact", head: true })
+            .neq("drug_schedule", "none")
+            .eq("is_active", true);
+          scheduledCount = count || 0;
+        }
 
-        // Fetch expiring batches (within 90 days)
-        const ninetyDaysFromNow = addDays(new Date(), 90).toISOString().split("T")[0];
-        const { data: expiring, count: expiringCount } = await supabase
-          .from("inventory_batches")
-          .select("id, batch_number, expiry_date, quantity, product:products(name)", { count: "exact" })
-          .lte("expiry_date", ninetyDaysFromNow)
-          .gt("quantity", 0)
-          .order("expiry_date", { ascending: true })
-          .limit(5);
+        // Fetch expiring batches (only for businesses with expiry tracking)
+        let expiringCount = 0;
+        let expiring: ExpiringBatch[] = [];
+        if (config.hasExpiryTracking) {
+          const ninetyDaysFromNow = addDays(new Date(), 90).toISOString().split("T")[0];
+          const { data, count } = await supabase
+            .from("inventory_batches")
+            .select("id, batch_number, expiry_date, quantity, product:products(name)", { count: "exact" })
+            .lte("expiry_date", ninetyDaysFromNow)
+            .gt("quantity", 0)
+            .order("expiry_date", { ascending: true })
+            .limit(5);
+          expiringCount = count || 0;
+          expiring = (data as ExpiringBatch[]) || [];
+        }
 
         // Fetch low stock products
         const { data: products } = await supabase
@@ -127,16 +142,22 @@ export default function Dashboard() {
 
         const todayTotal = todaySalesData?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
 
+        // Fetch total customers
+        const { count: customersCount } = await supabase
+          .from("customers")
+          .select("*", { count: "exact", head: true });
+
         setStats({
           totalProducts: productsCount || 0,
           lowStockItems: lowStockList.length,
-          expiringItems: expiringCount || 0,
-          scheduledDrugs: scheduledCount || 0,
+          expiringItems: expiringCount,
+          scheduledDrugs: scheduledCount,
           todaySales: todayTotal,
           pendingOrders: pendingCount || 0,
+          totalCustomers: customersCount || 0,
         });
 
-        setExpiringBatches(expiring as ExpiringBatch[] || []);
+        setExpiringBatches(expiring);
         setLowStockProducts(lowStockList.slice(0, 5));
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -146,11 +167,12 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [config]);
 
+  // Build stat cards dynamically based on business config
   const statCards = [
     {
-      title: "Total Products",
+      title: `Total ${config.terms.products}`,
       value: stats.totalProducts,
       icon: Package,
       color: "text-primary",
@@ -166,7 +188,7 @@ export default function Dashboard() {
       href: "/inventory",
       alert: stats.lowStockItems > 0,
     },
-    {
+    ...(config.hasExpiryTracking ? [{
       title: "Expiring Soon",
       value: stats.expiringItems,
       icon: AlertTriangle,
@@ -174,15 +196,15 @@ export default function Dashboard() {
       bgColor: "bg-destructive/10",
       href: "/expiry",
       alert: stats.expiringItems > 0,
-    },
-    {
+    }] : []),
+    ...(config.hasDrugSchedule ? [{
       title: "Scheduled Drugs",
       value: stats.scheduledDrugs,
       icon: Pill,
       color: "text-chart-5",
       bgColor: "bg-chart-5/10",
       href: "/scheduled-drugs",
-    },
+    }] : []),
     {
       title: "Today's Sales",
       value: `₹${stats.todaySales.toLocaleString()}`,
@@ -199,6 +221,14 @@ export default function Dashboard() {
       bgColor: "bg-info/10",
       href: "/purchase-orders",
     },
+    ...(config.requiresCustomerGST ? [{
+      title: "Total Customers",
+      value: stats.totalCustomers,
+      icon: Users,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+      href: "/customers",
+    }] : []),
   ];
 
   const getExpiryBadge = (expiryDate: string) => {
@@ -219,7 +249,7 @@ export default function Dashboard() {
     <div className="page-container">
       <PageHeader 
         title="Dashboard" 
-        description="Welcome back! Here's your pharmacy overview."
+        description={`Welcome back! Here's your ${config.label} overview.`}
       />
 
       {/* Stats Grid - Responsive */}
@@ -250,48 +280,50 @@ export default function Dashboard() {
       </div>
 
       {/* Alerts Section */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Expiring Soon */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5 text-destructive" />
-              Expiring Soon
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/expiry")}>
-              View All
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {expiringBatches.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-4 text-center">
-                No items expiring soon
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {expiringBatches.map((batch) => (
-                  <div 
-                    key={batch.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                  >
-                    <div>
-                      <p className="font-medium">{(batch.product as any)?.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Batch: {batch.batch_number} • Qty: {batch.quantity}
-                      </p>
+      <div className={`grid gap-6 ${config.hasExpiryTracking ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+        {/* Expiring Soon - only for businesses with expiry tracking */}
+        {config.hasExpiryTracking && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5 text-destructive" />
+                Expiring Soon
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/expiry")}>
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {expiringBatches.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-4 text-center">
+                  No items expiring soon
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {expiringBatches.map((batch) => (
+                    <div 
+                      key={batch.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div>
+                        <p className="font-medium">{(batch.product as any)?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Batch: {batch.batch_number} • Qty: {batch.quantity}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {getExpiryBadge(batch.expiry_date)}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(new Date(batch.expiry_date), "MMM dd, yyyy")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      {getExpiryBadge(batch.expiry_date)}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(batch.expiry_date), "MMM dd, yyyy")}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Low Stock Alert */}
         <Card>

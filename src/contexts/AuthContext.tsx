@@ -3,7 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
-type AppRole = "admin" | "pharmacist" | "staff";
+type AppRole = "admin" | "pharmacist" | "staff" | "super_admin";
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +16,7 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   isAdmin: boolean;
   isPharmacist: boolean;
+  isSuperAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -109,7 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const isAdmin = hasRole("admin");
+  const isSuperAdmin = hasRole("super_admin");
+  const isAdmin = hasRole("admin") || isSuperAdmin;
   const isPharmacist = hasRole("pharmacist") || isAdmin;
 
   return (
@@ -125,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasRole,
         isAdmin,
         isPharmacist,
+        isSuperAdmin,
       }}
     >
       {children}

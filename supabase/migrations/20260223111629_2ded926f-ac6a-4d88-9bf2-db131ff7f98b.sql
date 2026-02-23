@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles DROP CONSTRAINT profiles_business_module_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_business_module_check CHECK (business_module = ANY (ARRAY['pharmacy'::text, 'cosmetics'::text, 'electronics'::text, 'b2b_electronics'::text, 'clothing'::text, 'general'::text, 'general_trading'::text, 'manufacturing'::text]));

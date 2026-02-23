@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useBusiness, type BusinessType, BUSINESS_CONFIGS } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save } from "lucide-react";
+import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock } from "lucide-react";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,
@@ -21,18 +22,19 @@ const descriptionMap: Record<BusinessType, string> = {
 
 export default function Settings() {
   const { config, businessType, setBusinessType, companyName, setCompanyName } = useBusiness();
+  const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [editName, setEditName] = useState(companyName);
   const [selectedType, setSelectedType] = useState<BusinessType>(businessType);
   const [saving, setSaving] = useState(false);
 
-  const hasChanges = editName !== companyName || selectedType !== businessType;
+  const hasChanges = editName !== companyName || (isSuperAdmin && selectedType !== businessType);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       if (editName !== companyName) await setCompanyName(editName);
-      if (selectedType !== businessType) await setBusinessType(selectedType);
+      if (isSuperAdmin && selectedType !== businessType) await setBusinessType(selectedType);
       toast({ title: "Settings saved", description: "Your business configuration has been updated." });
     } catch {
       toast({ title: "Error", description: "Failed to save settings.", variant: "destructive" });
@@ -77,6 +79,11 @@ export default function Settings() {
           <CardDescription>
             This controls which features, form fields, terminology, and sidebar items are visible.
             Currently: <span className="font-medium text-foreground">{config.label}</span>
+            {!isSuperAdmin && (
+              <span className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" /> Only platform administrators can change the business type.
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,8 +95,11 @@ export default function Settings() {
               return (
                 <button
                   key={type}
-                  onClick={() => setSelectedType(type)}
-                  className={`relative flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 hover:bg-primary/5 ${
+                  onClick={() => isSuperAdmin && setSelectedType(type)}
+                  disabled={!isSuperAdmin}
+                  className={`relative flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+                    !isSuperAdmin ? "opacity-60 cursor-not-allowed" : "hover:border-primary/50 hover:bg-primary/5"
+                  } ${
                     isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border"
                   }`}
                 >

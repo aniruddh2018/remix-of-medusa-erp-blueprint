@@ -156,22 +156,39 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        const module = data.business_module as BusinessType;
-        if (module && BUSINESS_CONFIGS[module]) {
-          setBusinessTypeState(module);
-        }
         setCompanyId(data.company_id || null);
         setCompanyNameState(data.full_name || "");
 
-        // Only need onboarding if no company_id assigned AND not super admin
-        // Super admins don't need onboarding - they manage companies
-        if (!data.company_id && !isSuperAdmin) {
+        // If user has a company, fetch business type FROM the company record
+        if (data.company_id) {
+          const { data: companyData } = await supabase
+            .from("companies")
+            .select("business_type, name")
+            .eq("id", data.company_id)
+            .maybeSingle();
+
+          if (companyData) {
+            const companyType = companyData.business_type as BusinessType;
+            if (companyType && BUSINESS_CONFIGS[companyType]) {
+              setBusinessTypeState(companyType);
+            }
+            // Use company name if profile name is just email
+            if (companyData.name) {
+              setCompanyNameState(companyData.name);
+            }
+          }
+          setNeedsOnboarding(false);
+        } else if (!isSuperAdmin) {
+          // Fallback to profile business_module if no company assigned
+          const module = data.business_module as BusinessType;
+          if (module && BUSINESS_CONFIGS[module]) {
+            setBusinessTypeState(module);
+          }
           setNeedsOnboarding(true);
         } else {
           setNeedsOnboarding(false);
         }
       } else {
-        // No profile at all — super admins still don't need onboarding
         if (!isSuperAdmin) {
           setNeedsOnboarding(true);
         }

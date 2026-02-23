@@ -102,17 +102,31 @@ serve(async (req) => {
     }
 
     if (newUser.user) {
-      // Create profile with company_id
+      // Fetch company business_type to set on profile
+      let businessModule = "pharmacy";
+      if (targetCompanyId) {
+        const { data: companyData } = await adminClient
+          .from("companies")
+          .select("business_type")
+          .eq("id", targetCompanyId)
+          .maybeSingle();
+        if (companyData?.business_type) {
+          businessModule = companyData.business_type;
+        }
+      }
+
+      // The handle_new_user trigger already created a profile, so update it
       const { error: profileError } = await adminClient
         .from("profiles")
-        .insert({
-          user_id: newUser.user.id,
+        .update({
           full_name: fullName,
           company_id: targetCompanyId || null,
-        });
+          business_module: businessModule,
+        })
+        .eq("user_id", newUser.user.id);
 
       if (profileError) {
-        console.log("Profile creation error:", profileError.message);
+        console.log("Profile update error:", profileError.message);
       }
 
       // Update role if not default staff

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Shield, ShieldCheck, User, UserPlus, Loader2 } from "lucide-react";
+import { BackupSection } from "@/components/BackupSection";
 import { Navigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
@@ -446,6 +447,8 @@ export default function Admin() {
           )}
         </CardContent>
       </Card>
+      {/* Data Backup */}
+      <BackupSection />
     </div>
   );
 }

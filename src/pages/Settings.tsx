@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock } from "lucide-react";
+import { BackupSection } from "@/components/BackupSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,
@@ -143,6 +144,9 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Data Backup */}
+      <BackupSection />
 
       {/* Save */}
       {hasChanges && (

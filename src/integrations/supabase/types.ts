@@ -20,6 +20,7 @@ export type Database = {
           business_type: string
           created_at: string
           email: string | null
+          gst_inclusive: boolean
           gst_number: string | null
           id: string
           is_active: boolean
@@ -32,6 +33,7 @@ export type Database = {
           business_type?: string
           created_at?: string
           email?: string | null
+          gst_inclusive?: boolean
           gst_number?: string | null
           id?: string
           is_active?: boolean
@@ -44,6 +46,7 @@ export type Database = {
           business_type?: string
           created_at?: string
           email?: string | null
+          gst_inclusive?: boolean
           gst_number?: string | null
           id?: string
           is_active?: boolean

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee } from "lucide-react";
 import { format } from "date-fns";
 
 interface Customer {
@@ -52,6 +52,45 @@ export default function Customers() {
         .order("name");
       if (error) throw error;
       return data as Customer[];
+    },
+  });
+
+  // Fetch outstanding balances per customer
+  const { data: outstandingMap } = useQuery({
+    queryKey: ["customer-outstandings"],
+    queryFn: async () => {
+      // Fetch all confirmed/delivered sales grouped by customer
+      const { data: sales } = await supabase
+        .from("sales_orders")
+        .select("customer_id, total_amount")
+        .not("customer_id", "is", null)
+        .in("status", ["confirmed", "delivered", "pending", "shipped"]);
+
+      // Fetch all payments for customers
+      const { data: payments } = await supabase
+        .from("payments")
+        .select("reference_id, amount")
+        .eq("party_type", "customer")
+        .eq("payment_type", "received");
+
+      const salesByCustomer: Record<string, number> = {};
+      sales?.forEach((s) => {
+        if (s.customer_id) {
+          salesByCustomer[s.customer_id] = (salesByCustomer[s.customer_id] || 0) + Number(s.total_amount);
+        }
+      });
+
+      const paymentsByRef: Record<string, number> = {};
+      payments?.forEach((p) => {
+        paymentsByRef[p.reference_id] = (paymentsByRef[p.reference_id] || 0) + Number(p.amount);
+      });
+
+      // Outstanding = total sales - total payments received
+      const map: Record<string, number> = {};
+      for (const custId of Object.keys(salesByCustomer)) {
+        map[custId] = salesByCustomer[custId] - (paymentsByRef[custId] || 0);
+      }
+      return map;
     },
   });
 
@@ -218,6 +257,19 @@ export default function Customers() {
             </CardContent>
           </Card>
         )}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <IndianRupee className="h-8 w-8 text-warning" />
+              <div>
+                <p className="text-2xl font-bold">
+                  ₹{Object.values(outstandingMap || {}).reduce((sum, v) => sum + Math.max(0, v), 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground">Total Outstanding</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Table - Desktop */}
@@ -231,6 +283,7 @@ export default function Customers() {
                 <TableHead>Contact</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead className="text-right">Total Purchases</TableHead>
+                <TableHead className="text-right">Outstanding</TableHead>
                 <TableHead>Since</TableHead>
                 <TableHead className="w-20">Actions</TableHead>
               </TableRow>
@@ -238,13 +291,13 @@ export default function Customers() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={config.requiresCustomerGST ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={config.requiresCustomerGST ? 8 : 7} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredCustomers?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={config.requiresCustomerGST ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={config.requiresCustomerGST ? 8 : 7} className="text-center py-8 text-muted-foreground">
                     No customers found
                   </TableCell>
                 </TableRow>
@@ -291,6 +344,16 @@ export default function Customers() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary">₹{customer.total_purchases.toFixed(2)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {(() => {
+                        const outstanding = outstandingMap?.[customer.id] || 0;
+                        return outstanding > 0 ? (
+                          <Badge className="bg-destructive text-destructive-foreground">₹{outstanding.toLocaleString()}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">₹0</Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(customer.created_at), "MMM yyyy")}
@@ -373,7 +436,15 @@ export default function Customers() {
                   <span className="text-xs text-muted-foreground">
                     Customer since {format(new Date(customer.created_at), "MMM yyyy")}
                   </span>
-                  <Badge variant="secondary">₹{customer.total_purchases.toFixed(2)}</Badge>
+                  <div className="flex gap-2 items-center">
+                    <Badge variant="secondary">₹{customer.total_purchases.toFixed(2)}</Badge>
+                    {(() => {
+                      const outstanding = outstandingMap?.[customer.id] || 0;
+                      return outstanding > 0 ? (
+                        <Badge className="bg-destructive text-destructive-foreground">Due: ₹{outstanding.toLocaleString()}</Badge>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
               </CardContent>
             </Card>

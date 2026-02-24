@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
 
 interface Customer {
   id: string;
@@ -34,6 +35,7 @@ export default function Customers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [outstandingCustomer, setOutstandingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -349,9 +351,9 @@ export default function Customers() {
                       {(() => {
                         const outstanding = outstandingMap?.[customer.id] || 0;
                         return outstanding > 0 ? (
-                          <Badge className="bg-destructive text-destructive-foreground">₹{outstanding.toLocaleString()}</Badge>
+                          <Badge className="bg-destructive text-destructive-foreground cursor-pointer" onClick={() => setOutstandingCustomer(customer)}>₹{outstanding.toLocaleString()}</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-muted-foreground">₹0</Badge>
+                          <Badge variant="outline" className="text-muted-foreground cursor-pointer" onClick={() => setOutstandingCustomer(customer)}>₹0</Badge>
                         );
                       })()}
                     </TableCell>
@@ -533,6 +535,13 @@ export default function Customers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CustomerOutstandingDialog
+        open={!!outstandingCustomer}
+        onOpenChange={(open) => !open && setOutstandingCustomer(null)}
+        customerId={outstandingCustomer?.id || null}
+        customerName={outstandingCustomer?.name || ""}
+      />
     </div>
   );
 }

@@ -260,6 +260,20 @@ export default function Dashboard() {
     }
   };
 
+  if (!companyId && !loading) {
+    return (
+      <div className="page-container">
+        <PageHeader title="Dashboard" description="Welcome back!" />
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">No company assigned. Please contact your administrator to assign you to a company.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
       <PageHeader 

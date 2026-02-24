@@ -945,7 +945,7 @@ export default function PurchaseOrders() {
                         type="number"
                         min={1}
                         value={itemQuantity}
-                        onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                        onChange={(e) => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
                             e.preventDefault();
@@ -1032,7 +1032,7 @@ export default function PurchaseOrders() {
                                     type="number"
                                     min={1}
                                     value={item.quantity}
-                                    onChange={(e) => updateOrderItem(index, "quantity", parseInt(e.target.value) || 1)}
+                                    onChange={(e) => updateOrderItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                                     className="w-16 h-8 text-center"
                                   />
                                 )}

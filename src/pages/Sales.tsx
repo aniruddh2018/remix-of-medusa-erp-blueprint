@@ -965,7 +965,7 @@ export default function Sales() {
                         min={1}
                         max={availableStock || undefined}
                         value={itemQuantity}
-                        onChange={(e) => setItemQuantity(parseInt(e.target.value) || 1)}
+                        onChange={(e) => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
                             e.preventDefault();
@@ -1081,7 +1081,7 @@ export default function Sales() {
                                 min={1}
                                 max={item.max_quantity}
                                 value={item.quantity}
-                                onChange={(e) => updateCartItem(index, "quantity", parseInt(e.target.value) || 1)}
+                                onChange={(e) => updateCartItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                                 className="w-16 h-8 text-center"
                               />
                             </TableCell>

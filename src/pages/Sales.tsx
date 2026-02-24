@@ -68,7 +68,7 @@ interface CartItem {
 export default function Sales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { config, companyId } = useBusiness();
+  const { config, companyId, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -418,17 +418,24 @@ export default function Sales() {
         return sum + basePrice;
       }, 0);
       
-      const gstAmount = cart.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice * item.gst_percentage / 100);
-      }, 0);
+      const gstAmount = gstInclusive
+        ? cart.reduce((sum, item) => {
+            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+            return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+          }, 0)
+        : cart.reduce((sum, item) => {
+            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+            return sum + (basePrice * item.gst_percentage / 100);
+          }, 0);
       
       const discountAmount = cart.reduce((sum, item) => {
         return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
       }, 0);
 
       const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-      const totalAmount = itemsSubtotal + gstAmount + totalCharges;
+      const totalAmount = gstInclusive
+        ? itemsSubtotal + totalCharges
+        : itemsSubtotal + gstAmount + totalCharges;
 
       const { data: order, error: orderError } = await supabase
         .from("sales_orders")
@@ -625,6 +632,7 @@ export default function Sales() {
   const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
     const basePrice = price * qty;
     const discountedPrice = basePrice * (1 - discount / 100);
+    if (gstInclusive) return discountedPrice; // price already includes GST
     const gstAmount = discountedPrice * (gst / 100);
     return discountedPrice + gstAmount;
   };
@@ -648,13 +656,20 @@ export default function Sales() {
     return sum + basePrice;
   }, 0);
   
-  const totalGst = cart.reduce((sum, item) => {
-    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    return sum + (basePrice * item.gst_percentage / 100);
-  }, 0);
+  const totalGst = gstInclusive
+    ? cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+      }, 0)
+    : cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + (basePrice * item.gst_percentage / 100);
+      }, 0);
   
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-  const grandTotal = itemsSubtotal + totalGst + totalCharges;
+  const grandTotal = gstInclusive
+    ? itemsSubtotal + totalCharges
+    : itemsSubtotal + totalGst + totalCharges;
 
   const filteredOrders = salesOrders?.filter(
     (order) =>
@@ -1103,11 +1118,11 @@ export default function Sales() {
                   <CardContent className="pt-4">
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span>Subtotal:</span>
+                        <span>{gstInclusive ? "Total (GST Inclusive):" : "Subtotal:"}</span>
                         <span>₹{itemsSubtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>GST (CGST + SGST):</span>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>{gstInclusive ? "Incl. GST (CGST + SGST):" : "GST (CGST + SGST):"}</span>
                         <span>₹{totalGst.toFixed(2)}</span>
                       </div>
                       {totalCharges > 0 && (

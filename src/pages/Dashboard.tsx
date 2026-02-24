@@ -64,14 +64,22 @@ export default function Dashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { companyId } = useBusiness();
+
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (!companyId) {
+        setLoading(false);
+        return;
+      }
       try {
         // Fetch total products
-        const { count: productsCount } = await supabase
+        let productsQuery = supabase
           .from("products")
           .select("*", { count: "exact", head: true })
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .eq("company_id", companyId);
+        const { count: productsCount } = await productsQuery;
 
         // Fetch scheduled drugs count (only for pharmacy)
         let scheduledCount = 0;
@@ -80,7 +88,8 @@ export default function Dashboard() {
             .from("products")
             .select("*", { count: "exact", head: true })
             .neq("drug_schedule", "none")
-            .eq("is_active", true);
+            .eq("is_active", true)
+            .eq("company_id", companyId);
           scheduledCount = count || 0;
         }
 
@@ -92,6 +101,7 @@ export default function Dashboard() {
           const { data, count } = await supabase
             .from("inventory_batches")
             .select("id, batch_number, expiry_date, quantity, product:products(name)", { count: "exact" })
+            .eq("company_id", companyId)
             .lte("expiry_date", ninetyDaysFromNow)
             .gt("quantity", 0)
             .order("expiry_date", { ascending: true })
@@ -104,7 +114,8 @@ export default function Dashboard() {
         const { data: products } = await supabase
           .from("products")
           .select("id, name, reorder_level")
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .eq("company_id", companyId);
 
         let lowStockList: LowStockProduct[] = [];
         if (products) {
@@ -112,7 +123,8 @@ export default function Dashboard() {
             const { data: batches } = await supabase
               .from("inventory_batches")
               .select("quantity")
-              .eq("product_id", product.id);
+              .eq("product_id", product.id)
+              .eq("company_id", companyId);
             
             const totalStock = batches?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
             
@@ -131,21 +143,24 @@ export default function Dashboard() {
         const { count: pendingCount } = await supabase
           .from("purchase_orders")
           .select("*", { count: "exact", head: true })
-          .eq("status", "pending");
+          .eq("status", "pending")
+          .eq("company_id", companyId);
 
         // Fetch today's sales
         const today = new Date().toISOString().split("T")[0];
         const { data: todaySalesData } = await supabase
           .from("sales_orders")
           .select("total_amount")
-          .eq("sale_date", today);
+          .eq("sale_date", today)
+          .eq("company_id", companyId);
 
         const todayTotal = todaySalesData?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
 
         // Fetch total customers
         const { count: customersCount } = await supabase
           .from("customers")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+          .eq("company_id", companyId);
 
         setStats({
           totalProducts: productsCount || 0,
@@ -167,7 +182,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [config]);
+  }, [config, companyId]);
 
   // Build stat cards dynamically based on business config
   const statCards = [

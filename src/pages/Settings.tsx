@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
@@ -23,20 +24,22 @@ const descriptionMap: Record<BusinessType, string> = {
 };
 
 export default function Settings() {
-  const { config, businessType, setBusinessType, companyName, setCompanyName } = useBusiness();
+  const { config, businessType, setBusinessType, companyName, setCompanyName, gstInclusive, setGstInclusive } = useBusiness();
   const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [editName, setEditName] = useState(companyName);
   const [selectedType, setSelectedType] = useState<BusinessType>(businessType);
+  const [gstInclusiveLocal, setGstInclusiveLocal] = useState(gstInclusive);
   const [saving, setSaving] = useState(false);
 
-  const hasChanges = editName !== companyName || (isSuperAdmin && selectedType !== businessType);
+  const hasChanges = editName !== companyName || (isSuperAdmin && selectedType !== businessType) || gstInclusiveLocal !== gstInclusive;
 
   const handleSave = async () => {
     setSaving(true);
     try {
       if (editName !== companyName) await setCompanyName(editName);
       if (isSuperAdmin && selectedType !== businessType) await setBusinessType(selectedType);
+      if (gstInclusiveLocal !== gstInclusive) await setGstInclusive(gstInclusiveLocal);
       toast({ title: "Settings saved", description: "Your business configuration has been updated." });
     } catch {
       toast({ title: "Error", description: "Failed to save settings.", variant: "destructive" });
@@ -142,6 +145,31 @@ export default function Settings() {
                 <span className={f.on ? "text-foreground" : "text-muted-foreground"}>{f.label}</span>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GST Pricing Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">GST Pricing Mode</CardTitle>
+          <CardDescription>
+            Control how GST is handled in product pricing. When enabled, product prices (MRP / Sale Price) are treated as GST-inclusive — no separate GST is added during billing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between max-w-md">
+            <div className="space-y-0.5">
+              <Label htmlFor="gst-inclusive">GST Inclusive Pricing</Label>
+              <p className="text-xs text-muted-foreground">
+                Prices already include GST (common for wholesalers &amp; retailers)
+              </p>
+            </div>
+            <Switch
+              id="gst-inclusive"
+              checked={gstInclusiveLocal}
+              onCheckedChange={setGstInclusiveLocal}
+            />
           </div>
         </CardContent>
       </Card>

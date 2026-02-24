@@ -124,6 +124,8 @@ interface BusinessContextType {
   needsOnboarding: boolean;
   companyName: string;
   setCompanyName: (name: string) => Promise<void>;
+  gstInclusive: boolean;
+  setGstInclusive: (value: boolean) => Promise<void>;
 }
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -136,6 +138,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [companyName, setCompanyNameState] = useState("");
+  const [gstInclusive, setGstInclusiveState] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading (including roles) before deciding
@@ -165,7 +168,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         if (data.company_id) {
           const { data: companyData } = await supabase
             .from("companies")
-            .select("business_type, name")
+            .select("business_type, name, gst_inclusive")
             .eq("id", data.company_id)
             .maybeSingle();
 
@@ -177,6 +180,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
             if (companyData.name) {
               setCompanyNameState(companyData.name);
             }
+            setGstInclusiveState(companyData.gst_inclusive ?? false);
           }
           setNeedsOnboarding(false);
         } else {
@@ -223,6 +227,18 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setGstInclusive = async (value: boolean) => {
+    if (!companyId) return;
+    const { error } = await supabase
+      .from("companies")
+      .update({ gst_inclusive: value })
+      .eq("id", companyId);
+
+    if (!error) {
+      setGstInclusiveState(value);
+    }
+  };
+
   const config = BUSINESS_CONFIGS[businessType] || BUSINESS_CONFIGS.pharmacy;
 
   return (
@@ -236,6 +252,8 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         needsOnboarding,
         companyName,
         setCompanyName,
+        gstInclusive,
+        setGstInclusive,
       }}
     >
       {children}

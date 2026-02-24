@@ -209,7 +209,7 @@ export function ReceiveInventoryDialog({
                               min={1}
                               value={batch.quantity}
                               onChange={(e) =>
-                                updateBatchDetail(index, "quantity", parseInt(e.target.value) || 1)
+                                updateBatchDetail(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)
                               }
                               className="w-20"
                             />

@@ -526,7 +526,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
                           <Input
                             type="number" min={1} max={item.original_qty || 9999}
                             value={item.quantity}
-                            onChange={(e) => updateQty(index, parseInt(e.target.value) || 1)}
+                            onChange={(e) => updateQty(index, e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                             className="h-7 w-20 text-center"
                             onClick={(e) => e.stopPropagation()}
                           />

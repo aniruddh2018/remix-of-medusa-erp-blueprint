@@ -88,7 +88,7 @@ const makeSlot = (id: number): CustomerSlot => ({ id, cart: [], paymentMethod: "
 export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
   
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -236,16 +236,21 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         return sum + basePrice;
       }, 0);
       
-      const gstAmount = cart.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice * item.gst_percentage / 100);
-      }, 0);
+      const gstAmount = gstInclusive
+        ? cart.reduce((sum, item) => {
+            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+            return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+          }, 0)
+        : cart.reduce((sum, item) => {
+            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+            return sum + (basePrice * item.gst_percentage / 100);
+          }, 0);
       
       const discountAmount = cart.reduce((sum, item) => {
         return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
       }, 0);
 
-      const totalAmount = itemsSubtotal + gstAmount;
+      const totalAmount = gstInclusive ? itemsSubtotal : itemsSubtotal + gstAmount;
 
       // Create sales order with customer info if provided
       const customerName = selectedCustomer?.name || "Counter Sale";
@@ -614,6 +619,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
     const basePrice = price * qty;
     const discountedPrice = basePrice * (1 - discount / 100);
+    if (gstInclusive) return discountedPrice; // price already includes GST
     const gstAmount = discountedPrice * (gst / 100);
     return discountedPrice + gstAmount;
   };
@@ -628,12 +634,17 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     return sum + basePrice;
   }, 0);
   
-  const totalGst = cart.reduce((sum, item) => {
-    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    return sum + (basePrice * item.gst_percentage / 100);
-  }, 0);
+  const totalGst = gstInclusive
+    ? cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+      }, 0)
+    : cart.reduce((sum, item) => {
+        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+        return sum + (basePrice * item.gst_percentage / 100);
+      }, 0);
   
-  const grandTotal = itemsSubtotal + totalGst;
+  const grandTotal = gstInclusive ? itemsSubtotal : itemsSubtotal + totalGst;
 
   const getExpiryBadge = (expiryDate: string) => {
     const daysToExpiry = differenceInDays(new Date(expiryDate), new Date());

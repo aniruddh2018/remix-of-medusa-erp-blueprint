@@ -557,23 +557,27 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
     const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
     const hsnCode = product.hsn_code || "";
 
+    // Use sale_price if set, otherwise MRP
+    const effectiveRate = product.sale_price && Number(product.sale_price) > 0 ? Number(product.sale_price) : 0;
+
     let newCart = [...cart];
     
     for (const allocation of allocationResult.allocations) {
+      const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
       const existingIndex = newCart.findIndex((item) => item.batch_id === allocation.batch_id);
       
       if (existingIndex >= 0) {
         const newQuantity = newCart[existingIndex].quantity + allocation.quantity;
         newCart[existingIndex].quantity = newQuantity;
         newCart[existingIndex].total_price = calculateItemTotal(
-          allocation.mrp,
+          newCart[existingIndex].unit_price,
           newQuantity,
           gstPercentage,
           newCart[existingIndex].discount_percentage
         );
         newCart[existingIndex].max_quantity = allocation.available_quantity;
       } else {
-        const totalPrice = calculateItemTotal(allocation.mrp, allocation.quantity, gstPercentage, itemDiscount);
+        const totalPrice = calculateItemTotal(unitPrice, allocation.quantity, gstPercentage, itemDiscount);
         newCart.push({
           product_id: product.id,
           batch_id: allocation.batch_id,
@@ -581,7 +585,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
           batch_number: allocation.batch_number,
           hsn_code: hsnCode,
           quantity: allocation.quantity,
-          unit_price: allocation.mrp,
+          unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           total_price: totalPrice,
@@ -902,7 +906,11 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
                                 {product.strength && <span className="text-muted-foreground text-xs hidden sm:inline">({product.strength})</span>}
                                 {product.drug_schedule !== "none" && getScheduleBadge(product.drug_schedule)}
                               </div>
-                              <span className="text-sm font-mono text-muted-foreground ml-2">₹{product.mrp}</span>
+                              <div className="text-right ml-2">
+                                <span className="text-sm font-mono text-muted-foreground">
+                                  ₹{product.sale_price && Number(product.sale_price) > 0 ? product.sale_price : product.mrp}
+                                </span>
+                              </div>
                             </CommandItem>
                           ))}
                       </CommandGroup>

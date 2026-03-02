@@ -224,15 +224,19 @@ export default function Sales() {
             inventory_batches (batch_number)
           `)
           .eq("sales_order_id", order.id),
-        // Fetch customer GSTIN if customer_id exists
-        order.customer_id
-          ? supabase
-              .from("customers")
-              .select("gst_number")
-              .eq("id", order.customer_id)
-              .maybeSingle()
-              .then(r => r.data?.gst_number || null)
-          : Promise.resolve(null),
+        // Fetch customer GSTIN - by customer_id first, fallback to name match for old invoices
+        (async () => {
+          if (order.customer_id) {
+            const r = await supabase.from("customers").select("gst_number").eq("id", order.customer_id).maybeSingle();
+            if (r.data?.gst_number) return r.data.gst_number;
+          }
+          // Fallback: match by customer name for old invoices without customer_id
+          if (order.customer_name) {
+            const r = await supabase.from("customers").select("gst_number").eq("name", order.customer_name).maybeSingle();
+            return r.data?.gst_number || null;
+          }
+          return null;
+        })(),
       ]);
 
       if (error) throw error;

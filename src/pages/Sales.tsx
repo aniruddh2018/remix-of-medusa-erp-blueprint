@@ -215,14 +215,25 @@ export default function Sales() {
   const handleBillAction = async (order: SalesOrder, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
     try {
-      const { data: items, error } = await supabase
-        .from("sales_order_items")
-        .select(`
-          *,
-          products (name, strength, hsn_code, gst_percentage, unit),
-          inventory_batches (batch_number)
-        `)
-        .eq("sales_order_id", order.id);
+      const [{ data: items, error }, customerGstin] = await Promise.all([
+        supabase
+          .from("sales_order_items")
+          .select(`
+            *,
+            products (name, strength, hsn_code, gst_percentage, unit),
+            inventory_batches (batch_number)
+          `)
+          .eq("sales_order_id", order.id),
+        // Fetch customer GSTIN if customer_id exists
+        order.customer_id
+          ? supabase
+              .from("customers")
+              .select("gst_number")
+              .eq("id", order.customer_id)
+              .maybeSingle()
+              .then(r => r.data?.gst_number || null)
+          : Promise.resolve(null),
+      ]);
 
       if (error) throw error;
 
@@ -275,6 +286,7 @@ export default function Sales() {
           customer_name: order.customer_name,
           customer_phone: order.customer_phone || undefined,
           customer_address: order.customer_address || undefined,
+          customer_gstin: customerGstin || undefined,
           items: billItems,
           subtotal,
           gst_amount: Number(order.gst_amount),

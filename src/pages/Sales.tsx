@@ -224,17 +224,94 @@ export default function Sales() {
             inventory_batches (batch_number)
           `)
           .eq("sales_order_id", order.id),
-        // Fetch customer GSTIN - by customer_id first, fallback to name match for old invoices
+        // Fetch customer GSTIN with resilient fallback for legacy invoices
         (async () => {
           if (order.customer_id) {
-            const r = await supabase.from("customers").select("gst_number").eq("id", order.customer_id).maybeSingle();
-            if (r.data?.gst_number) return r.data.gst_number;
+            const byIdQuery = order.company_id
+              ? supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("id", order.customer_id)
+                  .eq("company_id", order.company_id)
+                  .not("gst_number", "is", null)
+                  .limit(1)
+              : supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("id", order.customer_id)
+                  .not("gst_number", "is", null)
+                  .limit(1);
+
+            const byId = await byIdQuery.maybeSingle();
+            if (byId.data?.gst_number) return byId.data.gst_number;
           }
-          // Fallback: match by customer name for old invoices without customer_id
-          if (order.customer_name) {
-            const r = await supabase.from("customers").select("gst_number").eq("name", order.customer_name).maybeSingle();
-            return r.data?.gst_number || null;
+
+          const normalizedName = order.customer_name?.trim().replace(/\s+/g, " ");
+          if (normalizedName) {
+            const exactNameQuery = order.company_id
+              ? supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("name", normalizedName)
+                  .eq("company_id", order.company_id)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1)
+              : supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("name", normalizedName)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1);
+
+            const exactName = await exactNameQuery.maybeSingle();
+            if (exactName.data?.gst_number) return exactName.data.gst_number;
+
+            const insensitiveNameQuery = order.company_id
+              ? supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .ilike("name", normalizedName)
+                  .eq("company_id", order.company_id)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1)
+              : supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .ilike("name", normalizedName)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1);
+
+            const insensitiveName = await insensitiveNameQuery.maybeSingle();
+            if (insensitiveName.data?.gst_number) return insensitiveName.data.gst_number;
           }
+
+          const normalizedPhone = order.customer_phone?.trim();
+          if (normalizedPhone) {
+            const phoneQuery = order.company_id
+              ? supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("phone", normalizedPhone)
+                  .eq("company_id", order.company_id)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1)
+              : supabase
+                  .from("customers")
+                  .select("gst_number")
+                  .eq("phone", normalizedPhone)
+                  .not("gst_number", "is", null)
+                  .order("updated_at", { ascending: false })
+                  .limit(1);
+
+            const byPhone = await phoneQuery.maybeSingle();
+            if (byPhone.data?.gst_number) return byPhone.data.gst_number;
+          }
+
           return null;
         })(),
       ]);

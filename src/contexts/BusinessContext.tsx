@@ -203,24 +203,30 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {
-    if (!user) return;
+    if (!user || !companyId) return;
+    // Update the company record (source of truth), not just the profile
     const { error } = await supabase
-      .from("profiles")
-      .update({ business_module: type })
-      .eq("user_id", user.id);
+      .from("companies")
+      .update({ business_type: type })
+      .eq("id", companyId);
 
     if (!error) {
       setBusinessTypeState(type);
-      setNeedsOnboarding(false);
+      // Also sync profile for consistency
+      await supabase
+        .from("profiles")
+        .update({ business_module: type })
+        .eq("user_id", user.id);
     }
   };
 
   const setCompanyName = async (name: string) => {
-    if (!user) return;
+    if (!companyId) return;
+    // Update the company record (source of truth), not the user's profile name
     const { error } = await supabase
-      .from("profiles")
-      .update({ full_name: name })
-      .eq("user_id", user.id);
+      .from("companies")
+      .update({ name })
+      .eq("id", companyId);
 
     if (!error) {
       setCompanyNameState(name);

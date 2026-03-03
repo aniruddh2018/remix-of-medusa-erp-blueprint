@@ -49,29 +49,35 @@ export default function Admin() {
   const [newUserRole, setNewUserRole] = useState<AppRole>("staff");
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ["admin-users"],
+    queryKey: ["admin-users", companyId],
     queryFn: async () => {
-      // First get all profiles (admins can see all)
+      if (!companyId) return [];
+
+      // Get profiles scoped to this company
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("user_id, full_name");
+        .select("user_id, full_name")
+        .eq("company_id", companyId);
 
       if (profilesError) throw profilesError;
 
-      // Get user roles
+      const userIds = profiles.map((p) => p.user_id);
+      if (userIds.length === 0) return [];
+
+      // Get user roles only for users in this company
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
-        .select("id, user_id, role");
+        .select("id, user_id, role")
+        .in("user_id", userIds);
 
       if (rolesError) throw rolesError;
 
-      // Get auth users info via profiles (we store user_id which maps to auth.users.id)
       const usersWithRoles: UserWithRole[] = profiles.map((profile) => {
         const userRole = roles.find((r) => r.user_id === profile.user_id);
         return {
           user_id: profile.user_id,
           full_name: profile.full_name,
-          email: profile.full_name, // Using full_name as display since we don't have direct auth access
+          email: profile.full_name,
           role: userRole?.role || "staff",
           role_id: userRole?.id || "",
         };
@@ -79,7 +85,7 @@ export default function Admin() {
 
       return usersWithRoles;
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!companyId,
   });
 
   const updateRoleMutation = useMutation({

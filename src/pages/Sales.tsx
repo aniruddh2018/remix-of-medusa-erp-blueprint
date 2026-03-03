@@ -231,23 +231,16 @@ export default function Sales() {
         // Fetch customer GSTIN with resilient fallback for legacy invoices
         (async () => {
           if (order.customer_id) {
-            const byIdQuery = order.company_id
-              ? supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("id", order.customer_id)
-                  .eq("company_id", order.company_id)
-                  .not("gst_number", "is", null)
-                  .limit(1)
-              : supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("id", order.customer_id)
-                  .not("gst_number", "is", null)
-                  .limit(1);
+            // Primary lookup by linked customer id (works for both new and legacy invoices)
+            const byId = await supabase
+              .from("customers")
+              .select("gst_number")
+              .eq("id", order.customer_id)
+              .limit(1)
+              .maybeSingle();
 
-            const byId = await byIdQuery.maybeSingle();
-            if (byId.data?.gst_number) return byId.data.gst_number;
+            const gstById = byId.data?.gst_number?.trim();
+            if (gstById) return gstById;
           }
 
           const normalizedName = order.customer_name?.trim().replace(/\s+/g, " ");
@@ -394,7 +387,8 @@ export default function Sales() {
           const billData: BillData = {
             type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
             customer_name: order.customer_name, customer_phone: order.customer_phone || undefined,
-            customer_address: order.customer_address || undefined, payment_method: order.payment_method || "cash",
+            customer_address: order.customer_address || undefined, customer_gstin: customerGstin || undefined,
+            payment_method: order.payment_method || "cash",
             items: billItems, subtotal, gst_amount: Number(order.gst_amount),
             discount_amount: Number(order.discount_amount), freight_charges: Number(order.freight_charges),
             handling_charges: Number(order.handling_charges), delivery_charges: Number(order.delivery_charges),
@@ -410,6 +404,7 @@ export default function Sales() {
           customer_name: order.customer_name,
           customer_phone: order.customer_phone || undefined,
           customer_address: order.customer_address || undefined,
+          customer_gstin: customerGstin || undefined,
           payment_method: order.payment_method || "cash",
           items: billItems,
           subtotal,

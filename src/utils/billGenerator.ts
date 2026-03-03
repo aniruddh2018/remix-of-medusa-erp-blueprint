@@ -19,6 +19,7 @@ interface BillData {
   customer_name?: string;
   customer_phone?: string;
   customer_address?: string;
+  customer_gstin?: string;
   supplier_name?: string;
   items: BillItem[];
   subtotal: number;
@@ -114,6 +115,7 @@ function generateBillHTML(data: BillData): string {
         <p><strong>${data.type === "sale" ? data.customer_name : data.supplier_name}</strong></p>
         ${data.customer_phone ? `<p>Phone: ${data.customer_phone}</p>` : ""}
         ${data.customer_address ? `<p>${data.customer_address}</p>` : ""}
+        ${data.customer_gstin ? `<p>GSTIN: ${data.customer_gstin}</p>` : ""}
       </div>
       <div class="details-box" style="text-align: right;">
         <h3>Payment Info</h3>
@@ -208,6 +210,7 @@ function generateBillCSV(data: BillData): string {
     [`${data.type === "sale" ? "Invoice" : "Order"} Number:`, data.invoice_number],
     ["Date:", format(new Date(data.date), "dd MMM yyyy")],
     [data.type === "sale" ? "Customer:" : "Supplier:", data.customer_name || data.supplier_name],
+    ...(data.customer_gstin ? [["Customer GSTIN:", data.customer_gstin]] : []),
     [],
     ["Subtotal:", "", "", "", "", "", "", "", data.subtotal.toFixed(2)],
     ["GST Amount:", "", "", "", "", "", "", "", data.gst_amount.toFixed(2)],

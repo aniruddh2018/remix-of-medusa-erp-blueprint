@@ -230,84 +230,64 @@ export default function Sales() {
           .eq("sales_order_id", order.id),
         // Fetch customer GSTIN with resilient fallback for legacy invoices
         (async () => {
+          const clean = (value?: string | null) => (value ?? "").trim();
+          const normalizeName = (value?: string | null) => clean(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+          const normalizePhone = (value?: string | null) => clean(value).replace(/\D/g, "").slice(-10);
+
+          let targetName = order.customer_name;
+          let targetPhone = order.customer_phone;
+
           if (order.customer_id) {
-            // Primary lookup by linked customer id (works for both new and legacy invoices)
             const byId = await supabase
               .from("customers")
-              .select("gst_number")
+              .select("gst_number, name, phone")
               .eq("id", order.customer_id)
               .limit(1)
               .maybeSingle();
 
-            const gstById = byId.data?.gst_number?.trim();
+            const gstById = clean(byId.data?.gst_number);
             if (gstById) return gstById;
+
+            // If order snapshot fields are incomplete, use linked customer fields for fallback matching
+            targetName = targetName || byId.data?.name || null;
+            targetPhone = targetPhone || byId.data?.phone || null;
           }
 
-          const normalizedName = order.customer_name?.trim().replace(/\s+/g, " ");
-          if (normalizedName) {
-            const exactNameQuery = order.company_id
-              ? supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("name", normalizedName)
-                  .eq("company_id", order.company_id)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1)
-              : supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("name", normalizedName)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1);
+          const baseQuery = supabase
+            .from("customers")
+            .select("name, phone, gst_number, updated_at")
+            .not("gst_number", "is", null)
+            .order("updated_at", { ascending: false })
+            .limit(500);
 
-            const exactName = await exactNameQuery.maybeSingle();
-            if (exactName.data?.gst_number) return exactName.data.gst_number;
+          const candidateQuery = order.company_id
+            ? baseQuery.eq("company_id", order.company_id)
+            : baseQuery;
 
-            const insensitiveNameQuery = order.company_id
-              ? supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .ilike("name", normalizedName)
-                  .eq("company_id", order.company_id)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1)
-              : supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .ilike("name", normalizedName)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1);
+          const { data: rawCandidates } = await candidateQuery;
+          const candidates = (rawCandidates || []).filter((c) => clean(c.gst_number));
 
-            const insensitiveName = await insensitiveNameQuery.maybeSingle();
-            if (insensitiveName.data?.gst_number) return insensitiveName.data.gst_number;
-          }
+          const normalizedTargetName = normalizeName(targetName);
+          const normalizedTargetPhone = normalizePhone(targetPhone);
 
-          const normalizedPhone = order.customer_phone?.trim();
-          if (normalizedPhone) {
-            const phoneQuery = order.company_id
-              ? supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("phone", normalizedPhone)
-                  .eq("company_id", order.company_id)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1)
-              : supabase
-                  .from("customers")
-                  .select("gst_number")
-                  .eq("phone", normalizedPhone)
-                  .not("gst_number", "is", null)
-                  .order("updated_at", { ascending: false })
-                  .limit(1);
+          const byBoth = candidates.find(
+            (c) =>
+              normalizedTargetName &&
+              normalizedTargetPhone &&
+              normalizeName(c.name) === normalizedTargetName &&
+              normalizePhone(c.phone) === normalizedTargetPhone,
+          );
+          if (byBoth) return clean(byBoth.gst_number);
 
-            const byPhone = await phoneQuery.maybeSingle();
-            if (byPhone.data?.gst_number) return byPhone.data.gst_number;
-          }
+          const byPhone = normalizedTargetPhone
+            ? candidates.find((c) => normalizePhone(c.phone) === normalizedTargetPhone)
+            : undefined;
+          if (byPhone) return clean(byPhone.gst_number);
+
+          const byName = normalizedTargetName
+            ? candidates.find((c) => normalizeName(c.name) === normalizedTargetName)
+            : undefined;
+          if (byName) return clean(byName.gst_number);
 
           return null;
         })(),

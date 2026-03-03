@@ -32,6 +32,7 @@ export function InvoiceSettingsSection() {
     show_previous_balance: true,
     show_tax_summary: true,
     show_amount_in_words: true,
+    show_customer_gstin: true,
     bank_name: "",
     bank_account_number: "",
     bank_ifsc: "",
@@ -70,6 +71,7 @@ export function InvoiceSettingsSection() {
         show_previous_balance: settings.show_previous_balance ?? true,
         show_tax_summary: settings.show_tax_summary ?? true,
         show_amount_in_words: settings.show_amount_in_words ?? true,
+        show_customer_gstin: (settings as any).show_customer_gstin ?? true,
         bank_name: (settings as any).bank_name || "",
         bank_account_number: (settings as any).bank_account_number || "",
         bank_ifsc: (settings as any).bank_ifsc || "",
@@ -166,6 +168,7 @@ export function InvoiceSettingsSection() {
                   { key: "show_previous_balance" as const, label: "Show Previous Balance" },
                   { key: "show_tax_summary" as const, label: "Show HSN-wise Tax Summary (CGST/SGST)" },
                   { key: "show_amount_in_words" as const, label: "Show Amount in Words" },
+                  { key: "show_customer_gstin" as const, label: "Show Customer GST Number" },
                 ].map(toggle => (
                   <div key={toggle.key} className="flex items-center justify-between">
                     <Label className="cursor-pointer">{toggle.label}</Label>

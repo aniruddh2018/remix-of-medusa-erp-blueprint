@@ -1,0 +1,1 @@
+ALTER TABLE public.invoice_settings ADD COLUMN show_customer_gstin boolean DEFAULT true;

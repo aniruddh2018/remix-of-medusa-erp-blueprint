@@ -117,6 +117,10 @@ export default function Sales() {
 
   // Bill loading state
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SalesOrder | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   // Payment dialog
   const [paymentDialog, setPaymentDialog] = useState<null | {
     referenceId: string; referenceNumber: string; partyName: string;
@@ -597,6 +601,43 @@ export default function Sales() {
     },
     onError: (error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteSaleMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // Delete sale items first (foreign key constraint)
+      const { error: itemsErr } = await supabase
+        .from("sales_order_items")
+        .delete()
+        .eq("sales_order_id", orderId);
+      if (itemsErr) throw itemsErr;
+
+      // Delete related payments
+      const { error: payErr } = await supabase
+        .from("payments")
+        .delete()
+        .eq("reference_id", orderId)
+        .eq("reference_type", "sales_order");
+      if (payErr) throw payErr;
+
+      // Delete the order
+      const { error: orderErr } = await supabase
+        .from("sales_orders")
+        .delete()
+        .eq("id", orderId);
+      if (orderErr) throw orderErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
+      toast({ title: "Invoice deleted", description: "The invoice and its items have been permanently deleted." });
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1486,6 +1527,21 @@ export default function Sales() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeleteTarget(order);
+                                setDeleteConfirmText("");
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete invoice"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1496,6 +1552,54 @@ export default function Sales() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Invoice
+            </DialogTitle>
+            <DialogDescription>
+              This action is <strong>permanent and cannot be undone</strong>. The invoice, all its items, and related payment records will be permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 space-y-1">
+                <p className="text-sm font-medium">Invoice: <span className="font-mono">{deleteTarget.invoice_number}</span></p>
+                <p className="text-sm text-muted-foreground">Customer: {deleteTarget.customer_name}</p>
+                <p className="text-sm text-muted-foreground">Amount: ₹{Number(deleteTarget.total_amount).toFixed(2)}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">
+                  Type <span className="font-mono font-bold text-destructive">{deleteTarget.invoice_number}</span> to confirm:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={deleteTarget.invoice_number}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteTarget || deleteConfirmText !== deleteTarget.invoice_number || deleteSaleMutation.isPending}
+              onClick={() => deleteTarget && deleteSaleMutation.mutate(deleteTarget.id)}
+            >
+              {deleteSaleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ProductFormDialog
         open={showProductDialog}

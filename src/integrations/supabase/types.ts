@@ -495,6 +495,7 @@ export type Database = {
           invoice_prefix: string | null
           logo_url: string | null
           show_amount_in_words: boolean | null
+          show_customer_gstin: boolean | null
           show_due_date: boolean | null
           show_previous_balance: boolean | null
           show_ship_to: boolean | null
@@ -521,6 +522,7 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           show_amount_in_words?: boolean | null
+          show_customer_gstin?: boolean | null
           show_due_date?: boolean | null
           show_previous_balance?: boolean | null
           show_ship_to?: boolean | null
@@ -547,6 +549,7 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           show_amount_in_words?: boolean | null
+          show_customer_gstin?: boolean | null
           show_due_date?: boolean | null
           show_previous_balance?: boolean | null
           show_ship_to?: boolean | null

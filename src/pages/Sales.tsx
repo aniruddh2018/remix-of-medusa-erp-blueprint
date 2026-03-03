@@ -353,6 +353,7 @@ export default function Sales() {
           show_previous_balance: invoiceSettings?.show_previous_balance ?? true,
           show_tax_summary: invoiceSettings?.show_tax_summary ?? true,
           show_amount_in_words: invoiceSettings?.show_amount_in_words ?? true,
+          show_customer_gstin: (invoiceSettings as any)?.show_customer_gstin ?? true,
           bank_name: (invoiceSettings as any)?.bank_name || "",
           bank_account_number: (invoiceSettings as any)?.bank_account_number || "",
           bank_ifsc: (invoiceSettings as any)?.bank_ifsc || "",

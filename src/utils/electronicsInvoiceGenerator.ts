@@ -25,6 +25,7 @@ interface InvoiceSettings {
   show_previous_balance: boolean;
   show_tax_summary: boolean;
   show_amount_in_words: boolean;
+  show_customer_gstin: boolean;
   bank_name?: string;
   bank_account_number?: string;
   bank_ifsc?: string;
@@ -241,7 +242,7 @@ function generateElectronicsInvoiceHTML(data: ElectronicsInvoiceData): string {
         <p><strong>${data.customer_name}</strong></p>
         ${data.customer_address ? `<p>${data.customer_address}</p>` : ""}
         ${data.customer_phone ? `<p>Contact No: ${data.customer_phone}</p>` : ""}
-        ${data.customer_gstin ? `<p>GSTIN: ${data.customer_gstin}</p>` : ""}
+        ${s.show_customer_gstin && data.customer_gstin ? `<p>GSTIN: ${data.customer_gstin}</p>` : ""}
       </div>
       <div class="info-box">
         <h3>Invoice Details:</h3>

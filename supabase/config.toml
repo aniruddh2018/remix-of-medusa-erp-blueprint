@@ -1,1 +1,13 @@
 project_id = "moxccblenxbdadzakogw"
+
+[functions.scan-invoice]
+verify_jwt = false
+
+[functions.csv-import]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.manage-user]
+verify_jwt = false

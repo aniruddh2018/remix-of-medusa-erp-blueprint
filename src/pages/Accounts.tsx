@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ const MONTHS = [
 export default function Accounts() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [monthRange, setMonthRange] = useState("0");
@@ -66,54 +68,61 @@ export default function Accounts() {
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: payments } = useQuery({
-    queryKey: ["payments", startDate, endDate],
+    queryKey: ["payments", startDate, endDate, companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
         .select("*")
+        .eq("company_id", companyId!)
         .gte("payment_date", startDate.split("T")[0])
         .lte("payment_date", endDate.split("T")[0])
         .order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: salesOrders } = useQuery({
-    queryKey: ["sales-orders-accounts", startDate, endDate],
+    queryKey: ["sales-orders-accounts", startDate, endDate, companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_orders")
         .select("id, invoice_number, customer_name, total_amount, sale_date, payment_method, status")
+        .eq("company_id", companyId!)
         .gte("sale_date", startDate.split("T")[0])
         .lte("sale_date", endDate.split("T")[0])
         .order("sale_date", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: purchaseOrders } = useQuery({
-    queryKey: ["purchase-orders-accounts", startDate, endDate],
+    queryKey: ["purchase-orders-accounts", startDate, endDate, companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
         .select("id, order_number, invoice_number, challan_number, total_amount, order_date, status, supplier_id")
+        .eq("company_id", companyId!)
         .gte("order_date", startDate.split("T")[0])
         .lte("order_date", endDate.split("T")[0])
         .order("order_date", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: suppliers } = useQuery({
-    queryKey: ["suppliers-basic"],
+    queryKey: ["suppliers-basic", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name");
+      const { data, error } = await supabase.from("suppliers").select("id, name").eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // GST data

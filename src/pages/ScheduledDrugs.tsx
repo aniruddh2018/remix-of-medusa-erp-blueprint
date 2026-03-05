@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,28 +41,31 @@ const scheduleColors: Record<string, string> = {
 };
 
 export default function ScheduledDrugs() {
+  const { companyId } = useBusiness();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [scheduleFilter, setScheduleFilter] = useState<string>("all");
 
   // Fetch scheduled drug products
   const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ["scheduled-products"],
+    queryKey: ["scheduled-products", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("company_id", companyId!)
         .neq("drug_schedule", "none")
         .eq("is_active", true)
         .order("drug_schedule", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch drug register entries
   const { data: registerEntries, isLoading: registerLoading } = useQuery({
-    queryKey: ["scheduled-drug-register"],
+    queryKey: ["scheduled-drug-register", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("scheduled_drug_register")
@@ -70,11 +74,13 @@ export default function ScheduledDrugs() {
           products (name, strength, drug_schedule),
           inventory_batches (batch_number)
         `)
+        .eq("company_id", companyId!)
         .order("transaction_date", { ascending: false })
         .limit(200);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const filteredProducts = products?.filter((p) => {

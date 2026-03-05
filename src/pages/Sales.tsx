@@ -145,16 +145,17 @@ export default function Sales() {
 
   // Fetch customers for selector
   const { data: customers } = useQuery({
-    queryKey: ["customers-for-sale"],
+    queryKey: ["customers-for-sale", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
         .select("id, name, phone, email, address, gst_number")
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data;
     },
-    enabled: isDialogOpen,
+    enabled: isDialogOpen && !!companyId,
   });
 
   // Create new customer inline
@@ -410,27 +411,31 @@ export default function Sales() {
   };
 
   const { data: salesOrders, isLoading } = useQuery({
-    queryKey: ["sales-orders"],
+    queryKey: ["sales-orders", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_orders")
         .select("*")
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as SalesOrder[];
     },
+    enabled: !!companyId,
   });
 
   const { data: salesPayments } = useQuery({
-    queryKey: ["payments-sales"],
+    queryKey: ["payments-sales", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
         .select("reference_id, amount")
+        .eq("company_id", companyId!)
         .eq("reference_type", "sales_order");
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const paidBySalesId = useMemo(() => {
@@ -440,16 +445,18 @@ export default function Sales() {
   }, [salesPayments]);
 
   const { data: products, refetch: refetchProducts } = useQuery({
-    queryKey: ["products-for-sale"],
+    queryKey: ["products-for-sale", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Product[];
     },
+    enabled: !!companyId,
   });
 
   const { data: batches } = useQuery({

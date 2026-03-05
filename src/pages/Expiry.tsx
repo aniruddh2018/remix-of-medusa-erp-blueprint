@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ interface ExpiryItem {
 type ExpiryFilter = "all" | "expired" | "30days" | "90days" | "180days";
 
 export default function Expiry() {
+  const { companyId } = useBusiness();
   const { toast } = useToast();
   const [items, setItems] = useState<ExpiryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export default function Expiry() {
   const [filter, setFilter] = useState<ExpiryFilter>("90days");
 
   const fetchExpiryItems = async () => {
+    if (!companyId) return;
     try {
       let query = supabase
         .from("inventory_batches")
@@ -57,6 +60,7 @@ export default function Expiry() {
           mrp,
           product:products(id, name, manufacturer)
         `)
+        .eq("company_id", companyId)
         .gt("quantity", 0)
         .order("expiry_date", { ascending: true });
 
@@ -76,7 +80,7 @@ export default function Expiry() {
 
   useEffect(() => {
     fetchExpiryItems();
-  }, []);
+  }, [companyId]);
 
   const today = new Date();
 

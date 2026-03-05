@@ -22,7 +22,7 @@ const Reports = () => {
   // Redirect non-admin users
   useEffect(() => {
     if (!loading && !isAdmin) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAdmin, loading, navigate]);
 

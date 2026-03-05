@@ -52,7 +52,7 @@ export default function Onboarding() {
       return;
     }
     if (!needsOnboarding) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [user, authLoading, businessLoading, needsOnboarding, navigate]);
 

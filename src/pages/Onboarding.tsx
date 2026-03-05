@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBusiness, type BusinessType, BUSINESS_CONFIGS } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +35,7 @@ const businessOptions: { type: BusinessType; icon: React.ElementType; descriptio
 ];
 
 export default function Onboarding() {
-  const { setBusinessType, setCompanyName } = useBusiness();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState<"company" | "type">("company");
@@ -42,15 +44,40 @@ export default function Onboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleComplete = async () => {
-    if (!selectedType || !name.trim()) return;
+    if (!selectedType || !name.trim() || !user) return;
     setIsSubmitting(true);
     try {
-      await setCompanyName(name.trim());
-      await setBusinessType(selectedType);
+      // 1. Create the company
+      const { data: newCompany, error: companyError } = await supabase
+        .from("companies")
+        .insert({ name: name.trim(), business_type: selectedType })
+        .select("id")
+        .single();
+
+      if (companyError || !newCompany) throw companyError || new Error("Failed to create company");
+
+      // 2. Link user profile to the new company
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ company_id: newCompany.id, business_module: selectedType })
+        .eq("user_id", user.id);
+
+      if (profileError) throw profileError;
+
+      // 3. Upgrade user to admin for their own company
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .update({ role: "admin" as any })
+        .eq("user_id", user.id);
+
+      if (roleError) console.error("Role update error:", roleError);
+
       toast({ title: "Welcome!", description: `${BUSINESS_CONFIGS[selectedType].label} ERP is ready.` });
-      navigate("/", { replace: true });
-    } catch {
-      toast({ title: "Error", description: "Failed to save. Please try again.", variant: "destructive" });
+      // Force full reload so contexts re-fetch with new company
+      window.location.href = "/";
+    } catch (err: any) {
+      console.error("Onboarding error:", err);
+      toast({ title: "Error", description: err?.message || "Failed to save. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

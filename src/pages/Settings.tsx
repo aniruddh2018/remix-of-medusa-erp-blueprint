@@ -7,18 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock } from "lucide-react";
+import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock, Briefcase } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,
+  pharmacy_b2b: Briefcase,
   b2b_electronics: Cpu,
   general_trading: ShoppingBag,
 };
 
 const descriptionMap: Record<BusinessType, string> = {
   pharmacy: "Drug scheduling, batch tracking, expiry management, prescription handling",
+  pharmacy_b2b: "Pharmacy with B2B invoicing, GST-mandatory customers, batch & drug features",
   b2b_electronics: "B2B invoicing, GST-mandatory customers, no batch/drug features",
   general_trading: "Flexible trading ERP with optional expiry tracking, basic inventory",
 };

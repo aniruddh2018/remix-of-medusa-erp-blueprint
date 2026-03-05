@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Pill, Cpu, ShoppingBag, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
+import { Building2, Pill, Cpu, ShoppingBag, ArrowRight, Loader2, CheckCircle2, Briefcase } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const businessOptions: { type: BusinessType; icon: React.ElementType; description: string }[] = [
@@ -14,6 +14,11 @@ const businessOptions: { type: BusinessType; icon: React.ElementType; descriptio
     type: "pharmacy",
     icon: Pill,
     description: "Drug scheduling, batch tracking, expiry management, prescription handling",
+  },
+  {
+    type: "pharmacy_b2b",
+    icon: Briefcase,
+    description: "Pharmacy with B2B invoicing, GST-mandatory customers, batch & drug features",
   },
   {
     type: "b2b_electronics",

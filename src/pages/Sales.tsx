@@ -315,8 +315,8 @@ export default function Sales() {
         return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
       }, 0);
 
-      // Use electronics invoice format for b2b_electronics business type
-      if (config.type === "b2b_electronics" || invoiceSettings) {
+      // Use electronics invoice format for b2b business types
+      if (config.type === "b2b_electronics" || config.type === "pharmacy_b2b" || invoiceSettings) {
         const settings: InvoiceSettings = {
           company_name: invoiceSettings?.company_name || "",
           company_address: invoiceSettings?.company_address || "",
@@ -848,7 +848,7 @@ export default function Sales() {
                     placeholder="Auto-generated if empty"
                   />
                 </div>
-                {config.type === "b2b_electronics" ? (
+                {(config.type === "b2b_electronics" || config.type === "pharmacy_b2b") ? (
                   <>
                     <div className="space-y-2 md:col-span-2">
                       <Label>Customer *</Label>

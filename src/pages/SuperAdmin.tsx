@@ -471,6 +471,7 @@ export default function SuperAdmin() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                  <SelectItem value="pharmacy_b2b">Pharmacy B2B</SelectItem>
                   <SelectItem value="b2b_electronics">B2B Electronics</SelectItem>
                   <SelectItem value="general_trading">General Trading</SelectItem>
                 </SelectContent>

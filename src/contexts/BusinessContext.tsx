@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type BusinessType = "pharmacy" | "b2b_electronics" | "general_trading";
+export type BusinessType = "pharmacy" | "pharmacy_b2b" | "b2b_electronics" | "general_trading";
 
 export interface BusinessConfig {
   type: BusinessType;
@@ -52,6 +52,32 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       product: "Product", products: "Products", manufacturer: "Manufacturer",
       category: "Category", brandName: "Brand Name", mrp: "MRP", unit: "Unit",
       counterSale: "Quick Counter Sale", appName: "MedikaRP", tagline: "Pharmacy Management",
+    },
+    categories: ["Tablets", "Capsules", "Syrups", "Injections", "Ointments", "Drops", "Inhalers", "Powders", "Sachets", "Suppositories", "Patches", "Other"],
+    units: [
+      { value: "pcs", label: "Pieces" }, { value: "strip", label: "Strip" },
+      { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
+      { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
+    ],
+    visiblePages: ["/", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
+  },
+  pharmacy_b2b: {
+    type: "pharmacy_b2b",
+    label: "Pharmacy B2B",
+    hasBatchTracking: true,
+    hasDrugSchedule: true,
+    hasExpiryTracking: true,
+    hasScheduledDrugs: true,
+    hasStrength: true,
+    hasComposition: true,
+    hasGenericName: true,
+    hasPrescription: true,
+    requiresCustomerGST: true,
+    hasChallanSystem: true,
+    terms: {
+      product: "Product", products: "Products", manufacturer: "Manufacturer",
+      category: "Category", brandName: "Brand Name", mrp: "MRP", unit: "Unit",
+      counterSale: "Quick Counter Sale", appName: "MedikaRP B2B", tagline: "Pharmacy B2B Management",
     },
     categories: ["Tablets", "Capsules", "Syrups", "Injections", "Ointments", "Drops", "Inhalers", "Powders", "Sachets", "Suppositories", "Patches", "Other"],
     units: [

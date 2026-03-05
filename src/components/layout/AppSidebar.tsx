@@ -32,6 +32,7 @@ import {
   RotateCcw,
   Wallet,
   Upload,
+  ScanLine,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -52,6 +53,7 @@ const allMainMenuItems: MenuItem[] = [
 const allOrderMenuItems: MenuItem[] = [
   { title: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", shortcut: "Alt+3" },
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
+  { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
 ];
 
 const allComplianceMenuItems: MenuItem[] = [

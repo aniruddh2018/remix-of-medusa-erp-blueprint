@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBusiness, type BusinessType, BUSINESS_CONFIGS } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,7 +35,8 @@ const businessOptions: { type: BusinessType; icon: React.ElementType; descriptio
 ];
 
 export default function Onboarding() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { needsOnboarding, isLoading: businessLoading } = useBusiness();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState<"company" | "type">("company");
@@ -43,45 +44,53 @@ export default function Onboarding() {
   const [selectedType, setSelectedType] = useState<BusinessType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Route guards: redirect if user doesn't belong here
+  useEffect(() => {
+    if (authLoading || businessLoading) return;
+    if (!user) {
+      navigate("/auth", { replace: true });
+      return;
+    }
+    if (!needsOnboarding) {
+      navigate("/", { replace: true });
+    }
+  }, [user, authLoading, businessLoading, needsOnboarding, navigate]);
+
   const handleComplete = async () => {
     if (!selectedType || !name.trim() || !user) return;
     setIsSubmitting(true);
     try {
-      // 1. Create the company
-      const { data: newCompany, error: companyError } = await supabase
-        .from("companies")
-        .insert({ name: name.trim(), business_type: selectedType })
-        .select("id")
-        .single();
+      const { data, error } = await supabase.rpc("complete_onboarding", {
+        _company_name: name.trim(),
+        _business_type: selectedType,
+      });
 
-      if (companyError || !newCompany) throw companyError || new Error("Failed to create company");
-
-      // 2. Link user profile to the new company
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ company_id: newCompany.id, business_module: selectedType })
-        .eq("user_id", user.id);
-
-      if (profileError) throw profileError;
-
-      // 3. Upgrade user to admin for their own company
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .update({ role: "admin" as any })
-        .eq("user_id", user.id);
-
-      if (roleError) console.error("Role update error:", roleError);
+      if (error) throw error;
+      if (!data) throw new Error("Onboarding did not return a company ID");
 
       toast({ title: "Welcome!", description: `${BUSINESS_CONFIGS[selectedType].label} ERP is ready.` });
-      // Force full reload so contexts re-fetch with new company
+      // Force full reload so all contexts re-fetch cleanly
       window.location.href = "/";
     } catch (err: any) {
       console.error("Onboarding error:", err);
-      toast({ title: "Error", description: err?.message || "Failed to save. Please try again.", variant: "destructive" });
+      toast({
+        title: "Setup Failed",
+        description: err?.message || "Could not complete setup. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Don't render form until we know user needs onboarding
+  if (authLoading || businessLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

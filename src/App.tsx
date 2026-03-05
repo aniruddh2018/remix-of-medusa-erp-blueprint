@@ -26,6 +26,7 @@ import Install from "./pages/Install";
 import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
 import ScanInvoice from "./pages/ScanInvoice";
+import Portfolio from "./pages/Portfolio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
+              <Route path="/portfolio" element={<Portfolio />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BusinessProvider>

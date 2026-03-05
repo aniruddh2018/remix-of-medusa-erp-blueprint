@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ interface AggregatedProduct {
 }
 
 export default function Inventory() {
+  const { companyId } = useBusiness();
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ export default function Inventory() {
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
 
   const fetchInventory = async () => {
+    if (!companyId) return;
     try {
       const { data, error } = await supabase
         .from("inventory_batches")
@@ -62,6 +65,7 @@ export default function Inventory() {
           product:products(id, name, manufacturer, reorder_level),
           supplier:suppliers(name)
         `)
+        .eq("company_id", companyId)
         .order("expiry_date", { ascending: true });
 
       if (error) throw error;
@@ -79,7 +83,7 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchInventory();
-  }, []);
+  }, [companyId]);
 
   const aggregatedProducts: AggregatedProduct[] = inventory.reduce((acc, item) => {
     const existing = acc.find((p) => p.product_id === item.product_id);

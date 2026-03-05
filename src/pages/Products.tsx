@@ -91,10 +91,12 @@ export default function Products() {
   const [editValue, setEditValue] = useState("");
 
   const fetchProducts = async () => {
+    if (!companyId) return;
     try {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("company_id", companyId)
         .order("name");
 
       if (error) throw error;
@@ -112,7 +114,7 @@ export default function Products() {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [companyId]);
 
   const resetForm = () => {
     setFormData({

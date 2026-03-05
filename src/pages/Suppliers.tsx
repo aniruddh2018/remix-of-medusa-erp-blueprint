@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -15,21 +16,24 @@ type Supplier = Tables<"suppliers">;
 
 export default function Suppliers() {
   const { toast } = useToast();
+  const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const { data: suppliers, isLoading } = useQuery({
-    queryKey: ["suppliers"],
+    queryKey: ["suppliers", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
         .select("*")
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Supplier[];
     },
+    enabled: !!companyId,
   });
 
   const deleteMutation = useMutation({

@@ -46,25 +46,28 @@ export default function Customers() {
   });
 
   const { data: customers, isLoading } = useQuery({
-    queryKey: ["customers"],
+    queryKey: ["customers", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
         .select("*")
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Customer[];
     },
+    enabled: !!companyId,
   });
 
   // Fetch outstanding balances per customer
   const { data: outstandingMap } = useQuery({
-    queryKey: ["customer-outstandings"],
+    queryKey: ["customer-outstandings", companyId],
     queryFn: async () => {
       // Fetch all confirmed/delivered sales grouped by customer
       const { data: sales } = await supabase
         .from("sales_orders")
         .select("customer_id, total_amount")
+        .eq("company_id", companyId!)
         .not("customer_id", "is", null)
         .in("status", ["confirmed", "delivered", "pending", "shipped"]);
 
@@ -72,6 +75,7 @@ export default function Customers() {
       const { data: payments } = await supabase
         .from("payments")
         .select("reference_id, amount")
+        .eq("company_id", companyId!)
         .eq("party_type", "customer")
         .eq("payment_type", "received");
 

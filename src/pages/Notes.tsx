@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,32 +14,37 @@ import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 
 export default function Notes() {
+  const { companyId } = useBusiness();
   const [searchQuery, setSearchQuery] = useState("");
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
   const [debitNoteOpen, setDebitNoteOpen] = useState(false);
 
   const { data: creditNotes, isLoading: cnLoading } = useQuery({
-    queryKey: ["credit-notes"],
+    queryKey: ["credit-notes", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("credit_notes")
         .select("*")
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: debitNotes, isLoading: dnLoading } = useQuery({
-    queryKey: ["debit-notes"],
+    queryKey: ["debit-notes", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("debit_notes")
         .select("*")
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const filteredCN = creditNotes?.filter(

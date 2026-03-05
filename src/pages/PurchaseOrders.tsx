@@ -204,7 +204,7 @@ export default function PurchaseOrders() {
   };
 
   const { data: purchaseOrders, isLoading } = useQuery({
-    queryKey: ["purchase-orders"],
+    queryKey: ["purchase-orders", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
@@ -212,22 +212,26 @@ export default function PurchaseOrders() {
           *,
           suppliers (name)
         `)
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: poPayments } = useQuery({
-    queryKey: ["payments-purchase"],
+    queryKey: ["payments-purchase", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
         .select("reference_id, amount")
+        .eq("company_id", companyId!)
         .eq("reference_type", "purchase_order");
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const paidByPoId = useMemo(() => {
@@ -238,29 +242,33 @@ export default function PurchaseOrders() {
 
 
   const { data: suppliers, refetch: refetchSuppliers } = useQuery({
-    queryKey: ["suppliers-active"],
+    queryKey: ["suppliers-active", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
         .select("*")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Supplier[];
     },
+    enabled: !!companyId,
   });
 
   const { data: products, refetch: refetchProducts } = useQuery({
-    queryKey: ["products-active"],
+    queryKey: ["products-active", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Product[];
     },
+    enabled: !!companyId,
   });
 
   const createOrderMutation = useMutation({

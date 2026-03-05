@@ -91,7 +91,7 @@ export default function Portfolio() {
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold text-foreground tracking-tight leading-tight max-w-4xl">
             Building a Cloud-Native<br />
-            <span className="text-primary">Pharmacy ERP Platform</span>
+            <span className="text-primary">MedikaRP Platform</span>
           </h1>
           <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed">
             A 2-year journey from zero to a multi-tenant SaaS platform serving 40+ pharmacies — 
@@ -321,7 +321,7 @@ export default function Portfolio() {
       {/* Footer */}
       <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-8 text-center text-sm text-muted-foreground">
-          <p>© 2024–2026 · Pharmacy ERP Platform · Product Management Portfolio</p>
+          <p>© 2024–2026 · MedikaRP · Product Management Portfolio</p>
         </div>
       </footer>
     </div>

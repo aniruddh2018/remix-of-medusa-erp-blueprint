@@ -32,7 +32,7 @@ export function AppLayout() {
   useKeyboardShortcut({ key: "k", modifiers: ["ctrl"], callback: () => setCommandPaletteOpen(true), enabled: !!user });
 
   // Alt+1-6 — Page shortcuts
-  useKeyboardShortcut({ key: "1", modifiers: ["alt"], callback: () => navigate("/"), enabled: !!user });
+  useKeyboardShortcut({ key: "1", modifiers: ["alt"], callback: () => navigate("/dashboard"), enabled: !!user });
   useKeyboardShortcut({ key: "2", modifiers: ["alt"], callback: () => navigate("/sales"), enabled: !!user });
   useKeyboardShortcut({ key: "3", modifiers: ["alt"], callback: () => navigate("/purchase-orders"), enabled: !!user });
   useKeyboardShortcut({ key: "4", modifiers: ["alt"], callback: () => navigate("/inventory"), enabled: !!user });
@@ -41,7 +41,7 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/auth", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [user, loading, navigate]);
 

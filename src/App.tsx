@@ -27,6 +27,7 @@ import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
 import ScanInvoice from "./pages/ScanInvoice";
 import Portfolio from "./pages/Portfolio";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,11 +41,15 @@ const App = () => (
         <AuthProvider>
           <BusinessProvider>
             <Routes>
+              {/* Public pages — no auth required */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/install" element={<Install />} />
               <Route path="/onboarding" element={<Onboarding />} />
+              {/* Protected app pages */}
               <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/expiry" element={<Expiry />} />
@@ -62,7 +67,6 @@ const App = () => (
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
-              <Route path="/portfolio" element={<Portfolio />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BusinessProvider>

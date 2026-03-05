@@ -44,7 +44,7 @@ interface MenuItem {
 }
 
 const allMainMenuItems: MenuItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/", shortcut: "Alt+1" },
+  { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard", shortcut: "Alt+1" },
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+4" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
@@ -139,7 +139,7 @@ export function AppSidebar() {
     } catch (err) {
       console.error("Sign out error:", err);
     } finally {
-      navigate("/auth", { replace: true });
+      navigate("/", { replace: true });
     }
   };
 

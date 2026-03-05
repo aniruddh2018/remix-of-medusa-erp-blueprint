@@ -132,8 +132,13 @@ export function AppSidebar() {
   const adminItems = filterItems(allAdminMenuItems, visiblePages);
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate("/auth");
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Sign out error:", err);
+    } finally {
+      navigate("/auth", { replace: true });
+    }
   };
 
   const getInitials = (email: string) => email.slice(0, 2).toUpperCase();

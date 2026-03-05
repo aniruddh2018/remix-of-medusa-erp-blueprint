@@ -31,6 +31,7 @@ import {
   BarChart3,
   RotateCcw,
   Wallet,
+  Upload,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -72,6 +73,7 @@ const allAdminMenuItems: MenuItem[] = [
 
 const superAdminMenuItems: MenuItem[] = [
   { title: "Super Admin", icon: Shield, path: "/super-admin" },
+  { title: "Data Import", icon: Upload, path: "/data-import" },
 ];
 
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {

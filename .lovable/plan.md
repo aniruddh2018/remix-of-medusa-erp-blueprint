@@ -1,119 +1,46 @@
 
-# Billing Facility for Sales & Purchase Orders
+Root cause identified:
+- Your user record is currently in a broken state: role is `admin` but `profiles.company_id` is `NULL`.
+- App routing sends any logged-in non-super-admin with `company_id = NULL` back to onboarding, so it loops forever.
+- Current onboarding flow is fragile because it does 3 client-side writes (`companies` → `profiles` → `user_roles`) and can “partially succeed” without guaranteeing profile linking.
 
-## What Will Be Added
+Implementation plan
 
-Both the Sales Orders list and Purchase Orders list currently show order rows but have no way to print or download the bill/invoice for a saved order. This plan adds a full billing dropdown to every row in both tables.
+1) Make onboarding atomic in backend (single transaction)
+- Add a DB function `public.complete_onboarding(company_name text, business_type text)` (security definer).
+- Function steps:
+  - Validate authenticated user.
+  - If user already has `company_id`, return it (idempotent).
+  - Insert company and capture new `company_id`.
+  - Update that user’s profile with `company_id` + `business_module`.
+  - Promote role to admin safely (staff→admin, or insert admin if missing).
+  - Return `company_id`.
+- This removes partial-write failures and prevents loops.
 
----
+2) Update onboarding page to call only this function
+- In `src/pages/Onboarding.tsx`, replace current multi-query client logic with one RPC call.
+- Keep loader + toast, but fail hard if RPC doesn’t return company id.
+- Keep full reload after success so contexts refresh cleanly.
 
-## Current State
+3) Add onboarding route guards (prevent false loops)
+- In `Onboarding.tsx`, redirect:
+  - unauthenticated users → `/auth`
+  - users who no longer need onboarding → `/`
+- This prevents stale `/onboarding` URL from trapping users after setup.
 
-- `src/utils/billGenerator.ts` already has `printBill`, `downloadBillPDF`, `downloadBillHTML`, `downloadBillCSV` functions supporting both `"sale"` and `"purchase"` types.
-- **Sales Orders table**: Each row only has an Edit (admin-only) button. No bill generation.
-- **Purchase Orders table**: Each row has Receive, Status, Convert, and Linked Challans buttons. No bill generation.
+4) Harden error observability
+- Show clear error toast text from RPC failures.
+- Log structured details (`step`, `message`) for easier future debugging.
 
----
+5) Validate end-to-end
+- Login with affected account.
+- Complete onboarding once.
+- Refresh and re-login: must land on dashboard, not onboarding.
+- Confirm settings changes persist after refresh.
+- Confirm role remains admin in UI and backend.
 
-## Changes Required
-
-### 1. `src/pages/Sales.tsx`
-
-**Add a "Bill" dropdown button to every row** in the sales orders table.
-
-When clicked, it will:
-1. Fetch the order's items from `sales_order_items` joined with `products` and `inventory_batches` (for batch number and HSN code).
-2. Build a `BillData` object.
-3. Call the selected action: Print, PDF, HTML download, or CSV download.
-
-Implementation details:
-- Add state `billLoadingId: string | null` to show a loading spinner on the row being processed.
-- Add a helper async function `handleBillAction(orderId, action)` that fetches items and triggers the bill utility.
-- Add a `DropdownMenu` button (already imported) with 4 options: Print, Download PDF, Download HTML, Download CSV — to each row in the table.
-- The bill will use the order's `customer_name`, `customer_phone`, `customer_address`, `payment_method`, `sale_date`, `invoice_number`, and all financial totals.
-
-### 2. `src/pages/PurchaseOrders.tsx`
-
-**Add a "Bill" dropdown button to every row** in the purchase orders table.
-
-When clicked, it will:
-1. Fetch the order's items from `purchase_order_items` joined with `products` (for HSN code and name).
-2. Build a `BillData` object with supplier name and order details.
-3. Call the selected action.
-
-Implementation details:
-- Add state `billLoadingId: string | null`.
-- Add a helper async function `handleBillAction(order, action)` — takes the full order object so it has supplier name, order number, challan/invoice number, etc.
-- Add missing imports: `printBill`, `downloadBillHTML`, `downloadBillCSV`, `downloadBillPDF`, `BillData` from `billGenerator`, plus `DropdownMenu` components and `Printer`, `FileText`, `FileSpreadsheet`, `Download` icons from `lucide-react`.
-- Add a `DropdownMenu` bill button to each row in the table.
-
----
-
-## Data Fetching Strategy
-
-For both pages, bill generation is triggered **on-demand** (when user clicks the bill action), not pre-loaded. This avoids fetching items for all orders upfront, keeping the page fast even with 300+ orders.
-
-The fetch for purchase order items will join with products:
-```sql
-purchase_order_items joined with products (name, hsn_code, gst_percentage)
-```
-
-The fetch for sales order items will join with:
-```sql
-sales_order_items joined with products (name, hsn_code), inventory_batches (batch_number)
-```
-
----
-
-## Technical Details
-
-### Sales Bill Data Structure
-```text
-BillData {
-  type: "sale",
-  invoice_number: order.invoice_number,
-  date: order.sale_date,
-  customer_name: order.customer_name,
-  customer_phone: order.customer_phone,
-  customer_address: order.customer_address,
-  payment_method: order.payment_method,
-  items: [{ product_name, batch_number, hsn_code, quantity, unit_price, gst_percentage, discount_percentage, total_price }],
-  subtotal: calculated,
-  gst_amount: order.gst_amount,
-  discount_amount: order.discount_amount,
-  freight_charges: order.freight_charges,
-  handling_charges: order.handling_charges,
-  delivery_charges: order.delivery_charges,
-  other_charges: order.other_charges,
-  total_amount: order.total_amount
-}
-```
-
-### Purchase Bill Data Structure
-```text
-BillData {
-  type: "purchase",
-  invoice_number: order.invoice_number || order.challan_number || order.order_number,
-  date: order.order_date,
-  supplier_name: order.suppliers.name,
-  items: [{ product_name, batch_number: "-", hsn_code, quantity, unit_price, gst_percentage, discount_percentage, total_price }],
-  subtotal: calculated,
-  gst_amount: order.gst_amount,
-  discount_amount: order.discount_amount,
-  freight_charges: order.freight_charges,
-  handling_charges: order.handling_charges,
-  other_charges: order.other_charges,
-  total_amount: order.total_amount
-}
-```
-
----
-
-## Files to Edit
-
-| File | Change |
-|---|---|
-| `src/pages/Sales.tsx` | Add bill dropdown with 4 actions to each row |
-| `src/pages/PurchaseOrders.tsx` | Add bill dropdown with 4 actions to each row + missing imports |
-
-No database changes, no new files needed — the existing bill generator utility handles everything.
+Technical details
+- This follows current multi-tenant model where `profiles.company_id` is the onboarding gate.
+- It preserves RLS safety by centralizing privileged onboarding writes in a controlled backend function.
+- It avoids the current client-side “multi-call consistency gap” that allows company creation without guaranteed profile linkage.
+- No role data is moved to profile/users table; roles remain in `user_roles`.

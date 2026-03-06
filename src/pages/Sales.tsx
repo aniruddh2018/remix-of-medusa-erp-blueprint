@@ -36,6 +36,7 @@ import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
+import { DrugBrandSearch } from "@/components/DrugBrandSearch";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import { printElectronicsInvoice, downloadElectronicsInvoiceHTML, downloadElectronicsInvoicePDF, type ElectronicsInvoiceData, type InvoiceSettings } from "@/utils/electronicsInvoiceGenerator";
 import type { Tables } from "@/integrations/supabase/types";
@@ -974,78 +975,25 @@ export default function Sales() {
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
-                        <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
-                              {selectedProduct ? (
-                                <span className="truncate">
-                                  {products?.find(p => p.id === selectedProduct)?.name}
-                                  {products?.find(p => p.id === selectedProduct)?.strength && ` ${products?.find(p => p.id === selectedProduct)?.strength}`}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">Search products...</span>
-                              )}
-                              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[400px] p-0" align="start">
-                            <Command>
-                              <CommandInput
-                                placeholder="Type product name..."
-                                value={productSearchQuery2}
-                                onValueChange={setProductSearchQuery2}
-                              />
-                              <CommandList>
-                                <CommandEmpty>No product found.</CommandEmpty>
-                                <CommandGroup className="max-h-64 overflow-auto">
-                                  {products
-                                    ?.filter(product =>
-                                      product.name.toLowerCase().includes(productSearchQuery2.toLowerCase()) ||
-                                      product.generic_name?.toLowerCase().includes(productSearchQuery2.toLowerCase()) ||
-                                      product.manufacturer?.toLowerCase().includes(productSearchQuery2.toLowerCase())
-                                    )
-                                    .slice(0, 20)
-                                    .map((product) => {
-                                      const displayPrice = product.sale_price && Number(product.sale_price) > 0 ? Number(product.sale_price) : Number(product.mrp);
-                                      return (
-                                        <CommandItem
-                                          key={product.id}
-                                          value={product.id}
-                                          onSelect={(value) => {
-                                            setSelectedProduct(value);
-                                            const prod = products?.find((p) => p.id === value);
-                                            if (prod) {
-                                              const defaultRate = prod.sale_price && Number(prod.sale_price) > 0 ? Number(prod.sale_price) : Number(prod.mrp);
-                                              setItemRate(defaultRate);
-                                            }
-                                            setProductPopoverOpen(false);
-                                            setProductSearchQuery2("");
-                                            setTimeout(() => {
-                                              const rateInput = document.getElementById("sale-rate-input") as HTMLInputElement;
-                                              rateInput?.focus();
-                                              rateInput?.select();
-                                            }, 50);
-                                          }}
-                                          className="flex items-center justify-between py-2"
-                                        >
-                                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="truncate">{product.name}</span>
-                                            {product.strength && <span className="text-muted-foreground text-xs">({product.strength})</span>}
-                                          </div>
-                                          <div className="text-right ml-2">
-                                            <span className="text-sm font-mono">₹{displayPrice}</span>
-                                            {product.sale_price && Number(product.sale_price) > 0 && Number(product.sale_price) !== Number(product.mrp) && (
-                                              <span className="text-xs text-muted-foreground ml-1 line-through">₹{product.mrp}</span>
-                                            )}
-                                          </div>
-                                        </CommandItem>
-                                      );
-                                    })}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <DrugBrandSearch
+                          products={products}
+                          selectedProductId={selectedProduct}
+                          onSelect={(value) => {
+                            setSelectedProduct(value);
+                            const prod = products?.find((p) => p.id === value);
+                            if (prod) {
+                              const defaultRate = prod.sale_price && Number(prod.sale_price) > 0 ? Number(prod.sale_price) : Number(prod.mrp);
+                              setItemRate(defaultRate);
+                            }
+                            setTimeout(() => {
+                              const rateInput = document.getElementById("sale-rate-input") as HTMLInputElement;
+                              rateInput?.focus();
+                              rateInput?.select();
+                            }, 50);
+                          }}
+                          showPrice
+                          priceType="sale"
+                        />
                         <Button
                           type="button"
                           variant="outline"

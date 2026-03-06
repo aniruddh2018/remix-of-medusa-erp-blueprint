@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
+import { DrugBrandSearch } from "@/components/DrugBrandSearch";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
@@ -891,18 +892,14 @@ export default function PurchaseOrders() {
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
-                        <Select value={selectedProduct} onValueChange={handleProductSelect}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products?.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name}{product.strength ? ` ${product.strength}` : ""} ({product.gst_percentage}% GST)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <DrugBrandSearch
+                          products={products}
+                          selectedProductId={selectedProduct}
+                          onSelect={handleProductSelect}
+                          showPrice
+                          priceType="purchase"
+                          placeholder="Search by drug or brand..."
+                        />
                         <Button
                           type="button"
                           variant="outline"

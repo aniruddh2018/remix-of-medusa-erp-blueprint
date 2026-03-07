@@ -54,17 +54,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("[Auth] onAuthStateChange:", event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const userRoles = await fetchUserRoles(session.user.id);
-          setRoles(userRoles);
+          // Use setTimeout to avoid Supabase deadlock on auth state change
+          setTimeout(async () => {
+            const userRoles = await fetchUserRoles(session.user.id);
+            console.log("[Auth] Roles fetched:", userRoles);
+            setRoles(userRoles);
+            setLoading(false);
+          }, 0);
         } else {
           setRoles([]);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 

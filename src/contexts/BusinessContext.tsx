@@ -179,6 +179,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }, 8000);
 
     const fetchProfile = async () => {
+      console.log("[Business] Fetching profile for user:", user.id);
       const { data, error } = await supabase
         .from("profiles")
         .select("business_module, full_name, company_id")
@@ -186,10 +187,12 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching profile:", error);
+        console.error("[Business] Error fetching profile:", error);
         setIsLoading(false);
         return;
       }
+
+      console.log("[Business] Profile data:", data);
 
       if (data) {
         setCompanyId(data.company_id || null);
@@ -197,11 +200,14 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
         // If user has a company, fetch business type FROM the company record
         if (data.company_id) {
+          console.log("[Business] Fetching company:", data.company_id);
           const { data: companyData } = await supabase
             .from("companies")
             .select("business_type, name, gst_inclusive")
             .eq("id", data.company_id)
             .maybeSingle();
+
+          console.log("[Business] Company data:", companyData);
 
           if (companyData) {
             const companyType = companyData.business_type as BusinessType;
@@ -224,6 +230,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         // No profile at all
+        console.warn("[Business] No profile found for user");
         setNeedsOnboarding(!isSuperAdmin);
       }
 

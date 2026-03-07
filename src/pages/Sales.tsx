@@ -1325,8 +1325,10 @@ export default function Sales() {
               </div>
 
               <DialogFooter>
-                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> complete sale
+                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 flex-wrap">
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> complete sale</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> cycle payment</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> add item</span>
                 </div>
                 <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
                 <Button
@@ -1407,6 +1409,24 @@ export default function Sales() {
                             setEditSaleId(order.id);
                             setEditDialogOpen(true);
                           }
+                        }
+                        else if ((e.key === "d" || e.key === "D") && isAdmin) {
+                          e.preventDefault();
+                          setDeleteTarget(order);
+                          setDeleteConfirmText("");
+                          setDeleteDialogOpen(true);
+                        }
+                        else if (e.key === "$" || e.key === "4" && !e.altKey) {
+                          // "$" or "4" — open payment dialog
+                          const paid = paidBySalesId[order.id] || 0;
+                          e.preventDefault();
+                          setPaymentDialog({
+                            referenceId: order.id,
+                            referenceNumber: order.invoice_number,
+                            partyName: order.customer_name,
+                            totalAmount: Number(order.total_amount),
+                            paidAmount: paid,
+                          });
                         }
                       }}
                       className="cursor-pointer"

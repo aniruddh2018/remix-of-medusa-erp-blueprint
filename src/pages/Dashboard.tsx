@@ -115,7 +115,7 @@ export default function Dashboard() {
           expiring = (data as ExpiringBatch[]) || [];
         }
 
-        // Fetch low stock products
+        // Fetch low stock products - optimized: fetch all batches at once instead of N+1 queries
         const { data: products } = await supabase
           .from("products")
           .select("id, name, reorder_level")
@@ -123,16 +123,19 @@ export default function Dashboard() {
           .eq("company_id", companyId);
 
         let lowStockList: LowStockProduct[] = [];
-        if (products) {
+        if (products && products.length > 0) {
+          const { data: allBatches } = await supabase
+            .from("inventory_batches")
+            .select("product_id, quantity")
+            .eq("company_id", companyId);
+
+          const stockByProduct = new Map<string, number>();
+          allBatches?.forEach(b => {
+            stockByProduct.set(b.product_id, (stockByProduct.get(b.product_id) || 0) + (b.quantity || 0));
+          });
+
           for (const product of products) {
-            const { data: batches } = await supabase
-              .from("inventory_batches")
-              .select("quantity")
-              .eq("product_id", product.id)
-              .eq("company_id", companyId);
-            
-            const totalStock = batches?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
-            
+            const totalStock = stockByProduct.get(product.id) || 0;
             if (totalStock < product.reorder_level) {
               lowStockList.push({
                 id: product.id,
@@ -144,28 +147,26 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch pending orders
-        const { count: pendingCount } = await supabase
-          .from("purchase_orders")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "pending")
-          .eq("company_id", companyId);
-
-        // Fetch today's sales
+        // Fetch pending orders, today's sales, and customers in parallel
         const today = new Date().toISOString().split("T")[0];
-        const { data: todaySalesData } = await supabase
-          .from("sales_orders")
-          .select("total_amount")
-          .eq("sale_date", today)
-          .eq("company_id", companyId);
+        const [pendingResult, salesResult, customersResult] = await Promise.all([
+          supabase
+            .from("purchase_orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("company_id", companyId),
+          supabase
+            .from("sales_orders")
+            .select("total_amount")
+            .eq("sale_date", today)
+            .eq("company_id", companyId),
+          supabase
+            .from("customers")
+            .select("*", { count: "exact", head: true })
+            .eq("company_id", companyId),
+        ]);
 
-        const todayTotal = todaySalesData?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
-
-        // Fetch total customers
-        const { count: customersCount } = await supabase
-          .from("customers")
-          .select("*", { count: "exact", head: true })
-          .eq("company_id", companyId);
+        const todayTotal = salesResult.data?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
 
         setStats({
           totalProducts: productsCount || 0,
@@ -173,8 +174,8 @@ export default function Dashboard() {
           expiringItems: expiringCount,
           scheduledDrugs: scheduledCount,
           todaySales: todayTotal,
-          pendingOrders: pendingCount || 0,
-          totalCustomers: customersCount || 0,
+          pendingOrders: pendingResult.count || 0,
+          totalCustomers: customersResult.count || 0,
         });
 
         setExpiringBatches(expiring);
@@ -187,6 +188,8 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
+
+    return () => clearTimeout(safetyTimer);
   }, [config, companyId]);
 
   // Build stat cards dynamically based on business config

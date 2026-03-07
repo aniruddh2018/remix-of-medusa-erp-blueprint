@@ -647,6 +647,49 @@ export default function Sales() {
     setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
   }, [clearDraft]);
 
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────
+  // "/" — focus search bar
+  useKeyboardShortcut({
+    key: "/",
+    callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
+    enabled: true,
+  });
+
+  // "N" — open new sale dialog
+  useKeyboardShortcut({
+    key: "n",
+    callback: () => setIsDialogOpen(true),
+    enabled: !isDialogOpen && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
+  });
+
+  // Ctrl+Enter — complete sale (works from any input within dialog)
+  useKeyboardShortcut({
+    key: "Enter",
+    modifiers: ["ctrl"],
+    callback: () => {
+      if (cart.length > 0 && customerName && !createSaleMutation.isPending) {
+        createSaleMutation.mutate();
+      }
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
+
+  // Alt+C — cycle payment method in sale dialog
+  const paymentMethods = ["cash", "card", "upi"];
+  useKeyboardShortcut({
+    key: "c",
+    modifiers: ["alt"],
+    callback: () => {
+      setPaymentMethod(prev => {
+        const idx = paymentMethods.indexOf(prev);
+        return paymentMethods[(idx + 1) % paymentMethods.length];
+      });
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
+
   // Get existing cart quantities for the selected product to account for already allocated stock
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();

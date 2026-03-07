@@ -67,6 +67,11 @@ export default function Dashboard() {
   const { companyId } = useBusiness();
 
   useEffect(() => {
+    // Safety timeout to prevent infinite loading
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+
     const fetchDashboardData = async () => {
       if (!companyId) {
         setLoading(false);

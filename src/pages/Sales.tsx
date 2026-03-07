@@ -73,47 +73,6 @@ export default function Sales() {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // "/" shortcut — focus search bar
-  useKeyboardShortcut({
-    key: "/",
-    callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
-    enabled: true,
-  });
-
-  // "N" shortcut — open new sale dialog
-  useKeyboardShortcut({
-    key: "n",
-    callback: () => setIsDialogOpen(true),
-    enabled: !isDialogOpen && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
-  });
-
-  // Ctrl+Enter — complete sale (global within dialog)
-  useKeyboardShortcut({
-    key: "Enter",
-    modifiers: ["ctrl"],
-    callback: () => {
-      if (isDialogOpen && cart.length > 0 && customerName && !createSaleMutation.isPending) {
-        createSaleMutation.mutate();
-      }
-    },
-    enabled: isDialogOpen,
-    allowInInput: true,
-  });
-
-  // "C" — cycle payment method in sale dialog
-  const paymentMethods = ["cash", "card", "upi"];
-  useKeyboardShortcut({
-    key: "c",
-    modifiers: ["alt"],
-    callback: () => {
-      setPaymentMethod(prev => {
-        const idx = paymentMethods.indexOf(prev);
-        return paymentMethods[(idx + 1) % paymentMethods.length];
-      });
-    },
-    enabled: isDialogOpen,
-    allowInInput: true,
-  });
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editSaleId, setEditSaleId] = useState<string | null>(null);

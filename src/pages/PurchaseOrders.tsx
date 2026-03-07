@@ -68,26 +68,6 @@ export default function PurchaseOrders() {
     callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
     enabled: true,
   });
-
-  // "N" shortcut — open new purchase order dialog
-  useKeyboardShortcut({
-    key: "n",
-    callback: () => setIsDialogOpen(true),
-    enabled: !isDialogOpen && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen,
-  });
-
-  // Ctrl+Enter — create order (global within dialog)
-  useKeyboardShortcut({
-    key: "Enter",
-    modifiers: ["ctrl"],
-    callback: () => {
-      if (isDialogOpen && orderItems.length > 0 && selectedSupplier && !createOrderMutation.isPending) {
-        createOrderMutation.mutate();
-      }
-    },
-    enabled: isDialogOpen,
-    allowInInput: true,
-  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");

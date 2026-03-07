@@ -1281,7 +1281,7 @@ export default function PurchaseOrders() {
                             paidAmount: paid,
                           });
                         }
-                      }
+                      }}
                       className="cursor-pointer"
                     >
                       <TableCell className="font-medium">{order.order_number}</TableCell>

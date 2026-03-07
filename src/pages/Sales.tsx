@@ -73,12 +73,6 @@ export default function Sales() {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // "/" shortcut — focus search bar
-  useKeyboardShortcut({
-    key: "/",
-    callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
-    enabled: true,
-  });
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
@@ -652,6 +646,49 @@ export default function Sales() {
     setIsAddingNewCustomer(false);
     setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
   }, [clearDraft]);
+
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────
+  // "/" — focus search bar
+  useKeyboardShortcut({
+    key: "/",
+    callback: () => { searchRef.current?.focus(); searchRef.current?.select(); },
+    enabled: true,
+  });
+
+  // "N" — open new sale dialog
+  useKeyboardShortcut({
+    key: "n",
+    callback: () => setIsDialogOpen(true),
+    enabled: !isDialogOpen && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
+  });
+
+  // Ctrl+Enter — complete sale (works from any input within dialog)
+  useKeyboardShortcut({
+    key: "Enter",
+    modifiers: ["ctrl"],
+    callback: () => {
+      if (cart.length > 0 && customerName && !createSaleMutation.isPending) {
+        createSaleMutation.mutate();
+      }
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
+
+  // Alt+C — cycle payment method in sale dialog
+  const paymentMethods = ["cash", "card", "upi"];
+  useKeyboardShortcut({
+    key: "c",
+    modifiers: ["alt"],
+    callback: () => {
+      setPaymentMethod(prev => {
+        const idx = paymentMethods.indexOf(prev);
+        return paymentMethods[(idx + 1) % paymentMethods.length];
+      });
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
 
   // Get existing cart quantities for the selected product to account for already allocated stock
   const existingCartQuantities = useMemo(() => {
@@ -1288,8 +1325,10 @@ export default function Sales() {
               </div>
 
               <DialogFooter>
-                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> complete sale
+                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 flex-wrap">
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> complete sale</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> cycle payment</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> add item</span>
                 </div>
                 <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
                 <Button
@@ -1370,6 +1409,24 @@ export default function Sales() {
                             setEditSaleId(order.id);
                             setEditDialogOpen(true);
                           }
+                        }
+                        else if ((e.key === "d" || e.key === "D") && isAdmin) {
+                          e.preventDefault();
+                          setDeleteTarget(order);
+                          setDeleteConfirmText("");
+                          setDeleteDialogOpen(true);
+                        }
+                        else if (e.key === "$" || e.key === "4" && !e.altKey) {
+                          // "$" or "4" — open payment dialog
+                          const paid = paidBySalesId[order.id] || 0;
+                          e.preventDefault();
+                          setPaymentDialog({
+                            referenceId: order.id,
+                            referenceNumber: order.invoice_number,
+                            partyName: order.customer_name,
+                            totalAmount: Number(order.total_amount),
+                            paidAmount: paid,
+                          });
                         }
                       }}
                       className="cursor-pointer"

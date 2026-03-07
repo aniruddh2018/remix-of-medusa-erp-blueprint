@@ -474,6 +474,27 @@ export default function PurchaseOrders() {
     setDraftRestored(false);
   }, [clearPODraft]);
 
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────
+  // "N" — open new purchase order dialog
+  useKeyboardShortcut({
+    key: "n",
+    callback: () => setIsDialogOpen(true),
+    enabled: !isDialogOpen && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen,
+  });
+
+  // Ctrl+Enter — create order (works from any input within dialog)
+  useKeyboardShortcut({
+    key: "Enter",
+    modifiers: ["ctrl"],
+    callback: () => {
+      if (orderItems.length > 0 && selectedSupplier && !createOrderMutation.isPending) {
+        createOrderMutation.mutate();
+      }
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
+
   // Fetch pending challans for a supplier (only those not yet converted)
   const fetchPendingChallans = async (supplierId: string) => {
     const { data, error } = await supabase
@@ -1247,6 +1268,18 @@ export default function PurchaseOrders() {
                           e.preventDefault();
                           setEditOrderId(order.id);
                           setEditOrderDialogOpen(true);
+                        }
+                        else if (e.key === "$") {
+                          const paid = paidByPoId[order.id] || 0;
+                          const supplierName = (order.suppliers as any)?.name || "-";
+                          e.preventDefault();
+                          setPaymentDialog({
+                            referenceId: order.id,
+                            referenceNumber: order.invoice_number || order.order_number,
+                            partyName: supplierName,
+                            totalAmount: Number(order.total_amount),
+                            paidAmount: paid,
+                          });
                         }
                       }}
                       className="cursor-pointer"

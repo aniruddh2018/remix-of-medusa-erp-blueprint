@@ -474,6 +474,27 @@ export default function PurchaseOrders() {
     setDraftRestored(false);
   }, [clearPODraft]);
 
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────
+  // "N" — open new purchase order dialog
+  useKeyboardShortcut({
+    key: "n",
+    callback: () => setIsDialogOpen(true),
+    enabled: !isDialogOpen && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen,
+  });
+
+  // Ctrl+Enter — create order (works from any input within dialog)
+  useKeyboardShortcut({
+    key: "Enter",
+    modifiers: ["ctrl"],
+    callback: () => {
+      if (orderItems.length > 0 && selectedSupplier && !createOrderMutation.isPending) {
+        createOrderMutation.mutate();
+      }
+    },
+    enabled: isDialogOpen,
+    allowInInput: true,
+  });
+
   // Fetch pending challans for a supplier (only those not yet converted)
   const fetchPendingChallans = async (supplierId: string) => {
     const { data, error } = await supabase

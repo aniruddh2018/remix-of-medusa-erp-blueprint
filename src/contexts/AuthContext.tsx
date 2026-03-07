@@ -74,11 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log("[Auth] getSession:", session?.user?.email ?? "no session");
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         const userRoles = await fetchUserRoles(session.user.id);
+        console.log("[Auth] Initial roles:", userRoles);
         setRoles(userRoles);
       }
       

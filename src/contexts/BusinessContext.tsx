@@ -173,6 +173,11 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Safety timeout: ensure loading becomes false even if queries hang
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 8000);
+
     const fetchProfile = async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -226,6 +231,8 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     };
 
     fetchProfile();
+
+    return () => clearTimeout(safetyTimer);
   }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {

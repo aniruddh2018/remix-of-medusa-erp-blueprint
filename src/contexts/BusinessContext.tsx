@@ -231,6 +231,8 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     };
 
     fetchProfile();
+
+    return () => clearTimeout(safetyTimer);
   }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {

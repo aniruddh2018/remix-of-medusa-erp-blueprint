@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Banknote } from "lucide-react";
+import { Banknote, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 
 export interface RecordPaymentDialogProps {
@@ -39,7 +42,7 @@ export function RecordPaymentDialog({
   paymentType,
 }: RecordPaymentDialogProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin, isPharmacist } = useAuth();
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
 
@@ -51,6 +54,22 @@ export function RecordPaymentDialog({
   const [chequeNumber, setChequeNumber] = useState("");
   const [bankName, setBankName] = useState("");
   const [notes, setNotes] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Fetch existing payments for this reference
+  const { data: existingPayments } = useQuery({
+    queryKey: ["payments-for-ref", referenceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("reference_id", referenceId)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!referenceId,
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -75,6 +94,10 @@ export function RecordPaymentDialog({
     onSuccess: () => {
       toast({ title: "Payment recorded successfully" });
       queryClient.invalidateQueries({ queryKey: ["payments"] });
+      queryClient.invalidateQueries({ queryKey: ["all-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-for-ref", referenceId] });
       onOpenChange(false);
       setAmount(balance > 0 ? parseFloat(balance.toFixed(2)) : 0);
       setMethod("cash");
@@ -87,9 +110,28 @@ export function RecordPaymentDialog({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const { error } = await supabase.from("payments").delete().eq("id", paymentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Payment deleted" });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      queryClient.invalidateQueries({ queryKey: ["all-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-for-ref", referenceId] });
+      setDeleteConfirmId(null);
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to delete payment", description: e.message, variant: "destructive" });
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-primary" />
@@ -123,6 +165,71 @@ export function RecordPaymentDialog({
               </span>
             </div>
           </div>
+
+          {/* Existing payments list */}
+          {existingPayments && existingPayments.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Payment History</Label>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs">Method</TableHead>
+                      <TableHead className="text-xs text-right">Amount</TableHead>
+                      {(isAdmin || isPharmacist) && <TableHead className="text-xs w-10"></TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {existingPayments.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-xs">{format(new Date(p.payment_date), "dd/MM/yy")}</TableCell>
+                        <TableCell className="text-xs capitalize">{p.payment_method}</TableCell>
+                        <TableCell className="text-xs text-right font-mono text-green-600">₹{Number(p.amount).toFixed(2)}</TableCell>
+                        {(isAdmin || isPharmacist) && (
+                          <TableCell className="text-xs">
+                            {deleteConfirmId === p.id ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-6 text-[10px] px-2"
+                                  disabled={deleteMutation.isPending}
+                                  onClick={() => deleteMutation.mutate(p.id)}
+                                >
+                                  {deleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] px-2"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                >
+                                  No
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteConfirmId(p.id)}
+                                title="Delete payment"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          <Separator />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1 col-span-2">

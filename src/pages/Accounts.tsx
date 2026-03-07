@@ -8,13 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Banknote, Search, TrendingUp, TrendingDown, AlertCircle,
-  CheckCircle2, Clock, FileText, ReceiptText, BarChart3, Lock
+  CheckCircle2, Clock, FileText, ReceiptText, BarChart3, Lock,
+  Download, Trash2, Users, Building2, Loader2, AlertTriangle
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
@@ -35,6 +37,16 @@ const MONTHS = [
   { label: "This Year", value: "12" },
 ];
 
+function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 export default function Accounts() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
@@ -52,6 +64,10 @@ export default function Accounts() {
     paidAmount: number;
     paymentType: "received" | "made";
   }>(null);
+
+  // Delete payment state
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [deletePaymentConfirmOpen, setDeletePaymentConfirmOpen] = useState(false);
 
   // Date filter
   const { startDate, endDate } = useMemo(() => {
@@ -76,6 +92,20 @@ export default function Accounts() {
         .eq("company_id", companyId!)
         .gte("payment_date", startDate.split("T")[0])
         .lte("payment_date", endDate.split("T")[0])
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const { data: allPayments } = useQuery({
+    queryKey: ["all-payments", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("company_id", companyId!)
         .order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
@@ -125,6 +155,16 @@ export default function Accounts() {
     enabled: !!companyId,
   });
 
+  const { data: customers } = useQuery({
+    queryKey: ["customers-basic-accounts", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customers").select("id, name, phone").eq("company_id", companyId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
   // GST data
   const { data: salesItems } = useQuery({
     queryKey: ["sales-items-gst", startDate, endDate],
@@ -164,6 +204,26 @@ export default function Accounts() {
     },
   });
 
+  // Delete payment mutation
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const { error } = await supabase.from("payments").delete().eq("id", paymentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Payment deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      queryClient.invalidateQueries({ queryKey: ["all-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
+      setDeletePaymentConfirmOpen(false);
+      setDeletePaymentId(null);
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to delete payment", description: e.message, variant: "destructive" });
+    },
+  });
+
   // ── Compute paid amounts per reference ───────────────────────────────────
   const paidBySalesId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -200,7 +260,6 @@ export default function Accounts() {
 
   // ── GST computations ─────────────────────────────────────────────────────
   const gstData = useMemo(() => {
-    // Output GST (from sales)
     const outputByRate: Record<number, { taxable: number; gst: number; count: number }> = {};
     const hsnSales: Record<string, { hsn: string; name: string; qty: number; taxable: number; gst: number; rate: number }> = {};
 
@@ -222,7 +281,6 @@ export default function Accounts() {
       hsnSales[hsn].gst += gstAmt;
     });
 
-    // Input GST (from purchases)
     const inputByRate: Record<number, { taxable: number; gst: number; count: number }> = {};
     const hsnPurchase: Record<string, { hsn: string; name: string; qty: number; taxable: number; gst: number; rate: number }> = {};
 
@@ -251,6 +309,96 @@ export default function Accounts() {
     return { outputByRate, inputByRate, hsnSales, hsnPurchase, totalOutputGst, totalInputGst, netLiability };
   }, [salesItems, purchaseItems]);
 
+  // ── Ledger computations ──────────────────────────────────────────────────
+  const customerLedger = useMemo(() => {
+    const ledger: Record<string, { name: string; totalSales: number; totalReceived: number; balance: number; transactions: any[] }> = {};
+    
+    // Add sales
+    salesOrders?.forEach(o => {
+      const key = o.customer_name;
+      if (!ledger[key]) ledger[key] = { name: key, totalSales: 0, totalReceived: 0, balance: 0, transactions: [] };
+      ledger[key].totalSales += Number(o.total_amount);
+      ledger[key].transactions.push({ date: o.sale_date, type: "Sale", ref: o.invoice_number, amount: Number(o.total_amount), direction: "debit" });
+    });
+
+    // Add payments received
+    payments?.filter(p => p.payment_type === "received").forEach(p => {
+      const key = p.party_name;
+      if (!ledger[key]) ledger[key] = { name: key, totalSales: 0, totalReceived: 0, balance: 0, transactions: [] };
+      ledger[key].totalReceived += Number(p.amount);
+      ledger[key].transactions.push({ date: p.payment_date, type: "Payment", ref: p.reference_number, amount: Number(p.amount), direction: "credit" });
+    });
+
+    Object.values(ledger).forEach(l => {
+      l.balance = l.totalSales - l.totalReceived;
+      l.transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
+
+    return Object.values(ledger).sort((a, b) => b.balance - a.balance);
+  }, [salesOrders, payments]);
+
+  const supplierLedger = useMemo(() => {
+    const ledger: Record<string, { name: string; totalPurchase: number; totalPaid: number; balance: number; transactions: any[] }> = {};
+
+    purchaseOrders?.forEach(o => {
+      const name = supplierMap[o.supplier_id] || "Unknown";
+      if (!ledger[name]) ledger[name] = { name, totalPurchase: 0, totalPaid: 0, balance: 0, transactions: [] };
+      ledger[name].totalPurchase += Number(o.total_amount);
+      ledger[name].transactions.push({ date: o.order_date, type: "Purchase", ref: o.invoice_number || o.order_number, amount: Number(o.total_amount), direction: "debit" });
+    });
+
+    payments?.filter(p => p.payment_type === "made").forEach(p => {
+      const key = p.party_name;
+      if (!ledger[key]) ledger[key] = { name: key, totalPurchase: 0, totalPaid: 0, balance: 0, transactions: [] };
+      ledger[key].totalPaid += Number(p.amount);
+      ledger[key].transactions.push({ date: p.payment_date, type: "Payment", ref: p.reference_number, amount: Number(p.amount), direction: "credit" });
+    });
+
+    Object.values(ledger).forEach(l => {
+      l.balance = l.totalPurchase - l.totalPaid;
+      l.transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
+
+    return Object.values(ledger).sort((a, b) => b.balance - a.balance);
+  }, [purchaseOrders, payments, supplierMap]);
+
+  // ── Download ledger functions ────────────────────────────────────────────
+  const downloadCustomerLedger = (customerName?: string) => {
+    const entries = customerName ? customerLedger.filter(l => l.name === customerName) : customerLedger;
+    const rows: string[][] = [];
+    entries.forEach(l => {
+      l.transactions.forEach(t => {
+        rows.push([l.name, t.date, t.type, t.ref, t.direction === "debit" ? String(t.amount.toFixed(2)) : "", t.direction === "credit" ? String(t.amount.toFixed(2)) : ""]);
+      });
+      rows.push([l.name, "", "Balance", "", String(l.balance.toFixed(2)), ""]);
+      rows.push(["", "", "", "", "", ""]);
+    });
+    downloadCSV(
+      `customer-ledger${customerName ? `-${customerName.replace(/\s+/g, "-")}` : ""}.csv`,
+      ["Customer", "Date", "Type", "Reference", "Debit (₹)", "Credit (₹)"],
+      rows
+    );
+    toast({ title: "Ledger downloaded" });
+  };
+
+  const downloadSupplierLedger = (supplierName?: string) => {
+    const entries = supplierName ? supplierLedger.filter(l => l.name === supplierName) : supplierLedger;
+    const rows: string[][] = [];
+    entries.forEach(l => {
+      l.transactions.forEach(t => {
+        rows.push([l.name, t.date, t.type, t.ref, t.direction === "debit" ? String(t.amount.toFixed(2)) : "", t.direction === "credit" ? String(t.amount.toFixed(2)) : ""]);
+      });
+      rows.push([l.name, "", "Balance", "", String(l.balance.toFixed(2)), ""]);
+      rows.push(["", "", "", "", "", ""]);
+    });
+    downloadCSV(
+      `supplier-ledger${supplierName ? `-${supplierName.replace(/\s+/g, "-")}` : ""}.csv`,
+      ["Supplier", "Date", "Type", "Reference", "Debit (₹)", "Credit (₹)"],
+      rows
+    );
+    toast({ title: "Ledger downloaded" });
+  };
+
   // ── Filtered lists ───────────────────────────────────────────────────────
   const filteredSales = useMemo(() =>
     salesOrders?.filter(o =>
@@ -270,13 +418,23 @@ export default function Accounts() {
       p.party_name.toLowerCase().includes(searchQuery.toLowerCase())
     ), [payments, searchQuery]);
 
+  const filteredCustomerLedger = useMemo(() =>
+    customerLedger.filter(l =>
+      l.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ), [customerLedger, searchQuery]);
+
+  const filteredSupplierLedger = useMemo(() =>
+    supplierLedger.filter(l =>
+      l.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ), [supplierLedger, searchQuery]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Accounts</h1>
-          <p className="text-muted-foreground">Payments, outstanding balances & GST summary</p>
+          <p className="text-muted-foreground">Payments, ledgers, outstanding balances & GST summary</p>
         </div>
         <Select value={monthRange} onValueChange={setMonthRange}>
           <SelectTrigger className="w-44">
@@ -347,6 +505,12 @@ export default function Accounts() {
           </TabsTrigger>
           <TabsTrigger value="purchase" className="gap-1.5">
             <TrendingDown className="h-3.5 w-3.5" />Purchase Payable
+          </TabsTrigger>
+          <TabsTrigger value="customer-ledger" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" />Customer Ledger
+          </TabsTrigger>
+          <TabsTrigger value="supplier-ledger" className="gap-1.5">
+            <Building2 className="h-3.5 w-3.5" />Supplier Ledger
           </TabsTrigger>
           <TabsTrigger value="payments" className="gap-1.5">
             <Banknote className="h-3.5 w-3.5" />Payment Ledger
@@ -491,6 +655,112 @@ export default function Accounts() {
           </Card>
         </TabsContent>
 
+        {/* ── Customer Ledger ──────────────────────────────────────────── */}
+        <TabsContent value="customer-ledger" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Customer Ledger
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadCustomerLedger()}>
+                  <Download className="h-3.5 w-3.5" /> Download All
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="text-right">Total Sales (₹)</TableHead>
+                      <TableHead className="text-right">Received (₹)</TableHead>
+                      <TableHead className="text-right">Balance (₹)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomerLedger.length === 0 && (
+                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No customer data found.</TableCell></TableRow>
+                    )}
+                    {filteredCustomerLedger.map(l => (
+                      <TableRow key={l.name}>
+                        <TableCell className="font-medium">{l.name}</TableCell>
+                        <TableCell className="text-right font-mono">₹{l.totalSales.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-green-600">₹{l.totalReceived.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-destructive" : "text-green-600"}`}>
+                          ₹{l.balance.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{paymentStatusBadge(l.totalReceived, l.totalSales)}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => downloadCustomerLedger(l.name)}>
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Supplier Ledger ──────────────────────────────────────────── */}
+        <TabsContent value="supplier-ledger" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> Supplier Ledger
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadSupplierLedger()}>
+                  <Download className="h-3.5 w-3.5" /> Download All
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead className="text-right">Total Purchase (₹)</TableHead>
+                      <TableHead className="text-right">Paid (₹)</TableHead>
+                      <TableHead className="text-right">Balance (₹)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSupplierLedger.length === 0 && (
+                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No supplier data found.</TableCell></TableRow>
+                    )}
+                    {filteredSupplierLedger.map(l => (
+                      <TableRow key={l.name}>
+                        <TableCell className="font-medium">{l.name}</TableCell>
+                        <TableCell className="text-right font-mono">₹{l.totalPurchase.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-green-600">₹{l.totalPaid.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                          ₹{l.balance.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{paymentStatusBadge(l.totalPaid, l.totalPurchase)}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => downloadSupplierLedger(l.name)}>
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ── Payment Ledger ───────────────────────────────────────────── */}
         <TabsContent value="payments" className="mt-4">
           <Card>
@@ -507,11 +777,12 @@ export default function Accounts() {
                       <TableHead>Cheque/Bank</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Notes</TableHead>
+                      {(isAdmin || isPharmacist) && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPayments?.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No payments recorded for this period.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={isAdmin || isPharmacist ? 9 : 8} className="text-center py-8 text-muted-foreground">No payments recorded for this period.</TableCell></TableRow>
                     )}
                     {filteredPayments?.map(p => (
                       <TableRow key={p.id}>
@@ -533,6 +804,22 @@ export default function Accounts() {
                           {p.payment_type === "received" ? "+" : "-"}₹{Number(p.amount).toFixed(2)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-32 truncate">{p.notes || "-"}</TableCell>
+                        {(isAdmin || isPharmacist) && (
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                setDeletePaymentId(p.id);
+                                setDeletePaymentConfirmOpen(true);
+                              }}
+                              title="Delete payment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -744,6 +1031,34 @@ export default function Accounts() {
           {...paymentDialog}
         />
       )}
+
+      {/* Delete Payment Confirmation Dialog */}
+      <Dialog open={deletePaymentConfirmOpen} onOpenChange={(open) => { if (!open) { setDeletePaymentConfirmOpen(false); setDeletePaymentId(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Payment
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this payment record? This action cannot be undone and will affect the outstanding balance.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeletePaymentConfirmOpen(false); setDeletePaymentId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deletePaymentMutation.isPending}
+              onClick={() => deletePaymentId && deletePaymentMutation.mutate(deletePaymentId)}
+            >
+              {deletePaymentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1269,7 +1269,19 @@ export default function PurchaseOrders() {
                           setEditOrderId(order.id);
                           setEditOrderDialogOpen(true);
                         }
-                      }}
+                        else if (e.key === "$") {
+                          const paid = paidByPoId[order.id] || 0;
+                          const supplierName = (order.suppliers as any)?.name || "-";
+                          e.preventDefault();
+                          setPaymentDialog({
+                            referenceId: order.id,
+                            referenceNumber: order.invoice_number || order.order_number,
+                            partyName: supplierName,
+                            totalAmount: Number(order.total_amount),
+                            paidAmount: paid,
+                          });
+                        }
+                      }
                       className="cursor-pointer"
                     >
                       <TableCell className="font-medium">{order.order_number}</TableCell>

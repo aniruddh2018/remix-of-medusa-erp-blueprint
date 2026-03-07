@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 type AppRole = "admin" | "pharmacist" | "staff" | "super_admin";
 
@@ -27,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
 
-  const fetchUserRoles = async (userId: string) => {
+  const fetchUserRoles = async (userId: string): Promise<AppRole[]> => {
     try {
       const { data, error } = await supabase
         .from("user_roles")
@@ -35,36 +34,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("user_id", userId);
       
       if (error) {
-        console.error("Error fetching roles:", error);
+        console.error("[Auth] Error fetching roles:", error);
         return [];
       }
       
       return (data || []).map((r) => r.role as AppRole);
     } catch (err) {
-      console.error("Failed to fetch roles:", err);
+      console.error("[Auth] Failed to fetch roles:", err);
       return [];
     }
   };
 
   useEffect(() => {
-    // Safety timeout: ensure loading becomes false even if queries hang
-    const safetyTimer = setTimeout(() => {
-      setLoading(false);
-    }, 8000);
+    let mounted = true;
 
+    // 1. Set up auth state listener FIRST (Supabase best practice)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log("[Auth] onAuthStateChange:", event, session?.user?.email);
+        if (!mounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to avoid Supabase deadlock on auth state change
+          // IMPORTANT: Don't call Supabase inside onAuthStateChange directly
+          // to avoid deadlocks. Use setTimeout(0) to defer.
+          const userId = session.user.id;
           setTimeout(async () => {
-            const userRoles = await fetchUserRoles(session.user.id);
-            console.log("[Auth] Roles fetched:", userRoles);
-            setRoles(userRoles);
-            setLoading(false);
+            if (!mounted) return;
+            const userRoles = await fetchUserRoles(userId);
+            if (mounted) {
+              setRoles(userRoles);
+              setLoading(false);
+            }
           }, 0);
         } else {
           setRoles([]);
@@ -73,22 +76,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // 2. Get initial session (reads from localStorage, may refresh token)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log("[Auth] getSession:", session?.user?.email ?? "no session");
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         const userRoles = await fetchUserRoles(session.user.id);
-        console.log("[Auth] Initial roles:", userRoles);
-        setRoles(userRoles);
+        if (mounted) {
+          setRoles(userRoles);
+        }
       }
       
-      setLoading(false);
+      if (mounted) setLoading(false);
+    }).catch((err) => {
+      console.error("[Auth] getSession failed:", err);
+      if (mounted) setLoading(false);
     });
 
     return () => {
-      clearTimeout(safetyTimer);
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

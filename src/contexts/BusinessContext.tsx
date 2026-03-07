@@ -168,83 +168,87 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Wait for auth to finish loading (including roles) before deciding
-    if (!user || authLoading) {
-      if (!authLoading && !user) setIsLoading(false);
+    if (authLoading) return;
+
+    // No user → not loading, no onboarding needed
+    if (!user) {
+      setIsLoading(false);
       return;
     }
 
-    // Safety timeout: ensure loading becomes false even if queries hang
-    const safetyTimer = setTimeout(() => {
-      setIsLoading(false);
-    }, 8000);
+    let mounted = true;
 
     const fetchProfile = async () => {
       console.log("[Business] Fetching profile for user:", user.id);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("business_module, full_name, company_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("business_module, full_name, company_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (error) {
-        console.error("[Business] Error fetching profile:", error);
-        setIsLoading(false);
-        return;
-      }
+        if (!mounted) return;
 
-      console.log("[Business] Profile data:", data);
+        if (error) {
+          console.error("[Business] Error fetching profile:", error);
+          setIsLoading(false);
+          return;
+        }
 
-      if (data) {
-        setCompanyId(data.company_id || null);
-        setCompanyNameState(data.full_name || "");
+        console.log("[Business] Profile data:", data);
 
-        // If user has a company, fetch business type FROM the company record
-        if (data.company_id) {
-          console.log("[Business] Fetching company:", data.company_id);
-          const { data: companyData } = await supabase
-            .from("companies")
-            .select("business_type, name, gst_inclusive")
-            .eq("id", data.company_id)
-            .maybeSingle();
+        if (data) {
+          setCompanyId(data.company_id || null);
+          setCompanyNameState(data.full_name || "");
 
-          console.log("[Business] Company data:", companyData);
+          if (data.company_id) {
+            console.log("[Business] Fetching company:", data.company_id);
+            const { data: companyData } = await supabase
+              .from("companies")
+              .select("business_type, name, gst_inclusive")
+              .eq("id", data.company_id)
+              .maybeSingle();
 
-          if (companyData) {
-            const companyType = companyData.business_type as BusinessType;
-            if (companyType && BUSINESS_CONFIGS[companyType]) {
-              setBusinessTypeState(companyType);
+            if (!mounted) return;
+
+            console.log("[Business] Company data:", companyData);
+
+            if (companyData) {
+              const companyType = companyData.business_type as BusinessType;
+              if (companyType && BUSINESS_CONFIGS[companyType]) {
+                setBusinessTypeState(companyType);
+              }
+              if (companyData.name) {
+                setCompanyNameState(companyData.name);
+              }
+              setGstInclusiveState(companyData.gst_inclusive ?? false);
             }
-            if (companyData.name) {
-              setCompanyNameState(companyData.name);
+            setNeedsOnboarding(false);
+          } else {
+            const module = data.business_module as BusinessType;
+            if (module && BUSINESS_CONFIGS[module]) {
+              setBusinessTypeState(module);
             }
-            setGstInclusiveState(companyData.gst_inclusive ?? false);
+            setNeedsOnboarding(!isSuperAdmin);
           }
-          setNeedsOnboarding(false);
         } else {
-          // No company assigned — only show onboarding for non-super-admins
-          const module = data.business_module as BusinessType;
-          if (module && BUSINESS_CONFIGS[module]) {
-            setBusinessTypeState(module);
-          }
+          console.warn("[Business] No profile found for user");
           setNeedsOnboarding(!isSuperAdmin);
         }
-      } else {
-        // No profile at all
-        console.warn("[Business] No profile found for user");
-        setNeedsOnboarding(!isSuperAdmin);
+      } catch (err) {
+        console.error("[Business] fetchProfile failed:", err);
       }
 
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     };
 
     fetchProfile();
 
-    return () => clearTimeout(safetyTimer);
+    return () => { mounted = false; };
   }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {
     if (!user || !companyId) return;
-    // Update the company record (source of truth), not just the profile
     const { error } = await supabase
       .from("companies")
       .update({ business_type: type })
@@ -252,7 +256,6 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
     if (!error) {
       setBusinessTypeState(type);
-      // Also sync profile for consistency
       await supabase
         .from("profiles")
         .update({ business_module: type })
@@ -262,7 +265,6 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   const setCompanyName = async (name: string) => {
     if (!companyId) return;
-    // Update the company record (source of truth), not the user's profile name
     const { error } = await supabase
       .from("companies")
       .update({ name })

@@ -53,8 +53,52 @@ serve(async (req) => {
       );
     }
 
-    const { action, userId, updates } = await req.json();
+    const { action, userId, updates, companyId } = await req.json();
 
+    // ── Delete Company ──
+    if (action === "delete_company") {
+      if (!companyId) {
+        return new Response(
+          JSON.stringify({ error: "companyId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if company has users
+      const { data: companyUsers } = await adminClient
+        .from("profiles")
+        .select("user_id")
+        .eq("company_id", companyId);
+
+      if (companyUsers && companyUsers.length > 0) {
+        return new Response(
+          JSON.stringify({ error: `Cannot delete company: it has ${companyUsers.length} user(s) assigned. Reassign or delete them first.` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Delete related data first
+      await adminClient.from("invoice_settings").delete().eq("company_id", companyId);
+      
+      const { error: deleteError } = await adminClient
+        .from("companies")
+        .delete()
+        .eq("id", companyId);
+
+      if (deleteError) {
+        return new Response(
+          JSON.stringify({ error: "Failed to delete company: " + deleteError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Company deleted" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── User actions require userId ──
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "userId is required" }),
@@ -71,7 +115,6 @@ serve(async (req) => {
     }
 
     if (action === "delete") {
-      // Delete user from auth (cascades to profiles and roles via FK)
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
       if (deleteError) {
         return new Response(
@@ -94,13 +137,11 @@ serve(async (req) => {
         );
       }
 
-      // Update profile fields (full_name, company_id, phone)
       const profileUpdates: Record<string, unknown> = {};
       if (updates.fullName !== undefined) profileUpdates.full_name = updates.fullName;
       if (updates.companyId !== undefined) profileUpdates.company_id = updates.companyId || null;
       if (updates.phone !== undefined) profileUpdates.phone = updates.phone || null;
 
-      // If company changes, also update business_module
       if (updates.companyId) {
         const { data: companyData } = await adminClient
           .from("companies")
@@ -125,7 +166,6 @@ serve(async (req) => {
         }
       }
 
-      // Update role if provided
       if (updates.role) {
         const { error: roleError } = await adminClient
           .from("user_roles")
@@ -139,7 +179,6 @@ serve(async (req) => {
         }
       }
 
-      // Update auth email if provided
       if (updates.email) {
         const { error: emailError } = await adminClient.auth.admin.updateUserById(userId, {
           email: updates.email,
@@ -152,7 +191,6 @@ serve(async (req) => {
         }
       }
 
-      // Reset password if provided
       if (updates.password) {
         const { error: pwError } = await adminClient.auth.admin.updateUserById(userId, {
           password: updates.password,
@@ -172,7 +210,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use 'update' or 'delete'" }),
+      JSON.stringify({ error: "Invalid action. Use 'update', 'delete', or 'delete_company'" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

@@ -38,16 +38,15 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check caller role
+    // Check caller roles (user may have multiple roles)
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", callingUser.id)
-      .maybeSingle();
+      .eq("user_id", callingUser.id);
 
-    const callerRole = roleData?.role;
-    const isSuperAdmin = callerRole === "super_admin";
-    const isAdmin = callerRole === "admin" || isSuperAdmin;
+    const callerRoles = (roleData || []).map((r: { role: string }) => r.role);
+    const isSuperAdmin = callerRoles.includes("super_admin");
+    const isAdmin = callerRoles.includes("admin") || isSuperAdmin;
 
     if (!isAdmin) {
       return new Response(

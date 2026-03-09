@@ -114,6 +114,23 @@ serve(async (req) => {
       );
     }
 
+    // Prevent deleting super admins
+    if (action === "delete") {
+      const { data: targetRoleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "super_admin")
+        .maybeSingle();
+
+      if (targetRoleData) {
+        return new Response(
+          JSON.stringify({ error: "Super admin accounts cannot be deleted" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (action === "delete") {
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
       if (deleteError) {

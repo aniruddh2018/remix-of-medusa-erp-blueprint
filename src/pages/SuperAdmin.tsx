@@ -379,6 +379,11 @@ export default function SuperAdmin() {
                       {companies?.map((company) => {
                         const admins = getCompanyAdmins(company.id);
                         const userCount = getCompanyUserCount(company.id);
+                        const currentUserProfile = profiles?.find(p => p.user_id === currentUser?.id);
+                        const isOwnCompany = currentUserProfile?.company_id === company.id;
+                        const hasSuperAdmins = profiles?.some(p => p.company_id === company.id && getUserRole(p.user_id) === "super_admin");
+                        const canDeleteCompany = !isOwnCompany && !hasSuperAdmins;
+                        const companyDeleteTitle = isOwnCompany ? "Cannot delete your own company" : hasSuperAdmins ? "Company has super admin users" : "Delete company";
                         return (
                           <TableRow key={company.id}>
                             <TableCell>
@@ -422,12 +427,13 @@ export default function SuperAdmin() {
                                   variant="ghost"
                                   size="icon"
                                   className="text-destructive hover:text-destructive"
+                                  disabled={!canDeleteCompany}
                                   onClick={() => {
                                     setDeletingCompanyId(company.id);
                                     setDeletingCompanyName(company.name);
                                     setDeleteCompanyDialogOpen(true);
                                   }}
-                                  title="Delete company"
+                                  title={companyDeleteTitle}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

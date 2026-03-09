@@ -465,6 +465,7 @@ export default function SuperAdmin() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>ID</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Role</TableHead>
@@ -481,6 +482,16 @@ export default function SuperAdmin() {
                         const deleteTitle = isSelf ? "Cannot delete yourself" : isSuperAdmin ? "Super admins cannot be deleted" : "Delete user";
                         return (
                           <TableRow key={profile.user_id}>
+                            <TableCell>
+                              <button
+                                onClick={() => copyId(profile.user_id)}
+                                className="flex items-center gap-1 font-mono text-xs text-primary hover:underline cursor-pointer"
+                                title={`Full ID: ${profile.user_id}`}
+                              >
+                                {shortId(profile.user_id)}
+                                <Copy className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </TableCell>
                             <TableCell>
                               <div className="font-medium">
                                 {profile.full_name}

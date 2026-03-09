@@ -64,6 +64,46 @@ serve(async (req) => {
         );
       }
 
+      // Prevent deleting own company
+      const { data: callerProfile } = await adminClient
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", callingUser.id)
+        .maybeSingle();
+
+      if (callerProfile?.company_id === companyId) {
+        return new Response(
+          JSON.stringify({ error: "Cannot delete your own company" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Prevent deleting companies with super admin users
+      const { data: superAdminUsers } = await adminClient
+        .from("profiles")
+        .select("user_id")
+        .eq("company_id", companyId);
+
+      if (superAdminUsers && superAdminUsers.length > 0) {
+        const superAdminChecks = await Promise.all(
+          superAdminUsers.map(async (u) => {
+            const { data: saRole } = await adminClient
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", u.user_id)
+              .eq("role", "super_admin")
+              .maybeSingle();
+            return !!saRole;
+          })
+        );
+        if (superAdminChecks.some(Boolean)) {
+          return new Response(
+            JSON.stringify({ error: "Cannot delete company: it contains super admin user(s)" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       // Check if company has users
       const { data: companyUsers } = await adminClient
         .from("profiles")
@@ -112,6 +152,23 @@ serve(async (req) => {
         JSON.stringify({ error: "Cannot delete your own account" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Prevent deleting super admins
+    if (action === "delete") {
+      const { data: targetRoleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "super_admin")
+        .maybeSingle();
+
+      if (targetRoleData) {
+        return new Response(
+          JSON.stringify({ error: "Super admin accounts cannot be deleted" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (action === "delete") {

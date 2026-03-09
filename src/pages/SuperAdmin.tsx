@@ -379,6 +379,11 @@ export default function SuperAdmin() {
                       {companies?.map((company) => {
                         const admins = getCompanyAdmins(company.id);
                         const userCount = getCompanyUserCount(company.id);
+                        const currentUserProfile = profiles?.find(p => p.user_id === currentUser?.id);
+                        const isOwnCompany = currentUserProfile?.company_id === company.id;
+                        const hasSuperAdmins = profiles?.some(p => p.company_id === company.id && getUserRole(p.user_id) === "super_admin");
+                        const canDeleteCompany = !isOwnCompany && !hasSuperAdmins;
+                        const companyDeleteTitle = isOwnCompany ? "Cannot delete your own company" : hasSuperAdmins ? "Company has super admin users" : "Delete company";
                         return (
                           <TableRow key={company.id}>
                             <TableCell>
@@ -422,12 +427,13 @@ export default function SuperAdmin() {
                                   variant="ghost"
                                   size="icon"
                                   className="text-destructive hover:text-destructive"
+                                  disabled={!canDeleteCompany}
                                   onClick={() => {
                                     setDeletingCompanyId(company.id);
                                     setDeletingCompanyName(company.name);
                                     setDeleteCompanyDialogOpen(true);
                                   }}
-                                  title="Delete company"
+                                  title={companyDeleteTitle}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -470,6 +476,9 @@ export default function SuperAdmin() {
                       {profiles?.map((profile) => {
                         const role = getUserRole(profile.user_id);
                         const isSelf = profile.user_id === currentUser?.id;
+                        const isSuperAdmin = role === "super_admin";
+                        const canDelete = !isSelf && !isSuperAdmin;
+                        const deleteTitle = isSelf ? "Cannot delete yourself" : isSuperAdmin ? "Super admins cannot be deleted" : "Delete user";
                         return (
                           <TableRow key={profile.user_id}>
                             <TableCell>
@@ -495,9 +504,9 @@ export default function SuperAdmin() {
                                   variant="ghost"
                                   size="icon"
                                   className="text-destructive hover:text-destructive"
-                                  disabled={isSelf}
+                                  disabled={!canDelete}
                                   onClick={() => { setDeletingUserId(profile.user_id); setDeletingUserName(profile.full_name); setDeleteDialogOpen(true); }}
-                                  title={isSelf ? "Cannot delete yourself" : "Delete user"}
+                                  title={deleteTitle}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

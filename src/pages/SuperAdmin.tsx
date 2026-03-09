@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound } from "lucide-react";
+import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -30,6 +30,8 @@ interface UserRole {
   user_id: string;
   role: string;
 }
+
+const shortId = (id: string) => id.slice(0, 8).toUpperCase();
 
 export default function SuperAdmin() {
   const { isSuperAdmin, user: currentUser } = useAuth();
@@ -53,6 +55,7 @@ export default function SuperAdmin() {
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [adminRole, setAdminRole] = useState("admin");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Edit user dialog
@@ -72,6 +75,11 @@ export default function SuperAdmin() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState("");
   const [deletingUserName, setDeletingUserName] = useState("");
+
+  // Delete company dialog
+  const [deleteCompanyDialogOpen, setDeleteCompanyDialogOpen] = useState(false);
+  const [deletingCompanyId, setDeletingCompanyId] = useState("");
+  const [deletingCompanyName, setDeletingCompanyName] = useState("");
 
   if (!isSuperAdmin) {
     return <Navigate to="/" replace />;
@@ -122,7 +130,7 @@ export default function SuperAdmin() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["super-admin-companies"] });
-      toast({ title: "Company created", description: `${data.name} has been added.` });
+      toast({ title: "Company created", description: `${data.name} (ID: ${shortId(data.id)}) has been added.` });
       setCompanyDialogOpen(false);
       resetCompanyForm();
     },
@@ -131,7 +139,7 @@ export default function SuperAdmin() {
     },
   });
 
-  const handleCreateAdmin = async () => {
+  const handleCreateUser = async () => {
     if (!adminName || !adminEmail || !adminPassword || !selectedCompanyId) {
       toast({ title: "All fields are required", variant: "destructive" });
       return;
@@ -139,17 +147,17 @@ export default function SuperAdmin() {
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email: adminEmail, password: adminPassword, fullName: adminName, role: "admin", companyId: selectedCompanyId },
+        body: { email: adminEmail, password: adminPassword, fullName: adminName, role: adminRole, companyId: selectedCompanyId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast({ title: "Admin created", description: `${adminName} assigned as admin.` });
+      toast({ title: "User created", description: `${adminName} assigned as ${adminRole}.` });
       queryClient.invalidateQueries({ queryKey: ["super-admin-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin-roles"] });
       setAdminDialogOpen(false);
       resetAdminForm();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Error creating user", description: err.message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -223,12 +231,31 @@ export default function SuperAdmin() {
     }
   };
 
+  const handleDeleteCompany = async () => {
+    if (!deletingCompanyId) return;
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: { action: "delete_company", companyId: deletingCompanyId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Company deleted", description: `${deletingCompanyName} has been removed.` });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-companies"] });
+      setDeleteCompanyDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const resetCompanyForm = () => {
     setCompanyName(""); setCompanyBusinessType("pharmacy"); setCompanyGst(""); setCompanyPhone(""); setCompanyEmail(""); setCompanyAddress("");
   };
 
   const resetAdminForm = () => {
-    setAdminName(""); setAdminEmail(""); setAdminPassword(""); setSelectedCompanyId("");
+    setAdminName(""); setAdminEmail(""); setAdminPassword(""); setSelectedCompanyId(""); setAdminRole("admin");
   };
 
   const openEditUser = (profile: UserProfile) => {
@@ -243,7 +270,8 @@ export default function SuperAdmin() {
 
   const getCompanyName = (companyId: string | null) => {
     if (!companyId) return "—";
-    return companies?.find(c => c.id === companyId)?.name || "Unknown";
+    const c = companies?.find(c => c.id === companyId);
+    return c ? `${c.name} (${shortId(c.id)})` : "Unknown";
   };
 
   const getUserRole = (userId: string) => {
@@ -271,6 +299,11 @@ export default function SuperAdmin() {
     return profiles?.filter(p => p.company_id === companyId).length || 0;
   };
 
+  const copyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast({ title: "Copied", description: `ID ${shortId(id)} copied to clipboard` });
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -281,7 +314,7 @@ export default function SuperAdmin() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setAdminDialogOpen(true)} className="gap-2">
             <ShieldCheck className="h-4 w-4" />
-            <span className="hidden sm:inline">Create Admin</span>
+            <span className="hidden sm:inline">Create User</span>
           </Button>
           <Button onClick={() => setCompanyDialogOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -317,7 +350,7 @@ export default function SuperAdmin() {
           <Card>
             <CardHeader>
               <CardTitle>Companies</CardTitle>
-              <CardDescription>All registered companies and their administrators</CardDescription>
+              <CardDescription>All registered companies with unique IDs</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -332,12 +365,14 @@ export default function SuperAdmin() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>ID</TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Business Type</TableHead>
                         <TableHead>GST</TableHead>
                         <TableHead>Users</TableHead>
                         <TableHead>Admins</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -346,6 +381,16 @@ export default function SuperAdmin() {
                         const userCount = getCompanyUserCount(company.id);
                         return (
                           <TableRow key={company.id}>
+                            <TableCell>
+                              <button
+                                onClick={() => copyId(company.id)}
+                                className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded hover:bg-muted/80 flex items-center gap-1"
+                                title={`Full ID: ${company.id}`}
+                              >
+                                {shortId(company.id)}
+                                <Copy className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </TableCell>
                             <TableCell>
                               <div>
                                 <div className="font-medium">{company.name}</div>
@@ -370,6 +415,23 @@ export default function SuperAdmin() {
                               <Badge variant={company.is_active ? "default" : "secondary"}>
                                 {company.is_active ? "Active" : "Inactive"}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    setDeletingCompanyId(company.id);
+                                    setDeletingCompanyName(company.name);
+                                    setDeleteCompanyDialogOpen(true);
+                                  }}
+                                  title="Delete company"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -506,12 +568,12 @@ export default function SuperAdmin() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Admin Dialog */}
+      {/* Create User Dialog */}
       <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Company Admin</DialogTitle>
-            <DialogDescription>Create an admin user and assign them to a company</DialogDescription>
+            <DialogTitle>Create User</DialogTitle>
+            <DialogDescription>Create a user and assign them to a company with a role</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -520,29 +582,40 @@ export default function SuperAdmin() {
                 <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
                 <SelectContent>
                   {companies?.filter(c => c.is_active).map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({shortId(c.id)})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Full Name *</Label>
-              <Input value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Admin's full name" />
+              <Input value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="User's full name" />
             </div>
             <div className="space-y-2">
               <Label>Email *</Label>
-              <Input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@company.com" />
+              <Input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="user@company.com" />
             </div>
             <div className="space-y-2">
               <Label>Password *</Label>
               <Input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Minimum 6 characters" />
             </div>
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={adminRole} onValueChange={setAdminRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdminDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateAdmin} disabled={isSubmitting}>
+            <Button onClick={handleCreateUser} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Admin
+              Create User
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -570,7 +643,7 @@ export default function SuperAdmin() {
                 <SelectTrigger><SelectValue placeholder="No company" /></SelectTrigger>
                 <SelectContent>
                   {companies?.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({shortId(c.id)})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -625,7 +698,7 @@ export default function SuperAdmin() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete <strong>{deletingUserName}</strong>? This action cannot be undone and will remove all their data.
+              Are you sure you want to permanently delete <strong>{deletingUserName}</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -633,6 +706,25 @@ export default function SuperAdmin() {
             <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Company Confirmation */}
+      <AlertDialog open={deleteCompanyDialogOpen} onOpenChange={setDeleteCompanyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Company</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{deletingCompanyName}</strong>? Companies with assigned users cannot be deleted — reassign or delete users first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCompany} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Delete Company
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

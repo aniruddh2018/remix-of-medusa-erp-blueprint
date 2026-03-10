@@ -223,6 +223,42 @@ export default function PurchaseOrders() {
     enabled: !!companyId,
   });
 
+  // Fetch invoice/discount settings
+  const { data: invoiceSettings } = useQuery({
+    queryKey: ["invoice-settings", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("invoice_settings")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const discountSettings = useMemo(() => {
+    const s = invoiceSettings as any;
+    return {
+      discountMode: s?.discount_mode || "both",
+      showDiscountRow: s?.show_discount_row ?? true,
+      enableBillDiscount: s?.enable_bill_discount ?? true,
+      billDiscountMode: s?.bill_discount_mode || "both",
+      maxDiscountAdmin: Number(s?.max_discount_admin) || 100,
+      maxDiscountPharmacist: Number(s?.max_discount_pharmacist) || 50,
+      maxDiscountStaff: Number(s?.max_discount_staff) || 15,
+      discountBeforeTax: s?.discount_before_tax ?? true,
+    };
+  }, [invoiceSettings]);
+
+  const maxDiscountAllowed = useMemo(() => {
+    if (isAdmin) return discountSettings.maxDiscountAdmin;
+    if (isPharmacist) return discountSettings.maxDiscountPharmacist;
+    return discountSettings.maxDiscountStaff;
+  }, [isAdmin, isPharmacist, discountSettings]);
+
   const { data: poPayments } = useQuery({
     queryKey: ["payments-purchase", companyId],
     queryFn: async () => {

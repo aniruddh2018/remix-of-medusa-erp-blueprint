@@ -275,7 +275,9 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (item.isNew) continue;
         const orig = saleItems?.find((i: any) => i.id === item.id);
         if (orig) {
-          const qtyDiff = orig.quantity - item.quantity;
+          const origTotal = orig.quantity;
+          const newTotal = item.quantity + item.free_quantity;
+          const qtyDiff = origTotal - newTotal;
           if (qtyDiff !== 0) {
             const { data: currentBatch } = await supabase
               .from("inventory_batches")

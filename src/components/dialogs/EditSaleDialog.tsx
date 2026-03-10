@@ -503,7 +503,14 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                             className="w-14 h-7 text-center"
                           />
                         </TableCell>
-                        <TableCell className="text-right text-sm">{item.gst_percentage}%</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" step="1" min={0} max={28}
+                            value={item.gst_percentage}
+                            onChange={(e) => updateItem(index, "gst_percentage", parseFloat(e.target.value) || 0)}
+                            className="w-14 h-7 text-center"
+                          />
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">₹{item.total_price.toFixed(2)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(index)}>

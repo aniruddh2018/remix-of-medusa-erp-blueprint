@@ -502,7 +502,7 @@ export default function Sales() {
 
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;
+      const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       
       // Validate all cart items have valid batch IDs
       const invalidItems = cart.filter(i => !i.batch_id);
@@ -510,18 +510,17 @@ export default function Sales() {
         throw new Error(`${invalidItems.length} item(s) have no batch assigned. Please remove them or select a batch.`);
       }
       
-      // Validate duplicate invoice number
-      if (invoiceNumber.trim()) {
-        const { data: existing, error: checkError } = await supabase
-          .from("sales_orders")
-          .select("id")
-          .eq("invoice_number", invoiceNumber.trim())
-          .limit(1);
-        
-        if (checkError) throw checkError;
-        if (existing && existing.length > 0) {
-          throw new Error(`Invoice number "${invoiceNumber}" already exists. Please use a unique invoice number.`);
-        }
+      // Validate duplicate invoice number (for both manual and auto-generated)
+      const { data: existing, error: checkError } = await supabase
+        .from("sales_orders")
+        .select("id")
+        .eq("invoice_number", finalInvoiceNumber)
+        .eq("company_id", companyId)
+        .limit(1);
+      
+      if (checkError) throw checkError;
+      if (existing && existing.length > 0) {
+        throw new Error(`Invoice number "${finalInvoiceNumber}" already exists. Please use a unique invoice number.`);
       }
       
       // Calculate item totals

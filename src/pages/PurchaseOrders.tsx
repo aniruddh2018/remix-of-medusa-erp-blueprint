@@ -981,7 +981,7 @@ export default function PurchaseOrders() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-8 gap-3">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">

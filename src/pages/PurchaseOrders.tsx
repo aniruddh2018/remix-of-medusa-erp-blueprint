@@ -464,6 +464,7 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setItemDiscountFlat(0);
     setItemBatchNumber("");
     setFreightCharges(0);
     setHandlingCharges(0);

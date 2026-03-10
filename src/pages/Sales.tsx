@@ -498,6 +498,7 @@ export default function Sales() {
       return data as InventoryBatch[];
     },
     enabled: !!companyId && isDialogOpen,
+  });
 
   const createSaleMutation = useMutation({
     mutationFn: async () => {

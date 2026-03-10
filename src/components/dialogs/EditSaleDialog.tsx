@@ -32,6 +32,7 @@ interface EditableItem {
   batch_id: string;
   batch_label: string;
   quantity: number;
+  free_quantity: number;
   max_quantity: number;
   unit_price: number;
   gst_percentage: number;

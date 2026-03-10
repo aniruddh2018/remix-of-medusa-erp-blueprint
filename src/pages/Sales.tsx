@@ -675,7 +675,10 @@ export default function Sales() {
     setProductPopoverOpen(false);
     setItemQuantity(1);
     setItemDiscount(0);
+    setItemDiscountFlat(0);
     setItemRate(0);
+    setBillDiscountPercent(0);
+    setBillDiscountFlat(0);
     setFreightCharges(0);
     setHandlingCharges(0);
     setDeliveryCharges(0);

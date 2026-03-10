@@ -30,6 +30,7 @@ interface EditableItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  free_quantity: number;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
@@ -128,6 +129,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           product_id: item.product_id,
           product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
           quantity: item.quantity,
+          free_quantity: 0,
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),
@@ -165,6 +167,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       product_id: selectedNewProduct.id,
       product_name: selectedNewProduct.name,
       quantity: newItemQty,
+      free_quantity: 0,
       unit_price: newItemPrice || Number(selectedNewProduct.purchase_price),
       gst_percentage: Number(selectedNewProduct.gst_percentage),
       discount_percentage: 0,
@@ -336,6 +339,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead className="text-right w-20">Qty</TableHead>
+                      <TableHead className="text-right w-16">Free</TableHead>
                       <TableHead className="text-right w-24">Price</TableHead>
                       <TableHead className="text-right w-16">Disc%</TableHead>
                       <TableHead className="text-right w-16">GST%</TableHead>
@@ -354,6 +358,11 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                           <Input type="number" min={1} value={item.quantity}
                             onChange={(e) => updateItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                             className="w-16 h-7 text-center" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" min={0} value={item.free_quantity}
+                            onChange={(e) => updateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                            className="w-14 h-7 text-center" placeholder="0" />
                         </TableCell>
                         <TableCell className="text-right">
                           <Input type="number" step="0.01" min={0} value={item.unit_price}

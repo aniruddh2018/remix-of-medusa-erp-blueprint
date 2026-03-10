@@ -32,6 +32,7 @@ interface EditableItem {
   batch_id: string;
   batch_label: string;
   quantity: number;
+  free_quantity: number;
   max_quantity: number;
   unit_price: number;
   gst_percentage: number;
@@ -161,6 +162,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           batch_id: item.batch_id,
           batch_label: item.inventory_batches?.batch_number || "",
           quantity: item.quantity,
+          free_quantity: 0,
           max_quantity: item.quantity + (item.inventory_batches?.quantity || 0),
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
@@ -206,6 +208,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       batch_id: selectedNewBatch.id,
       batch_label: selectedNewBatch.batch_number,
       quantity: newItemQty,
+      free_quantity: 0,
       max_quantity: selectedNewBatch.quantity,
       unit_price: price,
       gst_percentage: Number(selectedNewProduct.gst_percentage),
@@ -272,7 +275,9 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (item.isNew) continue;
         const orig = saleItems?.find((i: any) => i.id === item.id);
         if (orig) {
-          const qtyDiff = orig.quantity - item.quantity;
+          const origTotal = orig.quantity;
+          const newTotal = item.quantity + item.free_quantity;
+          const qtyDiff = origTotal - newTotal;
           if (qtyDiff !== 0) {
             const { data: currentBatch } = await supabase
               .from("inventory_batches")
@@ -314,12 +319,13 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         });
         if (insertErr) throw new Error(`Failed to add item: ${insertErr.message}`);
 
-        // Deduct inventory
+        // Deduct inventory (quantity + free)
+        const totalDeduct = item.quantity + item.free_quantity;
         const { data: batch } = await supabase.from("inventory_batches")
           .select("quantity").eq("id", item.batch_id).single();
         if (batch) {
           const { error: batchErr } = await supabase.from("inventory_batches")
-            .update({ quantity: batch.quantity - item.quantity })
+            .update({ quantity: batch.quantity - totalDeduct })
             .eq("id", item.batch_id)
             .select();
           if (batchErr) throw new Error(`Failed to deduct inventory: ${batchErr.message}`);
@@ -446,6 +452,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                       <TableHead>Product</TableHead>
                       <TableHead>Batch</TableHead>
                       <TableHead className="text-right w-20">Qty</TableHead>
+                      <TableHead className="text-right w-16">Free</TableHead>
                       <TableHead className="text-right w-24">Price</TableHead>
                       <TableHead className="text-right w-16">Disc%</TableHead>
                       <TableHead className="text-right w-16">GST%</TableHead>
@@ -467,6 +474,15 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                             value={item.quantity}
                             onChange={(e) => updateItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                             className="w-16 h-7 text-center"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" min={0}
+                            value={item.free_quantity}
+                            onChange={(e) => updateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                            className="w-14 h-7 text-center"
+                            placeholder="0"
                           />
                         </TableCell>
                         <TableCell className="text-right">

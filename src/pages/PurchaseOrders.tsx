@@ -358,7 +358,7 @@ export default function PurchaseOrders() {
       }, 0);
 
       const totalCharges = freightCharges + handlingCharges + otherCharges;
-      const totalAmount = itemsSubtotal + gstAmount + totalCharges;
+      const totalAmount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
 
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")

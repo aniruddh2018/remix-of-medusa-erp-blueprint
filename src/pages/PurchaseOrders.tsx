@@ -523,6 +523,8 @@ export default function PurchaseOrders() {
     setPendingChallans([]);
     setSelectedChallanIds([]);
     setShowChallanSelector(false);
+    setBillDiscountPercent(0);
+    setBillDiscountFlat(0);
     setDraftRestored(false);
   }, [clearPODraft]);
 

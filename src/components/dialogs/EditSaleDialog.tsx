@@ -319,12 +319,13 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         });
         if (insertErr) throw new Error(`Failed to add item: ${insertErr.message}`);
 
-        // Deduct inventory
+        // Deduct inventory (quantity + free)
+        const totalDeduct = item.quantity + item.free_quantity;
         const { data: batch } = await supabase.from("inventory_batches")
           .select("quantity").eq("id", item.batch_id).single();
         if (batch) {
           const { error: batchErr } = await supabase.from("inventory_batches")
-            .update({ quantity: batch.quantity - item.quantity })
+            .update({ quantity: batch.quantity - totalDeduct })
             .eq("id", item.batch_id)
             .select();
           if (batchErr) throw new Error(`Failed to deduct inventory: ${batchErr.message}`);

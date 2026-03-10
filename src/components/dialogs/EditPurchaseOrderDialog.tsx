@@ -30,6 +30,7 @@ interface EditableItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  free_quantity: number;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;

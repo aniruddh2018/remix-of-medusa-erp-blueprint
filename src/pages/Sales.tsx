@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   Command,
   CommandEmpty,
@@ -97,6 +98,7 @@ export default function Sales() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
+  const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   
   // Other charges
@@ -556,6 +558,7 @@ export default function Sales() {
         product_id: item.product_id,
         batch_id: item.batch_id,
         quantity: item.quantity,
+        free_quantity: item.free_quantity || 0,
         unit_price: item.unit_price,
         gst_percentage: item.gst_percentage,
         discount_percentage: item.discount_percentage,
@@ -682,6 +685,7 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemFreeQty(0);
     setItemRate(0);
+    setNoGstBill(false);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);
     setFreightCharges(0);
@@ -777,7 +781,7 @@ export default function Sales() {
       return;
     }
 
-    const gstPercentage = Number(product.gst_percentage);
+    const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
     const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
     const hsnCode = product.hsn_code || "";
 
@@ -1094,7 +1098,31 @@ export default function Sales() {
                 )}
               </div>
 
-              {/* Add Product to Cart */}
+              {/* No-GST Toggle */}
+              <div className="flex items-center gap-3 px-1">
+                <Switch
+                  id="no-gst-toggle"
+                  checked={noGstBill}
+                  onCheckedChange={(checked) => {
+                    setNoGstBill(checked);
+                    // Update all existing cart items GST
+                    if (cart.length > 0) {
+                      setCart(prev => prev.map(item => {
+                        const newGst = checked ? 0 : (products?.find(p => p.id === item.product_id)?.gst_percentage || item.gst_percentage);
+                        const gstPct = Number(newGst);
+                        const base = item.unit_price * item.quantity;
+                        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+                        const total = gstInclusive ? afterDisc : afterDisc + afterDisc * gstPct / 100;
+                        return { ...item, gst_percentage: gstPct, total_price: total };
+                      }));
+                    }
+                  }}
+                />
+                <Label htmlFor="no-gst-toggle" className="text-sm cursor-pointer">
+                  No GST Bill <span className="text-muted-foreground text-xs">(0% GST on all items)</span>
+                </Label>
+              </div>
+
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">

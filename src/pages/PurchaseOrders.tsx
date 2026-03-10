@@ -418,6 +418,7 @@ export default function PurchaseOrders() {
           purchase_order_id: order.id,
           product_id: item.product_id,
           quantity: item.quantity,
+          free_quantity: (item as any).free_quantity || 0,
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,

@@ -162,8 +162,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           batch_id: item.batch_id,
           batch_label: item.inventory_batches?.batch_number || "",
           quantity: item.quantity,
-          free_quantity: 0,
-          max_quantity: item.quantity + (item.inventory_batches?.quantity || 0),
+          free_quantity: item.free_quantity || 0,
+          max_quantity: item.quantity + (item.free_quantity || 0) + (item.inventory_batches?.quantity || 0),
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),
@@ -295,6 +295,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         }
         const { data: updResult, error: updateErr } = await supabase.from("sales_order_items").update({
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
@@ -311,6 +312,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           product_id: item.product_id,
           batch_id: item.batch_id,
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,
@@ -501,7 +503,14 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                             className="w-14 h-7 text-center"
                           />
                         </TableCell>
-                        <TableCell className="text-right text-sm">{item.gst_percentage}%</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" step="1" min={0} max={28}
+                            value={item.gst_percentage}
+                            onChange={(e) => updateItem(index, "gst_percentage", parseFloat(e.target.value) || 0)}
+                            className="w-14 h-7 text-center"
+                          />
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">₹{item.total_price.toFixed(2)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(index)}>

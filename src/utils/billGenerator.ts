@@ -36,6 +36,8 @@ interface BillData {
 
 // Generate HTML bill content
 function generateBillHTML(data: BillData): string {
+  const isNoGst = data.items.every(item => item.gst_percentage === 0) && data.gst_amount === 0;
+  
   const itemsHTML = data.items
     .map(
       (item, index) => `
@@ -46,7 +48,7 @@ function generateBillHTML(data: BillData): string {
         <td>${item.hsn_code || "-"}</td>
         <td>${item.quantity}</td>
         <td>₹${item.unit_price.toFixed(2)}</td>
-        <td>${item.gst_percentage}%</td>
+        ${isNoGst ? "" : `<td>${item.gst_percentage}%</td>`}
         <td>${item.discount_percentage}%</td>
         <td>₹${item.total_price.toFixed(2)}</td>
       </tr>
@@ -103,7 +105,7 @@ function generateBillHTML(data: BillData): string {
         <div style="color: #888; font-size: 12px; margin-top: 5px;">Your trusted healthcare partner</div>
       </div>
       <div class="invoice-title">
-        ${data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER"}
+        ${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}
         <div class="invoice-number">${data.invoice_number}</div>
         <div class="invoice-number">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
       </div>
@@ -126,14 +128,14 @@ function generateBillHTML(data: BillData): string {
     
     <table>
       <thead>
-        <tr>
+         <tr>
           <th>#</th>
           <th>Product</th>
           <th>Batch</th>
           <th>HSN</th>
           <th>Qty</th>
           <th>Price</th>
-          <th>GST</th>
+          ${isNoGst ? "" : "<th>GST</th>"}
           <th>Disc</th>
           <th>Total</th>
         </tr>
@@ -149,10 +151,10 @@ function generateBillHTML(data: BillData): string {
           <td>Subtotal:</td>
           <td>₹${data.subtotal.toFixed(2)}</td>
         </tr>
-        <tr>
+        ${isNoGst ? "" : `<tr>
           <td>GST:</td>
           <td>₹${data.gst_amount.toFixed(2)}</td>
-        </tr>
+        </tr>`}
         ${data.discount_amount > 0 ? `<tr><td>Discount:</td><td>-₹${data.discount_amount.toFixed(2)}</td></tr>` : ""}
         ${totalCharges > 0 ? `<tr><td>Other Charges:</td><td>₹${totalCharges.toFixed(2)}</td></tr>` : ""}
         <tr class="grand-total">

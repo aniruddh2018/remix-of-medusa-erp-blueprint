@@ -1,0 +1,2 @@
+ALTER TABLE public.sales_order_items ADD COLUMN IF NOT EXISTS free_quantity integer NOT NULL DEFAULT 0;
+ALTER TABLE public.purchase_order_items ADD COLUMN IF NOT EXISTS free_quantity integer NOT NULL DEFAULT 0;

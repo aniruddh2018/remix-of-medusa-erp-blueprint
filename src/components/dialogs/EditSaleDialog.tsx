@@ -245,7 +245,6 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       for (const itemId of deletedItemIds) {
         const orig = saleItems?.find((i: any) => i.id === itemId);
         if (orig) {
-          // Get current batch quantity fresh from DB
           const { data: currentBatch } = await supabase
             .from("inventory_batches")
             .select("quantity")
@@ -254,15 +253,18 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           if (currentBatch) {
             const { error: batchErr } = await supabase.from("inventory_batches")
               .update({ quantity: currentBatch.quantity + orig.quantity })
-              .eq("id", orig.batch_id);
+              .eq("id", orig.batch_id)
+              .select();
             if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
           }
         }
-        const { error: delErr } = await supabase
+        const { data: delResult, error: delErr } = await supabase
           .from("sales_order_items")
           .delete()
-          .eq("id", itemId);
+          .eq("id", itemId)
+          .select();
         if (delErr) throw new Error(`Failed to remove item: ${delErr.message}`);
+        if (!delResult || delResult.length === 0) throw new Error("Failed to remove item. Check permissions.");
       }
 
       // Update existing items
@@ -272,7 +274,6 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (orig) {
           const qtyDiff = orig.quantity - item.quantity;
           if (qtyDiff !== 0) {
-            // Get current batch quantity fresh from DB
             const { data: currentBatch } = await supabase
               .from("inventory_batches")
               .select("quantity")
@@ -281,19 +282,21 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             if (currentBatch) {
               const { error: batchErr } = await supabase.from("inventory_batches")
                 .update({ quantity: currentBatch.quantity + qtyDiff })
-                .eq("id", item.batch_id);
+                .eq("id", item.batch_id)
+                .select();
               if (batchErr) throw new Error(`Failed to update inventory: ${batchErr.message}`);
             }
           }
         }
-        const { error: updateErr } = await supabase.from("sales_order_items").update({
+        const { data: updResult, error: updateErr } = await supabase.from("sales_order_items").update({
           quantity: item.quantity,
           unit_price: item.unit_price,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
           gst_percentage: item.gst_percentage,
-        }).eq("id", item.id);
+        }).eq("id", item.id).select();
         if (updateErr) throw new Error(`Failed to update item: ${updateErr.message}`);
+        if (!updResult || updResult.length === 0) throw new Error("Failed to update item. Check permissions.");
       }
 
       // Insert new items
@@ -317,13 +320,14 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (batch) {
           const { error: batchErr } = await supabase.from("inventory_batches")
             .update({ quantity: batch.quantity - item.quantity })
-            .eq("id", item.batch_id);
+            .eq("id", item.batch_id)
+            .select();
           if (batchErr) throw new Error(`Failed to deduct inventory: ${batchErr.message}`);
         }
       }
 
       // Update order header
-      const { error } = await supabase
+      const { data: updOrder, error } = await supabase
         .from("sales_orders")
         .update({
           customer_name: customerName,
@@ -342,9 +346,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           total_amount: grandTotal,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", saleId);
+        .eq("id", saleId)
+        .select();
 
       if (error) throw error;
+      if (!updOrder || updOrder.length === 0) throw new Error("Failed to update invoice. Check permissions.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });

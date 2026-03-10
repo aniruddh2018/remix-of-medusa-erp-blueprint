@@ -151,10 +151,10 @@ function generateBillHTML(data: BillData): string {
           <td>Subtotal:</td>
           <td>₹${data.subtotal.toFixed(2)}</td>
         </tr>
-        <tr>
+        ${isNoGst ? "" : `<tr>
           <td>GST:</td>
           <td>₹${data.gst_amount.toFixed(2)}</td>
-        </tr>
+        </tr>`}
         ${data.discount_amount > 0 ? `<tr><td>Discount:</td><td>-₹${data.discount_amount.toFixed(2)}</td></tr>` : ""}
         ${totalCharges > 0 ? `<tr><td>Other Charges:</td><td>₹${totalCharges.toFixed(2)}</td></tr>` : ""}
         <tr class="grand-total">

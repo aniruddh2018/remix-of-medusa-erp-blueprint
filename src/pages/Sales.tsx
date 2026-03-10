@@ -1162,7 +1162,7 @@ export default function Sales() {
                           const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
                           
                           // Find best batch via FIFO (earliest expiry with stock)
-                          const productBatches = batches
+                          const productBatches = batchList
                             .filter(b => b.product_id === product.id && b.quantity > 0)
                             .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
                           

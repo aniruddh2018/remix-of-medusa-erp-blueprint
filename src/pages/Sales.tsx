@@ -1254,7 +1254,8 @@ export default function Sales() {
                           <TableHead>Expiry</TableHead>
                           <TableHead>Price (₹)</TableHead>
                           <TableHead>Qty</TableHead>
-                          <TableHead>Disc %</TableHead>
+                          {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && <TableHead>Disc %</TableHead>}
+                          {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && <TableHead>Disc ₹</TableHead>}
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead></TableHead>
                         </TableRow>

@@ -248,5 +248,6 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

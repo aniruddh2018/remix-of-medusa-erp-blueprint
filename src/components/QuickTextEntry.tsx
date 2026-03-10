@@ -112,12 +112,12 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
 
   return (
     <>
-      <Button variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
+      <Button variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); setOpen(true); onOpenChangeProp?.(true); }}>
         <FileText className="h-4 w-4" />
         {triggerLabel}
       </Button>
-      <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.stopPropagation()} onInteractOutside={(e) => e.stopPropagation()}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { handleClose(); onOpenChangeProp?.(false); } else { setOpen(true); onOpenChangeProp?.(true); } }}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.stopPropagation()} onInteractOutside={(e) => e.stopPropagation()} onEscapeKeyDown={(e) => e.stopPropagation()} onOpenAutoFocus={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>Quick Text Entry — {type === "sale" ? "Sales Order" : "Purchase Order"}</DialogTitle>
           <DialogDescription>

@@ -105,7 +105,7 @@ function generateBillHTML(data: BillData): string {
         <div style="color: #888; font-size: 12px; margin-top: 5px;">Your trusted healthcare partner</div>
       </div>
       <div class="invoice-title">
-        ${data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER"}
+        ${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}
         <div class="invoice-number">${data.invoice_number}</div>
         <div class="invoice-number">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
       </div>

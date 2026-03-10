@@ -1051,6 +1051,52 @@ export default function PurchaseOrders() {
                         }}
                       />
                     </div>
+                    {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
+                    <div>
+                      <Label>Disc %</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={maxDiscountAllowed}
+                        step={0.1}
+                        value={itemDiscount || ""}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          if (val > maxDiscountAllowed) {
+                            toast({ title: "Limit exceeded", description: `Max discount for your role: ${maxDiscountAllowed}%`, variant: "destructive" });
+                            return;
+                          }
+                          setItemDiscount(val);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    )}
+                    {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && (
+                    <div>
+                      <Label>Disc ₹</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={itemDiscountFlat || ""}
+                        onChange={(e) => setItemDiscountFlat(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    )}
                     <div className="flex items-end">
                       <Button onClick={handleAddItem} className="w-full" disabled={!selectedProduct || itemPrice <= 0} title="Add item (Enter)">
                         Add

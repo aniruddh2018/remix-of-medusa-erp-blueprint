@@ -830,10 +830,12 @@ export default function Sales() {
     }
   };
 
-  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
+  const calculateItemTotal = (price: number, qty: number, gst: number, discountPct: number, discountFlat: number = 0) => {
     const basePrice = price * qty;
-    const discountedPrice = basePrice * (1 - discount / 100);
-    if (gstInclusive) return discountedPrice; // price already includes GST
+    const afterPctDiscount = basePrice * (1 - discountPct / 100);
+    const afterAllDiscount = afterPctDiscount - discountFlat;
+    const discountedPrice = Math.max(0, afterAllDiscount);
+    if (gstInclusive) return discountedPrice;
     const gstAmount = discountedPrice * (gst / 100);
     return discountedPrice + gstAmount;
   };

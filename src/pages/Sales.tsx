@@ -1148,7 +1148,6 @@ export default function Sales() {
                     <QuickTextEntry
                       type="sale"
                       products={products}
-                      onOpenChange={setQuickTextOpen}
                     onItemsConfirmed={(items) => {
                         if (!products) return;
                         const batchList = allBatches || [];

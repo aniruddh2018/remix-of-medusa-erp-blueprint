@@ -1150,7 +1150,8 @@ export default function Sales() {
                       products={products}
                       onOpenChange={setQuickTextOpen}
                     onItemsConfirmed={(items) => {
-                        if (!products || !batches) return;
+                        if (!products) return;
+                        const batchList = allBatches || [];
                         const newCartItems: typeof cart = [];
                         for (const item of items) {
                           if (!item.product_id) continue;

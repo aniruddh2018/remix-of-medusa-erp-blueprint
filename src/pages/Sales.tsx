@@ -971,7 +971,7 @@ export default function Sales() {
             <RotateCcw className="h-4 w-4" />
             Credit Note
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={(v) => { if (!v && quickTextOpen) return; setIsDialogOpen(v); }}>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />

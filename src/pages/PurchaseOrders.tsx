@@ -335,17 +335,26 @@ export default function PurchaseOrders() {
 
       // Calculate item totals
       const itemsSubtotal = orderItems.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + basePrice;
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + afterDisc;
       }, 0);
       
-      const gstAmount = orderItems.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice * item.gst_percentage / 100);
-      }, 0);
+      const gstAmount = gstInclusive
+        ? orderItems.reduce((sum, item) => {
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc - afterDisc / (1 + item.gst_percentage / 100));
+          }, 0)
+        : orderItems.reduce((sum, item) => {
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc * item.gst_percentage / 100);
+          }, 0);
       
       const discountAmount = orderItems.reduce((sum, item) => {
-        return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
+        const base = item.unit_price * item.quantity;
+        return sum + (base * item.discount_percentage / 100) + item.discount_flat;
       }, 0);
 
       const totalCharges = freightCharges + handlingCharges + otherCharges;

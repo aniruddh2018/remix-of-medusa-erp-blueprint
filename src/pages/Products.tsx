@@ -662,6 +662,13 @@ export default function Products() {
         productId={historyProduct?.id || null}
         productName={historyProduct?.name || ""}
       />
+
+      <MergeProductsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        products={products}
+        onMergeComplete={fetchProducts}
+      />
     </div>
   );
 }

@@ -34,9 +34,10 @@ interface QuickTextEntryProps {
   products: Product[] | undefined;
   onItemsConfirmed: (items: ParsedItem[]) => void;
   triggerLabel?: string;
+  availableStock?: Map<string, number>; // product_id -> total available qty
 }
 
-export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry" }: QuickTextEntryProps) {
+export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry", availableStock }: QuickTextEntryProps) {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -184,14 +185,27 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsedItems.map((item, index) => (
-                    <TableRow key={index} className={!item.product_id ? "bg-destructive/5" : ""}>
+                  {parsedItems.map((item, index) => {
+                    const totalNeeded = item.quantity + (item.free_quantity || 0);
+                    const stockAvailable = item.product_id ? (availableStock?.get(item.product_id) ?? null) : null;
+                    const isInsufficient = stockAvailable !== null && stockAvailable < totalNeeded;
+                    const isNoStock = stockAvailable !== null && stockAvailable <= 0;
+                    return (
+                    <TableRow key={index} className={!item.product_id ? "bg-destructive/5" : isInsufficient ? "bg-destructive/10" : ""}>
                       <TableCell className="text-muted-foreground text-sm">{item.product_name_raw}</TableCell>
                       <TableCell>
                         {item.product_id ? (
-                          <div className="flex items-center gap-2">
-                            <Check className="h-4 w-4 text-green-600 shrink-0" />
-                            <span className="text-sm font-medium">{item.product_name_matched}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Check className="h-4 w-4 text-green-600 shrink-0" />
+                              <span className="text-sm font-medium">{item.product_name_matched}</span>
+                            </div>
+                            {isNoStock && (
+                              <Badge variant="destructive" className="text-xs mt-1 gap-1"><AlertTriangle className="h-3 w-3" />No Stock</Badge>
+                            )}
+                            {isInsufficient && !isNoStock && (
+                              <Badge variant="destructive" className="text-xs mt-1 gap-1"><AlertTriangle className="h-3 w-3" />Low Stock ({stockAvailable})</Badge>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -252,7 +266,8 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 

@@ -504,6 +504,12 @@ export default function Sales() {
     mutationFn: async () => {
       const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;
       
+      // Validate all cart items have valid batch IDs
+      const invalidItems = cart.filter(i => !i.batch_id);
+      if (invalidItems.length > 0) {
+        throw new Error(`${invalidItems.length} item(s) have no batch assigned. Please remove them or select a batch.`);
+      }
+      
       // Validate duplicate invoice number
       if (invoiceNumber.trim()) {
         const { data: existing, error: checkError } = await supabase

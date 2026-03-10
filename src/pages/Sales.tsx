@@ -1154,6 +1154,11 @@ export default function Sales() {
                     <QuickTextEntry
                       type="sale"
                       products={products}
+                      availableStock={(() => {
+                        const map = new Map<string, number>();
+                        (allBatches || []).forEach(b => map.set(b.product_id, (map.get(b.product_id) || 0) + b.quantity));
+                        return map;
+                      })()}
                     onItemsConfirmed={(items) => {
                         if (!products) return;
                         const batchList = [...(allBatches || [])]; // mutable copy for tracking remaining qty

@@ -601,7 +601,7 @@ export default function PurchaseOrders() {
     if (!product) return;
 
     const gstPercentage = Number(product.gst_percentage);
-    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount);
+    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
 
     // Find existing non-challan item with same product to merge quantities
     const existingIndex = orderItems.findIndex(

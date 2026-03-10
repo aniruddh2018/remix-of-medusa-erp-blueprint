@@ -185,8 +185,13 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsedItems.map((item, index) => (
-                    <TableRow key={index} className={!item.product_id ? "bg-destructive/5" : ""}>
+                  {parsedItems.map((item, index) => {
+                    const totalNeeded = item.quantity + (item.free_quantity || 0);
+                    const stockAvailable = item.product_id ? (availableStock?.get(item.product_id) ?? null) : null;
+                    const isInsufficient = stockAvailable !== null && stockAvailable < totalNeeded;
+                    const isNoStock = stockAvailable !== null && stockAvailable <= 0;
+                    return (
+                    <TableRow key={index} className={!item.product_id ? "bg-destructive/5" : isInsufficient ? "bg-destructive/10" : ""}>
                       <TableCell className="text-muted-foreground text-sm">{item.product_name_raw}</TableCell>
                       <TableCell>
                         {item.product_id ? (

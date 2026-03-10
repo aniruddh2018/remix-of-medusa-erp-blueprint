@@ -1130,23 +1130,30 @@ export default function Sales() {
                     <QuickTextEntry
                       type="sale"
                       products={products}
-                      onItemsConfirmed={(items) => {
+                    onItemsConfirmed={(items) => {
                         if (!products || !batches) return;
+                        const newCartItems: typeof cart = [];
                         for (const item of items) {
                           if (!item.product_id) continue;
                           const product = products.find(p => p.id === item.product_id);
                           if (!product) continue;
-                          // Trigger add by setting state and calling handleAddToCart indirectly
                           const rate = item.rate || (product.sale_price && Number(product.sale_price) > 0 ? Number(product.sale_price) : Number(product.mrp));
-                          const gst = Number(product.gst_percentage);
+                          const gst = noGstBill ? 0 : Number(product.gst_percentage);
                           const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
                           
-                          // Direct cart push (skip FIFO for quick entry — user can adjust)
-                          setCart(prev => [...prev, {
+                          // Find best batch via FIFO (earliest expiry with stock)
+                          const productBatches = batches
+                            .filter(b => b.product_id === product.id && b.quantity > 0)
+                            .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+                          
+                          const totalNeeded = item.quantity + (item.free_quantity || 0);
+                          const batch = productBatches.find(b => b.quantity >= totalNeeded) || productBatches[0];
+                          
+                          newCartItems.push({
                             product_id: product.id,
-                            batch_id: "", // placeholder — user must select batch
+                            batch_id: batch?.id || "",
                             product_name: productName,
-                            batch_number: "Auto",
+                            batch_number: batch?.batch_number || "No Stock",
                             hsn_code: product.hsn_code || "",
                             quantity: item.quantity,
                             free_quantity: item.free_quantity || 0,
@@ -1155,11 +1162,16 @@ export default function Sales() {
                             discount_percentage: 0,
                             discount_flat: 0,
                             total_price: gstInclusive ? rate * item.quantity : rate * item.quantity * (1 + gst / 100),
-                            max_quantity: 9999,
-                            expiry_date: "2099-12-31",
-                          }]);
+                            max_quantity: batch?.quantity || 0,
+                            expiry_date: batch?.expiry_date || "2099-12-31",
+                          });
                         }
-                        toast({ title: "Items added", description: `${items.length} items added from text entry. Review and adjust as needed.` });
+                        if (newCartItems.length > 0) {
+                          setCart(prev => [...prev, ...newCartItems]);
+                          toast({ title: "Items added", description: `${newCartItems.length} items added from text entry. Review and adjust as needed.` });
+                        } else {
+                          toast({ title: "No items added", description: "No matched products found to add.", variant: "destructive" });
+                        }
                       }}
                     />
                   </div>

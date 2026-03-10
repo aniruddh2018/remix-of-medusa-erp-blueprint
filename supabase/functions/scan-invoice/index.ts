@@ -1,11 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+function getMimeType(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "pdf") return "application/pdf";
+  return "image/jpeg";
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,31 +32,34 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from token
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { file_path, company_id } = await req.json();
-    if (!file_path || !company_id) throw new Error("file_path and company_id are required");
+    const { file_paths, company_id } = await req.json();
+    if (!file_paths || !Array.isArray(file_paths) || file_paths.length === 0 || !company_id) {
+      throw new Error("file_paths (array) and company_id are required");
+    }
 
-    // Download file from storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("invoices")
-      .download(file_path);
-    if (downloadError || !fileData) throw new Error("Failed to download invoice file");
+    // Download all files and convert to base64 safely (no spread operator)
+    const imageContents: { type: string; image_url: { url: string } }[] = [];
+    for (const filePath of file_paths) {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("invoices")
+        .download(filePath);
+      if (downloadError || !fileData) throw new Error(`Failed to download: ${filePath}`);
 
-    // Convert to base64
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      const base64 = base64Encode(uint8);
+      const mimeType = getMimeType(filePath);
 
-    // Determine mime type
-    const ext = file_path.split(".").pop()?.toLowerCase();
-    let mimeType = "image/jpeg";
-    if (ext === "png") mimeType = "image/png";
-    else if (ext === "webp") mimeType = "image/webp";
-    else if (ext === "pdf") mimeType = "application/pdf";
+      imageContents.push({
+        type: "image_url",
+        image_url: { url: `data:${mimeType};base64,${base64}` },
+      });
+    }
 
     // Fetch existing suppliers and products for matching
     const { data: suppliers } = await supabase
@@ -64,7 +76,7 @@ serve(async (req) => {
     const productNames = (products || []).map((p: any) => `${p.name} (MRP: ${p.mrp})`).join(", ");
 
     const systemPrompt = `You are a purchase invoice data extraction AI for a pharmacy/electronics ERP system. 
-Extract ALL data from the invoice image/PDF accurately.
+Extract ALL data from the invoice image(s) accurately. If multiple images are provided, they are pages of the SAME invoice — combine all line items.
 
 EXISTING SUPPLIERS in the system: ${supplierNames || "None"}
 EXISTING PRODUCTS in the system: ${productNames || "None"}
@@ -73,7 +85,7 @@ Return a JSON object using the tool provided. Match supplier and product names t
 For dates, use YYYY-MM-DD format.
 For amounts, use numbers without currency symbols.
 If a field is not found in the invoice, use null.
-Extract EVERY line item visible in the invoice.`;
+Extract EVERY line item visible across all images.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -90,12 +102,9 @@ Extract EVERY line item visible in the invoice.`;
             content: [
               {
                 type: "text",
-                text: "Extract all purchase invoice data from this document. Include supplier details, invoice number, date, all line items with product name, batch number, expiry date, manufacturing date, quantity, purchase price (rate), MRP, GST percentage, discount, and total. Also extract any freight/handling/other charges and overall totals.",
+                text: "Extract all purchase invoice data from these document image(s). They may be multiple pages of the same invoice. Include supplier details, invoice number, date, all line items with product name, batch number, expiry date, manufacturing date, quantity, purchase price (rate), MRP, GST percentage, discount, and total. Also extract any freight/handling/other charges and overall totals.",
               },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}` },
-              },
+              ...imageContents,
             ],
           },
         ],

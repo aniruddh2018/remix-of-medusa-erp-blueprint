@@ -691,9 +691,11 @@ export default function PurchaseOrders() {
     setOrderItems(updated);
   };
 
-  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
+  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number, discountFlat: number = 0) => {
     const basePrice = price * qty;
-    const discountedPrice = basePrice * (1 - discount / 100);
+    const afterPctDiscount = basePrice * (1 - discount / 100);
+    const discountedPrice = Math.max(0, afterPctDiscount - discountFlat);
+    if (gstInclusive) return discountedPrice;
     const gstAmount = discountedPrice * (gst / 100);
     return discountedPrice + gstAmount;
   };

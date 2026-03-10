@@ -809,6 +809,7 @@ export default function Sales() {
           batch_number: allocation.batch_number,
           hsn_code: hsnCode,
           quantity: allocation.quantity,
+          free_quantity: itemFreeQty,
           unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,

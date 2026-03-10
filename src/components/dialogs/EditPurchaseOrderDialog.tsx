@@ -339,6 +339,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead className="text-right w-20">Qty</TableHead>
+                      <TableHead className="text-right w-16">Free</TableHead>
                       <TableHead className="text-right w-24">Price</TableHead>
                       <TableHead className="text-right w-16">Disc%</TableHead>
                       <TableHead className="text-right w-16">GST%</TableHead>

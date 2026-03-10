@@ -685,6 +685,7 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemFreeQty(0);
     setItemRate(0);
+    setNoGstBill(false);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);
     setFreightCharges(0);

@@ -496,7 +496,80 @@ export default function PurchaseOrders() {
     },
   });
 
-  // Open receive dialog for manual receive
+  const deletePOMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // 1. Fetch PO items
+      const { data: poItems, error: fetchErr } = await supabase
+        .from("purchase_order_items")
+        .select("id, product_id, quantity")
+        .eq("purchase_order_id", orderId);
+      if (fetchErr) throw fetchErr;
+
+      // 2. Delete inventory batches created for this PO (match by product and approximate timing)
+      // For scanned invoices and auto-received POs, batches were created at PO creation time
+      for (const item of (poItems || [])) {
+        // Find and reduce/delete matching batches
+        const { data: batches } = await supabase
+          .from("inventory_batches")
+          .select("id, quantity")
+          .eq("product_id", item.product_id)
+          .eq("company_id", companyId!)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        
+        let remainingToRestore = item.quantity;
+        for (const batch of (batches || [])) {
+          if (remainingToRestore <= 0) break;
+          const newQty = Math.max(0, batch.quantity - remainingToRestore);
+          remainingToRestore -= batch.quantity;
+          await supabase
+            .from("inventory_batches")
+            .update({ quantity: newQty })
+            .eq("id", batch.id);
+        }
+      }
+
+      // 3. Unlink debit notes referencing this PO
+      await supabase
+        .from("debit_notes")
+        .update({ original_order_id: null })
+        .eq("original_order_id", orderId);
+
+      // 4. Delete PO items
+      for (const item of (poItems || [])) {
+        await supabase.from("purchase_order_items").delete().eq("id", item.id);
+      }
+
+      // 5. Delete related payments
+      await supabase
+        .from("payments")
+        .delete()
+        .eq("reference_id", orderId)
+        .eq("reference_type", "purchase_order");
+
+      // 6. Delete the PO
+      const { data: deleted, error: orderErr } = await supabase
+        .from("purchase_orders")
+        .delete()
+        .eq("id", orderId)
+        .select();
+      if (orderErr) throw new Error(`Failed to delete PO: ${orderErr.message}`);
+      if (!deleted || deleted.length === 0) throw new Error("PO could not be deleted. Check your permissions.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
+      toast({ title: "Purchase order deleted", description: "The PO, items, and inventory have been restored." });
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleReceiveInventory = (orderId: string, supplierId: string) => {
     setSelectedOrderForReceive({ id: orderId, supplierId });
     setReceiveDialogOpen(true);

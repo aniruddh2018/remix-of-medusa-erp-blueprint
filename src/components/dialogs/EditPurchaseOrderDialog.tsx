@@ -129,6 +129,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           product_id: item.product_id,
           product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
           quantity: item.quantity,
+          free_quantity: 0,
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),

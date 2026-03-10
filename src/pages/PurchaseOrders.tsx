@@ -122,6 +122,11 @@ export default function PurchaseOrders() {
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
 
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
   // Debit note dialog
   const [debitNoteOpen, setDebitNoteOpen] = useState(false);
   // Payment dialog

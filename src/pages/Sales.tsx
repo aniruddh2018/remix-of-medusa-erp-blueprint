@@ -849,30 +849,67 @@ export default function Sales() {
     (updated[index] as any)[field] = value;
     // Recalculate total price
     const item = updated[index];
-    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage);
+    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage, item.discount_flat);
     setCart(updated);
   };
 
+  // Get discount settings
+  const discountSettings = useMemo(() => {
+    const s = invoiceSettings as any;
+    return {
+      discountMode: s?.discount_mode || "both",
+      showDiscountRow: s?.show_discount_row ?? true,
+      enableBillDiscount: s?.enable_bill_discount ?? true,
+      billDiscountMode: s?.bill_discount_mode || "both",
+      maxDiscountAdmin: Number(s?.max_discount_admin) || 100,
+      maxDiscountPharmacist: Number(s?.max_discount_pharmacist) || 50,
+      maxDiscountStaff: Number(s?.max_discount_staff) || 15,
+      discountBeforeTax: s?.discount_before_tax ?? true,
+    };
+  }, [invoiceSettings]);
+
+  // Role-based max discount
+  const maxDiscountAllowed = useMemo(() => {
+    if (isAdmin) return discountSettings.maxDiscountAdmin;
+    if (isPharmacist) return discountSettings.maxDiscountPharmacist;
+    return discountSettings.maxDiscountStaff;
+  }, [isAdmin, isPharmacist, discountSettings]);
+
   // Calculate totals
+  const itemsGrossTotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  
+  const totalItemDiscount = cart.reduce((sum, item) => {
+    const base = item.unit_price * item.quantity;
+    const pctDisc = base * item.discount_percentage / 100;
+    return sum + pctDisc + item.discount_flat;
+  }, 0);
+
   const itemsSubtotal = cart.reduce((sum, item) => {
-    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    return sum + basePrice;
+    const base = item.unit_price * item.quantity;
+    const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+    return sum + afterDisc;
   }, 0);
   
   const totalGst = gstInclusive
     ? cart.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + (afterDisc - afterDisc / (1 + item.gst_percentage / 100));
       }, 0)
     : cart.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice * item.gst_percentage / 100);
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + (afterDisc * item.gst_percentage / 100);
       }, 0);
   
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-  const grandTotal = gstInclusive
-    ? itemsSubtotal + totalCharges
-    : itemsSubtotal + totalGst + totalCharges;
+  
+  // Bill-level discount
+  const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
+  const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
+  const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
+  
+  const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
 
   const filteredOrders = salesOrders?.filter(
     (order) =>

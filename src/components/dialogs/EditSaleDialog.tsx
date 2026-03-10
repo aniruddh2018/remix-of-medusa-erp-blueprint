@@ -312,6 +312,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           product_id: item.product_id,
           batch_id: item.batch_id,
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,

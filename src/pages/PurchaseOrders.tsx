@@ -1241,6 +1241,18 @@ export default function PurchaseOrders() {
                 <Card className="bg-muted/50">
                   <CardContent className="pt-4">
                     <div className="space-y-2 text-sm">
+                      {discountSettings.showDiscountRow && totalItemDiscount > 0 && (
+                        <>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Gross Total:</span>
+                            <span>₹{grossTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-destructive">
+                            <span>Item Discounts:</span>
+                            <span>−₹{totalItemDiscount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span>₹{itemsSubtotal.toFixed(2)}</span>

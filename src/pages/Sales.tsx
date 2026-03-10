@@ -496,28 +496,29 @@ export default function Sales() {
       }
       
       // Calculate item totals
-      const itemsSubtotal = cart.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + basePrice;
+      const calcItemsSubtotal = cart.reduce((sum, item) => {
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + afterDisc;
       }, 0);
       
       const gstAmount = gstInclusive
         ? cart.reduce((sum, item) => {
-            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-            return sum + (basePrice - basePrice / (1 + item.gst_percentage / 100));
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc - afterDisc / (1 + item.gst_percentage / 100));
           }, 0)
         : cart.reduce((sum, item) => {
-            const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-            return sum + (basePrice * item.gst_percentage / 100);
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc * item.gst_percentage / 100);
           }, 0);
       
-      const discountAmount = cart.reduce((sum, item) => {
-        return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
-      }, 0);
+      const discountAmount = totalDiscountAmount;
 
       const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-      const totalAmount = gstInclusive
-        ? itemsSubtotal + totalCharges
+      const subBeforeBillDisc = gstInclusive ? calcItemsSubtotal + totalCharges : calcItemsSubtotal + gstAmount + totalCharges;
+      const totalAmount = Math.max(0, subBeforeBillDisc - billDiscountAmount);
         : itemsSubtotal + gstAmount + totalCharges;
 
       const { data: order, error: orderError } = await supabase

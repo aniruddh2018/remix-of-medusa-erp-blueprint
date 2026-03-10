@@ -374,7 +374,7 @@ export default function PurchaseOrders() {
           notes: notes || null,
           total_amount: totalAmount,
           gst_amount: gstAmount,
-          discount_amount: discountAmount,
+          discount_amount: discountAmount + billDiscountAmount,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,

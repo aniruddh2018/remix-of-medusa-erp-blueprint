@@ -1326,6 +1326,16 @@ export default function Sales() {
                                 className="w-16 h-8 text-center"
                               />
                             </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={item.free_quantity || 0}
+                                onChange={(e) => updateCartItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                                className="w-16 h-8 text-center"
+                                title={`Scheme: ${item.quantity}+${item.free_quantity || 0}`}
+                              />
+                            </TableCell>
                             {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
                             <TableCell>
                               <Input

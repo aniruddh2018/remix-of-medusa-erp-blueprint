@@ -57,8 +57,8 @@ interface OrderItem {
 
 export default function PurchaseOrders() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { companyId, config } = useBusiness();
+  const { user, isAdmin, isPharmacist } = useAuth();
+  const { companyId, config, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");

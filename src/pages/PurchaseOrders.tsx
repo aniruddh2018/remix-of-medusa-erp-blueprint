@@ -103,6 +103,10 @@ export default function PurchaseOrders() {
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   
+  // Bill-level discount
+  const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
+
   // Receive inventory dialog
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [selectedOrderForReceive, setSelectedOrderForReceive] = useState<{ id: string; supplierId: string } | null>(null);

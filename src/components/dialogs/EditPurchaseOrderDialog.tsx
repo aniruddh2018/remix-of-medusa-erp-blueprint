@@ -167,6 +167,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       product_id: selectedNewProduct.id,
       product_name: selectedNewProduct.name,
       quantity: newItemQty,
+      free_quantity: 0,
       unit_price: newItemPrice || Number(selectedNewProduct.purchase_price),
       gst_percentage: Number(selectedNewProduct.gst_percentage),
       discount_percentage: 0,

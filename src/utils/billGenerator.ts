@@ -36,6 +36,8 @@ interface BillData {
 
 // Generate HTML bill content
 function generateBillHTML(data: BillData): string {
+  const isNoGst = data.items.every(item => item.gst_percentage === 0) && data.gst_amount === 0;
+  
   const itemsHTML = data.items
     .map(
       (item, index) => `
@@ -46,7 +48,7 @@ function generateBillHTML(data: BillData): string {
         <td>${item.hsn_code || "-"}</td>
         <td>${item.quantity}</td>
         <td>₹${item.unit_price.toFixed(2)}</td>
-        <td>${item.gst_percentage}%</td>
+        ${isNoGst ? "" : `<td>${item.gst_percentage}%</td>`}
         <td>${item.discount_percentage}%</td>
         <td>₹${item.total_price.toFixed(2)}</td>
       </tr>

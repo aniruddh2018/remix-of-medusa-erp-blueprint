@@ -482,6 +482,7 @@ export type Database = {
           bank_branch: string | null
           bank_ifsc: string | null
           bank_name: string | null
+          bill_discount_mode: string
           company_address: string | null
           company_email: string | null
           company_gstin: string | null
@@ -490,12 +491,19 @@ export type Database = {
           company_phone: string | null
           company_state: string | null
           created_at: string
+          discount_before_tax: boolean
+          discount_mode: string
+          enable_bill_discount: boolean
           id: string
           invoice_format: string | null
           invoice_prefix: string | null
           logo_url: string | null
+          max_discount_admin: number
+          max_discount_pharmacist: number
+          max_discount_staff: number
           show_amount_in_words: boolean | null
           show_customer_gstin: boolean | null
+          show_discount_row: boolean
           show_due_date: boolean | null
           show_previous_balance: boolean | null
           show_ship_to: boolean | null
@@ -509,6 +517,7 @@ export type Database = {
           bank_branch?: string | null
           bank_ifsc?: string | null
           bank_name?: string | null
+          bill_discount_mode?: string
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null
@@ -517,12 +526,19 @@ export type Database = {
           company_phone?: string | null
           company_state?: string | null
           created_at?: string
+          discount_before_tax?: boolean
+          discount_mode?: string
+          enable_bill_discount?: boolean
           id?: string
           invoice_format?: string | null
           invoice_prefix?: string | null
           logo_url?: string | null
+          max_discount_admin?: number
+          max_discount_pharmacist?: number
+          max_discount_staff?: number
           show_amount_in_words?: boolean | null
           show_customer_gstin?: boolean | null
+          show_discount_row?: boolean
           show_due_date?: boolean | null
           show_previous_balance?: boolean | null
           show_ship_to?: boolean | null
@@ -536,6 +552,7 @@ export type Database = {
           bank_branch?: string | null
           bank_ifsc?: string | null
           bank_name?: string | null
+          bill_discount_mode?: string
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null
@@ -544,12 +561,19 @@ export type Database = {
           company_phone?: string | null
           company_state?: string | null
           created_at?: string
+          discount_before_tax?: boolean
+          discount_mode?: string
+          enable_bill_discount?: boolean
           id?: string
           invoice_format?: string | null
           invoice_prefix?: string | null
           logo_url?: string | null
+          max_discount_admin?: number
+          max_discount_pharmacist?: number
+          max_discount_staff?: number
           show_amount_in_words?: boolean | null
           show_customer_gstin?: boolean | null
+          show_discount_row?: boolean
           show_due_date?: boolean | null
           show_previous_balance?: boolean | null
           show_ship_to?: boolean | null

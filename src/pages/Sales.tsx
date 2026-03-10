@@ -94,6 +94,7 @@ export default function Sales() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
+  const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [draftRestored, setDraftRestored] = useState(false);
   

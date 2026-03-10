@@ -824,6 +824,7 @@ export default function Sales() {
     setCart(newCart);
     setSelectedProduct("");
     setItemQuantity(1);
+    setItemFreeQty(0);
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);

@@ -266,7 +266,8 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

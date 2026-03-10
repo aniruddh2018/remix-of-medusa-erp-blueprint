@@ -34,9 +34,10 @@ interface QuickTextEntryProps {
   products: Product[] | undefined;
   onItemsConfirmed: (items: ParsedItem[]) => void;
   triggerLabel?: string;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry" }: QuickTextEntryProps) {
+export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry", onOpenChange: onOpenChangeProp }: QuickTextEntryProps) {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);

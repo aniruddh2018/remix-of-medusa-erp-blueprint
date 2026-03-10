@@ -37,6 +37,7 @@ import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import { printElectronicsInvoice, downloadElectronicsInvoiceHTML, downloadElectronicsInvoicePDF, type ElectronicsInvoiceData, type InvoiceSettings } from "@/utils/electronicsInvoiceGenerator";
 import type { Tables } from "@/integrations/supabase/types";

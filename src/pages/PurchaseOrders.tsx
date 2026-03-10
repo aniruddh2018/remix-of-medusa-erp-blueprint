@@ -1730,6 +1730,23 @@ export default function PurchaseOrders() {
                               <Link2 className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* Delete PO - admin only */}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeleteTarget(order);
+                                setDeleteConfirmText("");
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete PO"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

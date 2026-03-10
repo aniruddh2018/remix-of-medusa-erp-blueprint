@@ -1161,14 +1161,23 @@ export default function Sales() {
                         }}
                       />
                     </div>
+                    {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
                     <div>
                       <Label>Disc %</Label>
                       <Input
                         type="number"
                         min={0}
-                        max={100}
+                        max={maxDiscountAllowed}
                         value={itemDiscount || ""}
-                        onChange={(e) => setItemDiscount(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          if (val > maxDiscountAllowed) {
+                            toast({ title: "Discount limit", description: `Max ${maxDiscountAllowed}% allowed for your role`, variant: "destructive" });
+                            setItemDiscount(maxDiscountAllowed);
+                          } else {
+                            setItemDiscount(val);
+                          }
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
                             e.preventDefault();
@@ -1178,6 +1187,26 @@ export default function Sales() {
                         placeholder="0"
                       />
                     </div>
+                    )}
+                    {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && (
+                    <div>
+                      <Label>Disc ₹</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={itemDiscountFlat || ""}
+                        onChange={(e) => setItemDiscountFlat(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    )}
                     <div>
                       <Label>Rate (₹)</Label>
                       <Input

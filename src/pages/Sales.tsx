@@ -483,6 +483,22 @@ export default function Sales() {
     enabled: !!selectedProduct,
   });
 
+  // All batches for quick text entry
+  const { data: allBatches } = useQuery({
+    queryKey: ["all-batches-for-sale", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("*")
+        .eq("company_id", companyId!)
+        .gt("quantity", 0)
+        .gt("expiry_date", new Date().toISOString().split("T")[0])
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data as InventoryBatch[];
+    },
+    enabled: !!companyId && isDialogOpen,
+
   const createSaleMutation = useMutation({
     mutationFn: async () => {
       const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;

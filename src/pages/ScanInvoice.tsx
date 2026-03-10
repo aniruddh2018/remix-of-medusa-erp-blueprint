@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
-  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine,
+  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus,
 } from "lucide-react";
 
 interface LineItem {
@@ -50,15 +51,21 @@ interface ExtractedInvoice {
   matched_supplier_id?: string | null;
 }
 
+interface SelectedFile {
+  file: File;
+  preview: string | null;
+  id: string;
+}
+
 export default function ScanInvoice() {
   const { user, loading: authLoading } = useAuth();
   const { companyId } = useBusiness();
   const { toast } = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<SelectedFile[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedInvoice | null>(null);
   const [saved, setSaved] = useState(false);
@@ -66,49 +73,76 @@ export default function ScanInvoice() {
   if (authLoading) return null;
   if (!user) return <Navigate to="/auth" replace />;
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
     setExtracted(null);
     setSaved(false);
 
-    if (f.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setPreview(ev.target?.result as string);
-      reader.readAsDataURL(f);
-    } else {
-      setPreview(null);
-    }
+    const newFiles: SelectedFile[] = selectedFiles.map((f) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      let preview: string | null = null;
+      if (f.type.startsWith("image/")) {
+        preview = URL.createObjectURL(f);
+      }
+      return { file: f, preview, id };
+    });
+
+    setFiles((prev) => [...prev, ...newFiles]);
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (id: string) => {
+    setFiles((prev) => {
+      const f = prev.find((x) => x.id === id);
+      if (f?.preview) URL.revokeObjectURL(f.preview);
+      return prev.filter((x) => x.id !== id);
+    });
   };
 
   const handleScan = async () => {
-    if (!file || !companyId) return;
+    if (files.length === 0 || !companyId) return;
     setScanning(true);
     setExtracted(null);
+    setUploadProgress(0);
 
     try {
-      // Upload to storage
-      const filePath = `${companyId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("invoices")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
+      // Upload all files to storage
+      const filePaths: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i].file;
+        const filePath = `${companyId}/${Date.now()}_${i}_${f.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("invoices")
+          .upload(filePath, f);
+        if (uploadError) throw uploadError;
+        filePaths.push(filePath);
+        setUploadProgress(Math.round(((i + 1) / files.length) * 50));
+      }
 
-      // Call scan edge function
+      setUploadProgress(60);
+
+      // Call scan edge function with all file paths
       const { data, error } = await supabase.functions.invoke("scan-invoice", {
-        body: { file_path: filePath, company_id: companyId },
+        body: { file_paths: filePaths, company_id: companyId },
       });
+
+      setUploadProgress(90);
+
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
       setExtracted(data as ExtractedInvoice);
-      toast({ title: "Invoice Scanned", description: `Found ${data.line_items?.length || 0} items` });
+      setUploadProgress(100);
+      toast({ title: "Invoice Scanned", description: `Found ${data.line_items?.length || 0} items from ${files.length} image(s)` });
     } catch (err: any) {
       console.error("Scan error:", err);
       toast({ title: "Scan Failed", description: err.message, variant: "destructive" });
     } finally {
       setScanning(false);
+      setUploadProgress(0);
     }
   };
 
@@ -124,7 +158,6 @@ export default function ScanInvoice() {
     setSaving(true);
 
     try {
-      // 1. Ensure supplier exists
       let supplierId = extracted.matched_supplier_id;
       if (!supplierId) {
         const { data: newSupplier, error: sErr } = await supabase
@@ -141,10 +174,8 @@ export default function ScanInvoice() {
         supplierId = newSupplier.id;
       }
 
-      // 2. Generate order number
       const orderNumber = `PO-SCAN-${Date.now().toString(36).toUpperCase()}`;
 
-      // 3. Create purchase order
       const { data: po, error: poErr } = await supabase
         .from("purchase_orders")
         .insert({
@@ -169,9 +200,7 @@ export default function ScanInvoice() {
         .single();
       if (poErr) throw poErr;
 
-      // 4. Process each line item
       for (const item of extracted.line_items) {
-        // Ensure product exists
         let productId = item.matched_product_id;
         if (!productId) {
           const { data: newProd, error: pErr } = await supabase
@@ -191,7 +220,6 @@ export default function ScanInvoice() {
           productId = newProd.id;
         }
 
-        // Create PO item
         await supabase.from("purchase_order_items").insert({
           purchase_order_id: po.id,
           product_id: productId,
@@ -203,7 +231,6 @@ export default function ScanInvoice() {
           company_id: companyId,
         });
 
-        // Create inventory batch
         if (item.batch_number) {
           await supabase.from("inventory_batches").insert({
             product_id: productId,
@@ -231,7 +258,7 @@ export default function ScanInvoice() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="AI Invoice Scanner" description="Upload a purchase invoice image or PDF to auto-extract and import data" />
+      <PageHeader title="AI Invoice Scanner" description="Upload purchase invoice images to auto-extract and import data" />
 
       {/* Upload Section */}
       <Card>
@@ -241,45 +268,79 @@ export default function ScanInvoice() {
               <ScanLine className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Upload Invoice</CardTitle>
-              <CardDescription>Supports JPEG, PNG, WebP images and PDF files (max 10MB)</CardDescription>
+              <CardTitle className="text-lg">Upload Invoice Images</CardTitle>
+              <CardDescription>Upload one or more images (JPEG, PNG, WebP) of the same invoice. Multi-page invoices? Add each page as a separate image.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-3">
             <div className="flex-1">
-              <Label>Select Invoice File</Label>
+              <Label>Select Image(s)</Label>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={handleFileSelect}
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handleFilesSelect}
                 className="mt-1"
               />
             </div>
-            <div className="flex items-end">
-              <Button onClick={handleScan} disabled={!file || scanning || !companyId} size="lg">
+            <div className="flex items-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scanning}
+              >
+                <ImagePlus className="h-4 w-4 mr-2" /> Add More
+              </Button>
+              <Button onClick={handleScan} disabled={files.length === 0 || scanning || !companyId} size="lg">
                 {scanning ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scanning...</>
                 ) : (
-                  <><Camera className="h-4 w-4 mr-2" /> Scan Invoice</>
+                  <><Camera className="h-4 w-4 mr-2" /> Scan {files.length > 0 ? `${files.length} Image${files.length > 1 ? "s" : ""}` : "Invoice"}</>
                 )}
               </Button>
             </div>
           </div>
 
-          {preview && (
-            <div className="border rounded-lg overflow-hidden max-h-80">
-              <img src={preview} alt="Invoice preview" className="w-full object-contain max-h-80" />
+          {scanning && uploadProgress > 0 && (
+            <div className="space-y-1">
+              <Progress value={uploadProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                {uploadProgress < 50 ? "Uploading images..." : uploadProgress < 90 ? "AI is extracting data..." : "Almost done..."}
+              </p>
             </div>
           )}
 
-          {file && !preview && (
-            <Alert>
-              <FileText className="h-4 w-4" />
-              <AlertDescription>PDF file selected: <strong>{file.name}</strong> ({(file.size / 1024 / 1024).toFixed(2)} MB)</AlertDescription>
-            </Alert>
+          {/* Image Previews */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">{files.length} image{files.length > 1 ? "s" : ""} selected</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {files.map((sf, idx) => (
+                  <div key={sf.id} className="relative group border rounded-lg overflow-hidden bg-muted">
+                    {sf.preview ? (
+                      <img src={sf.preview} alt={`Page ${idx + 1}`} className="w-full h-32 object-cover" />
+                    ) : (
+                      <div className="w-full h-32 flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute top-1 left-1">
+                      <Badge variant="secondary" className="text-[10px]">Page {idx + 1}</Badge>
+                    </div>
+                    <button
+                      onClick={() => removeFile(sf.id)}
+                      className="absolute top-1 right-1 rounded-full bg-destructive text-destructive-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="px-2 py-1 text-[10px] text-muted-foreground truncate">{sf.file.name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -294,7 +355,6 @@ export default function ScanInvoice() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Supplier Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Supplier</Label>
@@ -331,7 +391,6 @@ export default function ScanInvoice() {
                 </div>
               </div>
 
-              {/* Charges */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">GST Amount</Label>
@@ -357,7 +416,6 @@ export default function ScanInvoice() {
             </CardContent>
           </Card>
 
-          {/* Line Items */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Line Items ({extracted.line_items.length})</CardTitle>
@@ -384,74 +442,31 @@ export default function ScanInvoice() {
                     {extracted.line_items.map((item, i) => (
                       <TableRow key={i}>
                         <TableCell>
-                          <Input
-                            value={item.product_name}
-                            onChange={(e) => updateLineItem(i, "product_name", e.target.value)}
-                            className="text-xs h-8"
-                          />
+                          <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            value={item.batch_number || ""}
-                            onChange={(e) => updateLineItem(i, "batch_number", e.target.value)}
-                            className="text-xs h-8"
-                          />
+                          <Input value={item.batch_number || ""} onChange={(e) => updateLineItem(i, "batch_number", e.target.value)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="date"
-                            value={item.expiry_date || ""}
-                            onChange={(e) => updateLineItem(i, "expiry_date", e.target.value)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="date" value={item.expiry_date || ""} onChange={(e) => updateLineItem(i, "expiry_date", e.target.value)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateLineItem(i, "quantity", parseInt(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.quantity} onChange={(e) => updateLineItem(i, "quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.free_quantity || 0}
-                            onChange={(e) => updateLineItem(i, "free_quantity", parseInt(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.free_quantity || 0} onChange={(e) => updateLineItem(i, "free_quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.purchase_price}
-                            onChange={(e) => updateLineItem(i, "purchase_price", parseFloat(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.purchase_price} onChange={(e) => updateLineItem(i, "purchase_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.mrp}
-                            onChange={(e) => updateLineItem(i, "mrp", parseFloat(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.mrp} onChange={(e) => updateLineItem(i, "mrp", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.gst_percentage}
-                            onChange={(e) => updateLineItem(i, "gst_percentage", parseFloat(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.gst_percentage} onChange={(e) => updateLineItem(i, "gst_percentage", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.total_price}
-                            onChange={(e) => updateLineItem(i, "total_price", parseFloat(e.target.value) || 0)}
-                            className="text-xs h-8"
-                          />
+                          <Input type="number" value={item.total_price} onChange={(e) => updateLineItem(i, "total_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
                         </TableCell>
                         <TableCell>
                           {item.matched_product_id ? (

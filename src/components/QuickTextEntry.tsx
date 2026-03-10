@@ -195,9 +195,17 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                       <TableCell className="text-muted-foreground text-sm">{item.product_name_raw}</TableCell>
                       <TableCell>
                         {item.product_id ? (
-                          <div className="flex items-center gap-2">
-                            <Check className="h-4 w-4 text-green-600 shrink-0" />
-                            <span className="text-sm font-medium">{item.product_name_matched}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Check className="h-4 w-4 text-green-600 shrink-0" />
+                              <span className="text-sm font-medium">{item.product_name_matched}</span>
+                            </div>
+                            {isNoStock && (
+                              <Badge variant="destructive" className="text-xs mt-1 gap-1"><AlertTriangle className="h-3 w-3" />No Stock</Badge>
+                            )}
+                            {isInsufficient && !isNoStock && (
+                              <Badge variant="destructive" className="text-xs mt-1 gap-1"><AlertTriangle className="h-3 w-3" />Low Stock ({stockAvailable})</Badge>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">

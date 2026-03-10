@@ -568,11 +568,12 @@ export default function Sales() {
 
       if (itemsError) throw itemsError;
 
-      // Update batch quantities
+      // Update batch quantities (deduct sold qty + free qty)
       for (const item of cart) {
+        const totalDeducted = item.quantity + (item.free_quantity || 0);
         const { error: batchError } = await supabase
           .from("inventory_batches")
-          .update({ quantity: item.max_quantity - item.quantity })
+          .update({ quantity: item.max_quantity - totalDeducted })
           .eq("id", item.batch_id);
         if (batchError) throw batchError;
       }

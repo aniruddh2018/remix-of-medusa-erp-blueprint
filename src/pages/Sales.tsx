@@ -1227,10 +1227,13 @@ export default function Sales() {
                             toast({ title: `Partial stock for ${productName}`, description: `Only ${item.quantity + (item.free_quantity || 0) - remaining} of ${item.quantity + (item.free_quantity || 0)} available. Allocated what's in stock.`, variant: "destructive" });
                           }
                         }
+                        if (skippedItems.length > 0) {
+                          toast({ title: "No stock available", description: `Skipped: ${skippedItems.join(", ")}`, variant: "destructive" });
+                        }
                         if (newCartItems.length > 0) {
                           setCart(prev => [...prev, ...newCartItems]);
-                          toast({ title: "Items added", description: `${newCartItems.length} items added from text entry. Review and adjust as needed.` });
-                        } else {
+                          toast({ title: "Items added", description: `${newCartItems.length} line(s) added from text entry. Review and adjust as needed.` });
+                        } else if (skippedItems.length === 0) {
                           toast({ title: "No items added", description: "No matched products found to add.", variant: "destructive" });
                         }
                       }}

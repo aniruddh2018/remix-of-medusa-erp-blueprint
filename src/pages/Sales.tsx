@@ -1402,8 +1402,20 @@ export default function Sales() {
                 <Card className="bg-muted/50">
                   <CardContent className="pt-4">
                     <div className="space-y-2 text-sm">
+                      {discountSettings.showDiscountRow && totalItemDiscount > 0 && (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Gross Total:</span>
+                            <span>₹{itemsGrossTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-primary">
+                            <span>Item Discount:</span>
+                            <span>-₹{totalItemDiscount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
-                        <span>{gstInclusive ? "Total (GST Inclusive):" : "Subtotal:"}</span>
+                        <span>{gstInclusive ? "Net Total (GST Inclusive):" : "Subtotal:"}</span>
                         <span>₹{itemsSubtotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-muted-foreground">
@@ -1416,12 +1428,59 @@ export default function Sales() {
                           <span>₹{totalCharges.toFixed(2)}</span>
                         </div>
                       )}
+                      {billDiscountAmount > 0 && (
+                        <div className="flex justify-between text-primary font-medium">
+                          <span>Bill Discount:</span>
+                          <span>-₹{billDiscountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-bold text-lg">
                         <span>Grand Total:</span>
                         <span>₹{grandTotal.toFixed(2)}</span>
                       </div>
+                      {totalDiscountAmount > 0 && (
+                        <div className="text-xs text-primary text-right">
+                          You saved ₹{totalDiscountAmount.toFixed(2)} on this bill
+                        </div>
+                      )}
                     </div>
+
+                    {/* Bill-level discount inputs */}
+                    {discountSettings.enableBillDiscount && (
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <Label className="text-xs font-medium mb-2 block">Bill-Level Discount</Label>
+                        <div className="flex gap-3">
+                          {(discountSettings.billDiscountMode === "percentage" || discountSettings.billDiscountMode === "both") && (
+                            <div className="space-y-1 flex-1">
+                              <Label className="text-xs text-muted-foreground">Discount %</Label>
+                              <Input
+                                type="number" min={0} max={maxDiscountAllowed} step={0.1}
+                                value={billDiscountPercent || ""}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setBillDiscountPercent(Math.min(val, maxDiscountAllowed));
+                                }}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
+                          {(discountSettings.billDiscountMode === "flat" || discountSettings.billDiscountMode === "both") && (
+                            <div className="space-y-1 flex-1">
+                              <Label className="text-xs text-muted-foreground">Discount ₹</Label>
+                              <Input
+                                type="number" min={0} step={1}
+                                value={billDiscountFlat || ""}
+                                onChange={(e) => setBillDiscountFlat(parseFloat(e.target.value) || 0)}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

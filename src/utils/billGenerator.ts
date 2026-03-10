@@ -128,14 +128,14 @@ function generateBillHTML(data: BillData): string {
     
     <table>
       <thead>
-        <tr>
+         <tr>
           <th>#</th>
           <th>Product</th>
           <th>Batch</th>
           <th>HSN</th>
           <th>Qty</th>
           <th>Price</th>
-          <th>GST</th>
+          ${isNoGst ? "" : "<th>GST</th>"}
           <th>Disc</th>
           <th>Total</th>
         </tr>

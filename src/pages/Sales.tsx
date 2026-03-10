@@ -583,14 +583,44 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Delete sale items first (foreign key constraint)
+      // 1. Fetch sale items to restore inventory
+      const { data: saleItems, error: fetchErr } = await supabase
+        .from("sales_order_items")
+        .select("id, product_id, batch_id, quantity")
+        .eq("sales_order_id", orderId);
+      if (fetchErr) throw fetchErr;
+
+      // 2. Restore inventory batch quantities
+      for (const item of (saleItems || [])) {
+        const { data: batch } = await supabase
+          .from("inventory_batches")
+          .select("quantity")
+          .eq("id", item.batch_id)
+          .single();
+        if (batch) {
+          const { error: batchErr } = await supabase
+            .from("inventory_batches")
+            .update({ quantity: batch.quantity + item.quantity })
+            .eq("id", item.batch_id);
+          if (batchErr) throw batchErr;
+        }
+      }
+
+      // 3. Unlink credit notes referencing this sale (set FK to null)
+      const { error: cnErr } = await supabase
+        .from("credit_notes")
+        .update({ original_invoice_id: null })
+        .eq("original_invoice_id", orderId);
+      if (cnErr) throw cnErr;
+
+      // 4. Delete sale items
       const { error: itemsErr } = await supabase
         .from("sales_order_items")
         .delete()
         .eq("sales_order_id", orderId);
       if (itemsErr) throw itemsErr;
 
-      // Delete related payments
+      // 5. Delete related payments
       const { error: payErr } = await supabase
         .from("payments")
         .delete()
@@ -598,7 +628,7 @@ export default function Sales() {
         .eq("reference_type", "sales_order");
       if (payErr) throw payErr;
 
-      // Delete the order
+      // 6. Delete the order
       const { error: orderErr } = await supabase
         .from("sales_orders")
         .delete()
@@ -608,7 +638,8 @@ export default function Sales() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
-      toast({ title: "Invoice deleted", description: "The invoice and its items have been permanently deleted." });
+      queryClient.invalidateQueries({ queryKey: ["batches-for-product"] });
+      toast({ title: "Invoice deleted", description: "The invoice, items, and inventory have been restored successfully." });
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
       setDeleteConfirmText("");

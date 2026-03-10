@@ -92,6 +92,7 @@ export default function Sales() {
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [draftRestored, setDraftRestored] = useState(false);
   
@@ -100,6 +101,10 @@ export default function Sales() {
   const [handlingCharges, setHandlingCharges] = useState<number>(0);
   const [deliveryCharges, setDeliveryCharges] = useState<number>(0);
   const [otherCharges, setOtherCharges] = useState<number>(0);
+  
+  // Bill-level discount
+  const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
   
   // Inline add product
   const [showProductDialog, setShowProductDialog] = useState(false);

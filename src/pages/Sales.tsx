@@ -1156,8 +1156,18 @@ export default function Sales() {
                       products={products}
                     onItemsConfirmed={(items) => {
                         if (!products) return;
-                        const batchList = allBatches || [];
+                        const batchList = [...(allBatches || [])]; // mutable copy for tracking remaining qty
+                        const batchRemainingMap = new Map<string, number>();
+                        batchList.forEach(b => batchRemainingMap.set(b.id, b.quantity));
+                        // Also account for items already in cart
+                        cart.forEach(ci => {
+                          const curr = batchRemainingMap.get(ci.batch_id) ?? 0;
+                          batchRemainingMap.set(ci.batch_id, Math.max(0, curr - ci.quantity - (ci.free_quantity || 0)));
+                        });
+
                         const newCartItems: typeof cart = [];
+                        const skippedItems: string[] = [];
+
                         for (const item of items) {
                           if (!item.product_id) continue;
                           const product = products.find(p => p.id === item.product_id);
@@ -1166,35 +1176,56 @@ export default function Sales() {
                           const gst = noGstBill ? 0 : Number(product.gst_percentage);
                           const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
                           
-                          // Find best batch via FIFO (earliest expiry with stock)
+                          // FIFO allocation across multiple batches
                           const productBatches = batchList
-                            .filter(b => b.product_id === product.id && b.quantity > 0)
+                            .filter(b => b.product_id === product.id && (batchRemainingMap.get(b.id) ?? 0) > 0)
                             .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
                           
-                          const totalNeeded = item.quantity + (item.free_quantity || 0);
-                          const batch = productBatches.find(b => b.quantity >= totalNeeded) || productBatches[0];
-                          
-                          if (!batch) {
-                            toast({ title: `No stock for ${productName}`, description: "Skipped — no inventory batch available.", variant: "destructive" });
-                            continue;
+                          let remaining = item.quantity + (item.free_quantity || 0);
+                          let mainQtyLeft = item.quantity;
+                          let freeQtyLeft = item.free_quantity || 0;
+                          let allocated = false;
+
+                          for (const batch of productBatches) {
+                            if (remaining <= 0) break;
+                            const available = batchRemainingMap.get(batch.id) ?? 0;
+                            if (available <= 0) continue;
+
+                            const take = Math.min(remaining, available);
+                            // Split take into main qty and free qty
+                            const takeMain = Math.min(mainQtyLeft, take);
+                            const takeFree = Math.min(freeQtyLeft, take - takeMain);
+                            const totalTake = takeMain + takeFree;
+
+                            newCartItems.push({
+                              product_id: product.id,
+                              batch_id: batch.id,
+                              product_name: productName,
+                              batch_number: batch.batch_number,
+                              hsn_code: product.hsn_code || "",
+                              quantity: takeMain,
+                              free_quantity: takeFree,
+                              unit_price: rate,
+                              gst_percentage: gst,
+                              discount_percentage: 0,
+                              discount_flat: 0,
+                              total_price: gstInclusive ? rate * takeMain : rate * takeMain * (1 + gst / 100),
+                              max_quantity: available,
+                              expiry_date: batch.expiry_date,
+                            });
+
+                            batchRemainingMap.set(batch.id, available - totalTake);
+                            mainQtyLeft -= takeMain;
+                            freeQtyLeft -= takeFree;
+                            remaining -= totalTake;
+                            allocated = true;
                           }
-                          
-                          newCartItems.push({
-                            product_id: product.id,
-                            batch_id: batch.id,
-                            product_name: productName,
-                            batch_number: batch.batch_number,
-                            hsn_code: product.hsn_code || "",
-                            quantity: item.quantity,
-                            free_quantity: item.free_quantity || 0,
-                            unit_price: rate,
-                            gst_percentage: gst,
-                            discount_percentage: 0,
-                            discount_flat: 0,
-                            total_price: gstInclusive ? rate * item.quantity : rate * item.quantity * (1 + gst / 100),
-                            max_quantity: batch.quantity,
-                            expiry_date: batch.expiry_date,
-                          });
+
+                          if (!allocated) {
+                            skippedItems.push(productName);
+                          } else if (remaining > 0) {
+                            toast({ title: `Partial stock for ${productName}`, description: `Only ${item.quantity + (item.free_quantity || 0) - remaining} of ${item.quantity + (item.free_quantity || 0)} available. Allocated what's in stock.`, variant: "destructive" });
+                          }
                         }
                         if (newCartItems.length > 0) {
                           setCart(prev => [...prev, ...newCartItems]);

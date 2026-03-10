@@ -795,7 +795,7 @@ export default function Sales() {
         newCart[existingIndex].max_quantity = allocation.available_quantity;
       } else {
         // Add new cart item
-        const totalPrice = calculateItemTotal(unitPrice, allocation.quantity, gstPercentage, itemDiscount);
+        const totalPrice = calculateItemTotal(unitPrice, allocation.quantity, gstPercentage, itemDiscount, itemDiscountFlat);
         newCart.push({
           product_id: product.id,
           batch_id: allocation.batch_id,
@@ -806,6 +806,7 @@ export default function Sales() {
           unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
+          discount_flat: itemDiscountFlat,
           total_price: totalPrice,
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
@@ -817,6 +818,7 @@ export default function Sales() {
     setSelectedProduct("");
     setItemQuantity(1);
     setItemDiscount(0);
+    setItemDiscountFlat(0);
     setItemRate(0);
 
     // Show info if quantity was split across batches

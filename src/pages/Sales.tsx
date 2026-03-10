@@ -1302,18 +1302,36 @@ export default function Sales() {
                                 className="w-16 h-8 text-center"
                               />
                             </TableCell>
+                            {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
                             <TableCell>
                               <Input
                                 type="number"
                                 min={0}
-                                max={100}
+                                max={maxDiscountAllowed}
                                 step={0.1}
                                 value={item.discount_percentage}
-                                onChange={(e) => updateCartItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  updateCartItem(index, "discount_percentage", Math.min(val, maxDiscountAllowed));
+                                }}
                                 className="w-16 h-8 text-center"
                                 placeholder="0"
                               />
                             </TableCell>
+                            )}
+                            {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && (
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.5}
+                                value={item.discount_flat || ""}
+                                onChange={(e) => updateCartItem(index, "discount_flat", parseFloat(e.target.value) || 0)}
+                                className="w-20 h-8 text-center"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            )}
                             <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(index)}>

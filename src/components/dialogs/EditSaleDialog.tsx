@@ -449,6 +449,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                       <TableHead>Product</TableHead>
                       <TableHead>Batch</TableHead>
                       <TableHead className="text-right w-20">Qty</TableHead>
+                      <TableHead className="text-right w-16">Free</TableHead>
                       <TableHead className="text-right w-24">Price</TableHead>
                       <TableHead className="text-right w-16">Disc%</TableHead>
                       <TableHead className="text-right w-16">GST%</TableHead>

@@ -113,7 +113,7 @@ export default function Sales() {
   
   // Inline add product
   const [showProductDialog, setShowProductDialog] = useState(false);
-  const [quickTextOpen, setQuickTextOpen] = useState(false);
+  
   
   // Customer selector state (electronics)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);

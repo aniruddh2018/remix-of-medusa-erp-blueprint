@@ -58,6 +58,7 @@ interface CartItem {
   batch_number: string;
   hsn_code: string;
   quantity: number;
+  free_quantity: number;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;

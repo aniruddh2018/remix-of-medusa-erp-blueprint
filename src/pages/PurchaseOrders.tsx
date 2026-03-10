@@ -687,7 +687,7 @@ export default function PurchaseOrders() {
     (updated[index] as any)[field] = value;
     // Recalculate total
     const item = updated[index];
-    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage);
+    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage, item.discount_flat);
     setOrderItems(updated);
   };
 

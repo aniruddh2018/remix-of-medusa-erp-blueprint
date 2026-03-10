@@ -660,7 +660,8 @@ export default function PurchaseOrders() {
         itemPrice,
         newItems[existingIndex].quantity,
         gstPercentage,
-        itemDiscount
+        itemDiscount,
+        itemDiscountFlat
       );
       setOrderItems(newItems);
     } else {

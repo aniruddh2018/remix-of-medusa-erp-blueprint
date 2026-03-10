@@ -539,6 +539,7 @@ export default function PurchaseOrders() {
         unit_price: Number(item.unit_price),
         gst_percentage: Number(item.gst_percentage),
         discount_percentage: Number(item.discount_percentage),
+        discount_flat: 0,
         total_price: Number(item.total_price),
         fromChallan: true,
       }));

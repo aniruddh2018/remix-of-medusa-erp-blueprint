@@ -483,6 +483,23 @@ export default function Sales() {
     enabled: !!selectedProduct,
   });
 
+  // All batches for quick text entry
+  const { data: allBatches } = useQuery({
+    queryKey: ["all-batches-for-sale", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("*")
+        .eq("company_id", companyId!)
+        .gt("quantity", 0)
+        .gt("expiry_date", new Date().toISOString().split("T")[0])
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data as InventoryBatch[];
+    },
+    enabled: !!companyId && isDialogOpen,
+  });
+
   const createSaleMutation = useMutation({
     mutationFn: async () => {
       const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;
@@ -1133,7 +1150,8 @@ export default function Sales() {
                       products={products}
                       onOpenChange={setQuickTextOpen}
                     onItemsConfirmed={(items) => {
-                        if (!products || !batches) return;
+                        if (!products) return;
+                        const batchList = allBatches || [];
                         const newCartItems: typeof cart = [];
                         for (const item of items) {
                           if (!item.product_id) continue;
@@ -1144,7 +1162,7 @@ export default function Sales() {
                           const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
                           
                           // Find best batch via FIFO (earliest expiry with stock)
-                          const productBatches = batches
+                          const productBatches = batchList
                             .filter(b => b.product_id === product.id && b.quantity > 0)
                             .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
                           

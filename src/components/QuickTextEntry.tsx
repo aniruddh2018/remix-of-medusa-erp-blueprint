@@ -99,8 +99,17 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       toast({ title: "Unmapped items", description: `${unmapped.length} item(s) are not mapped to products. Please map or remove them.`, variant: "destructive" });
       return;
     }
-    onItemsConfirmed(parsedItems);
-    handleClose();
+    const itemsToConfirm = [...parsedItems];
+    // Close first, then confirm after a tick so parent dialog doesn't interfere
+    setOpen(false);
+    setText("");
+    setParsedItems([]);
+    setStep("input");
+    // Delay the open change callback so the parent dialog guard stays active
+    setTimeout(() => {
+      onItemsConfirmed(itemsToConfirm);
+      onOpenChangeProp?.(false);
+    }, 100);
   };
 
   const handleClose = () => {
@@ -108,6 +117,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
     setText("");
     setParsedItems([]);
     setStep("input");
+    setTimeout(() => onOpenChangeProp?.(false), 100);
   };
 
   return (
@@ -116,7 +126,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
         <FileText className="h-4 w-4" />
         {triggerLabel}
       </Button>
-      <Dialog open={open} onOpenChange={(v) => { if (!v) { handleClose(); onOpenChangeProp?.(false); } else { setOpen(true); onOpenChangeProp?.(true); } }}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { handleClose(); } else { setOpen(true); onOpenChangeProp?.(true); } }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.stopPropagation()} onInteractOutside={(e) => e.stopPropagation()} onEscapeKeyDown={(e) => e.stopPropagation()} onOpenAutoFocus={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>Quick Text Entry — {type === "sale" ? "Sales Order" : "Purchase Order"}</DialogTitle>

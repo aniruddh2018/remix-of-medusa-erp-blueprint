@@ -103,6 +103,10 @@ export default function PurchaseOrders() {
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   
+  // Bill-level discount
+  const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
+
   // Receive inventory dialog
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [selectedOrderForReceive, setSelectedOrderForReceive] = useState<{ id: string; supplierId: string } | null>(null);
@@ -358,7 +362,8 @@ export default function PurchaseOrders() {
       }, 0);
 
       const totalCharges = freightCharges + handlingCharges + otherCharges;
-      const totalAmount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
+      const subBeforeBillDisc = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
+      const totalAmount = Math.max(0, subBeforeBillDisc - billDiscountAmount);
 
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
@@ -369,7 +374,7 @@ export default function PurchaseOrders() {
           notes: notes || null,
           total_amount: totalAmount,
           gst_amount: gstAmount,
-          discount_amount: discountAmount,
+          discount_amount: discountAmount + billDiscountAmount,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,
@@ -519,6 +524,8 @@ export default function PurchaseOrders() {
     setPendingChallans([]);
     setSelectedChallanIds([]);
     setShowChallanSelector(false);
+    setBillDiscountPercent(0);
+    setBillDiscountFlat(0);
     setDraftRestored(false);
   }, [clearPODraft]);
 
@@ -751,9 +758,13 @@ export default function PurchaseOrders() {
       }, 0);
   
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const grandTotal = gstInclusive
-    ? itemsSubtotal + totalCharges
-    : itemsSubtotal + totalGst + totalCharges;
+  
+  // Bill-level discount
+  const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
+  const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
+  const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
+  
+  const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
 
   const filteredOrders = purchaseOrders?.filter(
     (order) =>
@@ -1290,22 +1301,22 @@ export default function PurchaseOrders() {
                     <div className="space-y-2 text-sm">
                       {discountSettings.showDiscountRow && totalItemDiscount > 0 && (
                         <>
-                          <div className="flex justify-between text-muted-foreground">
+                          <div className="flex justify-between">
                             <span>Gross Total:</span>
                             <span>₹{grossTotal.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between text-destructive">
-                            <span>Item Discounts:</span>
-                            <span>−₹{totalItemDiscount.toFixed(2)}</span>
+                          <div className="flex justify-between text-primary">
+                            <span>Item Discount:</span>
+                            <span>-₹{totalItemDiscount.toFixed(2)}</span>
                           </div>
                         </>
                       )}
                       <div className="flex justify-between">
-                        <span>Subtotal:</span>
+                        <span>{gstInclusive ? "Net Total (GST Inclusive):" : "Subtotal:"}</span>
                         <span>₹{itemsSubtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>GST (CGST + SGST):</span>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>{gstInclusive ? "Incl. GST (CGST + SGST):" : "GST (CGST + SGST):"}</span>
                         <span>₹{totalGst.toFixed(2)}</span>
                       </div>
                       {totalCharges > 0 && (
@@ -1314,12 +1325,59 @@ export default function PurchaseOrders() {
                           <span>₹{totalCharges.toFixed(2)}</span>
                         </div>
                       )}
+                      {billDiscountAmount > 0 && (
+                        <div className="flex justify-between text-primary font-medium">
+                          <span>Bill Discount:</span>
+                          <span>-₹{billDiscountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-bold text-lg">
                         <span>Grand Total:</span>
                         <span>₹{grandTotal.toFixed(2)}</span>
                       </div>
+                      {totalDiscountAmount > 0 && (
+                        <div className="text-xs text-primary text-right">
+                          You saved ₹{totalDiscountAmount.toFixed(2)} on this order
+                        </div>
+                      )}
                     </div>
+
+                    {/* Bill-level discount inputs */}
+                    {discountSettings.enableBillDiscount && (
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <Label className="text-xs font-medium mb-2 block">Bill-Level Discount</Label>
+                        <div className="flex gap-3">
+                          {(discountSettings.billDiscountMode === "percentage" || discountSettings.billDiscountMode === "both") && (
+                            <div className="space-y-1 flex-1">
+                              <Label className="text-xs text-muted-foreground">Discount %</Label>
+                              <Input
+                                type="number" min={0} max={maxDiscountAllowed} step={0.1}
+                                value={billDiscountPercent || ""}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setBillDiscountPercent(Math.min(val, maxDiscountAllowed));
+                                }}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
+                          {(discountSettings.billDiscountMode === "flat" || discountSettings.billDiscountMode === "both") && (
+                            <div className="space-y-1 flex-1">
+                              <Label className="text-xs text-muted-foreground">Discount ₹</Label>
+                              <Input
+                                type="number" min={0} step={1}
+                                value={billDiscountFlat || ""}
+                                onChange={(e) => setBillDiscountFlat(parseFloat(e.target.value) || 0)}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

@@ -50,14 +50,15 @@ interface OrderItem {
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
+  discount_flat: number;
   total_price: number;
   fromChallan?: boolean;
 }
 
 export default function PurchaseOrders() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { companyId, config } = useBusiness();
+  const { user, isAdmin, isPharmacist } = useAuth();
+  const { companyId, config, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,6 +78,7 @@ export default function PurchaseOrders() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   const [draftRestored, setDraftRestored] = useState(false);
   
@@ -221,6 +223,42 @@ export default function PurchaseOrders() {
     enabled: !!companyId,
   });
 
+  // Fetch invoice/discount settings
+  const { data: invoiceSettings } = useQuery({
+    queryKey: ["invoice-settings", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("invoice_settings")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const discountSettings = useMemo(() => {
+    const s = invoiceSettings as any;
+    return {
+      discountMode: s?.discount_mode || "both",
+      showDiscountRow: s?.show_discount_row ?? true,
+      enableBillDiscount: s?.enable_bill_discount ?? true,
+      billDiscountMode: s?.bill_discount_mode || "both",
+      maxDiscountAdmin: Number(s?.max_discount_admin) || 100,
+      maxDiscountPharmacist: Number(s?.max_discount_pharmacist) || 50,
+      maxDiscountStaff: Number(s?.max_discount_staff) || 15,
+      discountBeforeTax: s?.discount_before_tax ?? true,
+    };
+  }, [invoiceSettings]);
+
+  const maxDiscountAllowed = useMemo(() => {
+    if (isAdmin) return discountSettings.maxDiscountAdmin;
+    if (isPharmacist) return discountSettings.maxDiscountPharmacist;
+    return discountSettings.maxDiscountStaff;
+  }, [isAdmin, isPharmacist, discountSettings]);
+
   const { data: poPayments } = useQuery({
     queryKey: ["payments-purchase", companyId],
     queryFn: async () => {
@@ -297,21 +335,30 @@ export default function PurchaseOrders() {
 
       // Calculate item totals
       const itemsSubtotal = orderItems.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + basePrice;
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + afterDisc;
       }, 0);
       
-      const gstAmount = orderItems.reduce((sum, item) => {
-        const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-        return sum + (basePrice * item.gst_percentage / 100);
-      }, 0);
+      const gstAmount = gstInclusive
+        ? orderItems.reduce((sum, item) => {
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc - afterDisc / (1 + item.gst_percentage / 100));
+          }, 0)
+        : orderItems.reduce((sum, item) => {
+            const base = item.unit_price * item.quantity;
+            const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+            return sum + (afterDisc * item.gst_percentage / 100);
+          }, 0);
       
       const discountAmount = orderItems.reduce((sum, item) => {
-        return sum + (item.unit_price * item.quantity * item.discount_percentage / 100);
+        const base = item.unit_price * item.quantity;
+        return sum + (base * item.discount_percentage / 100) + item.discount_flat;
       }, 0);
 
       const totalCharges = freightCharges + handlingCharges + otherCharges;
-      const totalAmount = itemsSubtotal + gstAmount + totalCharges;
+      const totalAmount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
 
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
@@ -462,6 +509,7 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setItemDiscountFlat(0);
     setItemBatchNumber("");
     setFreightCharges(0);
     setHandlingCharges(0);
@@ -537,6 +585,7 @@ export default function PurchaseOrders() {
         unit_price: Number(item.unit_price),
         gst_percentage: Number(item.gst_percentage),
         discount_percentage: Number(item.discount_percentage),
+        discount_flat: 0,
         total_price: Number(item.total_price),
         fromChallan: true,
       }));
@@ -597,7 +646,7 @@ export default function PurchaseOrders() {
     if (!product) return;
 
     const gstPercentage = Number(product.gst_percentage);
-    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount);
+    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
 
     // Find existing non-challan item with same product to merge quantities
     const existingIndex = orderItems.findIndex(
@@ -611,7 +660,8 @@ export default function PurchaseOrders() {
         itemPrice,
         newItems[existingIndex].quantity,
         gstPercentage,
-        itemDiscount
+        itemDiscount,
+        itemDiscountFlat
       );
       setOrderItems(newItems);
     } else {
@@ -627,6 +677,7 @@ export default function PurchaseOrders() {
           unit_price: itemPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
+          discount_flat: itemDiscountFlat,
           total_price: totalPrice,
           fromChallan: false,
         },
@@ -637,6 +688,7 @@ export default function PurchaseOrders() {
     setItemQuantity(1);
     setItemPrice(0);
     setItemDiscount(0);
+    setItemDiscountFlat(0);
     setItemBatchNumber("");
   };
 
@@ -645,13 +697,15 @@ export default function PurchaseOrders() {
     (updated[index] as any)[field] = value;
     // Recalculate total
     const item = updated[index];
-    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage);
+    item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage, item.discount_flat);
     setOrderItems(updated);
   };
 
-  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number) => {
+  const calculateItemTotal = (price: number, qty: number, gst: number, discount: number, discountFlat: number = 0) => {
     const basePrice = price * qty;
-    const discountedPrice = basePrice * (1 - discount / 100);
+    const afterPctDiscount = basePrice * (1 - discount / 100);
+    const discountedPrice = Math.max(0, afterPctDiscount - discountFlat);
+    if (gstInclusive) return discountedPrice;
     const gstAmount = discountedPrice * (gst / 100);
     return discountedPrice + gstAmount;
   };
@@ -670,18 +724,36 @@ export default function PurchaseOrders() {
   };
 
   // Calculate totals
+  const grossTotal = orderItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+
+  const totalItemDiscount = orderItems.reduce((sum, item) => {
+    const base = item.unit_price * item.quantity;
+    const pctDisc = base * item.discount_percentage / 100;
+    return sum + pctDisc + item.discount_flat;
+  }, 0);
+
   const itemsSubtotal = orderItems.reduce((sum, item) => {
-    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    return sum + basePrice;
+    const base = item.unit_price * item.quantity;
+    const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+    return sum + afterDisc;
   }, 0);
   
-  const totalGst = orderItems.reduce((sum, item) => {
-    const basePrice = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    return sum + (basePrice * item.gst_percentage / 100);
-  }, 0);
+  const totalGst = gstInclusive
+    ? orderItems.reduce((sum, item) => {
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + (afterDisc - afterDisc / (1 + item.gst_percentage / 100));
+      }, 0)
+    : orderItems.reduce((sum, item) => {
+        const base = item.unit_price * item.quantity;
+        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+        return sum + (afterDisc * item.gst_percentage / 100);
+      }, 0);
   
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const grandTotal = itemsSubtotal + totalGst + totalCharges;
+  const grandTotal = gstInclusive
+    ? itemsSubtotal + totalCharges
+    : itemsSubtotal + totalGst + totalCharges;
 
   const filteredOrders = purchaseOrders?.filter(
     (order) =>
@@ -909,7 +981,7 @@ export default function PurchaseOrders() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-8 gap-3">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
@@ -980,6 +1052,52 @@ export default function PurchaseOrders() {
                         }}
                       />
                     </div>
+                    {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
+                    <div>
+                      <Label>Disc %</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={maxDiscountAllowed}
+                        step={0.1}
+                        value={itemDiscount || ""}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          if (val > maxDiscountAllowed) {
+                            toast({ title: "Limit exceeded", description: `Max discount for your role: ${maxDiscountAllowed}%`, variant: "destructive" });
+                            return;
+                          }
+                          setItemDiscount(val);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    )}
+                    {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && (
+                    <div>
+                      <Label>Disc ₹</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={itemDiscountFlat || ""}
+                        onChange={(e) => setItemDiscountFlat(parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && itemPrice > 0) {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    )}
                     <div className="flex items-end">
                       <Button onClick={handleAddItem} className="w-full" disabled={!selectedProduct || itemPrice <= 0} title="Add item (Enter)">
                         Add
@@ -1005,7 +1123,8 @@ export default function PurchaseOrders() {
                             <TableHead>Price (₹)</TableHead>
                             <TableHead>Qty</TableHead>
                             <TableHead>GST%</TableHead>
-                            <TableHead>Disc%</TableHead>
+                            {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && <TableHead>Disc%</TableHead>}
+                            {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && <TableHead>Disc ₹</TableHead>}
                             <TableHead className="text-right">Total</TableHead>
                             <TableHead></TableHead>
                           </TableRow>
@@ -1064,6 +1183,7 @@ export default function PurchaseOrders() {
                                 )}
                               </TableCell>
                               <TableCell className="text-muted-foreground">{item.gst_percentage}%</TableCell>
+                              {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
                               <TableCell>
                                 {item.fromChallan ? (
                                   <span>{item.discount_percentage}%</span>
@@ -1071,15 +1191,40 @@ export default function PurchaseOrders() {
                                   <Input
                                     type="number"
                                     min={0}
-                                    max={100}
+                                    max={maxDiscountAllowed}
                                     step={0.1}
                                     value={item.discount_percentage}
-                                    onChange={(e) => updateOrderItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      if (val > maxDiscountAllowed) {
+                                        toast({ title: "Limit exceeded", description: `Max discount for your role: ${maxDiscountAllowed}%`, variant: "destructive" });
+                                        return;
+                                      }
+                                      updateOrderItem(index, "discount_percentage", val);
+                                    }}
                                     className="w-16 h-8 text-center"
                                     placeholder="0"
                                   />
                                 )}
                               </TableCell>
+                              )}
+                              {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && (
+                              <TableCell>
+                                {item.fromChallan ? (
+                                  <span>₹{item.discount_flat}</span>
+                                ) : (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.5}
+                                    value={item.discount_flat || ""}
+                                    onChange={(e) => updateOrderItem(index, "discount_flat", parseFloat(e.target.value) || 0)}
+                                    className="w-20 h-8 text-center"
+                                    placeholder="0"
+                                  />
+                                )}
+                              </TableCell>
+                              )}
                               <TableCell className="text-right font-medium">₹{item.total_price.toFixed(2)}</TableCell>
                               <TableCell>
                                 {!item.fromChallan && (
@@ -1143,6 +1288,18 @@ export default function PurchaseOrders() {
                 <Card className="bg-muted/50">
                   <CardContent className="pt-4">
                     <div className="space-y-2 text-sm">
+                      {discountSettings.showDiscountRow && totalItemDiscount > 0 && (
+                        <>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Gross Total:</span>
+                            <span>₹{grossTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-destructive">
+                            <span>Item Discounts:</span>
+                            <span>−₹{totalItemDiscount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span>₹{itemsSubtotal.toFixed(2)}</span>

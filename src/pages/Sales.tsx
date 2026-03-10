@@ -61,6 +61,7 @@ interface CartItem {
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
+  discount_flat: number;
   total_price: number;
   max_quantity: number;
   expiry_date: string;

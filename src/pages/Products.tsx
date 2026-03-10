@@ -264,10 +264,16 @@ export default function Products() {
         breadcrumbs={[{ label: "Products" }]}
         actions={
           isPharmacist && (
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setMergeOpen(true)}>
+                <Merge className="h-4 w-4 mr-2" />
+                Merge Duplicates
+              </Button>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           )
         }
       />

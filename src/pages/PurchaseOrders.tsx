@@ -1852,6 +1852,53 @@ export default function PurchaseOrders() {
           paymentType="made"
         />
       )}
+
+      {/* Delete PO Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Purchase Order
+            </DialogTitle>
+            <DialogDescription>
+              This action is <strong>permanent and cannot be undone</strong>. The PO, all its items, related payments, and inventory batches will be affected.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 space-y-1">
+                <p className="text-sm font-medium">Order: <span className="font-mono">{deleteTarget.order_number}</span></p>
+                <p className="text-sm text-muted-foreground">Amount: ₹{Number(deleteTarget.total_amount).toFixed(2)}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">
+                  Type <span className="font-mono font-bold text-destructive">{deleteTarget.order_number}</span> to confirm:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={deleteTarget.order_number}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteTarget || deleteConfirmText !== deleteTarget.order_number || deletePOMutation.isPending}
+              onClick={() => deleteTarget && deletePOMutation.mutate(deleteTarget.id)}
+            >
+              {deletePOMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

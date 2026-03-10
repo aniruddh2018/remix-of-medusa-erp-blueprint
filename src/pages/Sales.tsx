@@ -1167,6 +1167,23 @@ export default function Sales() {
                         }}
                       />
                     </div>
+                    <div>
+                      <Label>Free</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={itemFreeQty || ""}
+                        onChange={(e) => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
+                        placeholder="0"
+                        title="Free scheme qty (e.g. 1 in 10+1)"
+                      />
+                    </div>
                     {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
                     <div>
                       <Label>Disc %</Label>

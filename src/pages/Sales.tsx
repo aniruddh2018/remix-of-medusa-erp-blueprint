@@ -113,6 +113,7 @@ export default function Sales() {
   
   // Inline add product
   const [showProductDialog, setShowProductDialog] = useState(false);
+  const [quickTextOpen, setQuickTextOpen] = useState(false);
   
   // Customer selector state (electronics)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -953,7 +954,7 @@ export default function Sales() {
             <RotateCcw className="h-4 w-4" />
             Credit Note
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(v) => { if (!v && quickTextOpen) return; setIsDialogOpen(v); }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -1130,6 +1131,7 @@ export default function Sales() {
                     <QuickTextEntry
                       type="sale"
                       products={products}
+                      onOpenChange={setQuickTextOpen}
                     onItemsConfirmed={(items) => {
                         if (!products || !batches) return;
                         const newCartItems: typeof cart = [];

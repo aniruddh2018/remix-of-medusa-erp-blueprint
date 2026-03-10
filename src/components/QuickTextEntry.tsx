@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { FileText, Loader2, AlertTriangle, Check, RefreshCw } from "lucide-react";
+import { FileText, Loader2, AlertTriangle, Check, RefreshCw, X } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
 
-interface ParsedItem {
+export interface ParsedItem {
   product_id: string | null;
   product_name_matched: string;
   product_name_raw: string;
@@ -34,10 +34,9 @@ interface QuickTextEntryProps {
   products: Product[] | undefined;
   onItemsConfirmed: (items: ParsedItem[]) => void;
   triggerLabel?: string;
-  onOpenChange?: (open: boolean) => void;
 }
 
-export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry", onOpenChange: onOpenChangeProp }: QuickTextEntryProps) {
+export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry" }: QuickTextEntryProps) {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -45,6 +44,14 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
+
+  // Prevent body scroll when open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [open]);
 
   const handleParse = async () => {
     if (!text.trim() || !companyId) return;
@@ -100,16 +107,9 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       return;
     }
     const itemsToConfirm = [...parsedItems];
-    // Close first, then confirm after a tick so parent dialog doesn't interfere
-    setOpen(false);
-    setText("");
-    setParsedItems([]);
-    setStep("input");
-    // Delay the open change callback so the parent dialog guard stays active
-    setTimeout(() => {
-      onItemsConfirmed(itemsToConfirm);
-      onOpenChangeProp?.(false);
-    }, 100);
+    handleClose();
+    // Call after close so parent state is stable
+    onItemsConfirmed(itemsToConfirm);
   };
 
   const handleClose = () => {
@@ -117,23 +117,31 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
     setText("");
     setParsedItems([]);
     setStep("input");
-    setTimeout(() => onOpenChangeProp?.(false), 100);
   };
 
-  return (
-    <>
-      <Button variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); setOpen(true); onOpenChangeProp?.(true); }}>
-        <FileText className="h-4 w-4" />
-        {triggerLabel}
-      </Button>
-      <Dialog open={open} onOpenChange={(v) => { if (!v) { handleClose(); } else { setOpen(true); onOpenChangeProp?.(true); } }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.stopPropagation()} onInteractOutside={(e) => e.stopPropagation()} onEscapeKeyDown={(e) => e.stopPropagation()} onOpenAutoFocus={(e) => e.stopPropagation()}>
-        <DialogHeader>
-          <DialogTitle>Quick Text Entry — {type === "sale" ? "Sales Order" : "Purchase Order"}</DialogTitle>
-          <DialogDescription>
-            Write your order in plain language. AI will parse it and match products automatically.
-          </DialogDescription>
-        </DialogHeader>
+  const modal = open ? createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80" />
+      
+      {/* Content */}
+      <div
+        className="relative z-10 bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Quick Text Entry — {type === "sale" ? "Sales Order" : "Purchase Order"}</h2>
+            <p className="text-sm text-muted-foreground">Write your order in plain language. AI will parse it and match products automatically.</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
         {step === "input" && (
           <div className="space-y-4">
@@ -144,12 +152,12 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
               className="min-h-[200px] font-mono text-sm"
               autoFocus
             />
-            <DialogFooter>
+            <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={handleParse} disabled={!text.trim() || isParsing}>
                 {isParsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing...</> : "Parse & Match"}
               </Button>
-            </DialogFooter>
+            </div>
           </div>
         )}
 
@@ -249,16 +257,26 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
               </Table>
             </div>
 
-            <DialogFooter>
+            <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={handleConfirm} disabled={parsedItems.length === 0}>
                 Add {parsedItems.length} items to {type === "sale" ? "cart" : "order"}
               </Button>
-            </DialogFooter>
+            </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <>
+      <Button variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
+        <FileText className="h-4 w-4" />
+        {triggerLabel}
+      </Button>
+      {modal}
     </>
   );
 }

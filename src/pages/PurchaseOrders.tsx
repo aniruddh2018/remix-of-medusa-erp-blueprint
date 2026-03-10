@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote } from "lucide-react";
+import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote, AlertTriangle } from "lucide-react";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
@@ -121,6 +121,11 @@ export default function PurchaseOrders() {
   // Edit order dialog state
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
+
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // Debit note dialog
   const [debitNoteOpen, setDebitNoteOpen] = useState(false);
@@ -491,7 +496,80 @@ export default function PurchaseOrders() {
     },
   });
 
-  // Open receive dialog for manual receive
+  const deletePOMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // 1. Fetch PO items
+      const { data: poItems, error: fetchErr } = await supabase
+        .from("purchase_order_items")
+        .select("id, product_id, quantity")
+        .eq("purchase_order_id", orderId);
+      if (fetchErr) throw fetchErr;
+
+      // 2. Delete inventory batches created for this PO (match by product and approximate timing)
+      // For scanned invoices and auto-received POs, batches were created at PO creation time
+      for (const item of (poItems || [])) {
+        // Find and reduce/delete matching batches
+        const { data: batches } = await supabase
+          .from("inventory_batches")
+          .select("id, quantity")
+          .eq("product_id", item.product_id)
+          .eq("company_id", companyId!)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        
+        let remainingToRestore = item.quantity;
+        for (const batch of (batches || [])) {
+          if (remainingToRestore <= 0) break;
+          const newQty = Math.max(0, batch.quantity - remainingToRestore);
+          remainingToRestore -= batch.quantity;
+          await supabase
+            .from("inventory_batches")
+            .update({ quantity: newQty })
+            .eq("id", batch.id);
+        }
+      }
+
+      // 3. Unlink debit notes referencing this PO
+      await supabase
+        .from("debit_notes")
+        .update({ original_order_id: null })
+        .eq("original_order_id", orderId);
+
+      // 4. Delete PO items
+      for (const item of (poItems || [])) {
+        await supabase.from("purchase_order_items").delete().eq("id", item.id);
+      }
+
+      // 5. Delete related payments
+      await supabase
+        .from("payments")
+        .delete()
+        .eq("reference_id", orderId)
+        .eq("reference_type", "purchase_order");
+
+      // 6. Delete the PO
+      const { data: deleted, error: orderErr } = await supabase
+        .from("purchase_orders")
+        .delete()
+        .eq("id", orderId)
+        .select();
+      if (orderErr) throw new Error(`Failed to delete PO: ${orderErr.message}`);
+      if (!deleted || deleted.length === 0) throw new Error("PO could not be deleted. Check your permissions.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
+      toast({ title: "Purchase order deleted", description: "The PO, items, and inventory have been restored." });
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleReceiveInventory = (orderId: string, supplierId: string) => {
     setSelectedOrderForReceive({ id: orderId, supplierId });
     setReceiveDialogOpen(true);
@@ -1652,6 +1730,23 @@ export default function PurchaseOrders() {
                               <Link2 className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* Delete PO - admin only */}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeleteTarget(order);
+                                setDeleteConfirmText("");
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete PO"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1757,6 +1852,53 @@ export default function PurchaseOrders() {
           paymentType="made"
         />
       )}
+
+      {/* Delete PO Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Purchase Order
+            </DialogTitle>
+            <DialogDescription>
+              This action is <strong>permanent and cannot be undone</strong>. The PO, all its items, related payments, and inventory batches will be affected.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 space-y-1">
+                <p className="text-sm font-medium">Order: <span className="font-mono">{deleteTarget.order_number}</span></p>
+                <p className="text-sm text-muted-foreground">Amount: ₹{Number(deleteTarget.total_amount).toFixed(2)}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">
+                  Type <span className="font-mono font-bold text-destructive">{deleteTarget.order_number}</span> to confirm:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={deleteTarget.order_number}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteDialogOpen(false); setDeleteTarget(null); setDeleteConfirmText(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteTarget || deleteConfirmText !== deleteTarget.order_number || deletePOMutation.isPending}
+              onClick={() => deleteTarget && deletePOMutation.mutate(deleteTarget.id)}
+            >
+              {deletePOMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -58,6 +58,7 @@ interface CartItem {
   batch_number: string;
   hsn_code: string;
   quantity: number;
+  free_quantity: number;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
@@ -93,6 +94,7 @@ export default function Sales() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
+  const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [draftRestored, setDraftRestored] = useState(false);
   
@@ -566,11 +568,12 @@ export default function Sales() {
 
       if (itemsError) throw itemsError;
 
-      // Update batch quantities
+      // Update batch quantities (deduct sold qty + free qty)
       for (const item of cart) {
+        const totalDeducted = item.quantity + (item.free_quantity || 0);
         const { error: batchError } = await supabase
           .from("inventory_batches")
-          .update({ quantity: item.max_quantity - item.quantity })
+          .update({ quantity: item.max_quantity - totalDeducted })
           .eq("id", item.batch_id);
         if (batchError) throw batchError;
       }
@@ -676,6 +679,7 @@ export default function Sales() {
     setItemQuantity(1);
     setItemDiscount(0);
     setItemDiscountFlat(0);
+    setItemFreeQty(0);
     setItemRate(0);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);
@@ -807,6 +811,7 @@ export default function Sales() {
           batch_number: allocation.batch_number,
           hsn_code: hsnCode,
           quantity: allocation.quantity,
+          free_quantity: itemFreeQty,
           unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
@@ -821,6 +826,7 @@ export default function Sales() {
     setCart(newCart);
     setSelectedProduct("");
     setItemQuantity(1);
+    setItemFreeQty(0);
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
@@ -1093,7 +1099,7 @@ export default function Sales() {
                   <CardTitle className="text-base">Add Products</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
                     <div className="md:col-span-2">
                       <Label>Product</Label>
                       <div className="flex gap-2">
@@ -1159,6 +1165,23 @@ export default function Sales() {
                             handleAddToCart();
                           }
                         }}
+                      />
+                    </div>
+                    <div>
+                      <Label>Free</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={itemFreeQty || ""}
+                        onChange={(e) => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedProduct && availableStock > 0 && itemQuantity > 0) {
+                            e.preventDefault();
+                            handleAddToCart();
+                          }
+                        }}
+                        placeholder="0"
+                        title="Free scheme qty (e.g. 1 in 10+1)"
                       />
                     </div>
                     {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (
@@ -1254,6 +1277,7 @@ export default function Sales() {
                           <TableHead>Expiry</TableHead>
                           <TableHead>Price (₹)</TableHead>
                           <TableHead>Qty</TableHead>
+                          <TableHead>Free</TableHead>
                           {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && <TableHead>Disc %</TableHead>}
                           {(discountSettings.discountMode === "flat" || discountSettings.discountMode === "both") && <TableHead>Disc ₹</TableHead>}
                           <TableHead className="text-right">Total</TableHead>
@@ -1300,6 +1324,16 @@ export default function Sales() {
                                 value={item.quantity}
                                 onChange={(e) => updateCartItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                                 className="w-16 h-8 text-center"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={item.free_quantity || 0}
+                                onChange={(e) => updateCartItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                                className="w-16 h-8 text-center"
+                                title={`Scheme: ${item.quantity}+${item.free_quantity || 0}`}
                               />
                             </TableCell>
                             {(discountSettings.discountMode === "percentage" || discountSettings.discountMode === "both") && (

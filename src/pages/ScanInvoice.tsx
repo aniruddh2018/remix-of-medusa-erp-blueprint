@@ -231,19 +231,18 @@ export default function ScanInvoice() {
           company_id: companyId,
         });
 
-        if (item.batch_number) {
-          await supabase.from("inventory_batches").insert({
-            product_id: productId,
-            batch_number: item.batch_number,
-            quantity: item.quantity + (item.free_quantity || 0),
-            purchase_price: item.purchase_price,
-            mrp: item.mrp,
-            expiry_date: item.expiry_date || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-            manufacturing_date: item.manufacturing_date || null,
-            supplier_id: supplierId,
-            company_id: companyId,
-          });
-        }
+        const batchNum = item.batch_number || `BATCH-SCAN-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        await supabase.from("inventory_batches").insert({
+          product_id: productId,
+          batch_number: batchNum,
+          quantity: item.quantity + (item.free_quantity || 0),
+          purchase_price: item.purchase_price,
+          mrp: item.mrp,
+          expiry_date: item.expiry_date || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          manufacturing_date: item.manufacturing_date || null,
+          supplier_id: supplierId,
+          company_id: companyId,
+        });
       }
 
       setSaved(true);

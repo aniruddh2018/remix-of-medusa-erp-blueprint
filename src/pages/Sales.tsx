@@ -504,6 +504,12 @@ export default function Sales() {
     mutationFn: async () => {
       const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}`;
       
+      // Validate all cart items have valid batch IDs
+      const invalidItems = cart.filter(i => !i.batch_id);
+      if (invalidItems.length > 0) {
+        throw new Error(`${invalidItems.length} item(s) have no batch assigned. Please remove them or select a batch.`);
+      }
+      
       // Validate duplicate invoice number
       if (invoiceNumber.trim()) {
         const { data: existing, error: checkError } = await supabase
@@ -1168,11 +1174,16 @@ export default function Sales() {
                           const totalNeeded = item.quantity + (item.free_quantity || 0);
                           const batch = productBatches.find(b => b.quantity >= totalNeeded) || productBatches[0];
                           
+                          if (!batch) {
+                            toast({ title: `No stock for ${productName}`, description: "Skipped — no inventory batch available.", variant: "destructive" });
+                            continue;
+                          }
+                          
                           newCartItems.push({
                             product_id: product.id,
-                            batch_id: batch?.id || "",
+                            batch_id: batch.id,
                             product_name: productName,
-                            batch_number: batch?.batch_number || "No Stock",
+                            batch_number: batch.batch_number,
                             hsn_code: product.hsn_code || "",
                             quantity: item.quantity,
                             free_quantity: item.free_quantity || 0,
@@ -1181,8 +1192,8 @@ export default function Sales() {
                             discount_percentage: 0,
                             discount_flat: 0,
                             total_price: gstInclusive ? rate * item.quantity : rate * item.quantity * (1 + gst / 100),
-                            max_quantity: batch?.quantity || 0,
-                            expiry_date: batch?.expiry_date || "2099-12-31",
+                            max_quantity: batch.quantity,
+                            expiry_date: batch.expiry_date,
                           });
                         }
                         if (newCartItems.length > 0) {

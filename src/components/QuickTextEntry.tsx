@@ -99,8 +99,17 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       toast({ title: "Unmapped items", description: `${unmapped.length} item(s) are not mapped to products. Please map or remove them.`, variant: "destructive" });
       return;
     }
-    onItemsConfirmed(parsedItems);
-    handleClose();
+    const itemsToConfirm = [...parsedItems];
+    // Close first, then confirm after a tick so parent dialog doesn't interfere
+    setOpen(false);
+    setText("");
+    setParsedItems([]);
+    setStep("input");
+    // Delay the open change callback so the parent dialog guard stays active
+    setTimeout(() => {
+      onItemsConfirmed(itemsToConfirm);
+      onOpenChangeProp?.(false);
+    }, 100);
   };
 
   const handleClose = () => {
@@ -108,6 +117,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
     setText("");
     setParsedItems([]);
     setStep("input");
+    setTimeout(() => onOpenChangeProp?.(false), 100);
   };
 
   return (

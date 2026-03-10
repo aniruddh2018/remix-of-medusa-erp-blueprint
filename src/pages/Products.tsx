@@ -66,6 +66,7 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({

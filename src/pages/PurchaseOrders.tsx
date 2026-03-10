@@ -755,9 +755,13 @@ export default function PurchaseOrders() {
       }, 0);
   
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const grandTotal = gstInclusive
-    ? itemsSubtotal + totalCharges
-    : itemsSubtotal + totalGst + totalCharges;
+  
+  // Bill-level discount
+  const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
+  const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
+  const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
+  
+  const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
 
   const filteredOrders = purchaseOrders?.filter(
     (order) =>

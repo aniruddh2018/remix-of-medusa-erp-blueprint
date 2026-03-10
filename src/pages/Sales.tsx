@@ -780,7 +780,7 @@ export default function Sales() {
       return;
     }
 
-    const gstPercentage = Number(product.gst_percentage);
+    const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
     const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
     const hsnCode = product.hsn_code || "";
 

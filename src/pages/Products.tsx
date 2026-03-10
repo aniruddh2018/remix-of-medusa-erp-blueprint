@@ -31,9 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
+import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type DrugSchedule = Database["public"]["Enums"]["drug_schedule"];
@@ -65,6 +66,7 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -262,10 +264,16 @@ export default function Products() {
         breadcrumbs={[{ label: "Products" }]}
         actions={
           isPharmacist && (
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setMergeOpen(true)}>
+                <Merge className="h-4 w-4 mr-2" />
+                Merge Duplicates
+              </Button>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           )
         }
       />
@@ -653,6 +661,13 @@ export default function Products() {
         onOpenChange={(open) => !open && setHistoryProduct(null)}
         productId={historyProduct?.id || null}
         productName={historyProduct?.name || ""}
+      />
+
+      <MergeProductsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        products={products}
+        onMergeComplete={fetchProducts}
       />
     </div>
   );

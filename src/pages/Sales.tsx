@@ -1097,7 +1097,31 @@ export default function Sales() {
                 )}
               </div>
 
-              {/* Add Product to Cart */}
+              {/* No-GST Toggle */}
+              <div className="flex items-center gap-3 px-1">
+                <Switch
+                  id="no-gst-toggle"
+                  checked={noGstBill}
+                  onCheckedChange={(checked) => {
+                    setNoGstBill(checked);
+                    // Update all existing cart items GST
+                    if (cart.length > 0) {
+                      setCart(prev => prev.map(item => {
+                        const newGst = checked ? 0 : (products?.find(p => p.id === item.product_id)?.gst_percentage || item.gst_percentage);
+                        const gstPct = Number(newGst);
+                        const base = item.unit_price * item.quantity;
+                        const afterDisc = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+                        const total = gstInclusive ? afterDisc : afterDisc + afterDisc * gstPct / 100;
+                        return { ...item, gst_percentage: gstPct, total_price: total };
+                      }));
+                    }
+                  }}
+                />
+                <Label htmlFor="no-gst-toggle" className="text-sm cursor-pointer">
+                  No GST Bill <span className="text-muted-foreground text-xs">(0% GST on all items)</span>
+                </Label>
+              </div>
+
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">

@@ -245,11 +245,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       for (const itemId of deletedItemIds) {
         const orig = saleItems?.find((i: any) => i.id === itemId);
         if (orig) {
-          await supabase.from("inventory_batches")
-            .update({ quantity: (orig.inventory_batches?.quantity || 0) + orig.quantity })
-            .eq("id", orig.batch_id);
+          // Get current batch quantity fresh from DB
+          const { data: currentBatch } = await supabase
+            .from("inventory_batches")
+            .select("quantity")
+            .eq("id", orig.batch_id)
+            .single();
+          if (currentBatch) {
+            const { error: batchErr } = await supabase.from("inventory_batches")
+              .update({ quantity: currentBatch.quantity + orig.quantity })
+              .eq("id", orig.batch_id);
+            if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
+          }
         }
-        await supabase.from("sales_order_items").delete().eq("id", itemId);
+        const { error: delErr } = await supabase
+          .from("sales_order_items")
+          .delete()
+          .eq("id", itemId);
+        if (delErr) throw new Error(`Failed to remove item: ${delErr.message}`);
       }
 
       // Update existing items
@@ -259,22 +272,33 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (orig) {
           const qtyDiff = orig.quantity - item.quantity;
           if (qtyDiff !== 0) {
-            await supabase.from("inventory_batches")
-              .update({ quantity: (orig.inventory_batches?.quantity || 0) + qtyDiff })
-              .eq("id", item.batch_id);
+            // Get current batch quantity fresh from DB
+            const { data: currentBatch } = await supabase
+              .from("inventory_batches")
+              .select("quantity")
+              .eq("id", item.batch_id)
+              .single();
+            if (currentBatch) {
+              const { error: batchErr } = await supabase.from("inventory_batches")
+                .update({ quantity: currentBatch.quantity + qtyDiff })
+                .eq("id", item.batch_id);
+              if (batchErr) throw new Error(`Failed to update inventory: ${batchErr.message}`);
+            }
           }
         }
-        await supabase.from("sales_order_items").update({
+        const { error: updateErr } = await supabase.from("sales_order_items").update({
           quantity: item.quantity,
           unit_price: item.unit_price,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
+          gst_percentage: item.gst_percentage,
         }).eq("id", item.id);
+        if (updateErr) throw new Error(`Failed to update item: ${updateErr.message}`);
       }
 
       // Insert new items
       for (const item of editableItems.filter(i => i.isNew)) {
-        await supabase.from("sales_order_items").insert({
+        const { error: insertErr } = await supabase.from("sales_order_items").insert({
           sales_order_id: saleId,
           product_id: item.product_id,
           batch_id: item.batch_id,
@@ -285,13 +309,16 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           total_price: item.total_price,
           company_id: companyId,
         });
+        if (insertErr) throw new Error(`Failed to add item: ${insertErr.message}`);
+
         // Deduct inventory
         const { data: batch } = await supabase.from("inventory_batches")
           .select("quantity").eq("id", item.batch_id).single();
         if (batch) {
-          await supabase.from("inventory_batches")
+          const { error: batchErr } = await supabase.from("inventory_batches")
             .update({ quantity: batch.quantity - item.quantity })
             .eq("id", item.batch_id);
+          if (batchErr) throw new Error(`Failed to deduct inventory: ${batchErr.message}`);
         }
       }
 

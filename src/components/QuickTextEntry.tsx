@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -110,14 +110,13 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <FileText className="h-4 w-4" />
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <>
+      <Button variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
+        <FileText className="h-4 w-4" />
+        {triggerLabel}
+      </Button>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.stopPropagation()} onInteractOutside={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>Quick Text Entry — {type === "sale" ? "Sales Order" : "Purchase Order"}</DialogTitle>
           <DialogDescription>
@@ -249,5 +248,6 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

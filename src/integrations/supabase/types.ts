@@ -785,6 +785,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           discount_percentage: number
+          free_quantity: number
           gst_percentage: number
           id: string
           product_id: string
@@ -797,6 +798,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
+          free_quantity?: number
           gst_percentage: number
           id?: string
           product_id: string
@@ -809,6 +811,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
+          free_quantity?: number
           gst_percentage?: number
           id?: string
           product_id?: string
@@ -941,6 +944,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           discount_percentage: number
+          free_quantity: number
           gst_percentage: number
           id: string
           product_id: string
@@ -954,6 +958,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
+          free_quantity?: number
           gst_percentage: number
           id?: string
           product_id: string
@@ -967,6 +972,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
+          free_quantity?: number
           gst_percentage?: number
           id?: string
           product_id?: string

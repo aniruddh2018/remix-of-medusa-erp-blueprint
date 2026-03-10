@@ -1427,9 +1427,17 @@ export default function Sales() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {cart.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium min-w-[150px]">{item.product_name}</TableCell>
+                        {cart.map((item, index) => {
+                          const totalNeeded = item.quantity + (item.free_quantity || 0);
+                          const isInsufficient = item.max_quantity > 0 && totalNeeded > item.max_quantity;
+                          const isNoStock = !item.batch_id;
+                          return (
+                          <TableRow key={index} className={isInsufficient || isNoStock ? "bg-destructive/10" : ""}>
+                            <TableCell className="font-medium min-w-[150px]">
+                              {item.product_name}
+                              {isNoStock && <Badge variant="destructive" className="ml-2 text-xs">No Stock</Badge>}
+                              {isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-2 text-xs">Need {totalNeeded}, Have {item.max_quantity}</Badge>}
+                            </TableCell>
                             <TableCell className="text-xs text-muted-foreground">{item.batch_number}</TableCell>
                             <TableCell>
                               {(() => {

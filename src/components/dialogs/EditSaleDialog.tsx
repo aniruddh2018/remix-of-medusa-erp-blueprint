@@ -162,6 +162,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           batch_id: item.batch_id,
           batch_label: item.inventory_batches?.batch_number || "",
           quantity: item.quantity,
+          free_quantity: 0,
           max_quantity: item.quantity + (item.inventory_batches?.quantity || 0),
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),

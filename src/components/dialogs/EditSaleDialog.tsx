@@ -295,6 +295,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         }
         const { data: updResult, error: updateErr } = await supabase.from("sales_order_items").update({
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,

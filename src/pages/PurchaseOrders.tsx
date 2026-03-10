@@ -78,6 +78,7 @@ export default function PurchaseOrders() {
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
+  const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   const [draftRestored, setDraftRestored] = useState(false);
   

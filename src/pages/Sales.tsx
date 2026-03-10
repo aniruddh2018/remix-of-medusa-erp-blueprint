@@ -37,6 +37,7 @@ import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import { printElectronicsInvoice, downloadElectronicsInvoiceHTML, downloadElectronicsInvoicePDF, type ElectronicsInvoiceData, type InvoiceSettings } from "@/utils/electronicsInvoiceGenerator";
 import type { Tables } from "@/integrations/supabase/types";
@@ -1096,7 +1097,44 @@ export default function Sales() {
               {/* Add Product to Cart */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Add Products</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Add Products</CardTitle>
+                    <QuickTextEntry
+                      type="sale"
+                      products={products}
+                      onItemsConfirmed={(items) => {
+                        if (!products || !batches) return;
+                        for (const item of items) {
+                          if (!item.product_id) continue;
+                          const product = products.find(p => p.id === item.product_id);
+                          if (!product) continue;
+                          // Trigger add by setting state and calling handleAddToCart indirectly
+                          const rate = item.rate || (product.sale_price && Number(product.sale_price) > 0 ? Number(product.sale_price) : Number(product.mrp));
+                          const gst = Number(product.gst_percentage);
+                          const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+                          
+                          // Direct cart push (skip FIFO for quick entry — user can adjust)
+                          setCart(prev => [...prev, {
+                            product_id: product.id,
+                            batch_id: "", // placeholder — user must select batch
+                            product_name: productName,
+                            batch_number: "Auto",
+                            hsn_code: product.hsn_code || "",
+                            quantity: item.quantity,
+                            free_quantity: item.free_quantity || 0,
+                            unit_price: rate,
+                            gst_percentage: gst,
+                            discount_percentage: 0,
+                            discount_flat: 0,
+                            total_price: gstInclusive ? rate * item.quantity : rate * item.quantity * (1 + gst / 100),
+                            max_quantity: 9999,
+                            expiry_date: "2099-12-31",
+                          }]);
+                        }
+                        toast({ title: "Items added", description: `${items.length} items added from text entry. Review and adjust as needed.` });
+                      }}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-8 gap-4">

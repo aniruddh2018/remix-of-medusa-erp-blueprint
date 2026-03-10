@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.merge-products]
 verify_jwt = false
+
+[functions.parse-order-text]
+verify_jwt = false

@@ -28,6 +28,7 @@ import {
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
@@ -1067,7 +1068,37 @@ export default function PurchaseOrders() {
               {/* Add Product */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Add Products</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Add Products</CardTitle>
+                    <QuickTextEntry
+                      type="purchase"
+                      products={products}
+                      onItemsConfirmed={(items) => {
+                        const newItems = items.filter(i => i.product_id).map(item => {
+                          const product = products?.find(p => p.id === item.product_id);
+                          if (!product) return null;
+                          const price = item.rate || Number(product.purchase_price);
+                          const gst = Number(product.gst_percentage);
+                          const total = gstInclusive ? price * item.quantity : price * item.quantity * (1 + gst / 100);
+                          return {
+                            product_id: product.id,
+                            product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
+                            hsn_code: product.hsn_code || "",
+                            batch_number: `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                            quantity: item.quantity + (item.free_quantity || 0),
+                            unit_price: price,
+                            gst_percentage: gst,
+                            discount_percentage: 0,
+                            discount_flat: 0,
+                            total_price: total,
+                            fromChallan: false,
+                          } as OrderItem;
+                        }).filter(Boolean) as OrderItem[];
+                        setOrderItems(prev => [...prev, ...newItems]);
+                        toast({ title: "Items added", description: `${newItems.length} items added from text entry.` });
+                      }}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-8 gap-3">

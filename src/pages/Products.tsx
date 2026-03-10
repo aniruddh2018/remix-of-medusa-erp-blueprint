@@ -34,6 +34,7 @@ import {
 import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
+import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type DrugSchedule = Database["public"]["Enums"]["drug_schedule"];

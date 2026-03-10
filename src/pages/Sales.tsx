@@ -601,39 +601,42 @@ export default function Sales() {
           const { error: batchErr } = await supabase
             .from("inventory_batches")
             .update({ quantity: batch.quantity + item.quantity })
-            .eq("id", item.batch_id);
-          if (batchErr) throw batchErr;
+            .eq("id", item.batch_id)
+            .select();
+          if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
         }
       }
 
       // 3. Unlink credit notes referencing this sale (set FK to null)
-      const { error: cnErr } = await supabase
+      await supabase
         .from("credit_notes")
         .update({ original_invoice_id: null })
         .eq("original_invoice_id", orderId);
-      if (cnErr) throw cnErr;
 
-      // 4. Delete sale items
-      const { error: itemsErr } = await supabase
-        .from("sales_order_items")
-        .delete()
-        .eq("sales_order_id", orderId);
-      if (itemsErr) throw itemsErr;
+      // 4. Delete sale items one by one for reliability
+      for (const item of (saleItems || [])) {
+        const { error: delErr } = await supabase
+          .from("sales_order_items")
+          .delete()
+          .eq("id", item.id);
+        if (delErr) throw new Error(`Failed to delete sale item: ${delErr.message}`);
+      }
 
       // 5. Delete related payments
-      const { error: payErr } = await supabase
+      await supabase
         .from("payments")
         .delete()
         .eq("reference_id", orderId)
         .eq("reference_type", "sales_order");
-      if (payErr) throw payErr;
 
       // 6. Delete the order
-      const { error: orderErr } = await supabase
+      const { data: deleted, error: orderErr } = await supabase
         .from("sales_orders")
         .delete()
-        .eq("id", orderId);
-      if (orderErr) throw orderErr;
+        .eq("id", orderId)
+        .select();
+      if (orderErr) throw new Error(`Failed to delete invoice: ${orderErr.message}`);
+      if (!deleted || deleted.length === 0) throw new Error("Invoice could not be deleted. Check your permissions.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });

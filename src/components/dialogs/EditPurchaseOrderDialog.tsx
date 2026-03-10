@@ -360,6 +360,11 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                             className="w-16 h-7 text-center" />
                         </TableCell>
                         <TableCell className="text-right">
+                          <Input type="number" min={0} value={item.free_quantity}
+                            onChange={(e) => updateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                            className="w-14 h-7 text-center" placeholder="0" />
+                        </TableCell>
+                        <TableCell className="text-right">
                           <Input type="number" step="0.01" min={0} value={item.unit_price}
                             onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
                             className="w-20 h-7 text-right" />

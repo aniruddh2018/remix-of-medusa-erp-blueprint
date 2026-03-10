@@ -519,7 +519,7 @@ export default function Sales() {
       const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
       const subBeforeBillDisc = gstInclusive ? calcItemsSubtotal + totalCharges : calcItemsSubtotal + gstAmount + totalCharges;
       const totalAmount = Math.max(0, subBeforeBillDisc - billDiscountAmount);
-        : itemsSubtotal + gstAmount + totalCharges;
+        
 
       const { data: order, error: orderError } = await supabase
         .from("sales_orders")

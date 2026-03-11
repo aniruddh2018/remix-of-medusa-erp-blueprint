@@ -138,6 +138,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
         className="relative z-10 bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
+        onFocusCapture={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
@@ -153,11 +154,11 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
         {step === "input" && (
           <div className="space-y-4">
             <Textarea
+              ref={textareaRef}
               placeholder={`Type your order here...\n\nExamples:\nparacetamol 10\namox 500 qty 5 rate 45\ncrocin 12+1\ndolo 650 x 20\n\nYou can use broken/partial names, quantity, and optional rate.`}
               value={text}
               onChange={(e) => setText(e.target.value)}
               className="min-h-[200px] font-mono text-sm"
-              autoFocus
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>

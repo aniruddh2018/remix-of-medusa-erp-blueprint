@@ -305,7 +305,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
       // Atomically deduct batch quantities (sold qty + free qty) using DB function
       for (const item of cart) {
-        const totalDeducted = item.quantity + (item.free_quantity || 0);
+        const totalDeducted = item.quantity;
         const { error: deductError } = await supabase.rpc("deduct_batch_quantity", {
           _batch_id: item.batch_id,
           _quantity: totalDeducted,

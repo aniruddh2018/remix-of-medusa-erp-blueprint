@@ -210,38 +210,106 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
-      if (!orderId) throw new Error("No order ID");
+      if (!orderId || !order) throw new Error("No order ID");
+      const supplierId = order.supplier_id;
 
-      // Delete removed items
+      // --- 1. Handle DELETED items: restore inventory ---
       for (const itemId of deletedItemIds) {
+        const orig = originalQuantities[itemId];
+        if (orig) {
+          const totalOrigQty = orig.quantity + orig.free_quantity;
+          if (totalOrigQty > 0) {
+            // Find matching batch by product_id + supplier_id
+            const { data: batch } = await supabase
+              .from("inventory_batches")
+              .select("id, quantity")
+              .eq("product_id", orig.product_id)
+              .eq("supplier_id", supplierId)
+              .eq("company_id", companyId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .single();
+
+            if (batch) {
+              const newQty = Math.max(0, batch.quantity - totalOrigQty);
+              await supabase.from("inventory_batches").update({ quantity: newQty }).eq("id", batch.id);
+            }
+          }
+        }
         await supabase.from("purchase_order_items").delete().eq("id", itemId);
       }
 
-      // Update existing items
+      // --- 2. Handle EXISTING items: apply quantity delta to inventory ---
       for (const item of editableItems.filter(i => !i.isNew)) {
+        const orig = originalQuantities[item.id];
+        const oldTotal = orig ? orig.quantity + orig.free_quantity : 0;
+        const newTotal = item.quantity + item.free_quantity;
+        const delta = newTotal - oldTotal;
+
+        // Update PO item
         await supabase.from("purchase_order_items").update({
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
         }).eq("id", item.id);
+
+        // Adjust inventory batch if quantity changed
+        if (delta !== 0) {
+          const { data: batch } = await supabase
+            .from("inventory_batches")
+            .select("id, quantity")
+            .eq("product_id", item.product_id)
+            .eq("supplier_id", supplierId)
+            .eq("company_id", companyId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (batch) {
+            const newQty = Math.max(0, batch.quantity + delta);
+            await supabase.from("inventory_batches").update({ quantity: newQty }).eq("id", batch.id);
+          }
+        }
       }
 
-      // Insert new items
+      // --- 3. Handle NEW items: insert PO item + create inventory batch ---
       for (const item of editableItems.filter(i => i.isNew)) {
         await supabase.from("purchase_order_items").insert({
           purchase_order_id: orderId,
           product_id: item.product_id,
           quantity: item.quantity,
+          free_quantity: item.free_quantity,
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
           company_id: companyId,
         });
+
+        // Create inventory batch for new item
+        const totalQty = item.quantity + item.free_quantity;
+        if (totalQty > 0) {
+          const today = new Date().toISOString().split("T")[0];
+          const defaultExpiry = new Date();
+          defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
+
+          await supabase.from("inventory_batches").insert({
+            product_id: item.product_id,
+            batch_number: `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            quantity: totalQty,
+            purchase_price: item.unit_price,
+            mrp: item.unit_price * 1.2,
+            expiry_date: defaultExpiry.toISOString().split("T")[0],
+            received_date: today,
+            supplier_id: supplierId,
+            company_id: companyId,
+          });
+        }
       }
 
-      // Update order header
+      // --- 4. Update order header ---
       const { error } = await supabase
         .from("purchase_orders")
         .update({
@@ -264,7 +332,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["purchase-order-for-edit", orderId] });
       queryClient.invalidateQueries({ queryKey: ["purchase-order-items-for-edit", orderId] });
-      toast({ title: "Order Updated", description: "Purchase order has been modified successfully." });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast({ title: "Order Updated", description: "Purchase order and inventory have been updated." });
       onOpenChange(false);
     },
     onError: (error) => {

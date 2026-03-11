@@ -598,9 +598,18 @@ export default function Sales() {
       // Update batch quantities (deduct sold qty + free qty)
       for (const item of cart) {
         const totalDeducted = item.quantity + (item.free_quantity || 0);
+        // Fetch fresh batch quantity to prevent negative stock from stale data
+        const { data: freshBatch, error: fetchBatchErr } = await supabase
+          .from("inventory_batches")
+          .select("quantity")
+          .eq("id", item.batch_id)
+          .single();
+        if (fetchBatchErr) throw fetchBatchErr;
+        
+        const newQty = Math.max(0, (freshBatch?.quantity ?? 0) - totalDeducted);
         const { error: batchError } = await supabase
           .from("inventory_batches")
-          .update({ quantity: item.max_quantity - totalDeducted })
+          .update({ quantity: newQty })
           .eq("id", item.batch_id);
         if (batchError) throw batchError;
       }

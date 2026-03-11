@@ -45,12 +45,17 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Prevent body scroll when open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = ""; };
+      // Focus textarea after portal renders
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+      return () => { document.body.style.overflow = ""; clearTimeout(timer); };
     }
   }, [open]);
 

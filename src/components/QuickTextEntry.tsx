@@ -132,6 +132,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       <div
         className="relative z-10 bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">

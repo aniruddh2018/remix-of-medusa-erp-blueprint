@@ -595,23 +595,14 @@ export default function Sales() {
 
       if (itemsError) throw itemsError;
 
-      // Update batch quantities (deduct sold qty + free qty)
+      // Atomically deduct batch quantities (sold qty + free qty) using DB function
       for (const item of cart) {
         const totalDeducted = item.quantity + (item.free_quantity || 0);
-        // Fetch fresh batch quantity to prevent negative stock from stale data
-        const { data: freshBatch, error: fetchBatchErr } = await supabase
-          .from("inventory_batches")
-          .select("quantity")
-          .eq("id", item.batch_id)
-          .single();
-        if (fetchBatchErr) throw fetchBatchErr;
-        
-        const newQty = Math.max(0, (freshBatch?.quantity ?? 0) - totalDeducted);
-        const { error: batchError } = await supabase
-          .from("inventory_batches")
-          .update({ quantity: newQty })
-          .eq("id", item.batch_id);
-        if (batchError) throw batchError;
+        const { error: deductError } = await supabase.rpc("deduct_batch_quantity", {
+          _batch_id: item.batch_id,
+          _quantity: totalDeducted,
+        });
+        if (deductError) throw new Error(deductError.message);
       }
 
       return order;

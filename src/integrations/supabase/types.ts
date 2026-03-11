@@ -1314,6 +1314,10 @@ export type Database = {
         Args: { _business_type: string; _company_name: string }
         Returns: string
       }
+      deduct_batch_quantity: {
+        Args: { _batch_id: string; _quantity: number }
+        Returns: number
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

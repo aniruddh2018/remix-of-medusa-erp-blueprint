@@ -128,17 +128,19 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const modal = open ? createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      onFocus={(e) => e.stopPropagation()}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80" />
+      <div className="absolute inset-0 bg-black/80 pointer-events-none" />
       
       {/* Content */}
       <div
         className="relative z-10 bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
-        onFocusCapture={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">

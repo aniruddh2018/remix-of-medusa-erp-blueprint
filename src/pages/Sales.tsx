@@ -1189,9 +1189,10 @@ export default function Sales() {
                           const gst = noGstBill ? 0 : Number(product.gst_percentage);
                           const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
                           
-                          // FIFO allocation across multiple batches
+                          // FIFO allocation across multiple batches (filter expired)
+                          const today = new Date().toISOString().split('T')[0];
                           const productBatches = batchList
-                            .filter(b => b.product_id === product.id && (batchRemainingMap.get(b.id) ?? 0) > 0)
+                            .filter(b => b.product_id === product.id && b.expiry_date > today && (batchRemainingMap.get(b.id) ?? 0) > 0)
                             .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
                           
                           let remaining = item.quantity + (item.free_quantity || 0);

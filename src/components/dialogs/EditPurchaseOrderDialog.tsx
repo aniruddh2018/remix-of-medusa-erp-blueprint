@@ -121,21 +121,32 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     }
   }, [order]);
 
+  // Store original quantities for inventory delta calculations
+  const [originalQuantities, setOriginalQuantities] = useState<Record<string, { quantity: number; free_quantity: number; product_id: string }>>({});
+
   useEffect(() => {
     if (orderItems) {
-      setEditableItems(
-        orderItems.map(item => ({
+      const origMap: Record<string, { quantity: number; free_quantity: number; product_id: string }> = {};
+      const items = orderItems.map(item => {
+        origMap[item.id] = {
+          quantity: item.quantity,
+          free_quantity: item.free_quantity ?? 0,
+          product_id: item.product_id,
+        };
+        return {
           id: item.id,
           product_id: item.product_id,
           product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
           quantity: item.quantity,
-          free_quantity: 0,
+          free_quantity: item.free_quantity ?? 0,
           unit_price: Number(item.unit_price),
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),
           total_price: Number(item.total_price),
-        }))
-      );
+        };
+      });
+      setEditableItems(items);
+      setOriginalQuantities(origMap);
       setDeletedItemIds([]);
     }
   }, [orderItems]);

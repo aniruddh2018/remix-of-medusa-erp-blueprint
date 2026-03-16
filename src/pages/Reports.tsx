@@ -91,7 +91,7 @@ const Reports = () => {
 
   // Fetch purchase orders
   const { data: purchaseOrders = [] } = useQuery({
-    queryKey: ["purchase-orders-report"],
+    queryKey: ["purchase-orders-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
@@ -99,10 +99,12 @@ const Reports = () => {
           *,
           supplier:suppliers(name)
         `)
+        .eq("company_id", companyId!)
         .order("order_date", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch products for margin analysis

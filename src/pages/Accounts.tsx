@@ -167,7 +167,7 @@ export default function Accounts() {
 
   // GST data
   const { data: salesItems } = useQuery({
-    queryKey: ["sales-items-gst", startDate, endDate],
+    queryKey: ["sales-items-gst", startDate, endDate, companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_order_items")
@@ -177,12 +177,14 @@ export default function Accounts() {
           products(name, hsn_code),
           sales_orders!inner(sale_date, status, invoice_number)
         `)
+        .eq("company_id", companyId!)
         .gte("sales_orders.sale_date", startDate.split("T")[0])
         .lte("sales_orders.sale_date", endDate.split("T")[0])
         .neq("sales_orders.status", "cancelled");
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: purchaseItems } = useQuery({

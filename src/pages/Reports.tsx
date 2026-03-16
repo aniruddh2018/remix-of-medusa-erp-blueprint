@@ -58,15 +58,17 @@ const Reports = () => {
 
   // Fetch sales orders
   const { data: salesOrders = [] } = useQuery({
-    queryKey: ["sales-orders-report"],
+    queryKey: ["sales-orders-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_orders")
         .select("*")
+        .eq("company_id", companyId!)
         .order("sale_date", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch sales order items with product info

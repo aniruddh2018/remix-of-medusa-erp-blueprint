@@ -978,14 +978,21 @@ export default function Sales() {
             <RotateCcw className="h-4 w-4" />
             Credit Note
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              if (!open && cart.length > 0) {
+                setShowCloseConfirm(true);
+              } else {
+                if (!open) handleCloseDialog();
+                else setIsDialogOpen(true);
+              }
+            }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 New Sale
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] overflow-y-auto rounded-none m-0 p-6" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Create New Sale</DialogTitle>
               <DialogDescription>Add products and complete the sale</DialogDescription>

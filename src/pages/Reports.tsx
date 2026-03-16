@@ -288,6 +288,17 @@ const Reports = () => {
     "hsl(var(--chart-5))",
   ];
 
+  // Show access denied for non-admin
+  if (!loading && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
+        <ShieldAlert className="h-16 w-16 mb-4" />
+        <h2 className="text-xl font-semibold">Access Denied</h2>
+        <p className="text-sm">Only administrators can access reports</p>
+      </div>
+    );
+  }
+
   const hasData = salesOrders.length > 0 || purchaseOrders.length > 0;
 
   return (

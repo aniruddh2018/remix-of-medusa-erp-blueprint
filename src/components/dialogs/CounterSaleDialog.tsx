@@ -165,16 +165,17 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
   // Fetch customers for search
   const { data: customers } = useQuery({
-    queryKey: ["customers-for-sale"],
+    queryKey: ["customers-for-sale", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
         .select("id, name, phone, email, address")
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Customer[];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   const { data: batches } = useQuery({

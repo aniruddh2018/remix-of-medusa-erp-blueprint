@@ -188,7 +188,7 @@ export default function Accounts() {
   });
 
   const { data: purchaseItems } = useQuery({
-    queryKey: ["purchase-items-gst", startDate, endDate],
+    queryKey: ["purchase-items-gst", startDate, endDate, companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_order_items")
@@ -198,12 +198,14 @@ export default function Accounts() {
           products(name, hsn_code),
           purchase_orders!inner(order_date, status)
         `)
+        .eq("company_id", companyId!)
         .gte("purchase_orders.order_date", startDate.split("T")[0])
         .lte("purchase_orders.order_date", endDate.split("T")[0])
         .neq("purchase_orders.status", "cancelled");
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Delete payment mutation

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +18,7 @@ type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
 
 const Reports = () => {
   const { isAdmin, loading } = useAuth();
+  const { companyId } = useBusiness();
   const navigate = useNavigate();
 
   // Redirect non-admin users
@@ -26,16 +28,6 @@ const Reports = () => {
     }
   }, [isAdmin, loading, navigate]);
 
-  // Show access denied for non-admin
-  if (!loading && !isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
-        <ShieldAlert className="h-16 w-16 mb-4" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-sm">Only administrators can access reports</p>
-      </div>
-    );
-  }
   const [dateRange, setDateRange] = useState<DateRange>("30days");
 
   // Calculate date boundaries
@@ -56,20 +48,22 @@ const Reports = () => {
 
   // Fetch sales orders
   const { data: salesOrders = [] } = useQuery({
-    queryKey: ["sales-orders-report"],
+    queryKey: ["sales-orders-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_orders")
         .select("*")
+        .eq("company_id", companyId!)
         .order("sale_date", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch sales order items with product info
   const { data: salesItems = [] } = useQuery({
-    queryKey: ["sales-items-report"],
+    queryKey: ["sales-items-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_order_items")
@@ -77,15 +71,17 @@ const Reports = () => {
           *,
           product:products(name, purchase_price, sale_price),
           sales_order:sales_orders(sale_date)
-        `);
+        `)
+        .eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch purchase orders
   const { data: purchaseOrders = [] } = useQuery({
-    queryKey: ["purchase-orders-report"],
+    queryKey: ["purchase-orders-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
@@ -93,36 +89,42 @@ const Reports = () => {
           *,
           supplier:suppliers(name)
         `)
+        .eq("company_id", companyId!)
         .order("order_date", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch products for margin analysis
   const { data: products = [] } = useQuery({
-    queryKey: ["products-report"],
+    queryKey: ["products-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch suppliers
   const { data: suppliers = [] } = useQuery({
-    queryKey: ["suppliers-report"],
+    queryKey: ["suppliers-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Filter data by date range
@@ -285,6 +287,17 @@ const Reports = () => {
     "hsl(var(--chart-4))",
     "hsl(var(--chart-5))",
   ];
+
+  // Show access denied for non-admin
+  if (!loading && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
+        <ShieldAlert className="h-16 w-16 mb-4" />
+        <h2 className="text-xl font-semibold">Access Denied</h2>
+        <p className="text-sm">Only administrators can access reports</p>
+      </div>
+    );
+  }
 
   const hasData = salesOrders.length > 0 || purchaseOrders.length > 0;
 

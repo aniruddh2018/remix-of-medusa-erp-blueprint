@@ -80,6 +80,7 @@ export default function Sales() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);

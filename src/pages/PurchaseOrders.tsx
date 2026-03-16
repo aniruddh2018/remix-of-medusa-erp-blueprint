@@ -72,6 +72,7 @@ export default function PurchaseOrders() {
     enabled: true,
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");

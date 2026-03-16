@@ -149,17 +149,18 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
   }, [open]);
 
   const { data: products } = useQuery({
-    queryKey: ["products-for-counter-sale"],
+    queryKey: ["products-for-counter-sale", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("name");
       if (error) throw error;
       return data as Product[];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Fetch customers for search

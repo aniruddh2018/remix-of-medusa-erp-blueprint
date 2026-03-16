@@ -124,15 +124,17 @@ const Reports = () => {
 
   // Fetch suppliers
   const { data: suppliers = [] } = useQuery({
-    queryKey: ["suppliers-report"],
+    queryKey: ["suppliers-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Filter data by date range

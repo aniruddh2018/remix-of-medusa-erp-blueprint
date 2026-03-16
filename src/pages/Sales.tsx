@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Clock, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -79,6 +80,7 @@ export default function Sales() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
@@ -976,14 +978,21 @@ export default function Sales() {
             <RotateCcw className="h-4 w-4" />
             Credit Note
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              if (!open && cart.length > 0) {
+                setShowCloseConfirm(true);
+              } else {
+                if (!open) handleCloseDialog();
+                else setIsDialogOpen(true);
+              }
+            }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 New Sale
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] overflow-y-auto rounded-none m-0 p-6" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Create New Sale</DialogTitle>
               <DialogDescription>Add products and complete the sale</DialogDescription>
@@ -2004,6 +2013,24 @@ export default function Sales() {
           paymentType="received"
         />
       )}
+
+      {/* Close Confirmation */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved sale?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have items in the cart. Closing will discard all unsaved changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseDialog} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

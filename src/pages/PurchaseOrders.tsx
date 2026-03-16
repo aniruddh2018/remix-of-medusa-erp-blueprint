@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote, AlertTriangle } from "lucide-react";
@@ -71,6 +72,7 @@ export default function PurchaseOrders() {
     enabled: true,
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");
@@ -889,14 +891,21 @@ export default function PurchaseOrders() {
             <RotateCcw className="h-4 w-4" />
             Debit Note
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              if (!open && orderItems.length > 0) {
+                setShowCloseConfirm(true);
+              } else {
+                if (!open) handleCloseDialog();
+                else setIsDialogOpen(true);
+              }
+            }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 New Order
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] overflow-y-auto rounded-none m-0 p-6" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Create Purchase Order</DialogTitle>
               <DialogDescription>Order products from a supplier</DialogDescription>
@@ -1931,6 +1940,24 @@ export default function PurchaseOrders() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Close Confirmation */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have items in the order. Closing will discard all unsaved changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseDialog} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

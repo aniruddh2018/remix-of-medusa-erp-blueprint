@@ -109,15 +109,17 @@ const Reports = () => {
 
   // Fetch products for margin analysis
   const { data: products = [] } = useQuery({
-    queryKey: ["products-report"],
+    queryKey: ["products-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId!);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch suppliers

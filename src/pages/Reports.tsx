@@ -28,16 +28,6 @@ const Reports = () => {
     }
   }, [isAdmin, loading, navigate]);
 
-  // Show access denied for non-admin
-  if (!loading && !isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
-        <ShieldAlert className="h-16 w-16 mb-4" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-sm">Only administrators can access reports</p>
-      </div>
-    );
-  }
   const [dateRange, setDateRange] = useState<DateRange>("30days");
 
   // Calculate date boundaries

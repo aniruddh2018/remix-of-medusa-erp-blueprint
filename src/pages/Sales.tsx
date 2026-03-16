@@ -2013,6 +2013,24 @@ export default function Sales() {
           paymentType="received"
         />
       )}
+
+      {/* Close Confirmation */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved sale?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have items in the cart. Closing will discard all unsaved changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseDialog} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

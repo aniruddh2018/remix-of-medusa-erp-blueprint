@@ -2,13 +2,10 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { ConfigurableFormField } from "@/components/ConfigurableFormField";
+import { useFormConfig, useBusinessRules, evaluateAllRules } from "@/hooks/useFormConfig";
 import {
   Dialog,
   DialogContent,
@@ -17,33 +14,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertTriangle } from "lucide-react";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 type Supplier = Tables<"suppliers">;
-type SupplierInsert = TablesInsert<"suppliers">;
-
-interface SupplierFormData {
-  name: string;
-  contact_person: string;
-  phone: string;
-  email: string;
-  address: string;
-  gst_number: string;
-  drug_license_number: string;
-  is_active: boolean;
-}
-
-const initialFormData: SupplierFormData = {
-  name: "",
-  contact_person: "",
-  phone: "",
-  email: "",
-  address: "",
-  gst_number: "",
-  drug_license_number: "",
-  is_active: true,
-};
 
 interface SupplierFormDialogProps {
   open: boolean;
@@ -60,31 +35,46 @@ export function SupplierFormDialog({
 }: SupplierFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { companyId, config } = useBusiness();
-  const [formData, setFormData] = useState<SupplierFormData>(initialFormData);
+  const { companyId } = useBusiness();
+  const { fields, sections, uiOverrides, layout } = useFormConfig("suppliers");
+  const rules = useBusinessRules("suppliers");
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (editingSupplier) {
-      setFormData({
-        name: editingSupplier.name,
-        contact_person: editingSupplier.contact_person || "",
-        phone: editingSupplier.phone || "",
-        email: editingSupplier.email || "",
-        address: editingSupplier.address || "",
-        gst_number: editingSupplier.gst_number || "",
-        drug_license_number: editingSupplier.drug_license_number || "",
-        is_active: editingSupplier.is_active,
+      const data: Record<string, any> = {};
+      fields.forEach((f) => {
+        data[f.key] = (editingSupplier as any)[f.key] ?? f.defaultValue ?? "";
       });
-    } else if (!open) {
-      setFormData(initialFormData);
+      setFormData(data);
+    } else if (open) {
+      const data: Record<string, any> = {};
+      fields.forEach((f) => {
+        data[f.key] = f.defaultValue ?? (f.type === "switch" ? true : "");
+      });
+      setFormData(data);
     }
-  }, [editingSupplier, open]);
+  }, [editingSupplier, open, fields]);
+
+  // Evaluate rules
+  const ruleResult = evaluateAllRules(rules, formData);
+
+  // Apply auto values from rules
+  useEffect(() => {
+    if (Object.keys(ruleResult.autoValues).length > 0) {
+      setFormData((prev) => ({ ...prev, ...ruleResult.autoValues }));
+    }
+  }, [JSON.stringify(ruleResult.autoValues)]);
+
+  const handleChange = (key: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
 
   const createMutation = useMutation({
-    mutationFn: async (data: SupplierInsert) => {
+    mutationFn: async (data: Record<string, any>) => {
       const { data: supplier, error } = await supabase
         .from("suppliers")
-        .insert({ ...data, company_id: companyId })
+        .insert({ ...data, company_id: companyId } as TablesInsert<"suppliers">)
         .select()
         .single();
       if (error) throw error;
@@ -93,7 +83,7 @@ export function SupplierFormDialog({
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      toast({ title: "Supplier created successfully" });
+      toast({ title: uiOverrides.successMessage || "Supplier created successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);
     },
@@ -103,10 +93,10 @@ export function SupplierFormDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: TablesUpdate<"suppliers"> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
       const { data: supplier, error } = await supabase
         .from("suppliers")
-        .update(data)
+        .update(data as TablesUpdate<"suppliers">)
         .eq("id", id)
         .select()
         .single();
@@ -116,7 +106,7 @@ export function SupplierFormDialog({
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      toast({ title: "Supplier updated successfully" });
+      toast({ title: uiOverrides.successMessage || "Supplier updated successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);
     },
@@ -127,109 +117,120 @@ export function SupplierFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) {
-      toast({ title: "Please enter supplier name", variant: "destructive" });
+
+    if (ruleResult.blockSubmit) {
+      toast({ title: "Cannot submit", description: ruleResult.blockMessages.join(", "), variant: "destructive" });
       return;
     }
 
+    // Validate required fields
+    for (const field of fields) {
+      const isRequired = field.required || ruleResult.requiredFields.has(field.key);
+      const isOptional = ruleResult.optionalFields.has(field.key);
+      if (isRequired && !isOptional && !formData[field.key] && formData[field.key] !== false) {
+        toast({ title: `Please enter ${field.label}`, variant: "destructive" });
+        return;
+      }
+    }
+
+    const submitData = { ...formData };
+    // Remove hidden fields
+    ruleResult.hiddenFields.forEach((key) => delete submitData[key]);
+
     if (editingSupplier) {
-      updateMutation.mutate({ id: editingSupplier.id, data: formData });
+      updateMutation.mutate({ id: editingSupplier.id, data: submitData });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(submitData);
     }
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
+  const visibleFields = fields.filter((f) => !ruleResult.hiddenFields.has(f.key));
+
+  const gridClass = layout.columns === 3
+    ? "grid-cols-1 md:grid-cols-3"
+    : layout.columns === 1
+    ? "grid-cols-1"
+    : "grid-cols-1 md:grid-cols-2";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editingSupplier ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
+          <DialogTitle>
+            {uiOverrides.formTitle || (editingSupplier ? "Edit Supplier" : "Add New Supplier")}
+          </DialogTitle>
           <DialogDescription>
-            {editingSupplier ? "Update supplier information" : "Add a new supplier to your directory"}
+            {uiOverrides.formDescription || (editingSupplier ? "Update supplier information" : "Add a new supplier to your directory")}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Company Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact_person">Contact Person</Label>
-              <Input
-                id="contact_person"
-                value={formData.contact_person}
-                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="gst_number">GST Number</Label>
-              <Input
-                id="gst_number"
-                placeholder="e.g., 27AABCU9603R1ZM"
-                value={formData.gst_number}
-                onChange={(e) => setFormData({ ...formData, gst_number: e.target.value })}
-              />
-            </div>
-            {config.type !== "b2b_electronics" && (
-              <div className="space-y-2">
-                <Label htmlFor="drug_license_number">Drug License Number</Label>
-                <Input
-                  id="drug_license_number"
-                  value={formData.drug_license_number}
-                  onChange={(e) => setFormData({ ...formData, drug_license_number: e.target.value })}
-                />
-              </div>
-            )}
-          </div>
+
+        {ruleResult.alerts.length > 0 && (
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              rows={3}
-            />
+            {ruleResult.alerts.map((msg, i) => (
+              <Alert key={i} variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{msg}</AlertDescription>
+              </Alert>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="is_active"
-              checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-            />
-            <Label htmlFor="is_active">Active Supplier</Label>
-          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {sections.length > 0 ? (
+            sections.map((section) => {
+              const sectionFields = visibleFields.filter((f) => f.section === section.key || (!f.section && section.order === 1));
+              if (sectionFields.length === 0) return null;
+              return (
+                <div key={section.key}>
+                  {sections.length > 1 && (
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">{section.label}</h3>
+                  )}
+                  <div className={`grid ${gridClass} gap-4`}>
+                    {sectionFields.map((field) => (
+                      <div key={field.key} className={field.width === "full" ? "col-span-full" : ""}>
+                        <ConfigurableFormField
+                          field={field}
+                          value={formData[field.key]}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          overrideRequired={
+                            ruleResult.requiredFields.has(field.key)
+                              ? true
+                              : ruleResult.optionalFields.has(field.key)
+                              ? false
+                              : undefined
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className={`grid ${gridClass} gap-4`}>
+              {visibleFields.map((field) => (
+                <div key={field.key} className={field.width === "full" ? "col-span-full" : ""}>
+                  <ConfigurableFormField
+                    field={field}
+                    value={formData[field.key]}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {editingSupplier ? "Update" : "Add"} Supplier
+              {uiOverrides.submitButtonText || (editingSupplier ? "Update Supplier" : "Add Supplier")}
             </Button>
           </DialogFooter>
         </form>

@@ -289,7 +289,7 @@ export default function Products() {
           onOpenMergeDialog={() => setMergeOpen(true)}
         />
       )}
-
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
         if (!open) resetForm();
       }}>

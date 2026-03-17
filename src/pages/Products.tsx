@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { detectDuplicates } from "@/utils/duplicateDetection";
+import { DuplicateProductsBanner } from "@/components/DuplicateProductsBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +69,8 @@ export default function Products() {
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+
+  const duplicateGroups = useMemo(() => detectDuplicates(products), [products]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -278,6 +282,13 @@ export default function Products() {
         }
       />
 
+      {isPharmacist && duplicateGroups.length > 0 && (
+        <DuplicateProductsBanner
+          groups={duplicateGroups}
+          onMergeComplete={fetchProducts}
+          onOpenMergeDialog={() => setMergeOpen(true)}
+        />
+      )}
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
         if (!open) resetForm();

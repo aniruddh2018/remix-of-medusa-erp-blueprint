@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_rules: {
+        Row: {
+          actions: Json
+          company_id: string
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          module: string
+          name: string
+          priority: number
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          company_id: string
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          module: string
+          name: string
+          priority?: number
+          rule_type?: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          company_id?: string
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          module?: string
+          name?: string
+          priority?: number
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
@@ -55,6 +111,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      config_history: {
+        Row: {
+          change_description: string | null
+          changed_by: string | null
+          company_id: string
+          config_snapshot: Json
+          config_type: string
+          created_at: string
+          id: string
+          module: string
+          version: number
+        }
+        Insert: {
+          change_description?: string | null
+          changed_by?: string | null
+          company_id: string
+          config_snapshot: Json
+          config_type: string
+          created_at?: string
+          id?: string
+          module: string
+          version: number
+        }
+        Update: {
+          change_description?: string | null
+          changed_by?: string | null
+          company_id?: string
+          config_snapshot?: Json
+          config_type?: string
+          created_at?: string
+          id?: string
+          module?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_note_items: {
         Row: {
@@ -401,6 +501,59 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_configs: {
+        Row: {
+          company_id: string
+          config_version: number
+          created_at: string
+          created_by: string | null
+          fields: Json
+          id: string
+          is_active: boolean
+          layout: Json
+          module: string
+          sections: Json
+          ui_overrides: Json
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          config_version?: number
+          created_at?: string
+          created_by?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          layout?: Json
+          module: string
+          sections?: Json
+          ui_overrides?: Json
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          config_version?: number
+          created_at?: string
+          created_by?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          layout?: Json
+          module?: string
+          sections?: Json
+          ui_overrides?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_configs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]

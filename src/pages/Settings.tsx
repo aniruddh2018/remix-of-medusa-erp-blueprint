@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock, Briefcase } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
+import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,

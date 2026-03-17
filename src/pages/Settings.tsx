@@ -177,6 +177,9 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* Form & Rules Configuration */}
+      <FormConfigEditor />
+
       {/* Invoice Format */}
       <InvoiceSettingsSection />
 

@@ -282,7 +282,14 @@ export default function Products() {
         }
       />
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => {
+      {isPharmacist && duplicateGroups.length > 0 && (
+        <DuplicateProductsBanner
+          groups={duplicateGroups}
+          onMergeComplete={fetchProducts}
+          onOpenMergeDialog={() => setMergeOpen(true)}
+        />
+      )}
+
         setDialogOpen(open);
         if (!open) resetForm();
       }}>

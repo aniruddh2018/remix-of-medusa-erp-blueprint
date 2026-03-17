@@ -70,6 +70,8 @@ export default function Products() {
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
 
+  const duplicateGroups = useMemo(() => detectDuplicates(products), [products]);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",

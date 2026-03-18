@@ -66,6 +66,7 @@ export default function PurchaseOrders() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   const [itemExpiryDate, setItemExpiryDate] = useState<string>("");
+  const [existingBatchId, setExistingBatchId] = useState<string>("new");
   const [draftRestored, setDraftRestored] = useState(false);
 
   // Other charges state

@@ -294,6 +294,7 @@ export default function PurchaseOrders() {
     setItemDiscountFlat(0);
     setItemBatchNumber("");
     setItemExpiryDate("");
+    setExistingBatchId("new");
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();

@@ -85,11 +85,11 @@ export function ReceiveInventoryDialog({
       defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
       const today = new Date().toISOString().split("T")[0];
 
-      const initialBatches: BatchDetail[] = items.map((item, index) => ({
+      const initialBatches: BatchDetail[] = items.map((item) => ({
         product_id: item.product_id,
         product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
         quantity: item.quantity,
-        batch_number: `BATCH-${Date.now()}-${index + 1}`,
+        batch_number: "", // Empty = let system decide (merge or create)
         expiry_date: defaultExpiry.toISOString().split("T")[0],
         manufacturing_date: today,
         purchase_price: Number(item.unit_price),

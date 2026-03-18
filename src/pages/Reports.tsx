@@ -406,6 +406,44 @@ const Reports = () => {
         </Card>
       </div>
 
+      {/* Inventory Value */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Inventory Value (Cost)</CardTitle>
+            <Boxes className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{inventoryValue.atCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">{inventoryValue.totalUnits.toLocaleString()} units in stock</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Inventory Value (MRP)</CardTitle>
+            <IndianRupee className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{inventoryValue.atMRP.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">At maximum retail price</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Potential Margin</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              ₹{(inventoryValue.atMRP - inventoryValue.atCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {inventoryValue.atCost > 0 ? (((inventoryValue.atMRP - inventoryValue.atCost) / inventoryValue.atCost) * 100).toFixed(1) : 0}% markup
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Sales Trend Chart */}

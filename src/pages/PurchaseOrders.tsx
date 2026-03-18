@@ -25,7 +25,7 @@ import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type Bil
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
-import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
@@ -49,6 +49,7 @@ export default function PurchaseOrders() {
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
+  const productSearchRef = useRef<DrugBrandSearchHandle>(null);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,10 +146,7 @@ export default function PurchaseOrders() {
 
   // ── Focus helper ──
   const focusProductSearch = useCallback(() => {
-    setTimeout(() => {
-      const el = document.querySelector('[data-po-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
+    setTimeout(() => productSearchRef.current?.focus(), 30);
   }, []);
 
   // ── Queries ──
@@ -600,13 +598,8 @@ export default function PurchaseOrders() {
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
-    if (activeTab === "billing") {
-      setTimeout(() => {
-        const el = document.querySelector('[data-po-product-search] input') as HTMLInputElement;
-        el?.focus();
-      }, 100);
-    }
-  }, [activeTab]);
+    if (activeTab === "billing") focusProductSearch();
+  }, [activeTab, focusProductSearch]);
 
   // ── Keyboard shortcuts ──
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); }, enabled: activeTab === "history" });
@@ -742,9 +735,9 @@ export default function PurchaseOrders() {
               <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
-              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-po-product-search>
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
-                <DrugBrandSearch products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
+                <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                   showPrice priceType="purchase" placeholder="Search product..." />
               </div>
               {config.hasBatchTracking && (

@@ -630,6 +630,7 @@ export type Database = {
       }
       invoice_settings: {
         Row: {
+          allow_negative_stock: boolean
           bank_account_holder: string | null
           bank_account_number: string | null
           bank_branch: string | null
@@ -644,27 +645,45 @@ export type Database = {
           company_phone: string | null
           company_state: string | null
           created_at: string
+          default_customer_name: string
+          default_payment_method: string
           discount_before_tax: boolean
           discount_mode: string
+          enable_batch_tracking: boolean
           enable_bill_discount: boolean
+          enable_expiry_tracking: boolean
           id: string
           invoice_format: string | null
+          invoice_layout: string
           invoice_prefix: string | null
+          logo_alignment: string
           logo_url: string | null
           max_discount_admin: number
           max_discount_pharmacist: number
           max_discount_staff: number
+          print_alignment: string
+          print_font_size: string
           show_amount_in_words: boolean | null
+          show_batch_column: boolean
           show_customer_gstin: boolean | null
           show_discount_row: boolean
           show_due_date: boolean | null
+          show_expiry_column: boolean
+          show_free_qty_column: boolean
+          show_gst_split: boolean
+          show_hsn_column: boolean
           show_previous_balance: boolean | null
+          show_rate_column: boolean
+          show_roundoff: boolean
+          show_salesperson: boolean
           show_ship_to: boolean | null
+          show_tax_amount_column: boolean
           show_tax_summary: boolean | null
           terms_and_conditions: string | null
           updated_at: string
         }
         Insert: {
+          allow_negative_stock?: boolean
           bank_account_holder?: string | null
           bank_account_number?: string | null
           bank_branch?: string | null
@@ -679,27 +698,45 @@ export type Database = {
           company_phone?: string | null
           company_state?: string | null
           created_at?: string
+          default_customer_name?: string
+          default_payment_method?: string
           discount_before_tax?: boolean
           discount_mode?: string
+          enable_batch_tracking?: boolean
           enable_bill_discount?: boolean
+          enable_expiry_tracking?: boolean
           id?: string
           invoice_format?: string | null
+          invoice_layout?: string
           invoice_prefix?: string | null
+          logo_alignment?: string
           logo_url?: string | null
           max_discount_admin?: number
           max_discount_pharmacist?: number
           max_discount_staff?: number
+          print_alignment?: string
+          print_font_size?: string
           show_amount_in_words?: boolean | null
+          show_batch_column?: boolean
           show_customer_gstin?: boolean | null
           show_discount_row?: boolean
           show_due_date?: boolean | null
+          show_expiry_column?: boolean
+          show_free_qty_column?: boolean
+          show_gst_split?: boolean
+          show_hsn_column?: boolean
           show_previous_balance?: boolean | null
+          show_rate_column?: boolean
+          show_roundoff?: boolean
+          show_salesperson?: boolean
           show_ship_to?: boolean | null
+          show_tax_amount_column?: boolean
           show_tax_summary?: boolean | null
           terms_and_conditions?: string | null
           updated_at?: string
         }
         Update: {
+          allow_negative_stock?: boolean
           bank_account_holder?: string | null
           bank_account_number?: string | null
           bank_branch?: string | null
@@ -714,22 +751,39 @@ export type Database = {
           company_phone?: string | null
           company_state?: string | null
           created_at?: string
+          default_customer_name?: string
+          default_payment_method?: string
           discount_before_tax?: boolean
           discount_mode?: string
+          enable_batch_tracking?: boolean
           enable_bill_discount?: boolean
+          enable_expiry_tracking?: boolean
           id?: string
           invoice_format?: string | null
+          invoice_layout?: string
           invoice_prefix?: string | null
+          logo_alignment?: string
           logo_url?: string | null
           max_discount_admin?: number
           max_discount_pharmacist?: number
           max_discount_staff?: number
+          print_alignment?: string
+          print_font_size?: string
           show_amount_in_words?: boolean | null
+          show_batch_column?: boolean
           show_customer_gstin?: boolean | null
           show_discount_row?: boolean
           show_due_date?: boolean | null
+          show_expiry_column?: boolean
+          show_free_qty_column?: boolean
+          show_gst_split?: boolean
+          show_hsn_column?: boolean
           show_previous_balance?: boolean | null
+          show_rate_column?: boolean
+          show_roundoff?: boolean
+          show_salesperson?: boolean
           show_ship_to?: boolean | null
+          show_tax_amount_column?: boolean
           show_tax_summary?: boolean | null
           terms_and_conditions?: string | null
           updated_at?: string

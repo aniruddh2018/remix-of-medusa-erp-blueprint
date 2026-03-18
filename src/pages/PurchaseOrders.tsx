@@ -222,7 +222,7 @@ export default function PurchaseOrders() {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
     }
-    setTimeout(() => (document.getElementById("po-price-input") as HTMLInputElement)?.focus(), 30);
+    // Don't move focus away — keep cursor at product search for rapid entry
   }, [products]);
 
   const handleAddItem = useCallback(() => {

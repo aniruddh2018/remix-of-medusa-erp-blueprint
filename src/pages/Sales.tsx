@@ -47,7 +47,11 @@ export default function Sales() {
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
-  const productSearchRef = useRef<HTMLInputElement>(null);
+  const productSearchRef = useRef<DrugBrandSearchHandle>(null);
+
+  const focusProductSearch = useCallback(() => {
+    setTimeout(() => productSearchRef.current?.focus(), 30);
+  }, []);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");

@@ -760,11 +760,6 @@ export default function Sales() {
               </div>
             </div>
           </div>
-                  <Plus className="h-3 w-3 mr-1" /> Add
-                </Button>
-              </div>
-            </div>
-          </div>
 
           {/* Items table + totals — side by side on desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">

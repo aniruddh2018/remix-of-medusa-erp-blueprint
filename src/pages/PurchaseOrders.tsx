@@ -25,7 +25,7 @@ import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type Bil
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
-import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";

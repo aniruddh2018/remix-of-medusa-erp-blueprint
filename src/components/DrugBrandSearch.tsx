@@ -1,7 +1,21 @@
-import { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
-import { Search, Check, Pill, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Search, Check, ChevronsUpDown, Pill } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
@@ -15,257 +29,230 @@ interface DrugBrandSearchProps {
   products: Product[] | undefined;
   selectedProductId: string;
   onSelect: (productId: string) => void;
+  /** Show price info (sale price / MRP) */
   showPrice?: boolean;
+  /** Price type: "sale" shows sale_price/mrp, "purchase" shows purchase_price */
   priceType?: "sale" | "purchase";
   placeholder?: string;
 }
 
-export interface DrugBrandSearchHandle {
-  focus: () => void;
-  clear: () => void;
-}
+export function DrugBrandSearch({
+  products,
+  selectedProductId,
+  onSelect,
+  showPrice = true,
+  priceType = "sale",
+  placeholder = "Search by drug or brand name...",
+}: DrugBrandSearchProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
-export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearchProps>(
-  function DrugBrandSearch(
-    {
-      products,
-      selectedProductId,
-      onSelect,
-      showPrice = true,
-      priceType = "sale",
-      placeholder = "Search product...",
-    },
-    ref
-  ) {
-    const [query, setQuery] = useState("");
-    const [open, setOpen] = useState(false);
-    const [highlightIndex, setHighlightIndex] = useState(0);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+  const selectedProduct = products?.find((p) => p.id === selectedProductId);
 
-    const selectedProduct = products?.find((p) => p.id === selectedProductId);
+  // Group products by generic_name
+  const { drugGroups, ungroupedProducts, allFiltered } = useMemo(() => {
+    if (!products) return { drugGroups: [], ungroupedProducts: [], allFiltered: [] };
 
-    useImperativeHandle(ref, () => ({
-      focus: () => {
-        inputRef.current?.focus();
-      },
-      clear: () => {
-        setQuery("");
-        setOpen(false);
-      },
-    }));
+    const q = query.toLowerCase().trim();
 
-    // Filter & group products
-    const { flatResults } = useMemo(() => {
-      if (!products) return { flatResults: [] };
-      const q = query.toLowerCase().trim();
-      if (!q && selectedProductId) return { flatResults: [] };
+    // Filter products matching query
+    const filtered = q
+      ? products.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            p.generic_name?.toLowerCase().includes(q) ||
+            p.manufacturer?.toLowerCase().includes(q) ||
+            p.composition?.toLowerCase().includes(q)
+        )
+      : products;
 
-      const filtered = q
-        ? products.filter(
-            (p) =>
-              p.name.toLowerCase().includes(q) ||
-              p.generic_name?.toLowerCase().includes(q) ||
-              p.manufacturer?.toLowerCase().includes(q) ||
-              p.composition?.toLowerCase().includes(q)
-          )
-        : products;
+    // Group by generic_name
+    const grouped = new Map<string, Product[]>();
+    const ungrouped: Product[] = [];
 
-      return { flatResults: filtered.slice(0, 30) };
-    }, [products, query, selectedProductId]);
-
-    // Reset highlight on results change
-    useEffect(() => {
-      setHighlightIndex(0);
-    }, [flatResults]);
-
-    // Close dropdown on outside click
-    useEffect(() => {
-      const handler = (e: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-          setOpen(false);
+    filtered.forEach((p) => {
+      const gn = p.generic_name?.trim();
+      if (gn) {
+        if (!grouped.has(gn.toLowerCase())) {
+          grouped.set(gn.toLowerCase(), []);
         }
-      };
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
-    // Auto-select single exact match
-    useEffect(() => {
-      if (!query.trim()) return;
-      if (flatResults.length === 1) {
-        const p = flatResults[0];
-        const q = query.toLowerCase().trim();
-        if (p.name.toLowerCase() === q || p.generic_name?.toLowerCase() === q) {
-          handleSelect(p.id);
-        }
+        grouped.get(gn.toLowerCase())!.push(p);
+      } else {
+        ungrouped.push(p);
       }
-    }, [flatResults, query]);
+    });
 
-    const handleSelect = useCallback(
-      (productId: string) => {
-        onSelect(productId);
-        setQuery("");
-        setOpen(false);
-      },
-      [onSelect]
+    const groups: DrugGroup[] = Array.from(grouped.entries())
+      .map(([, prods]) => ({
+        genericName: prods[0].generic_name!,
+        products: prods.sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .sort((a, b) => a.genericName.localeCompare(b.genericName));
+
+    return { drugGroups: groups, ungroupedProducts: ungrouped, allFiltered: filtered };
+  }, [products, query]);
+
+  // Auto-select if search matches a drug with only one brand
+  useEffect(() => {
+    if (!query.trim()) return;
+    const q = query.toLowerCase().trim();
+
+    // Check if query matches a generic name exactly or closely
+    const matchingGroup = drugGroups.find(
+      (g) => g.genericName.toLowerCase() === q || g.genericName.toLowerCase().startsWith(q)
     );
 
-    const getDisplayPrice = (product: Product) => {
-      if (priceType === "purchase") return Number(product.purchase_price);
-      return product.sale_price && Number(product.sale_price) > 0
-        ? Number(product.sale_price)
-        : Number(product.mrp);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (!open || flatResults.length === 0) {
-        if (e.key === "ArrowDown" && flatResults.length > 0) {
-          setOpen(true);
-          e.preventDefault();
-        }
-        return;
-      }
-
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          setHighlightIndex((prev) => Math.min(prev + 1, flatResults.length - 1));
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          setHighlightIndex((prev) => Math.max(prev - 1, 0));
-          break;
-        case "Enter":
-          e.preventDefault();
-          if (flatResults[highlightIndex]) {
-            handleSelect(flatResults[highlightIndex].id);
-          }
-          break;
-        case "Escape":
-          e.preventDefault();
-          setOpen(false);
-          break;
-        case "Tab":
-          if (flatResults[highlightIndex]) {
-            handleSelect(flatResults[highlightIndex].id);
-          }
-          setOpen(false);
-          break;
-      }
-    };
-
-    // Scroll highlighted item into view
-    useEffect(() => {
-      if (!open || !listRef.current) return;
-      const item = listRef.current.children[highlightIndex] as HTMLElement;
-      item?.scrollIntoView({ block: "nearest" });
-    }, [highlightIndex, open]);
-
-    const clearSelection = () => {
-      onSelect("");
+    if (matchingGroup && matchingGroup.products.length === 1 && allFiltered.length === 1) {
+      // Only one brand for this drug — auto-select
+      onSelect(matchingGroup.products[0].id);
+      setOpen(false);
       setQuery("");
-      setTimeout(() => inputRef.current?.focus(), 10);
-    };
+    }
+  }, [drugGroups, allFiltered, query]);
 
-    return (
-      <div ref={containerRef} className="relative">
-        {/* Always-visible input */}
-        {selectedProduct && !query ? (
-          <div
-            className="flex items-center h-9 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group"
-            onClick={() => {
-              onSelect("");
-              setQuery("");
-              setTimeout(() => inputRef.current?.focus(), 10);
-            }}
-          >
-            <span className="truncate flex-1 text-foreground">
+  const getDisplayPrice = (product: Product) => {
+    if (priceType === "purchase") return Number(product.purchase_price);
+    return product.sale_price && Number(product.sale_price) > 0
+      ? Number(product.sale_price)
+      : Number(product.mrp);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal"
+        >
+          {selectedProduct ? (
+            <span className="truncate">
               {selectedProduct.name}
-              {selectedProduct.strength && <span className="text-muted-foreground ml-1 text-xs">{selectedProduct.strength}</span>}
+              {selectedProduct.strength && ` ${selectedProduct.strength}`}
+              {selectedProduct.generic_name && (
+                <span className="text-muted-foreground ml-1 text-xs">
+                  ({selectedProduct.generic_name})
+                </span>
+              )}
             </span>
-            <X
-              className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                clearSelection();
-              }}
-            />
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setOpen(true);
-              }}
-              onFocus={() => {
-                if (query.trim() || !selectedProductId) setOpen(true);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className="h-9 pl-8 pr-3"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-        )}
+          ) : (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
+          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[460px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={placeholder}
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>No product found.</CommandEmpty>
 
-        {/* Dropdown */}
-        {open && flatResults.length > 0 && (
-          <div
-            ref={listRef}
-            className="absolute z-50 mt-1 w-full min-w-[340px] max-h-[280px] overflow-y-auto rounded-md border bg-popover shadow-lg"
-          >
-            {flatResults.map((product, idx) => (
-              <div
-                key={product.id}
-                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
-                  idx === highlightIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-                } ${selectedProductId === product.id ? "font-medium" : ""}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(product.id);
-                }}
-                onMouseEnter={() => setHighlightIndex(idx)}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    {selectedProductId === product.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
-                    <span className="truncate font-medium">{product.name}</span>
-                    {product.strength && (
-                      <span className="text-muted-foreground text-xs">{product.strength}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {product.generic_name && (
-                      <span className="flex items-center gap-0.5">
-                        <Pill className="h-2.5 w-2.5" />
-                        {product.generic_name}
-                      </span>
-                    )}
-                    {product.manufacturer && <span>{product.manufacturer}</span>}
-                  </div>
-                </div>
-                {showPrice && (
-                  <span className="text-sm font-mono text-right ml-3 shrink-0">
-                    ₹{getDisplayPrice(product)}
+            {/* Drug groups (products with generic_name) */}
+            {drugGroups.slice(0, 15).map((group) => (
+              <CommandGroup
+                key={group.genericName}
+                heading={
+                  <span className="flex items-center gap-1.5">
+                    <Pill className="h-3 w-3" />
+                    {group.genericName}
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                      {group.products.length} brand{group.products.length > 1 ? "s" : ""}
+                    </Badge>
                   </span>
-                )}
-              </div>
+                }
+              >
+                {group.products.map((product) => (
+                  <CommandItem
+                    key={product.id}
+                    value={product.id}
+                    onSelect={(value) => {
+                      onSelect(value);
+                      setOpen(false);
+                      setQuery("");
+                    }}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Check
+                        className={`h-4 w-4 shrink-0 ${
+                          selectedProductId === product.id ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <span className="truncate font-medium">{product.name}</span>
+                        {product.strength && (
+                          <span className="text-muted-foreground text-xs ml-1">
+                            {product.strength}
+                          </span>
+                        )}
+                        <div className="text-xs text-muted-foreground truncate">
+                          {product.manufacturer}
+                        </div>
+                      </div>
+                    </div>
+                    {showPrice && (
+                      <div className="text-right ml-2 shrink-0">
+                        <span className="text-sm font-mono">
+                          ₹{getDisplayPrice(product)}
+                        </span>
+                      </div>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
             ))}
-          </div>
-        )}
-        {open && query.trim() && flatResults.length === 0 && (
-          <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg p-3 text-sm text-muted-foreground text-center">
-            No product found.
-          </div>
-        )}
-      </div>
-    );
-  }
-);
+
+            {drugGroups.length > 0 && ungroupedProducts.length > 0 && (
+              <CommandSeparator />
+            )}
+
+            {/* Ungrouped products (no generic_name) */}
+            {ungroupedProducts.length > 0 && (
+              <CommandGroup heading="Other Products">
+                {ungroupedProducts.slice(0, 20).map((product) => (
+                  <CommandItem
+                    key={product.id}
+                    value={product.id}
+                    onSelect={(value) => {
+                      onSelect(value);
+                      setOpen(false);
+                      setQuery("");
+                    }}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Check
+                        className={`h-4 w-4 shrink-0 ${
+                          selectedProductId === product.id ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <span className="truncate">{product.name}</span>
+                        {product.strength && (
+                          <span className="text-muted-foreground text-xs ml-1">
+                            {product.strength}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {showPrice && (
+                      <div className="text-right ml-2 shrink-0">
+                        <span className="text-sm font-mono">
+                          ₹{getDisplayPrice(product)}
+                        </span>
+                      </div>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}

@@ -490,6 +490,16 @@ export default function Sales() {
     enabled: activeTab === "history" && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
   });
 
+  // Auto-focus product search on billing tab mount
+  useEffect(() => {
+    if (activeTab === "billing") {
+      setTimeout(() => {
+        const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
+        el?.focus();
+      }, 100);
+    }
+  }, [activeTab]);
+
   // Quick text entry handler
   const handleQuickTextItems = useCallback((items: any[]) => {
     if (!allBatches || !products) return;

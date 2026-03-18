@@ -548,11 +548,7 @@ export default function Sales() {
       setCart(prev => [...prev, ...newCartItems]);
       toast({ title: "Items added", description: `${newCartItems.length} line(s) added.` });
     }
-    // Auto-focus back to product search
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
+    focusProductSearch();
   }, [allBatches, products, cart, noGstBill, gstInclusive, toast]);
 
   const filteredOrders = salesOrders?.filter(o => o.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) || o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()));

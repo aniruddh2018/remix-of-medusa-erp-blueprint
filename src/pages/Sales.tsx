@@ -687,7 +687,7 @@ export default function Sales() {
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Add Products</span>
-              <QuickTextEntry type="sale" products={products} batches={allBatches} onItemsConfirmed={handleQuickTextItems} />
+              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
               <div className="md:col-span-2" data-product-search>

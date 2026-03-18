@@ -112,6 +112,28 @@ const Reports = () => {
     enabled: !!companyId,
   });
 
+  // Fetch inventory batches for total value
+  const { data: inventoryBatches = [] } = useQuery({
+    queryKey: ["inventory-batches-report", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("quantity, purchase_price, mrp")
+        .eq("company_id", companyId!)
+        .gt("quantity", 0);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const inventoryValue = useMemo(() => {
+    const atCost = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.purchase_price)), 0);
+    const atMRP = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.mrp)), 0);
+    const totalUnits = inventoryBatches.reduce((sum, b) => sum + b.quantity, 0);
+    return { atCost, atMRP, totalUnits };
+  }, [inventoryBatches]);
+
   // Fetch suppliers
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers-report", companyId],

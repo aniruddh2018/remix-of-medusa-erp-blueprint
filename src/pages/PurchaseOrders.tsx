@@ -146,10 +146,7 @@ export default function PurchaseOrders() {
 
   // ── Focus helper ──
   const focusProductSearch = useCallback(() => {
-    setTimeout(() => {
-      const el = document.querySelector('[data-po-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
+    setTimeout(() => productSearchRef.current?.focus(), 30);
   }, []);
 
   // ── Queries ──

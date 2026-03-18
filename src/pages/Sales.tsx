@@ -694,15 +694,17 @@ export default function Sales() {
               <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
-              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-product-search>
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch
+                  ref={productSearchRef}
                   products={products}
                   selectedProductId={selectedProduct}
                   onSelect={(v) => {
                     setSelectedProduct(v);
                     const p = products?.find(pp => pp.id === v);
                     if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                    // After product selected, move to Qty for speed
                     setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
                   }}
                   showPrice priceType="sale"

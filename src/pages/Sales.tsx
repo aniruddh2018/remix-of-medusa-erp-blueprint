@@ -493,13 +493,8 @@ export default function Sales() {
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
-    if (activeTab === "billing") {
-      setTimeout(() => {
-        const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-        el?.focus();
-      }, 100);
-    }
-  }, [activeTab]);
+    if (activeTab === "billing") focusProductSearch();
+  }, [activeTab, focusProductSearch]);
 
   // Quick text entry handler
   const handleQuickTextItems = useCallback((items: any[]) => {

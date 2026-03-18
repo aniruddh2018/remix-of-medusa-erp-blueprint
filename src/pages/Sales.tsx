@@ -920,7 +920,7 @@ export default function Sales() {
 
       {editDialogOpen && editSaleId && <EditSaleDialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { queryClient.invalidateQueries({ queryKey: ["sales-orders"] }); queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] }); } setEditDialogOpen(open); }} saleId={editSaleId} />}
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
-      {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) setPaymentDialog(null); }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); }} />}
+      {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
     </div>
   );

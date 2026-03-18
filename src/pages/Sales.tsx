@@ -27,7 +27,7 @@ import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
-import { DrugBrandSearch } from "@/components/DrugBrandSearch";
+import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -47,7 +47,11 @@ export default function Sales() {
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
-  const productSearchRef = useRef<HTMLInputElement>(null);
+  const productSearchRef = useRef<DrugBrandSearchHandle>(null);
+
+  const focusProductSearch = useCallback(() => {
+    setTimeout(() => productSearchRef.current?.focus(), 30);
+  }, []);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,11 +278,8 @@ export default function Sales() {
     }
 
     // Auto-focus back to product search (MARG-style)
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast]);
+    focusProductSearch();
+  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast, focusProductSearch]);
 
   const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {
     const updated = [...cart];
@@ -405,10 +406,7 @@ export default function Sales() {
     setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
     setIsAddingNewCustomer(false);
     // Re-focus product search
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 100);
+    focusProductSearch();
   }, [clearDraft, settings]);
 
   // ── Bill action ──
@@ -492,13 +490,8 @@ export default function Sales() {
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
-    if (activeTab === "billing") {
-      setTimeout(() => {
-        const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-        el?.focus();
-      }, 100);
-    }
-  }, [activeTab]);
+    if (activeTab === "billing") focusProductSearch();
+  }, [activeTab, focusProductSearch]);
 
   // Quick text entry handler
   const handleQuickTextItems = useCallback((items: any[]) => {
@@ -555,12 +548,8 @@ export default function Sales() {
       setCart(prev => [...prev, ...newCartItems]);
       toast({ title: "Items added", description: `${newCartItems.length} line(s) added.` });
     }
-    // Auto-focus back to product search
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
-  }, [allBatches, products, cart, noGstBill, gstInclusive, toast]);
+    focusProductSearch();
+  }, [allBatches, products, cart, noGstBill, gstInclusive, toast, focusProductSearch]);
 
   const filteredOrders = salesOrders?.filter(o => o.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) || o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -705,15 +694,17 @@ export default function Sales() {
               <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
-              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-product-search>
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch
+                  ref={productSearchRef}
                   products={products}
                   selectedProductId={selectedProduct}
                   onSelect={(v) => {
                     setSelectedProduct(v);
                     const p = products?.find(pp => pp.id === v);
                     if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                    // After product selected, move to Qty for speed
                     setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
                   }}
                   showPrice priceType="sale"

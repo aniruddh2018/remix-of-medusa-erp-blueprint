@@ -770,7 +770,8 @@ export default function Sales() {
     const map = new Map<string, number>();
     cart.forEach(item => {
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity);
+        // Include free_quantity in cart allocation tracking
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
       }
     });
     return map;
@@ -791,8 +792,9 @@ export default function Sales() {
       return;
     }
 
-    // Use FIFO allocation to distribute quantity across batches
-    const allocationResult = allocateBatchesFIFO(batches, itemQuantity, existingCartQuantities);
+    // FIFO: allocate total = quantity + free_quantity
+    const totalNeeded = itemQuantity + itemFreeQty;
+    const allocationResult = allocateBatchesFIFO(batches, totalNeeded, existingCartQuantities);
 
     if (!allocationResult.success) {
       toast({ 

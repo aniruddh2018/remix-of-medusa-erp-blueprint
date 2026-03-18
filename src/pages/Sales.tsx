@@ -278,10 +278,7 @@ export default function Sales() {
     }
 
     // Auto-focus back to product search (MARG-style)
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 50);
+    focusProductSearch();
   }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast]);
 
   const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {

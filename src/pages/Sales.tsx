@@ -808,14 +808,6 @@ export default function Sales() {
                   onBillDiscountPercentChange={setBillDiscountPercent}
                   onBillDiscountFlatChange={setBillDiscountFlat}
                 />
-                {/* Notes & extra charges */}
-                <div className="space-y-2">
-                  <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes..." className="h-8 text-sm" />
-                  <div className="grid grid-cols-2 gap-1">
-                    <Input type="number" min={0} step={0.01} value={freightCharges || ""} onChange={e => setFreightCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Freight ₹" />
-                    <Input type="number" min={0} step={0.01} value={otherCharges || ""} onChange={e => setOtherCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Other ₹" />
-                  </div>
-                </div>
                 <Button
                   className="w-full gap-2"
                   onClick={() => createSaleMutation.mutate()}
@@ -825,8 +817,8 @@ export default function Sales() {
                   Complete Sale (₹{grandTotal.toFixed(2)})
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ═══ HISTORY TAB ═══ */}

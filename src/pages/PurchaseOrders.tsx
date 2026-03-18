@@ -830,14 +830,6 @@ export default function PurchaseOrders() {
                   onBillDiscountPercentChange={setBillDiscountPercent}
                   onBillDiscountFlatChange={setBillDiscountFlat}
                 />
-                <div className="space-y-2">
-                  <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes..." className="h-8 text-sm" />
-                  <div className="grid grid-cols-3 gap-1">
-                    <Input type="number" min={0} step={0.01} value={freightCharges || ""} onChange={e => setFreightCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Freight ₹" />
-                    <Input type="number" min={0} step={0.01} value={handlingCharges || ""} onChange={e => setHandlingCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Handling ₹" />
-                    <Input type="number" min={0} step={0.01} value={otherCharges || ""} onChange={e => setOtherCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Other ₹" />
-                  </div>
-                </div>
                 <Button
                   className="w-full gap-2"
                   onClick={() => createOrderMutation.mutate()}
@@ -847,8 +839,8 @@ export default function PurchaseOrders() {
                   Create Order (₹{grandTotal.toFixed(2)})
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ═══ HISTORY TAB ═══ */}

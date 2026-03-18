@@ -771,17 +771,26 @@ export default function Sales() {
             </div>
           </div>
 
-          {/* Items table + totals — side by side on desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-            <SalesItemsTable
-              cart={cart}
-              settings={settings}
-              maxDiscountAllowed={maxDiscountAllowed}
-              gstInclusive={gstInclusive}
-              onUpdateItem={updateCartItem}
-              onRemoveItem={removeFromCart}
-            />
-            {cart.length > 0 && (
+          {/* Items table — full width for product visibility */}
+          <SalesItemsTable
+            cart={cart}
+            settings={settings}
+            maxDiscountAllowed={maxDiscountAllowed}
+            gstInclusive={gstInclusive}
+            onUpdateItem={updateCartItem}
+            onRemoveItem={removeFromCart}
+          />
+
+          {/* Totals below table */}
+          {cart.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4">
+              <div className="space-y-2">
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes..." className="h-8 text-sm" />
+                <div className="grid grid-cols-2 gap-1">
+                  <Input type="number" min={0} step={0.01} value={freightCharges || ""} onChange={e => setFreightCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Freight ₹" />
+                  <Input type="number" min={0} step={0.01} value={otherCharges || ""} onChange={e => setOtherCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Other ₹" />
+                </div>
+              </div>
               <div className="space-y-3">
                 <BillingTotals
                   grossTotal={itemsGrossTotal}

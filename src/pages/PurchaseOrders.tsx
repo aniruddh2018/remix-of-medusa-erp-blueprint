@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -598,6 +598,16 @@ export default function PurchaseOrders() {
     focusProductSearch();
   }, [products, gstInclusive, toast, focusProductSearch]);
 
+  // Auto-focus product search on billing tab mount
+  useEffect(() => {
+    if (activeTab === "billing") {
+      setTimeout(() => {
+        const el = document.querySelector('[data-po-product-search] input') as HTMLInputElement;
+        el?.focus();
+      }, 100);
+    }
+  }, [activeTab]);
+
   // ── Keyboard shortcuts ──
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); }, enabled: activeTab === "history" });
   useKeyboardShortcut({
@@ -727,45 +737,53 @@ export default function PurchaseOrders() {
 
           {/* Product entry bar */}
           <div className="rounded-lg border bg-card p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted-foreground">Add Products</span>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
               <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-9 gap-2">
-              <div className="md:col-span-2" data-po-product-search>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-po-product-search>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                   showPrice priceType="purchase" placeholder="Search product..." />
               </div>
               {config.hasBatchTracking && (
                 <div>
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">Batch</Label>
                   <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={enterToAdd}
-                    className="h-9" placeholder="Batch" />
+                    className="h-9" placeholder="Optional" />
                 </div>
               )}
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Expiry</Label>
                 <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={enterToAdd}
                   className="h-9 text-xs" />
               </div>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">MRP ₹</Label>
                 <Input type="number" min={0} step={0.01} value={itemMrp || ""} onChange={e => setItemMrp(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="MRP" />
+                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
               </div>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
                 <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
                   onChange={e => setItemPrice(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="Rate" />
+                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
               </div>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="Qty" />
+                  onKeyDown={enterToAdd} className="h-9" placeholder="1" />
               </div>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                 <Input type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="Free" />
+                  onKeyDown={enterToAdd} className="h-9" placeholder="0" />
               </div>
-              <div>
+              <div className="flex flex-col justify-end">
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm">
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>

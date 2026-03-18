@@ -490,6 +490,16 @@ export default function Sales() {
     enabled: activeTab === "history" && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
   });
 
+  // Auto-focus product search on billing tab mount
+  useEffect(() => {
+    if (activeTab === "billing") {
+      setTimeout(() => {
+        const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
+        el?.focus();
+      }, 100);
+    }
+  }, [activeTab]);
+
   // Quick text entry handler
   const handleQuickTextItems = useCallback((items: any[]) => {
     if (!allBatches || !products) return;
@@ -690,12 +700,13 @@ export default function Sales() {
 
           {/* Product entry bar — MARG-style inline */}
           <div className="rounded-lg border bg-card p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted-foreground">Add Products</span>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
               <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-              <div className="md:col-span-2" data-product-search>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-product-search>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch
                   products={products}
                   selectedProductId={selectedProduct}
@@ -709,47 +720,53 @@ export default function Sales() {
                 />
               </div>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" id="sale-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
-                  className="h-9" placeholder="Qty"
+                  className="h-9" placeholder="1"
                 />
               </div>
               {settings.show_free_qty_column && (
                 <div>
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                   <Input type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                     onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
-                    className="h-9" placeholder="Free"
+                    className="h-9" placeholder="0"
                   />
                 </div>
               )}
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
                 <Input type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
-                  className="h-9" placeholder="Rate"
+                  className="h-9" placeholder="0.00"
                 />
               </div>
               {(settings.discount_mode === "percentage" || settings.discount_mode === "both") && (
                 <div>
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">Disc%</Label>
                   <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
                     onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
-                    className="h-9" placeholder="Disc%"
+                    className="h-9" placeholder="0"
                   />
                 </div>
               )}
-              <div className="flex gap-1">
-                {selectedProduct && (
-                  <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-xs whitespace-nowrap">
-                    {availableStock > 0 ? `${availableStock} avail` : "0"}
-                    {availableStock === 0 && <AlertTriangle className="h-3 w-3 ml-0.5" />}
-                  </Badge>
-                )}
-                <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm">
-                  <Plus className="h-3 w-3 mr-1" /> Add
-                </Button>
+              <div className="flex flex-col justify-end">
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
+                <div className="flex gap-1">
+                  {selectedProduct && (
+                    <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
+                      {availableStock > 0 ? `${availableStock}` : "0"}
+                    </Badge>
+                  )}
+                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

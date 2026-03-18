@@ -85,11 +85,11 @@ export function ReceiveInventoryDialog({
       defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
       const today = new Date().toISOString().split("T")[0];
 
-      const initialBatches: BatchDetail[] = items.map((item, index) => ({
+      const initialBatches: BatchDetail[] = items.map((item) => ({
         product_id: item.product_id,
         product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
         quantity: item.quantity,
-        batch_number: `BATCH-${Date.now()}-${index + 1}`,
+        batch_number: "", // Empty = let system decide (merge or create)
         expiry_date: defaultExpiry.toISOString().split("T")[0],
         manufacturing_date: today,
         purchase_price: Number(item.unit_price),
@@ -115,8 +115,8 @@ export function ReceiveInventoryDialog({
     setSaving(true);
 
     try {
-      // Create inventory batches
-      const batches = batchDetails.map((batch) => ({
+      // Use smart batch creation/merge RPC
+      const batchPayload = batchDetails.map((batch) => ({
         product_id: batch.product_id,
         batch_number: batch.batch_number,
         quantity: batch.quantity,
@@ -124,27 +124,34 @@ export function ReceiveInventoryDialog({
         mrp: batch.mrp,
         expiry_date: batch.expiry_date,
         manufacturing_date: batch.manufacturing_date || null,
-        received_date: new Date().toISOString().split("T")[0],
         supplier_id: supplierId,
+        company_id: null, // Will be set by RLS context
       }));
 
-      const { error: batchError } = await supabase
-        .from("inventory_batches")
-        .insert(batches);
-
-      if (batchError) throw batchError;
-
-      // Update order status to delivered
-      const { error: orderError } = await supabase
+      // Fetch company_id from the order
+      const { data: orderData } = await supabase
         .from("purchase_orders")
-        .update({ status: "delivered" })
-        .eq("id", orderId);
+        .select("company_id")
+        .eq("id", orderId!)
+        .single();
 
-      if (orderError) throw orderError;
+      const companyId = orderData?.company_id;
+      const enrichedPayload = batchPayload.map(b => ({ ...b, company_id: companyId }));
+
+      const { data: result, error: rpcError } = await supabase.rpc("receive_purchase_batches", {
+        _batches: enrichedPayload,
+        _purchase_order_id: orderId,
+      });
+
+      if (rpcError) throw rpcError;
+
+      const actions = (result as any[]) || [];
+      const merged = actions.filter((a: any) => a.action?.includes('merged')).length;
+      const created = actions.filter((a: any) => a.action?.includes('created')).length;
 
       toast({
         title: "Inventory Received",
-        description: `${batches.length} batch(es) added to inventory.`,
+        description: `${created} batch(es) created, ${merged} merged into existing.`,
       });
 
       onSuccess();
@@ -278,7 +285,7 @@ export function ReceiveInventoryDialog({
             </Card>
 
             <p className="text-sm text-muted-foreground">
-              * Each batch can have different MRP and purchase price. Batch numbers should be unique.
+              * Leave batch number empty to auto-merge into existing batches with same MRP. Provide a batch number to create/update a specific batch.
             </p>
           </div>
         )}

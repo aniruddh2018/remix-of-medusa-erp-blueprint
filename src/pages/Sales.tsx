@@ -598,14 +598,15 @@ export default function Sales() {
       if (itemsError) throw itemsError;
 
       // Atomically deduct batch quantities (sold qty + free qty) using DB function
-      for (const item of cart) {
-        const totalDeducted = item.quantity + (item.free_quantity || 0);
-        const { error: deductError } = await supabase.rpc("deduct_batch_quantity", {
-          _batch_id: item.batch_id,
-          _quantity: totalDeducted,
-        });
-        if (deductError) throw new Error(deductError.message);
-      }
+      const deductItems = cart.map(item => ({
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        free_quantity: item.free_quantity || 0,
+      }));
+      const { error: deductError } = await supabase.rpc("deduct_sale_inventory", {
+        _items: deductItems,
+      });
+      if (deductError) throw new Error(deductError.message);
 
       return order;
     },
@@ -622,28 +623,24 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // 1. Fetch sale items to restore inventory
+      // 1. Fetch sale items to restore inventory (including free_quantity)
       const { data: saleItems, error: fetchErr } = await supabase
         .from("sales_order_items")
-        .select("id, product_id, batch_id, quantity")
+        .select("id, product_id, batch_id, quantity, free_quantity")
         .eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
 
-      // 2. Restore inventory batch quantities
-      for (const item of (saleItems || [])) {
-        const { data: batch } = await supabase
-          .from("inventory_batches")
-          .select("quantity")
-          .eq("id", item.batch_id)
-          .single();
-        if (batch) {
-          const { error: batchErr } = await supabase
-            .from("inventory_batches")
-            .update({ quantity: batch.quantity + item.quantity })
-            .eq("id", item.batch_id)
-            .select();
-          if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
-        }
+      // 2. Restore inventory batch quantities atomically (qty + free_qty)
+      const restoreItems = (saleItems || []).map(item => ({
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        free_quantity: item.free_quantity || 0,
+      }));
+      if (restoreItems.length > 0) {
+        const { error: restoreErr } = await supabase.rpc("restore_sale_inventory", {
+          _items: restoreItems,
+        });
+        if (restoreErr) throw new Error(`Failed to restore inventory: ${restoreErr.message}`);
       }
 
       // 3. Unlink credit notes referencing this sale (set FK to null)
@@ -773,7 +770,8 @@ export default function Sales() {
     const map = new Map<string, number>();
     cart.forEach(item => {
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity);
+        // Include free_quantity in cart allocation tracking
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
       }
     });
     return map;
@@ -794,8 +792,9 @@ export default function Sales() {
       return;
     }
 
-    // Use FIFO allocation to distribute quantity across batches
-    const allocationResult = allocateBatchesFIFO(batches, itemQuantity, existingCartQuantities);
+    // FIFO: allocate total = quantity + free_quantity
+    const totalNeeded = itemQuantity + itemFreeQty;
+    const allocationResult = allocateBatchesFIFO(batches, totalNeeded, existingCartQuantities);
 
     if (!allocationResult.success) {
       toast({ 

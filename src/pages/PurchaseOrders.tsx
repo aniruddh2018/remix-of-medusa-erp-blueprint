@@ -214,15 +214,48 @@ export default function PurchaseOrders() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
+  // Fetch existing batches for selected product
+  const { data: existingBatches } = useQuery({
+    queryKey: ["product-batches", selectedProduct, companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("id, batch_number, quantity, expiry_date, mrp, purchase_price")
+        .eq("product_id", selectedProduct!)
+        .eq("company_id", companyId!)
+        .gt("quantity", 0)
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedProduct && !!companyId,
+  });
+
   const handleProductSelect = useCallback((productId: string) => {
     setSelectedProduct(productId);
+    setExistingBatchId("new");
+    setItemBatchNumber("");
     const product = products?.find((p) => p.id === productId);
     if (product) {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
     }
-    // Don't move focus away — keep cursor at product search for rapid entry
   }, [products]);
+
+  const handleBatchSelect = useCallback((batchId: string) => {
+    setExistingBatchId(batchId);
+    if (batchId === "new") {
+      setItemBatchNumber("");
+      return;
+    }
+    const batch = existingBatches?.find(b => b.id === batchId);
+    if (batch) {
+      setItemBatchNumber(batch.batch_number);
+      setItemExpiryDate(batch.expiry_date);
+      setItemMrp(Number(batch.mrp));
+      setItemPrice(Number(batch.purchase_price));
+    }
+  }, [existingBatches]);
 
   const handleAddItem = useCallback(() => {
     if (!selectedProduct || itemQuantity <= 0 || itemPrice <= 0) return;

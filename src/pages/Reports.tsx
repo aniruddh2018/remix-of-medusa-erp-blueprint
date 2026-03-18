@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle, ShieldAlert } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle, ShieldAlert, Boxes } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 
 type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
@@ -111,6 +111,28 @@ const Reports = () => {
     },
     enabled: !!companyId,
   });
+
+  // Fetch inventory batches for total value
+  const { data: inventoryBatches = [] } = useQuery({
+    queryKey: ["inventory-batches-report", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("quantity, purchase_price, mrp")
+        .eq("company_id", companyId!)
+        .gt("quantity", 0);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const inventoryValue = useMemo(() => {
+    const atCost = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.purchase_price)), 0);
+    const atMRP = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.mrp)), 0);
+    const totalUnits = inventoryBatches.reduce((sum, b) => sum + b.quantity, 0);
+    return { atCost, atMRP, totalUnits };
+  }, [inventoryBatches]);
 
   // Fetch suppliers
   const { data: suppliers = [] } = useQuery({
@@ -379,6 +401,44 @@ const Reports = () => {
             </div>
             <p className="text-xs text-muted-foreground">
               {metrics.profitMargin >= 20 ? "Healthy" : metrics.profitMargin >= 10 ? "Moderate" : "Low"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Inventory Value */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Inventory Value (Cost)</CardTitle>
+            <Boxes className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{inventoryValue.atCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">{inventoryValue.totalUnits.toLocaleString()} units in stock</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Inventory Value (MRP)</CardTitle>
+            <IndianRupee className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{inventoryValue.atMRP.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">At maximum retail price</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Potential Margin</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              ₹{(inventoryValue.atMRP - inventoryValue.atCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {inventoryValue.atCost > 0 ? (((inventoryValue.atMRP - inventoryValue.atCost) / inventoryValue.atCost) * 100).toFixed(1) : 0}% markup
             </p>
           </CardContent>
         </Card>

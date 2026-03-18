@@ -66,6 +66,7 @@ export default function PurchaseOrders() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   const [itemExpiryDate, setItemExpiryDate] = useState<string>("");
+  const [existingBatchId, setExistingBatchId] = useState<string>("new");
   const [draftRestored, setDraftRestored] = useState(false);
 
   // Other charges state
@@ -213,15 +214,48 @@ export default function PurchaseOrders() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
+  // Fetch existing batches for selected product
+  const { data: existingBatches } = useQuery({
+    queryKey: ["product-batches", selectedProduct, companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("id, batch_number, quantity, expiry_date, mrp, purchase_price")
+        .eq("product_id", selectedProduct!)
+        .eq("company_id", companyId!)
+        .gt("quantity", 0)
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedProduct && !!companyId,
+  });
+
   const handleProductSelect = useCallback((productId: string) => {
     setSelectedProduct(productId);
+    setExistingBatchId("new");
+    setItemBatchNumber("");
     const product = products?.find((p) => p.id === productId);
     if (product) {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
     }
-    // Don't move focus away — keep cursor at product search for rapid entry
   }, [products]);
+
+  const handleBatchSelect = useCallback((batchId: string) => {
+    setExistingBatchId(batchId);
+    if (batchId === "new") {
+      setItemBatchNumber("");
+      return;
+    }
+    const batch = existingBatches?.find(b => b.id === batchId);
+    if (batch) {
+      setItemBatchNumber(batch.batch_number);
+      setItemExpiryDate(batch.expiry_date);
+      setItemMrp(Number(batch.mrp));
+      setItemPrice(Number(batch.purchase_price));
+    }
+  }, [existingBatches]);
 
   const handleAddItem = useCallback(() => {
     if (!selectedProduct || itemQuantity <= 0 || itemPrice <= 0) return;
@@ -260,6 +294,7 @@ export default function PurchaseOrders() {
     setItemDiscountFlat(0);
     setItemBatchNumber("");
     setItemExpiryDate("");
+    setExistingBatchId("new");
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
@@ -741,10 +776,27 @@ export default function PurchaseOrders() {
                   showPrice priceType="purchase" placeholder="Search product..." />
               </div>
               {config.hasBatchTracking && (
-                <div>
+                <div className="col-span-1 lg:col-span-2">
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Batch</Label>
-                  <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={enterToAdd}
-                    className="h-9" placeholder="Optional" />
+                  <div className="flex gap-1">
+                    <Select value={existingBatchId} onValueChange={handleBatchSelect}>
+                      <SelectTrigger className="h-9 text-xs flex-1">
+                        <SelectValue placeholder="New batch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">+ New Batch</SelectItem>
+                        {existingBatches?.map(b => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.batch_number} (Qty: {b.quantity}, Exp: {b.expiry_date})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {existingBatchId === "new" && (
+                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={enterToAdd}
+                        className="h-9 w-28 text-xs" placeholder="Batch #" />
+                    )}
+                  </div>
                 </div>
               )}
               <div>

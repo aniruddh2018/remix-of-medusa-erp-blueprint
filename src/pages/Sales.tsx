@@ -687,7 +687,7 @@ export default function Sales() {
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Add Products</span>
-              <QuickTextEntry type="sale" products={products} batches={allBatches} onItemsConfirmed={handleQuickTextItems} />
+              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
               <div className="md:col-span-2" data-product-search>
@@ -918,9 +918,9 @@ export default function Sales() {
         </DialogContent>
       </Dialog>
 
-      {editDialogOpen && editSaleId && <EditSaleDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} saleId={editSaleId} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["sales-orders"] }); queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] }); setEditDialogOpen(false); }} />}
+      {editDialogOpen && editSaleId && <EditSaleDialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { queryClient.invalidateQueries({ queryKey: ["sales-orders"] }); queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] }); } setEditDialogOpen(open); }} saleId={editSaleId} />}
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
-      {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) setPaymentDialog(null); }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); }} />}
+      {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
     </div>
   );

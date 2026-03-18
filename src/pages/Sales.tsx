@@ -406,10 +406,7 @@ export default function Sales() {
     setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
     setIsAddingNewCustomer(false);
     // Re-focus product search
-    setTimeout(() => {
-      const el = document.querySelector('[data-product-search] input') as HTMLInputElement;
-      el?.focus();
-    }, 100);
+    focusProductSearch();
   }, [clearDraft, settings]);
 
   // ── Bill action ──

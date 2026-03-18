@@ -549,7 +549,7 @@ export default function Sales() {
       toast({ title: "Items added", description: `${newCartItems.length} line(s) added.` });
     }
     focusProductSearch();
-  }, [allBatches, products, cart, noGstBill, gstInclusive, toast]);
+  }, [allBatches, products, cart, noGstBill, gstInclusive, toast, focusProductSearch]);
 
   const filteredOrders = salesOrders?.filter(o => o.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) || o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()));
 

@@ -623,28 +623,24 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // 1. Fetch sale items to restore inventory
+      // 1. Fetch sale items to restore inventory (including free_quantity)
       const { data: saleItems, error: fetchErr } = await supabase
         .from("sales_order_items")
-        .select("id, product_id, batch_id, quantity")
+        .select("id, product_id, batch_id, quantity, free_quantity")
         .eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
 
-      // 2. Restore inventory batch quantities
-      for (const item of (saleItems || [])) {
-        const { data: batch } = await supabase
-          .from("inventory_batches")
-          .select("quantity")
-          .eq("id", item.batch_id)
-          .single();
-        if (batch) {
-          const { error: batchErr } = await supabase
-            .from("inventory_batches")
-            .update({ quantity: batch.quantity + item.quantity })
-            .eq("id", item.batch_id)
-            .select();
-          if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
-        }
+      // 2. Restore inventory batch quantities atomically (qty + free_qty)
+      const restoreItems = (saleItems || []).map(item => ({
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        free_quantity: item.free_quantity || 0,
+      }));
+      if (restoreItems.length > 0) {
+        const { error: restoreErr } = await supabase.rpc("restore_sale_inventory", {
+          _items: restoreItems,
+        });
+        if (restoreErr) throw new Error(`Failed to restore inventory: ${restoreErr.message}`);
       }
 
       // 3. Unlink credit notes referencing this sale (set FK to null)

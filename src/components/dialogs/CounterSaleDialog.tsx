@@ -306,14 +306,15 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
       if (itemsError) throw itemsError;
 
       // Atomically deduct batch quantities (sold qty + free qty) using DB function
-      for (const item of cart) {
-        const totalDeducted = item.quantity;
-        const { error: deductError } = await supabase.rpc("deduct_batch_quantity", {
-          _batch_id: item.batch_id,
-          _quantity: totalDeducted,
-        });
-        if (deductError) throw new Error(deductError.message);
-      }
+      const deductItems = cart.map(item => ({
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        free_quantity: 0, // counter sale doesn't have free_quantity
+      }));
+      const { error: deductError } = await supabase.rpc("deduct_sale_inventory", {
+        _items: deductItems,
+      });
+      if (deductError) throw new Error(deductError.message);
 
       // Record scheduled drug transactions
       const scheduledItems = cart.filter(item => item.drug_schedule !== "none");

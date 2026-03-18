@@ -735,9 +735,9 @@ export default function PurchaseOrders() {
               <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
-              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" data-po-product-search>
+              <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
-                <DrugBrandSearch products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
+                <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                   showPrice priceType="purchase" placeholder="Search product..." />
               </div>
               {config.hasBatchTracking && (

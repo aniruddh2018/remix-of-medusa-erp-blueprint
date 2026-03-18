@@ -1463,6 +1463,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      allocate_batches_fifo: {
+        Args: {
+          _company_id: string
+          _exclude_batch_quantities?: Json
+          _product_id: string
+          _requested_quantity: number
+        }
+        Returns: Json
+      }
       complete_onboarding: {
         Args: { _business_type: string; _company_name: string }
         Returns: string
@@ -1471,6 +1480,7 @@ export type Database = {
         Args: { _batch_id: string; _quantity: number }
         Returns: number
       }
+      deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1480,6 +1490,11 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      receive_purchase_batches: {
+        Args: { _batches: Json; _purchase_order_id?: string }
+        Returns: Json
+      }
+      restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "pharmacist" | "staff" | "super_admin"

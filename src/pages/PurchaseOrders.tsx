@@ -598,13 +598,8 @@ export default function PurchaseOrders() {
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
-    if (activeTab === "billing") {
-      setTimeout(() => {
-        const el = document.querySelector('[data-po-product-search] input') as HTMLInputElement;
-        el?.focus();
-      }, 100);
-    }
-  }, [activeTab]);
+    if (activeTab === "billing") focusProductSearch();
+  }, [activeTab, focusProductSearch]);
 
   // ── Keyboard shortcuts ──
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); }, enabled: activeTab === "history" });

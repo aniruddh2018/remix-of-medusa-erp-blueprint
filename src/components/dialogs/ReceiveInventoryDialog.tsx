@@ -285,7 +285,7 @@ export function ReceiveInventoryDialog({
             </Card>
 
             <p className="text-sm text-muted-foreground">
-              * Each batch can have different MRP and purchase price. Batch numbers should be unique.
+              * Leave batch number empty to auto-merge into existing batches with same MRP. Provide a batch number to create/update a specific batch.
             </p>
           </div>
         )}

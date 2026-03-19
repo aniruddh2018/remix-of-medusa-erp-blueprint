@@ -38,6 +38,9 @@ interface ExtractedInvoice {
   supplier_name: string;
   supplier_gst?: string | null;
   supplier_dl_number?: string | null;
+  supplier_address?: string | null;
+  supplier_phone?: string | null;
+  supplier_email?: string | null;
   invoice_number: string;
   invoice_date: string;
   challan_number?: string | null;

@@ -389,7 +389,8 @@ export default function ScanInvoice() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Supplier Details */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Supplier</Label>
                   <div className="flex items-center gap-2">
@@ -400,6 +401,50 @@ export default function ScanInvoice() {
                     {extracted.matched_supplier_id && <Badge variant="secondary" className="text-xs whitespace-nowrap">Matched</Badge>}
                   </div>
                 </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Supplier GST</Label>
+                  <Input
+                    value={extracted.supplier_gst || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_gst: e.target.value })}
+                    placeholder="GST Number"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">DL Number</Label>
+                  <Input
+                    value={extracted.supplier_dl_number || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_dl_number: e.target.value })}
+                    placeholder="Drug License"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Phone</Label>
+                  <Input
+                    value={extracted.supplier_phone || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_phone: e.target.value })}
+                    placeholder="Phone"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Input
+                    value={extracted.supplier_email || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_email: e.target.value })}
+                    placeholder="Email"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Address</Label>
+                  <Input
+                    value={extracted.supplier_address || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_address: e.target.value })}
+                    placeholder="Address"
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Details */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Invoice #</Label>
                   <Input
@@ -413,6 +458,14 @@ export default function ScanInvoice() {
                     type="date"
                     value={extracted.invoice_date}
                     onChange={(e) => setExtracted({ ...extracted, invoice_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Challan #</Label>
+                  <Input
+                    value={extracted.challan_number || ""}
+                    onChange={(e) => setExtracted({ ...extracted, challan_number: e.target.value })}
+                    placeholder="Challan Number"
                   />
                 </div>
                 <div>

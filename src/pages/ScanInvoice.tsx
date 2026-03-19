@@ -38,6 +38,9 @@ interface ExtractedInvoice {
   supplier_name: string;
   supplier_gst?: string | null;
   supplier_dl_number?: string | null;
+  supplier_address?: string | null;
+  supplier_phone?: string | null;
+  supplier_email?: string | null;
   invoice_number: string;
   invoice_date: string;
   challan_number?: string | null;
@@ -158,6 +161,7 @@ export default function ScanInvoice() {
     setSaving(true);
 
     try {
+      // 1. Supplier: match or create with full details
       let supplierId = extracted.matched_supplier_id;
       if (!supplierId) {
         const { data: newSupplier, error: sErr } = await supabase
@@ -166,6 +170,9 @@ export default function ScanInvoice() {
             name: extracted.supplier_name,
             gst_number: extracted.supplier_gst || null,
             drug_license_number: extracted.supplier_dl_number || null,
+            address: extracted.supplier_address || null,
+            phone: extracted.supplier_phone || null,
+            email: extracted.supplier_email || null,
             company_id: companyId,
           })
           .select("id")
@@ -174,8 +181,8 @@ export default function ScanInvoice() {
         supplierId = newSupplier.id;
       }
 
+      // 2. Create Purchase Order
       const orderNumber = `PO-SCAN-${Date.now().toString(36).toUpperCase()}`;
-
       const { data: po, error: poErr } = await supabase
         .from("purchase_orders")
         .insert({
@@ -191,7 +198,7 @@ export default function ScanInvoice() {
           freight_charges: extracted.freight_charges || 0,
           handling_charges: extracted.handling_charges || 0,
           other_charges: extracted.other_charges || 0,
-          status: "delivered",
+          status: "pending",
           is_challan: false,
           created_by: user.id,
           notes: "Created via AI Invoice Scanner",
@@ -200,6 +207,8 @@ export default function ScanInvoice() {
         .single();
       if (poErr) throw poErr;
 
+      // 3. Process each line item — create products if needed, insert PO items, prepare batch data
+      const batchPayload: any[] = [];
       for (const item of extracted.line_items) {
         let productId = item.matched_product_id;
         if (!productId) {
@@ -220,10 +229,12 @@ export default function ScanInvoice() {
           productId = newProd.id;
         }
 
+        // Insert PO item with separate quantity and free_quantity
         await supabase.from("purchase_order_items").insert({
           purchase_order_id: po.id,
           product_id: productId,
-          quantity: item.quantity + (item.free_quantity || 0),
+          quantity: item.quantity,
+          free_quantity: item.free_quantity || 0,
           unit_price: item.purchase_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage || 0,
@@ -231,22 +242,46 @@ export default function ScanInvoice() {
           company_id: companyId,
         });
 
-        const batchNum = item.batch_number || `BATCH-SCAN-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-        await supabase.from("inventory_batches").insert({
+        // Prepare batch for RPC — includes batch_number and expiry
+        batchPayload.push({
           product_id: productId,
-          batch_number: batchNum,
+          batch_number: item.batch_number || null,
           quantity: item.quantity + (item.free_quantity || 0),
           purchase_price: item.purchase_price,
           mrp: item.mrp,
-          expiry_date: item.expiry_date || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          expiry_date: item.expiry_date || null,
           manufacturing_date: item.manufacturing_date || null,
           supplier_id: supplierId,
           company_id: companyId,
         });
       }
 
+      // 4. Use the proper RPC to receive inventory batches (handles merge/create logic)
+      const { error: rpcError } = await supabase.rpc("receive_purchase_batches", {
+        _batches: batchPayload,
+        _purchase_order_id: po.id,
+      });
+      if (rpcError) throw rpcError;
+
+      // 5. Create payment record so it appears in accounts
+      const supplierName = extracted.supplier_name;
+      await supabase.from("payments").insert({
+        payment_type: "debit",
+        reference_type: "purchase_order",
+        reference_id: po.id,
+        reference_number: orderNumber,
+        party_type: "supplier",
+        party_name: supplierName,
+        amount: extracted.total_amount,
+        payment_method: "credit",
+        payment_date: extracted.invoice_date,
+        company_id: companyId,
+        created_by: user.id,
+        notes: `AI Scanned Invoice: ${extracted.invoice_number}`,
+      });
+
       setSaved(true);
-      toast({ title: "Invoice Saved!", description: `PO ${orderNumber} created with ${extracted.line_items.length} items & inventory batches.` });
+      toast({ title: "Invoice Saved!", description: `PO ${orderNumber} created with ${extracted.line_items.length} items, inventory received & payment recorded.` });
     } catch (err: any) {
       console.error("Save error:", err);
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
@@ -354,7 +389,8 @@ export default function ScanInvoice() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Supplier Details */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Supplier</Label>
                   <div className="flex items-center gap-2">
@@ -365,6 +401,50 @@ export default function ScanInvoice() {
                     {extracted.matched_supplier_id && <Badge variant="secondary" className="text-xs whitespace-nowrap">Matched</Badge>}
                   </div>
                 </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Supplier GST</Label>
+                  <Input
+                    value={extracted.supplier_gst || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_gst: e.target.value })}
+                    placeholder="GST Number"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">DL Number</Label>
+                  <Input
+                    value={extracted.supplier_dl_number || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_dl_number: e.target.value })}
+                    placeholder="Drug License"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Phone</Label>
+                  <Input
+                    value={extracted.supplier_phone || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_phone: e.target.value })}
+                    placeholder="Phone"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Input
+                    value={extracted.supplier_email || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_email: e.target.value })}
+                    placeholder="Email"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Address</Label>
+                  <Input
+                    value={extracted.supplier_address || ""}
+                    onChange={(e) => setExtracted({ ...extracted, supplier_address: e.target.value })}
+                    placeholder="Address"
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Details */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Invoice #</Label>
                   <Input
@@ -378,6 +458,14 @@ export default function ScanInvoice() {
                     type="date"
                     value={extracted.invoice_date}
                     onChange={(e) => setExtracted({ ...extracted, invoice_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Challan #</Label>
+                  <Input
+                    value={extracted.challan_number || ""}
+                    onChange={(e) => setExtracted({ ...extracted, challan_number: e.target.value })}
+                    placeholder="Challan Number"
                   />
                 </div>
                 <div>

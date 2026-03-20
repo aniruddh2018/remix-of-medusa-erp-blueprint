@@ -457,6 +457,7 @@ export default function Sales() {
           delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
           total_amount: Number(order.total_amount), payment_method: order.payment_method || "cash",
           notes: order.notes || undefined,
+          gstInclusive,
         };
         if (action === "print") printConfigurableInvoice(tplData, settings);
         else if (action === "pdf") downloadConfigurableInvoicePDF(tplData, settings);

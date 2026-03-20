@@ -67,8 +67,8 @@ export function useFormConfig(module: ModuleKey) {
 
   return {
     fields: visibleFields,
-    allFields: sortedFields,
-    sections: sortedSections,
+    allFields: fields,
+    sections,
     uiOverrides,
     layout,
     isLoading,

@@ -215,11 +215,13 @@ export function generateConfigurableInvoice(
   <!-- Totals -->
   <div style="display:flex;justify-content:flex-end;">
     <table style="width:${isThermal ? '100%' : '300px'};">
-      <tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Subtotal:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.subtotal.toFixed(2)}</td></tr>
-      ${!isNoGst ? (gstSplit ? `
+      <tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">${isGstInclusive ? 'Net (GST Incl.):' : 'Subtotal:'}</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.subtotal.toFixed(2)}</td></tr>
+      ${!isNoGst ? (isGstInclusive ? `
+        <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">Incl. GST${gstSplit ? ' (CGST + SGST)' : ''}:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${data.gst_amount.toFixed(2)}</td></tr>
+      ` : (gstSplit ? `
         <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">CGST:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${cgst.toFixed(2)}</td></tr>
         <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">SGST:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${sgst.toFixed(2)}</td></tr>
-      ` : `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">GST:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.gst_amount.toFixed(2)}</td></tr>`) : ''}
+      ` : `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">GST:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.gst_amount.toFixed(2)}</td></tr>`)) : ''}
       ${data.discount_amount > 0 ? `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Discount:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">-₹${data.discount_amount.toFixed(2)}</td></tr>` : ''}
       ${totalCharges > 0 ? `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Other Charges:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${totalCharges.toFixed(2)}</td></tr>` : ''}
       ${settings.show_roundoff && Math.abs(roundOff) > 0.001 ? `<tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">Round Off:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">${roundOff >= 0 ? '+' : ''}₹${roundOff.toFixed(2)}</td></tr>` : ''}

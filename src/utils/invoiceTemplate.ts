@@ -187,7 +187,7 @@ export function generateConfigurableInvoice(
       ${settings.company_gstin ? `<div style="font-size:${font.small};color:#666;">GSTIN: ${settings.company_gstin}</div>` : ''}
     </div>
     <div style="text-align:right;">
-      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}</div>
+      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}${isGstInclusive ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
       <div style="font-size:${font.small};color:#888;margin-top:4px;">${data.invoice_number}</div>
       <div style="font-size:${font.small};color:#888;">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
       ${data.payment_method ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}

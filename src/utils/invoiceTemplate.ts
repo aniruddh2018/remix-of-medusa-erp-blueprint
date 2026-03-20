@@ -36,6 +36,7 @@ interface InvoiceTemplateData {
   payment_method?: string;
   notes?: string;
   salesperson?: string;
+  gstInclusive?: boolean;
 }
 
 function numberToWords(num: number): string {
@@ -67,6 +68,7 @@ export function generateConfigurableInvoice(
   settings: FullInvoiceSettings
 ): string {
   const isNoGst = data.items.every(i => i.gst_percentage === 0) && data.gst_amount === 0;
+  const isGstInclusive = data.gstInclusive && !isNoGst;
   const isThermal = settings.invoice_layout === "thermal";
   const font = getFontSize(settings.print_font_size);
   const align = settings.print_alignment || "left";
@@ -185,7 +187,7 @@ export function generateConfigurableInvoice(
       ${settings.company_gstin ? `<div style="font-size:${font.small};color:#666;">GSTIN: ${settings.company_gstin}</div>` : ''}
     </div>
     <div style="text-align:right;">
-      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}</div>
+      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}${isGstInclusive ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
       <div style="font-size:${font.small};color:#888;margin-top:4px;">${data.invoice_number}</div>
       <div style="font-size:${font.small};color:#888;">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
       ${data.payment_method ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}
@@ -213,11 +215,13 @@ export function generateConfigurableInvoice(
   <!-- Totals -->
   <div style="display:flex;justify-content:flex-end;">
     <table style="width:${isThermal ? '100%' : '300px'};">
-      <tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Subtotal:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.subtotal.toFixed(2)}</td></tr>
-      ${!isNoGst ? (gstSplit ? `
+      <tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">${isGstInclusive ? 'Net (GST Incl.):' : 'Subtotal:'}</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.subtotal.toFixed(2)}</td></tr>
+      ${!isNoGst ? (isGstInclusive ? `
+        <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">Incl. GST${gstSplit ? ' (CGST + SGST)' : ''}:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${data.gst_amount.toFixed(2)}</td></tr>
+      ` : (gstSplit ? `
         <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">CGST:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${cgst.toFixed(2)}</td></tr>
         <tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">SGST:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">₹${sgst.toFixed(2)}</td></tr>
-      ` : `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">GST:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.gst_amount.toFixed(2)}</td></tr>`) : ''}
+      ` : `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">GST:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${data.gst_amount.toFixed(2)}</td></tr>`)) : ''}
       ${data.discount_amount > 0 ? `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Discount:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">-₹${data.discount_amount.toFixed(2)}</td></tr>` : ''}
       ${totalCharges > 0 ? `<tr><td style="text-align:right;color:#666;padding:4px 6px;font-size:${font.body};">Other Charges:</td><td style="text-align:right;padding:4px 6px;font-size:${font.body};">₹${totalCharges.toFixed(2)}</td></tr>` : ''}
       ${settings.show_roundoff && Math.abs(roundOff) > 0.001 ? `<tr><td style="text-align:right;color:#666;padding:3px 6px;font-size:${font.small};">Round Off:</td><td style="text-align:right;padding:3px 6px;font-size:${font.small};">${roundOff >= 0 ? '+' : ''}₹${roundOff.toFixed(2)}</td></tr>` : ''}

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -36,31 +37,38 @@ export function useFormConfig(module: ModuleKey) {
     enabled: !!companyId,
   });
 
-  const fields: FormFieldConfig[] = savedConfig?.fields
-    ? (savedConfig.fields as unknown as FormFieldConfig[])
-    : DEFAULT_FIELDS[module] ?? [];
+  const fields: FormFieldConfig[] = useMemo(() => {
+    const raw = savedConfig?.fields
+      ? (savedConfig.fields as unknown as FormFieldConfig[])
+      : DEFAULT_FIELDS[module] ?? [];
+    return [...raw].sort((a, b) => a.order - b.order);
+  }, [savedConfig?.fields, module]);
 
-  const sections: FormSectionConfig[] = savedConfig?.sections
-    ? (savedConfig.sections as unknown as FormSectionConfig[])
-    : DEFAULT_SECTIONS[module] ?? [];
+  const visibleFields = useMemo(() => fields.filter((f) => f.visible), [fields]);
 
-  const uiOverrides: UIOverrides = savedConfig?.ui_overrides
-    ? (savedConfig.ui_overrides as unknown as UIOverrides)
-    : {};
+  const sections: FormSectionConfig[] = useMemo(() => {
+    const raw = savedConfig?.sections
+      ? (savedConfig.sections as unknown as FormSectionConfig[])
+      : DEFAULT_SECTIONS[module] ?? [];
+    return [...raw].sort((a, b) => a.order - b.order);
+  }, [savedConfig?.sections, module]);
 
-  const layout: LayoutConfig = savedConfig?.layout
-    ? (savedConfig.layout as unknown as LayoutConfig)
-    : { columns: 2 };
+  const uiOverrides: UIOverrides = useMemo(() =>
+    savedConfig?.ui_overrides
+      ? (savedConfig.ui_overrides as unknown as UIOverrides)
+      : {},
+    [savedConfig?.ui_overrides]);
 
-  // Sort fields by order
-  const sortedFields = [...fields].sort((a, b) => a.order - b.order);
-  const visibleFields = sortedFields.filter((f) => f.visible);
-  const sortedSections = [...sections].sort((a, b) => a.order - b.order);
+  const layout: LayoutConfig = useMemo(() =>
+    savedConfig?.layout
+      ? (savedConfig.layout as unknown as LayoutConfig)
+      : { columns: 2 },
+    [savedConfig?.layout]);
 
   return {
     fields: visibleFields,
-    allFields: sortedFields,
-    sections: sortedSections,
+    allFields: fields,
+    sections,
     uiOverrides,
     layout,
     isLoading,

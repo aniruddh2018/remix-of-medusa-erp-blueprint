@@ -68,7 +68,7 @@ export function generateConfigurableInvoice(
   settings: FullInvoiceSettings
 ): string {
   const isNoGst = data.items.every(i => i.gst_percentage === 0) && data.gst_amount === 0;
-  const isThermal = settings.invoice_layout === "thermal";
+  const isGstInclusive = data.gstInclusive && !isNoGst;
   const font = getFontSize(settings.print_font_size);
   const align = settings.print_alignment || "left";
   const totalCharges = data.freight_charges + data.handling_charges + (data.delivery_charges || 0) + data.other_charges;

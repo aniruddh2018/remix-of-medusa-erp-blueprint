@@ -36,6 +36,7 @@ interface InvoiceTemplateData {
   payment_method?: string;
   notes?: string;
   salesperson?: string;
+  gstInclusive?: boolean;
 }
 
 function numberToWords(num: number): string {

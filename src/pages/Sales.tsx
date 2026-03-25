@@ -455,6 +455,7 @@ export default function Sales() {
           type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
           customer_name: order.customer_name, customer_phone: order.customer_phone || undefined,
           customer_address: order.customer_address || undefined,
+          customer_gstin: order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined,
           items: billItems, subtotal,
           gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
           freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
@@ -642,6 +643,12 @@ export default function Sales() {
                       </PopoverContent>
                     </Popover>
                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsAddingNewCustomer(true)}><UserPlus className="h-3 w-3" /></Button>
+                   </div>
+                )}
+                {settings.show_customer_gstin && (
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Customer GSTIN</Label>
+                    <Input value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} className="h-8 text-sm" placeholder="e.g., 27AABCU9603R1ZM" />
                   </div>
                 )}
               </div>
@@ -655,6 +662,12 @@ export default function Sales() {
                   <Label className="text-[11px]">Phone</Label>
                   <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} className="h-8 text-sm" />
                 </div>
+                {settings.show_customer_gstin && (
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Customer GSTIN</Label>
+                    <Input value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} className="h-8 text-sm" placeholder="e.g., 27AABCU9603R1ZM" />
+                  </div>
+                )}
               </>
             )}
             {config.hasPrescription && (

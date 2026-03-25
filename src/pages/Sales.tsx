@@ -116,6 +116,7 @@ export default function Sales() {
       setCustomerName(data.name);
       setCustomerPhone(data.phone || "");
       setCustomerAddress(data.address || "");
+      setCustomerGstin(data.gst_number || "");
       setIsAddingNewCustomer(false);
       setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
     },
@@ -130,6 +131,7 @@ export default function Sales() {
       setCustomerName(draft.customerName || "");
       setCustomerPhone(draft.customerPhone || "");
       setCustomerAddress(draft.customerAddress || "");
+      setCustomerGstin(draft.customerGstin || "");
       setPrescriptionNumber(draft.prescriptionNumber || "");
       setPaymentMethod(draft.paymentMethod || "cash");
       setNotes(draft.notes || "");
@@ -386,6 +388,7 @@ export default function Sales() {
     setCustomerName(settings.default_customer_name || "");
     setCustomerPhone("");
     setCustomerAddress("");
+    setCustomerGstin("");
     setPrescriptionNumber("");
     setPaymentMethod(settings.default_payment_method || "cash");
     setNotes("");

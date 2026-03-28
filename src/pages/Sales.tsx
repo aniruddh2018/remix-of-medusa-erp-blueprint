@@ -322,7 +322,7 @@ export default function Sales() {
 
       const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
         invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
-        customer_address: customerAddress || null, customer_id: selectedCustomerId || null,
+        customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
         prescription_number: prescriptionNumber || null, payment_method: paymentMethod, notes: notes || null,
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
         freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
@@ -455,7 +455,7 @@ export default function Sales() {
           type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
           customer_name: order.customer_name, customer_phone: order.customer_phone || undefined,
           customer_address: order.customer_address || undefined,
-          customer_gstin: order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined,
+          customer_gstin: (order as any).customer_gstin || (order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined),
           items: billItems, subtotal,
           gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
           freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),

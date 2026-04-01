@@ -24,6 +24,8 @@ interface Customer {
   gst_number: string | null;
   total_purchases: number;
   created_at: string;
+  updated_at: string;
+  company_id: string | null;
 }
 
 export default function Customers() {

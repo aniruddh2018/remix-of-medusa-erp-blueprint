@@ -34,14 +34,6 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [outstandingCustomer, setOutstandingCustomer] = useState<Customer | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    notes: "",
-    gst_number: "",
-  });
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers", companyId],

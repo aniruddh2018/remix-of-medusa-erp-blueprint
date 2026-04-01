@@ -369,86 +369,17 @@ export default function Customers() {
       </div>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Company / Customer name"
-              />
-            </div>
-            {config.requiresCustomerGST && (
-              <div className="space-y-2">
-                <Label>GSTIN {config.requiresCustomerGST ? "*" : ""}</Label>
-                <Input
-                  value={formData.gst_number}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, gst_number: e.target.value.toUpperCase() }))}
-                  placeholder="e.g. 22AAAAA0000A1Z5"
-                  maxLength={15}
-                  className="font-mono"
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Phone number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="Email address"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Address</Label>
-              <Input
-                value={formData.address}
-                onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                placeholder="Full address"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Any additional notes..."
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending
-                ? "Saving..."
-                : editingCustomer
-                ? "Update"
-                : "Add Customer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CustomerFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseDialog();
+          else setDialogOpen(true);
+        }}
+        editingCustomer={editingCustomer}
+        onSuccess={() => {
+          handleCloseDialog();
+        }}
+      />
 
       <CustomerOutstandingDialog
         open={!!outstandingCustomer}

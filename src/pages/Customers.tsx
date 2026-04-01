@@ -90,60 +90,6 @@ export default function Customers() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      if (config.requiresCustomerGST && !data.gst_number.trim()) {
-        throw new Error("GSTIN is required for B2B customers");
-      }
-      const { error } = await supabase.from("customers").insert({
-        name: data.name,
-        phone: data.phone || null,
-        email: data.email || null,
-        address: data.address || null,
-        notes: data.notes || null,
-        gst_number: data.gst_number || null,
-        company_id: companyId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Customer added successfully" });
-      handleCloseDialog();
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      if (config.requiresCustomerGST && !data.gst_number.trim()) {
-        throw new Error("GSTIN is required for B2B customers");
-      }
-      const { error } = await supabase
-        .from("customers")
-        .update({
-          name: data.name,
-          phone: data.phone || null,
-          email: data.email || null,
-          address: data.address || null,
-          notes: data.notes || null,
-          gst_number: data.gst_number || null,
-        })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Customer updated successfully" });
-      handleCloseDialog();
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("customers").delete().eq("id", id);
@@ -161,37 +107,11 @@ export default function Customers() {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingCustomer(null);
-    setFormData({ name: "", phone: "", email: "", address: "", notes: "", gst_number: "" });
   };
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
-    setFormData({
-      name: customer.name,
-      phone: customer.phone || "",
-      email: customer.email || "",
-      address: customer.address || "",
-      notes: customer.notes || "",
-      gst_number: customer.gst_number || "",
-    });
     setDialogOpen(true);
-  };
-
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
-      toast({ title: "Name is required", variant: "destructive" });
-      return;
-    }
-    if (config.requiresCustomerGST && !formData.gst_number.trim()) {
-      toast({ title: "GSTIN is required for B2B customers", variant: "destructive" });
-      return;
-    }
-
-    if (editingCustomer) {
-      updateMutation.mutate({ id: editingCustomer.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
   };
 
   const filteredCustomers = customers?.filter(

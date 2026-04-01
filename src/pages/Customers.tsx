@@ -8,13 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee } from "lucide-react";
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
+import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 
 interface Customer {
   id: string;

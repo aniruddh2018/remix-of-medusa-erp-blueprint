@@ -8,13 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee } from "lucide-react";
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
+import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 
 interface Customer {
   id: string;
@@ -26,6 +24,8 @@ interface Customer {
   gst_number: string | null;
   total_purchases: number;
   created_at: string;
+  updated_at: string;
+  company_id: string | null;
 }
 
 export default function Customers() {
@@ -36,14 +36,6 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [outstandingCustomer, setOutstandingCustomer] = useState<Customer | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    notes: "",
-    gst_number: "",
-  });
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers", companyId],
@@ -100,60 +92,6 @@ export default function Customers() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      if (config.requiresCustomerGST && !data.gst_number.trim()) {
-        throw new Error("GSTIN is required for B2B customers");
-      }
-      const { error } = await supabase.from("customers").insert({
-        name: data.name,
-        phone: data.phone || null,
-        email: data.email || null,
-        address: data.address || null,
-        notes: data.notes || null,
-        gst_number: data.gst_number || null,
-        company_id: companyId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Customer added successfully" });
-      handleCloseDialog();
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      if (config.requiresCustomerGST && !data.gst_number.trim()) {
-        throw new Error("GSTIN is required for B2B customers");
-      }
-      const { error } = await supabase
-        .from("customers")
-        .update({
-          name: data.name,
-          phone: data.phone || null,
-          email: data.email || null,
-          address: data.address || null,
-          notes: data.notes || null,
-          gst_number: data.gst_number || null,
-        })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Customer updated successfully" });
-      handleCloseDialog();
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("customers").delete().eq("id", id);
@@ -171,37 +109,11 @@ export default function Customers() {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingCustomer(null);
-    setFormData({ name: "", phone: "", email: "", address: "", notes: "", gst_number: "" });
   };
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
-    setFormData({
-      name: customer.name,
-      phone: customer.phone || "",
-      email: customer.email || "",
-      address: customer.address || "",
-      notes: customer.notes || "",
-      gst_number: customer.gst_number || "",
-    });
     setDialogOpen(true);
-  };
-
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
-      toast({ title: "Name is required", variant: "destructive" });
-      return;
-    }
-    if (config.requiresCustomerGST && !formData.gst_number.trim()) {
-      toast({ title: "GSTIN is required for B2B customers", variant: "destructive" });
-      return;
-    }
-
-    if (editingCustomer) {
-      updateMutation.mutate({ id: editingCustomer.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
   };
 
   const filteredCustomers = customers?.filter(
@@ -459,86 +371,17 @@ export default function Customers() {
       </div>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Company / Customer name"
-              />
-            </div>
-            {config.requiresCustomerGST && (
-              <div className="space-y-2">
-                <Label>GSTIN {config.requiresCustomerGST ? "*" : ""}</Label>
-                <Input
-                  value={formData.gst_number}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, gst_number: e.target.value.toUpperCase() }))}
-                  placeholder="e.g. 22AAAAA0000A1Z5"
-                  maxLength={15}
-                  className="font-mono"
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Phone number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="Email address"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Address</Label>
-              <Input
-                value={formData.address}
-                onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                placeholder="Full address"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Any additional notes..."
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending
-                ? "Saving..."
-                : editingCustomer
-                ? "Update"
-                : "Add Customer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CustomerFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseDialog();
+          else setDialogOpen(true);
+        }}
+        editingCustomer={editingCustomer}
+        onSuccess={() => {
+          handleCloseDialog();
+        }}
+      />
 
       <CustomerOutstandingDialog
         open={!!outstandingCustomer}

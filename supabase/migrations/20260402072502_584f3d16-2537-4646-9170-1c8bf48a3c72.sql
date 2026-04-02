@@ -1,0 +1,13 @@
+
+CREATE OR REPLACE FUNCTION public.get_fy_name(_date DATE)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN EXTRACT(MONTH FROM _date) >= 4
+    THEN 'FY ' || EXTRACT(YEAR FROM _date)::TEXT || '-' || SUBSTRING(((EXTRACT(YEAR FROM _date) + 1)::TEXT) FROM 3)
+    ELSE 'FY ' || (EXTRACT(YEAR FROM _date) - 1)::TEXT || '-' || SUBSTRING((EXTRACT(YEAR FROM _date)::TEXT) FROM 3)
+  END
+$$;

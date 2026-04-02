@@ -59,7 +59,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
   pharmacy_b2b: {
     type: "pharmacy_b2b",
@@ -85,7 +85,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
   b2b_electronics: {
     type: "b2b_electronics",
@@ -111,7 +111,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "carton", label: "Carton" }, { value: "set", label: "Set" },
       { value: "pair", label: "Pair" }, { value: "meter", label: "Meter" }, { value: "kg", label: "Kilogram" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
   general_trading: {
     type: "general_trading",
@@ -137,7 +137,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "carton", label: "Carton" }, { value: "kg", label: "Kilogram" },
       { value: "liter", label: "Liter" }, { value: "meter", label: "Meter" }, { value: "dozen", label: "Dozen" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
   },
 };
 

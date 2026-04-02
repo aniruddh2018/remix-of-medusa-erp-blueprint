@@ -111,7 +111,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "carton", label: "Carton" }, { value: "set", label: "Set" },
       { value: "pair", label: "Pair" }, { value: "meter", label: "Meter" }, { value: "kg", label: "Kilogram" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
   },
   general_trading: {
     type: "general_trading",

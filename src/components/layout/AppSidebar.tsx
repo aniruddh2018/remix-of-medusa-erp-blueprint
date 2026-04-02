@@ -33,6 +33,7 @@ import {
   Wallet,
   Upload,
   ScanLine,
+  CalendarRange,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 

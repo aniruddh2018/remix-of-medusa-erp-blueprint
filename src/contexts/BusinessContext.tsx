@@ -59,7 +59,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings"],
+    visiblePages: ["/dashboard", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/admin", "/notes", "/accounts", "/settings", "/financial-year"],
   },
   pharmacy_b2b: {
     type: "pharmacy_b2b",

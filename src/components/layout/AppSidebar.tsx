@@ -70,6 +70,7 @@ const allManagementMenuItems: MenuItem[] = [
 
 const allAdminMenuItems: MenuItem[] = [
   { title: "Reports", icon: BarChart3, path: "/reports" },
+  { title: "Financial Year", icon: CalendarRange, path: "/financial-year" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Settings", icon: Settings, path: "/settings" },
 ];

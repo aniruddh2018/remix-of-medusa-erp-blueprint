@@ -95,7 +95,10 @@ export function generateConfigurableInvoice(
   const headerRow = cols.map(c => `<th style="text-align:${c.align};padding:${isThermal ? '4px 2px' : '8px 6px'};font-size:${font.small};text-transform:uppercase;color:#555;border-bottom:2px solid #ddd;">${c.label}</th>`).join("");
 
   const itemRows = data.items.map((item, i) => {
-    const taxAmt = item.unit_price * item.quantity * (item.gst_percentage / 100) * (1 - item.discount_percentage / 100);
+    const afterDiscount = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    const taxAmt = isGstInclusive
+      ? afterDiscount - afterDiscount / (1 + item.gst_percentage / 100)
+      : afterDiscount * (item.gst_percentage / 100);
     const cells: string[] = [];
     for (const col of cols) {
       let val = "";

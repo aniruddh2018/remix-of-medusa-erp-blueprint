@@ -132,8 +132,9 @@ export function generateConfigurableInvoice(
     const hsnMap = new Map<string, { taxableValue: number; gstRate: number; cgst: number; sgst: number; total: number }>();
     data.items.forEach(item => {
       const hsn = item.hsn_code || "N/A";
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      const tax = base * item.gst_percentage / 100;
+      const afterDiscount = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      const base = isGstInclusive ? afterDiscount / (1 + item.gst_percentage / 100) : afterDiscount;
+      const tax = isGstInclusive ? afterDiscount - base : base * item.gst_percentage / 100;
       const existing = hsnMap.get(hsn);
       if (existing) {
         existing.taxableValue += base;

@@ -50,7 +50,7 @@ interface EditSaleDialogProps {
 export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogProps) {
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
 
   const [customerName, setCustomerName] = useState("");

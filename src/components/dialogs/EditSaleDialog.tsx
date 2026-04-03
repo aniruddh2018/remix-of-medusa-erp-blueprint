@@ -176,6 +176,10 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const recalcItem = (item: EditableItem): EditableItem => {
     const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    if (gstInclusive) {
+      // Price already includes GST, total_price = base (inclusive)
+      return { ...item, total_price: base };
+    }
     const gst = base * item.gst_percentage / 100;
     return { ...item, total_price: base + gst };
   };

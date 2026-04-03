@@ -17,7 +17,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Trash2, AlertTriangle, Receipt, Plus, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
-import { useBusiness } from "@/contexts/BusinessContext";
 import type { Tables } from "@/integrations/supabase/types";
 
 type SalesOrder = Tables<"sales_orders">;

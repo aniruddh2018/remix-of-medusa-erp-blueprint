@@ -505,6 +505,45 @@ export type Database = {
           },
         ]
       }
+      financial_years: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          company_id: string
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          status: Database["public"]["Enums"]["fy_status"]
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          status?: Database["public"]["Enums"]["fy_status"]
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["fy_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       form_configs: {
         Row: {
           company_id: string
@@ -554,6 +593,44 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fy_audit_logs: {
+        Row: {
+          action: string
+          company_id: string
+          created_at: string
+          details: Json
+          financial_year_id: string | null
+          id: string
+          performed_by: string
+        }
+        Insert: {
+          action: string
+          company_id: string
+          created_at?: string
+          details?: Json
+          financial_year_id?: string | null
+          id?: string
+          performed_by: string
+        }
+        Update: {
+          action?: string
+          company_id?: string
+          created_at?: string
+          details?: Json
+          financial_year_id?: string | null
+          id?: string
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fy_audit_logs_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -794,6 +871,59 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opening_balances: {
+        Row: {
+          balance_type: string
+          company_id: string
+          created_at: string
+          credit_amount: number
+          debit_amount: number
+          financial_year_id: string
+          id: string
+          notes: string | null
+          quantity: number | null
+          reference_id: string
+          reference_name: string
+          updated_at: string
+        }
+        Insert: {
+          balance_type: string
+          company_id: string
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          financial_year_id: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          reference_id: string
+          reference_name: string
+          updated_at?: string
+        }
+        Update: {
+          balance_type?: string
+          company_id?: string
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          financial_year_id?: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          reference_id?: string
+          reference_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opening_balances_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -1538,6 +1668,11 @@ export type Database = {
         Returns: number
       }
       deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
+      get_current_financial_year: {
+        Args: { _company_id: string }
+        Returns: string
+      }
+      get_fy_name: { Args: { _date: string }; Returns: string }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1561,6 +1696,7 @@ export type Database = {
         | "schedule_h1"
         | "schedule_x"
         | "narcotic"
+      fy_status: "active" | "closed" | "archived"
       order_status:
         | "pending"
         | "confirmed"
@@ -1702,6 +1838,7 @@ export const Constants = {
         "schedule_x",
         "narcotic",
       ],
+      fy_status: ["active", "closed", "archived"],
       order_status: [
         "pending",
         "confirmed",

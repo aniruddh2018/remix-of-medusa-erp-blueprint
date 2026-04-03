@@ -659,8 +659,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Subtotal:</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>GST:</span><span>₹{gstAmount.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>{gstInclusive ? "Net (GST Incl.):" : "Subtotal:"}</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-muted-foreground text-xs"><span>{gstInclusive ? "Incl. GST:" : "GST:"}</span><span>₹{gstAmount.toFixed(2)}</span></div>
                   {totalCharges > 0 && <div className="flex justify-between"><span>Charges:</span><span>₹{totalCharges.toFixed(2)}</span></div>}
                   {discountAmount > 0 && <div className="flex justify-between text-primary"><span>Discount:</span><span>-₹{discountAmount.toFixed(2)}</span></div>}
                   <Separator />

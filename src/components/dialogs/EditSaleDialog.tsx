@@ -229,20 +229,25 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const itemsSubtotal = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      return sum + base;
+      return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
     }, 0);
   }, [editableItems]);
 
   const gstAmount = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      return sum + (base * item.gst_percentage / 100);
+      const afterDiscount = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      if (gstInclusive) {
+        // Back-calculate GST from inclusive price
+        return sum + (afterDiscount - afterDiscount / (1 + item.gst_percentage / 100));
+      }
+      return sum + (afterDiscount * item.gst_percentage / 100);
     }, 0);
-  }, [editableItems]);
+  }, [editableItems, gstInclusive]);
 
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-  const grandTotal = itemsSubtotal + gstAmount + totalCharges - discountAmount;
+  const grandTotal = gstInclusive
+    ? itemsSubtotal + totalCharges - discountAmount
+    : itemsSubtotal + gstAmount + totalCharges - discountAmount;
 
   const updateSaleMutation = useMutation({
     mutationFn: async () => {

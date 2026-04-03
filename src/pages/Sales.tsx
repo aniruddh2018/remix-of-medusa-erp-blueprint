@@ -440,11 +440,20 @@ export default function Sales() {
 
       const subtotal = billItems.reduce((s, i) => s + i.unit_price * i.quantity * (1 - i.discount_percentage / 100), 0);
 
+      // Recalculate GST from items (fixes old bills with wrong GST)
+      const recalcGst = billItems.reduce((s, i) => {
+        const afterDiscount = i.unit_price * i.quantity * (1 - i.discount_percentage / 100);
+        if (gstInclusive) {
+          return s + (afterDiscount - afterDiscount / (1 + i.gst_percentage / 100));
+        }
+        return s + (afterDiscount * i.gst_percentage / 100);
+      }, 0);
+
       if (action === "csv") {
         const billData: BillData = {
           type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
           customer_name: order.customer_name, items: billItems, subtotal,
-          gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
+          gst_amount: recalcGst, discount_amount: Number(order.discount_amount),
           freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
           delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
           total_amount: Number(order.total_amount),
@@ -457,7 +466,7 @@ export default function Sales() {
           customer_address: order.customer_address || undefined,
           customer_gstin: (order as any).customer_gstin || (order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined),
           items: billItems, subtotal,
-          gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
+          gst_amount: recalcGst, discount_amount: Number(order.discount_amount),
           freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
           delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
           total_amount: Number(order.total_amount), payment_method: order.payment_method || "cash",

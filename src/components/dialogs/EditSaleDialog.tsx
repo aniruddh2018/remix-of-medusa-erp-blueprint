@@ -50,7 +50,7 @@ interface EditSaleDialogProps {
 export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogProps) {
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, gstInclusive } = useBusiness();
   const queryClient = useQueryClient();
 
   const [customerName, setCustomerName] = useState("");
@@ -176,6 +176,10 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const recalcItem = (item: EditableItem): EditableItem => {
     const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+    if (gstInclusive) {
+      // Price already includes GST, total_price = base (inclusive)
+      return { ...item, total_price: base };
+    }
     const gst = base * item.gst_percentage / 100;
     return { ...item, total_price: base + gst };
   };
@@ -225,20 +229,25 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const itemsSubtotal = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      return sum + base;
+      return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
     }, 0);
   }, [editableItems]);
 
   const gstAmount = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      return sum + (base * item.gst_percentage / 100);
+      const afterDiscount = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      if (gstInclusive) {
+        // Back-calculate GST from inclusive price
+        return sum + (afterDiscount - afterDiscount / (1 + item.gst_percentage / 100));
+      }
+      return sum + (afterDiscount * item.gst_percentage / 100);
     }, 0);
-  }, [editableItems]);
+  }, [editableItems, gstInclusive]);
 
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
-  const grandTotal = itemsSubtotal + gstAmount + totalCharges - discountAmount;
+  const grandTotal = gstInclusive
+    ? itemsSubtotal + totalCharges - discountAmount
+    : itemsSubtotal + gstAmount + totalCharges - discountAmount;
 
   const updateSaleMutation = useMutation({
     mutationFn: async () => {
@@ -650,8 +659,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Subtotal:</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>GST:</span><span>₹{gstAmount.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>{gstInclusive ? "Net (GST Incl.):" : "Subtotal:"}</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-muted-foreground text-xs"><span>{gstInclusive ? "Incl. GST:" : "GST:"}</span><span>₹{gstAmount.toFixed(2)}</span></div>
                   {totalCharges > 0 && <div className="flex justify-between"><span>Charges:</span><span>₹{totalCharges.toFixed(2)}</span></div>}
                   {discountAmount > 0 && <div className="flex justify-between text-primary"><span>Discount:</span><span>-₹{discountAmount.toFixed(2)}</span></div>}
                   <Separator />

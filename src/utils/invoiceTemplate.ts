@@ -99,6 +99,8 @@ export function generateConfigurableInvoice(
     const taxAmt = isGstInclusive
       ? afterDiscount - afterDiscount / (1 + item.gst_percentage / 100)
       : afterDiscount * (item.gst_percentage / 100);
+    // Recalculate item total from scratch to fix old GST mismatch
+    const recalcTotal = isGstInclusive ? afterDiscount : afterDiscount + taxAmt;
     const cells: string[] = [];
     for (const col of cols) {
       let val = "";
@@ -114,7 +116,7 @@ export function generateConfigurableInvoice(
         case "disc": val = `${item.discount_percentage}%`; break;
         case "gst": val = `${item.gst_percentage}%`; break;
         case "taxamt": val = `₹${taxAmt.toFixed(2)}`; break;
-        case "total": val = `₹${item.total_price.toFixed(2)}`; break;
+        case "total": val = `₹${recalcTotal.toFixed(2)}`; break;
       }
       cells.push(`<td style="text-align:${col.align};padding:${isThermal ? '3px 2px' : '6px'};font-size:${font.body};border-bottom:1px solid #eee;">${val}</td>`);
     }

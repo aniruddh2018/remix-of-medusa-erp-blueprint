@@ -187,8 +187,8 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         .select("*")
         .eq("product_id", selectedProduct)
         .gt("quantity", 0)
-        .gt("expiry_date", new Date().toISOString().split("T")[0])
-        .order("expiry_date", { ascending: true });
+        .or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`)
+        .order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as InventoryBatch[];
     },
@@ -230,7 +230,9 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
   const createCounterSaleMutation = useMutation({
     mutationFn: async () => {
-      const invoiceNumber = `CS-${Date.now()}`;
+      const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "CS" });
+      if (seqErr) throw seqErr;
+      const invoiceNumber = seqNum as string;
       
       // Calculate totals
       const itemsSubtotal = cart.reduce((sum, item) => {

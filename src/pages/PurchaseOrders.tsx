@@ -224,7 +224,7 @@ export default function PurchaseOrders() {
         .eq("product_id", selectedProduct!)
         .eq("company_id", companyId!)
         .gt("quantity", 0)
-        .order("expiry_date", { ascending: true });
+        .order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data;
     },
@@ -265,9 +265,6 @@ export default function PurchaseOrders() {
     const gstPercentage = Number(product.gst_percentage);
     const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
 
-    const defaultExpiry = new Date();
-    defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
-
     setOrderItems(prev => [...prev, {
       product_id: product.id,
       product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
@@ -281,7 +278,7 @@ export default function PurchaseOrders() {
       discount_percentage: itemDiscount,
       discount_flat: itemDiscountFlat,
       total_price: totalPrice,
-      expiry_date: itemExpiryDate || defaultExpiry.toISOString().split("T")[0],
+      expiry_date: itemExpiryDate || "",
       fromChallan: false,
     }]);
 
@@ -404,7 +401,7 @@ export default function PurchaseOrders() {
           status: "pending",
           challan_number: isChallan ? (challanNumber || null) : null,
           is_challan: isChallan,
-          invoice_number: !isChallan ? (challanNumber || `INV-${Date.now()}`) : null,
+          invoice_number: !isChallan ? (challanNumber || null) : null,
           company_id: companyId,
         })
         .select()
@@ -434,25 +431,25 @@ export default function PurchaseOrders() {
         if (itemsError) throw itemsError;
       }
 
-      // Auto-receive: create inventory batches
+      // Auto-receive via RPC (smart batch merge/create, MRP fallback)
       const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
       if (allItemsToReceive.length > 0) {
-        const today = new Date().toISOString().split("T")[0];
-        const batches = allItemsToReceive.map((item) => ({
+        const batchPayload = allItemsToReceive.map((item) => ({
           product_id: item.product_id,
-          batch_number: item.batch_number || `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          batch_number: item.batch_number || "",
           quantity: item.quantity + (item.free_quantity || 0),
           purchase_price: item.unit_price,
           mrp: item.mrp || item.unit_price * 1.2,
-          expiry_date: item.expiry_date,
+          expiry_date: item.expiry_date || null,
           manufacturing_date: null,
-          received_date: today,
           supplier_id: selectedSupplier || null,
           company_id: companyId,
         }));
-        const { error: batchError } = await supabase.from("inventory_batches").insert(batches);
+        const { error: batchError } = await supabase.rpc("receive_purchase_batches", {
+          _batches: batchPayload,
+          _purchase_order_id: order.id,
+        });
         if (batchError) throw batchError;
-        await supabase.from("purchase_orders").update({ status: "delivered" }).eq("id", order.id);
       }
 
       return order;

@@ -640,7 +640,7 @@ export type Database = {
           batch_number: string
           company_id: string | null
           created_at: string
-          expiry_date: string
+          expiry_date: string | null
           id: string
           manufacturing_date: string | null
           mrp: number
@@ -655,7 +655,7 @@ export type Database = {
           batch_number: string
           company_id?: string | null
           created_at?: string
-          expiry_date: string
+          expiry_date?: string | null
           id?: string
           manufacturing_date?: string | null
           mrp: number
@@ -670,7 +670,7 @@ export type Database = {
           batch_number?: string
           company_id?: string | null
           created_at?: string
-          expiry_date?: string
+          expiry_date?: string | null
           id?: string
           manufacturing_date?: string | null
           mrp?: number
@@ -701,6 +701,44 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_sequences: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          last_number: number
+          prefix: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          last_number?: number
+          prefix?: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_number?: number
+          prefix?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1673,6 +1711,10 @@ export type Database = {
         Returns: string
       }
       get_fy_name: { Args: { _date: string }; Returns: string }
+      get_next_invoice_number: {
+        Args: { _company_id: string; _prefix?: string }
+        Returns: string
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

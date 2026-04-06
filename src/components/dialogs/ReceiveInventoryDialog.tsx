@@ -80,18 +80,14 @@ export function ReceiveInventoryDialog({
       const items = (data || []) as unknown as OrderItem[];
       setOrderItems(items);
 
-      // Initialize batch details with defaults
-      const defaultExpiry = new Date();
-      defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
-      const today = new Date().toISOString().split("T")[0];
-
+      // Initialize batch details - NO default expiry, NO auto batch numbers
       const initialBatches: BatchDetail[] = items.map((item) => ({
         product_id: item.product_id,
         product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
         quantity: item.quantity,
-        batch_number: "", // Empty = let system decide (merge or create)
-        expiry_date: defaultExpiry.toISOString().split("T")[0],
-        manufacturing_date: today,
+        batch_number: "",
+        expiry_date: "",
+        manufacturing_date: "",
         purchase_price: Number(item.unit_price),
         mrp: Number(item.products.mrp) || Number(item.unit_price) * 1.2,
       }));
@@ -122,10 +118,10 @@ export function ReceiveInventoryDialog({
         quantity: batch.quantity,
         purchase_price: batch.purchase_price,
         mrp: batch.mrp,
-        expiry_date: batch.expiry_date,
+        expiry_date: batch.expiry_date || null,
         manufacturing_date: batch.manufacturing_date || null,
         supplier_id: supplierId,
-        company_id: null, // Will be set by RLS context
+        company_id: null,
       }));
 
       // Fetch company_id from the order
@@ -285,7 +281,7 @@ export function ReceiveInventoryDialog({
             </Card>
 
             <p className="text-sm text-muted-foreground">
-              * Leave batch number empty to auto-merge into existing batches with same MRP. Provide a batch number to create/update a specific batch.
+              * Leave batch number empty to use MRP as batch identifier (no expiry assigned). Provide batch number + expiry for explicit batch tracking.
             </p>
           </div>
         )}

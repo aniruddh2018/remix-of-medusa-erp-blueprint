@@ -183,7 +183,7 @@ export default function Sales() {
   const { data: allBatches } = useQuery({
     queryKey: ["all-batches-for-sale", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).gt("expiry_date", new Date().toISOString().split("T")[0]).order("expiry_date", { ascending: true });
+      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`).order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as InventoryBatch[];
     },
@@ -310,7 +310,12 @@ export default function Sales() {
   // ── Save mutation ──
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      let finalInvoiceNumber = invoiceNumber.trim();
+      if (!finalInvoiceNumber) {
+        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "INV" });
+        if (seqErr) throw seqErr;
+        finalInvoiceNumber = seqNum as string;
+      }
       const invalidItems = cart.filter(i => !i.batch_id);
       if (invalidItems.length > 0) throw new Error(`${invalidItems.length} item(s) have no batch assigned.`);
 

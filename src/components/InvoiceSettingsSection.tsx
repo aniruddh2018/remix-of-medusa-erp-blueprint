@@ -49,6 +49,15 @@ export function InvoiceSettingsSection() {
     max_discount_pharmacist: 50,
     max_discount_staff: 15,
     discount_before_tax: true,
+    show_batch_column: true,
+    show_expiry_column: true,
+    show_free_qty_column: true,
+    show_hsn_column: true,
+    show_tax_amount_column: false,
+    show_rate_column: true,
+    show_roundoff: true,
+    show_gst_split: true,
+    show_salesperson: false,
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -97,6 +106,15 @@ export function InvoiceSettingsSection() {
         max_discount_pharmacist: Number(s.max_discount_pharmacist) || 50,
         max_discount_staff: Number(s.max_discount_staff) || 15,
         discount_before_tax: s.discount_before_tax ?? true,
+        show_batch_column: s.show_batch_column ?? true,
+        show_expiry_column: s.show_expiry_column ?? true,
+        show_free_qty_column: s.show_free_qty_column ?? true,
+        show_hsn_column: s.show_hsn_column ?? true,
+        show_tax_amount_column: s.show_tax_amount_column ?? false,
+        show_rate_column: s.show_rate_column ?? true,
+        show_roundoff: s.show_roundoff ?? true,
+        show_gst_split: s.show_gst_split ?? true,
+        show_salesperson: s.show_salesperson ?? false,
       });
     }
   }, [settings]);
@@ -189,6 +207,15 @@ export function InvoiceSettingsSection() {
                   { key: "show_tax_summary" as const, label: "Show HSN-wise Tax Summary (CGST/SGST)" },
                   { key: "show_amount_in_words" as const, label: "Show Amount in Words" },
                   { key: "show_customer_gstin" as const, label: "Show Customer GST Number" },
+                  { key: "show_batch_column" as const, label: "Show Batch Column on Invoice" },
+                  { key: "show_expiry_column" as const, label: "Show Expiry Column on Invoice" },
+                  { key: "show_free_qty_column" as const, label: "Show Free Qty Column" },
+                  { key: "show_hsn_column" as const, label: "Show HSN Column" },
+                  { key: "show_tax_amount_column" as const, label: "Show Tax Amount Column" },
+                  { key: "show_rate_column" as const, label: "Show Rate Column" },
+                  { key: "show_roundoff" as const, label: "Show Round Off" },
+                  { key: "show_gst_split" as const, label: "Show CGST/SGST Split" },
+                  { key: "show_salesperson" as const, label: "Show Salesperson" },
                 ].map(toggle => (
                   <div key={toggle.key} className="flex items-center justify-between">
                     <Label className="cursor-pointer">{toggle.label}</Label>

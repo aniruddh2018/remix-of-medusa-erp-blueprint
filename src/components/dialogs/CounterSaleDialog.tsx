@@ -187,8 +187,8 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
         .select("*")
         .eq("product_id", selectedProduct)
         .gt("quantity", 0)
-        .gt("expiry_date", new Date().toISOString().split("T")[0])
-        .order("expiry_date", { ascending: true });
+        .or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`)
+        .order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as InventoryBatch[];
     },

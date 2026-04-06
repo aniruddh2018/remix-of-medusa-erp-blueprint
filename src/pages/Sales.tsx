@@ -183,7 +183,7 @@ export default function Sales() {
   const { data: allBatches } = useQuery({
     queryKey: ["all-batches-for-sale", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).gt("expiry_date", new Date().toISOString().split("T")[0]).order("expiry_date", { ascending: true });
+      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`).order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as InventoryBatch[];
     },

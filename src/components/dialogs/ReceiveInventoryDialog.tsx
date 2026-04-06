@@ -80,18 +80,14 @@ export function ReceiveInventoryDialog({
       const items = (data || []) as unknown as OrderItem[];
       setOrderItems(items);
 
-      // Initialize batch details with defaults
-      const defaultExpiry = new Date();
-      defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
-      const today = new Date().toISOString().split("T")[0];
-
+      // Initialize batch details - NO default expiry, NO auto batch numbers
       const initialBatches: BatchDetail[] = items.map((item) => ({
         product_id: item.product_id,
         product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
         quantity: item.quantity,
-        batch_number: "", // Empty = let system decide (merge or create)
-        expiry_date: defaultExpiry.toISOString().split("T")[0],
-        manufacturing_date: today,
+        batch_number: "",
+        expiry_date: "",
+        manufacturing_date: "",
         purchase_price: Number(item.unit_price),
         mrp: Number(item.products.mrp) || Number(item.unit_price) * 1.2,
       }));

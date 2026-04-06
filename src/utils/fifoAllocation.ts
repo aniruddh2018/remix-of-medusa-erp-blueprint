@@ -44,15 +44,18 @@ export function allocateBatchesFIFO(
     };
   }
 
-  // Sort batches by expiry date (nearest first) - FIFO
-  const sortedBatches = [...batches].sort((a, b) => 
-    new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime()
-  );
+  // Sort batches: expiry batches first (FIFO by nearest expiry), then MRP-only batches (null expiry last)
+  const sortedBatches = [...batches].sort((a, b) => {
+    if (!a.expiry_date && !b.expiry_date) return 0;
+    if (!a.expiry_date) return 1; // null expiry goes last
+    if (!b.expiry_date) return -1;
+    return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+  });
 
-  // Filter out expired batches and batches with no stock
+  // Filter out expired batches (keep null expiry) and batches with no stock
   const today = new Date().toISOString().split('T')[0];
   const validBatches = sortedBatches.filter(batch => 
-    batch.expiry_date > today && batch.quantity > 0
+    (batch.expiry_date === null || batch.expiry_date > today) && batch.quantity > 0
   );
 
   // Calculate total available stock (minus what's already in cart)
@@ -116,7 +119,7 @@ export function getTotalAvailableStock(
   const today = new Date().toISOString().split('T')[0];
   
   return batches
-    .filter(batch => batch.expiry_date > today && batch.quantity > 0)
+    .filter(batch => (batch.expiry_date === null || batch.expiry_date > today) && batch.quantity > 0)
     .reduce((sum, batch) => {
       const cartQty = existingCartQuantities.get(batch.id) || 0;
       return sum + Math.max(0, batch.quantity - cartQty);

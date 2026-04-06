@@ -224,7 +224,7 @@ export default function PurchaseOrders() {
         .eq("product_id", selectedProduct!)
         .eq("company_id", companyId!)
         .gt("quantity", 0)
-        .order("expiry_date", { ascending: true });
+        .order("expiry_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data;
     },

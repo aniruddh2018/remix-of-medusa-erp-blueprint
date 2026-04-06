@@ -118,10 +118,10 @@ export function ReceiveInventoryDialog({
         quantity: batch.quantity,
         purchase_price: batch.purchase_price,
         mrp: batch.mrp,
-        expiry_date: batch.expiry_date,
+        expiry_date: batch.expiry_date || null,
         manufacturing_date: batch.manufacturing_date || null,
         supplier_id: supplierId,
-        company_id: null, // Will be set by RLS context
+        company_id: null,
       }));
 
       // Fetch company_id from the order

@@ -310,7 +310,12 @@ export default function Sales() {
   // ── Save mutation ──
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      const finalInvoiceNumber = invoiceNumber.trim() || `INV-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      let finalInvoiceNumber = invoiceNumber.trim();
+      if (!finalInvoiceNumber) {
+        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "INV" });
+        if (seqErr) throw seqErr;
+        finalInvoiceNumber = seqNum as string;
+      }
       const invalidItems = cart.filter(i => !i.batch_id);
       if (invalidItems.length > 0) throw new Error(`${invalidItems.length} item(s) have no batch assigned.`);
 

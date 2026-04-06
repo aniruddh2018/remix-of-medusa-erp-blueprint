@@ -401,7 +401,7 @@ export default function PurchaseOrders() {
           status: "pending",
           challan_number: isChallan ? (challanNumber || null) : null,
           is_challan: isChallan,
-          invoice_number: !isChallan ? (challanNumber || `INV-${Date.now()}`) : null,
+          invoice_number: !isChallan ? (challanNumber || null) : null,
           company_id: companyId,
         })
         .select()

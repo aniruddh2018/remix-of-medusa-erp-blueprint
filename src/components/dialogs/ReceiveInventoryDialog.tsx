@@ -281,7 +281,7 @@ export function ReceiveInventoryDialog({
             </Card>
 
             <p className="text-sm text-muted-foreground">
-              * Leave batch number empty to auto-merge into existing batches with same MRP. Provide a batch number to create/update a specific batch.
+              * Leave batch number empty to use MRP as batch identifier (no expiry assigned). Provide batch number + expiry for explicit batch tracking.
             </p>
           </div>
         )}

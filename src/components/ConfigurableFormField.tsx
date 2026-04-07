@@ -147,6 +147,7 @@ export function ConfigurableFormField({
             disabled={disabled}
             min={field.min}
             max={field.max}
+            onKeyDown={handleEnterKey}
           />
           {helpEl}
           {errorEl}
@@ -163,6 +164,7 @@ export function ConfigurableFormField({
             value={value ?? ""}
             onChange={(e) => onChange(field.key, e.target.value)}
             disabled={disabled}
+            onKeyDown={handleEnterKey}
           />
           {helpEl}
           {errorEl}
@@ -181,6 +183,7 @@ export function ConfigurableFormField({
             placeholder={field.placeholder}
             disabled={disabled}
             pattern={field.pattern}
+            onKeyDown={handleEnterKey}
           />
           {helpEl}
           {errorEl}

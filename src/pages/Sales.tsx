@@ -54,6 +54,8 @@ export default function Sales() {
     setTimeout(() => productSearchRef.current?.focus(), 30);
   }, []);
 
+  const saleEnterNav = useEnterNavigation(handleAddToCart);
+
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
   const [editSaleId, setEditSaleId] = useState<string | null>(null);

@@ -32,6 +32,22 @@ export function ConfigurableFormField({
 }: ConfigurableFormFieldProps) {
   const isRequired = overrideRequired ?? field.required;
 
+  const handleEnterKey = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const form = (e.currentTarget as HTMLElement).closest("form");
+    if (!form) return;
+    const focusable = Array.from(
+      form.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([disabled])'
+      )
+    ).filter(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+    const idx = focusable.indexOf(e.currentTarget as HTMLElement);
+    if (idx >= 0 && idx < focusable.length - 1) {
+      e.preventDefault();
+      focusable[idx + 1].focus();
+    }
+  }, []);
+
   const labelEl = (
     <Label htmlFor={field.key} className={error ? "text-destructive" : ""}>
       {field.label}

@@ -28,6 +28,7 @@ import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -725,7 +726,7 @@ export default function Sales() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
               <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2" data-enter-nav>
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch
@@ -746,7 +747,7 @@ export default function Sales() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" id="sale-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
+                  onKeyDown={saleEnterNav}
                   className="h-9" placeholder="1"
                 />
               </div>
@@ -755,7 +756,7 @@ export default function Sales() {
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                   <Input type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
+                    onKeyDown={saleEnterNav}
                     className="h-9" placeholder="0"
                   />
                 </div>
@@ -764,7 +765,7 @@ export default function Sales() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
                 <Input type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
+                  onKeyDown={saleEnterNav}
                   className="h-9" placeholder="0.00"
                 />
               </div>
@@ -773,7 +774,7 @@ export default function Sales() {
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Disc%</Label>
                   <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddToCart(); } }}
+                    onKeyDown={saleEnterNav}
                     className="h-9" placeholder="0"
                   />
                 </div>

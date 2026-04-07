@@ -55,8 +55,6 @@ export default function Sales() {
   }, []);
 
 
-  const saleEnterNav = useEnterNavigation(handleAddToCart);
-
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
   const [editSaleId, setEditSaleId] = useState<string | null>(null);

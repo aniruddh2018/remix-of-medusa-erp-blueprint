@@ -791,7 +791,7 @@ export default function PurchaseOrders() {
                       </SelectContent>
                     </Select>
                     {existingBatchId === "new" && (
-                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={enterToAdd}
+                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={poEnterNav}
                         className="h-9 w-28 text-xs" placeholder="Batch #" />
                     )}
                   </div>
@@ -799,31 +799,31 @@ export default function PurchaseOrders() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Expiry</Label>
-                <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={enterToAdd}
+                <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={poEnterNav}
                   className="h-9 text-xs" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">MRP ₹</Label>
                 <Input type="number" min={0} step={0.01} value={itemMrp || ""} onChange={e => setItemMrp(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
                 <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
                   onChange={e => setItemPrice(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="1" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="1" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                 <Input type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0" />
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>

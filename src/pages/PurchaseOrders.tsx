@@ -26,6 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
@@ -661,9 +662,9 @@ export default function PurchaseOrders() {
     }
   };
 
-  const enterToAdd = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && selectedProduct && itemPrice > 0) { e.preventDefault(); handleAddItem(); }
-  };
+  const poEnterNav = useEnterNavigation(() => {
+    if (selectedProduct && itemPrice > 0) handleAddItem();
+  });
 
   return (
     <div className="space-y-4 animate-fade-in">

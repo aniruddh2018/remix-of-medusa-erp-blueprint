@@ -26,6 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
@@ -661,9 +662,9 @@ export default function PurchaseOrders() {
     }
   };
 
-  const enterToAdd = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && selectedProduct && itemPrice > 0) { e.preventDefault(); handleAddItem(); }
-  };
+  const poEnterNav = useEnterNavigation(() => {
+    if (selectedProduct && itemPrice > 0) handleAddItem();
+  });
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -766,7 +767,7 @@ export default function PurchaseOrders() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
               <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2" data-enter-nav>
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
@@ -790,7 +791,7 @@ export default function PurchaseOrders() {
                       </SelectContent>
                     </Select>
                     {existingBatchId === "new" && (
-                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={enterToAdd}
+                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={poEnterNav}
                         className="h-9 w-28 text-xs" placeholder="Batch #" />
                     )}
                   </div>
@@ -798,31 +799,31 @@ export default function PurchaseOrders() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Expiry</Label>
-                <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={enterToAdd}
+                <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={poEnterNav}
                   className="h-9 text-xs" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">MRP ₹</Label>
                 <Input type="number" min={0} step={0.01} value={itemMrp || ""} onChange={e => setItemMrp(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
                 <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
                   onChange={e => setItemPrice(parseFloat(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0.00" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="1" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="1" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                 <Input type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={enterToAdd} className="h-9" placeholder="0" />
+                  onKeyDown={poEnterNav} className="h-9" placeholder="0" />
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>

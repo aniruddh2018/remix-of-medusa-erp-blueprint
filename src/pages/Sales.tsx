@@ -286,7 +286,7 @@ export default function Sales() {
     focusProductSearch();
   }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast, focusProductSearch]);
 
-  const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {
+  const saleEnterNav = useEnterNavigation(handleAddToCart); = useCallback((index: number, field: keyof CartItem, value: string | number) => {
     const updated = [...cart];
     (updated[index] as any)[field] = value;
     const item = updated[index];

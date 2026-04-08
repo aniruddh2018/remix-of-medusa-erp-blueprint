@@ -57,6 +57,9 @@ export default function Accounts() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [monthRange, setMonthRange] = useState("0");
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);
+  const { settings: invoiceSettings } = useInvoiceSettings();
   const [paymentDialog, setPaymentDialog] = useState<null | {
     referenceType: "sales_order" | "purchase_order" | "credit_note" | "debit_note";
     referenceId: string;

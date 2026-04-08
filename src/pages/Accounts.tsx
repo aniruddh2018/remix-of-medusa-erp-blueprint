@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
+import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
+import { ChevronDown, ChevronRight, FileDown } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {

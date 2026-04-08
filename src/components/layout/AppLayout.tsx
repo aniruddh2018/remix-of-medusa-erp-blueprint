@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -10,6 +10,7 @@ import { Loader2, Zap, Keyboard } from "lucide-react";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 import { CommandPalette } from "@/components/CommandPalette";
+import { Calculator } from "@/components/Calculator";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -24,6 +25,34 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const lastFocusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // Track last focused input/textarea for calculator value transfer
+  useEffect(() => {
+    const handler = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        lastFocusedInputRef.current = el as HTMLInputElement | HTMLTextAreaElement;
+      }
+    };
+    document.addEventListener("focusin", handler);
+    return () => document.removeEventListener("focusin", handler);
+  }, []);
+
+  const handleCalcTransfer = useCallback((value: string) => {
+    const el = lastFocusedInputRef.current;
+    if (el && document.body.contains(el)) {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      nativeInputValueSetter?.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      setTimeout(() => el.focus(), 50);
+    }
+  }, []);
 
   // Alt+A — Quick Counter Sale
   useKeyboardShortcut({ key: "a", modifiers: ["alt"], callback: () => setCounterSaleOpen(true), enabled: !!user });
@@ -39,6 +68,8 @@ export function AppLayout() {
   useKeyboardShortcut({ key: "5", modifiers: ["alt"], callback: () => navigate("/products"), enabled: !!user });
   useKeyboardShortcut({ key: "6", modifiers: ["alt"], callback: () => navigate("/suppliers"), enabled: !!user });
 
+  // F12 — Calculator
+  useKeyboardShortcut({ key: "F12", modifiers: [], callback: () => setCalculatorOpen(prev => !prev), enabled: !!user, allowInInput: true });
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth", { replace: true });
@@ -134,6 +165,7 @@ export function AppLayout() {
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+1–6</kbd> Navigate pages</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">/</kbd> Focus search bar</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">N</kbd> New sale / purchase</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">F12</kbd> Calculator (Tab to transfer value)</p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In any table</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">↑ ↓</kbd> Navigate rows</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">P</kbd> Print bill (on focused row)</p>
@@ -166,6 +198,11 @@ export function AppLayout() {
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         onQuickSale={() => setCounterSaleOpen(true)}
+      />
+      <Calculator
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+        onTransferValue={handleCalcTransfer}
       />
     </SidebarProvider>
   );

@@ -25,6 +25,34 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const lastFocusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // Track last focused input/textarea for calculator value transfer
+  useEffect(() => {
+    const handler = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        lastFocusedInputRef.current = el as HTMLInputElement | HTMLTextAreaElement;
+      }
+    };
+    document.addEventListener("focusin", handler);
+    return () => document.removeEventListener("focusin", handler);
+  }, []);
+
+  const handleCalcTransfer = useCallback((value: string) => {
+    const el = lastFocusedInputRef.current;
+    if (el && document.body.contains(el)) {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      nativeInputValueSetter?.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      setTimeout(() => el.focus(), 50);
+    }
+  }, []);
 
   // Alt+A — Quick Counter Sale
   useKeyboardShortcut({ key: "a", modifiers: ["alt"], callback: () => setCounterSaleOpen(true), enabled: !!user });

@@ -68,6 +68,8 @@ export function AppLayout() {
   useKeyboardShortcut({ key: "5", modifiers: ["alt"], callback: () => navigate("/products"), enabled: !!user });
   useKeyboardShortcut({ key: "6", modifiers: ["alt"], callback: () => navigate("/suppliers"), enabled: !!user });
 
+  // F12 — Calculator
+  useKeyboardShortcut({ key: "F12", modifiers: [], callback: () => setCalculatorOpen(prev => !prev), enabled: !!user, allowInInput: true });
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth", { replace: true });

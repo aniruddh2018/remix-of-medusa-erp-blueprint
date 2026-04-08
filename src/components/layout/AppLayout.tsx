@@ -10,6 +10,7 @@ import { Loader2, Zap, Keyboard } from "lucide-react";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 import { CommandPalette } from "@/components/CommandPalette";
+import { Calculator } from "@/components/Calculator";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,

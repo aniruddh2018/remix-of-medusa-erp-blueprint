@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
+import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
+import { ChevronDown, ChevronRight, FileDown } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {
@@ -54,6 +57,9 @@ export default function Accounts() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [monthRange, setMonthRange] = useState("0");
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);
+  const { settings: invoiceSettings } = useInvoiceSettings();
   const [paymentDialog, setPaymentDialog] = useState<null | {
     referenceType: "sales_order" | "purchase_order" | "credit_note" | "debit_note";
     referenceId: string;
@@ -667,9 +673,11 @@ export default function Accounts() {
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Users className="h-4 w-4" /> Customer Ledger
                 </CardTitle>
-                <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadCustomerLedger()}>
-                  <Download className="h-3.5 w-3.5" /> Download All
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadCustomerLedger()}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -677,6 +685,7 @@ export default function Accounts() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead className="text-right">Total Sales (₹)</TableHead>
                       <TableHead className="text-right">Received (₹)</TableHead>
@@ -687,24 +696,79 @@ export default function Accounts() {
                   </TableHeader>
                   <TableBody>
                     {filteredCustomerLedger.length === 0 && (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No customer data found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No customer data found.</TableCell></TableRow>
                     )}
-                    {filteredCustomerLedger.map(l => (
-                      <TableRow key={l.name}>
-                        <TableCell className="font-medium">{l.name}</TableCell>
-                        <TableCell className="text-right font-mono">₹{l.totalSales.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono text-green-600">₹{l.totalReceived.toFixed(2)}</TableCell>
-                        <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-destructive" : "text-green-600"}`}>
-                          ₹{l.balance.toFixed(2)}
-                        </TableCell>
-                        <TableCell>{paymentStatusBadge(l.totalReceived, l.totalSales)}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => downloadCustomerLedger(l.name)}>
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredCustomerLedger.map(l => {
+                      const isExpanded = expandedCustomer === l.name;
+                      const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
+                      return (
+                        <>
+                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedCustomer(isExpanded ? null : l.name)}>
+                            <TableCell className="pr-0">
+                              {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell className="font-medium">{l.name}</TableCell>
+                            <TableCell className="text-right font-mono">₹{l.totalSales.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono text-green-600">₹{l.totalReceived.toFixed(2)}</TableCell>
+                            <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-destructive" : "text-green-600"}`}>
+                              ₹{l.balance.toFixed(2)}
+                            </TableCell>
+                            <TableCell>{paymentStatusBadge(l.totalReceived, l.totalSales)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={(e) => { e.stopPropagation(); downloadCustomerLedger(l.name); }} title="Download CSV">
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={(e) => { e.stopPropagation(); generateLedgerPDF("customer", l, invoiceSettings, periodLabel); }} title="Print / Save as PDF">
+                                  <FileDown className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow key={l.name + "-detail"}>
+                              <TableCell colSpan={7} className="p-0 bg-muted/30">
+                                <div className="p-4">
+                                  <p className="text-xs font-semibold text-muted-foreground mb-2">Transaction Details — {l.name}</p>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-xs">Date</TableHead>
+                                        <TableHead className="text-xs">Type</TableHead>
+                                        <TableHead className="text-xs">Reference</TableHead>
+                                        <TableHead className="text-xs text-right">Debit (₹)</TableHead>
+                                        <TableHead className="text-xs text-right">Credit (₹)</TableHead>
+                                        <TableHead className="text-xs text-right">Running Balance</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(() => {
+                                        let rb = 0;
+                                        return l.transactions.map((t, i) => {
+                                          const debit = t.direction === "debit" ? t.amount : 0;
+                                          const credit = t.direction === "credit" ? t.amount : 0;
+                                          rb += debit - credit;
+                                          return (
+                                            <TableRow key={i}>
+                                              <TableCell className="text-xs py-1.5">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
+                                              <TableCell className="text-xs py-1.5">{t.type}</TableCell>
+                                              <TableCell className="text-xs py-1.5 font-medium">{t.ref}</TableCell>
+                                              <TableCell className="text-xs py-1.5 text-right font-mono">{debit > 0 ? `₹${debit.toFixed(2)}` : ""}</TableCell>
+                                              <TableCell className="text-xs py-1.5 text-right font-mono text-green-600">{credit > 0 ? `₹${credit.toFixed(2)}` : ""}</TableCell>
+                                              <TableCell className={`text-xs py-1.5 text-right font-mono font-semibold ${rb > 0 ? "text-destructive" : "text-green-600"}`}>₹{Math.abs(rb).toFixed(2)}</TableCell>
+                                            </TableRow>
+                                          );
+                                        });
+                                      })()}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -720,9 +784,11 @@ export default function Accounts() {
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Building2 className="h-4 w-4" /> Supplier Ledger
                 </CardTitle>
-                <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadSupplierLedger()}>
-                  <Download className="h-3.5 w-3.5" /> Download All
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadSupplierLedger()}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -730,6 +796,7 @@ export default function Accounts() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead className="text-right">Total Purchase (₹)</TableHead>
                       <TableHead className="text-right">Paid (₹)</TableHead>
@@ -740,24 +807,79 @@ export default function Accounts() {
                   </TableHeader>
                   <TableBody>
                     {filteredSupplierLedger.length === 0 && (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No supplier data found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No supplier data found.</TableCell></TableRow>
                     )}
-                    {filteredSupplierLedger.map(l => (
-                      <TableRow key={l.name}>
-                        <TableCell className="font-medium">{l.name}</TableCell>
-                        <TableCell className="text-right font-mono">₹{l.totalPurchase.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono text-green-600">₹{l.totalPaid.toFixed(2)}</TableCell>
-                        <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-amber-600" : "text-green-600"}`}>
-                          ₹{l.balance.toFixed(2)}
-                        </TableCell>
-                        <TableCell>{paymentStatusBadge(l.totalPaid, l.totalPurchase)}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => downloadSupplierLedger(l.name)}>
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredSupplierLedger.map(l => {
+                      const isExpanded = expandedSupplier === l.name;
+                      const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
+                      return (
+                        <>
+                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedSupplier(isExpanded ? null : l.name)}>
+                            <TableCell className="pr-0">
+                              {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell className="font-medium">{l.name}</TableCell>
+                            <TableCell className="text-right font-mono">₹{l.totalPurchase.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono text-green-600">₹{l.totalPaid.toFixed(2)}</TableCell>
+                            <TableCell className={`text-right font-mono font-semibold ${l.balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                              ₹{l.balance.toFixed(2)}
+                            </TableCell>
+                            <TableCell>{paymentStatusBadge(l.totalPaid, l.totalPurchase)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={(e) => { e.stopPropagation(); downloadSupplierLedger(l.name); }} title="Download CSV">
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={(e) => { e.stopPropagation(); generateLedgerPDF("supplier", l, invoiceSettings, periodLabel); }} title="Print / Save as PDF">
+                                  <FileDown className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow key={l.name + "-detail"}>
+                              <TableCell colSpan={7} className="p-0 bg-muted/30">
+                                <div className="p-4">
+                                  <p className="text-xs font-semibold text-muted-foreground mb-2">Transaction Details — {l.name}</p>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-xs">Date</TableHead>
+                                        <TableHead className="text-xs">Type</TableHead>
+                                        <TableHead className="text-xs">Reference</TableHead>
+                                        <TableHead className="text-xs text-right">Debit (₹)</TableHead>
+                                        <TableHead className="text-xs text-right">Credit (₹)</TableHead>
+                                        <TableHead className="text-xs text-right">Running Balance</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(() => {
+                                        let rb = 0;
+                                        return l.transactions.map((t, i) => {
+                                          const debit = t.direction === "debit" ? t.amount : 0;
+                                          const credit = t.direction === "credit" ? t.amount : 0;
+                                          rb += debit - credit;
+                                          return (
+                                            <TableRow key={i}>
+                                              <TableCell className="text-xs py-1.5">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
+                                              <TableCell className="text-xs py-1.5">{t.type}</TableCell>
+                                              <TableCell className="text-xs py-1.5 font-medium">{t.ref}</TableCell>
+                                              <TableCell className="text-xs py-1.5 text-right font-mono">{debit > 0 ? `₹${debit.toFixed(2)}` : ""}</TableCell>
+                                              <TableCell className="text-xs py-1.5 text-right font-mono text-green-600">{credit > 0 ? `₹${credit.toFixed(2)}` : ""}</TableCell>
+                                              <TableCell className={`text-xs py-1.5 text-right font-mono font-semibold ${rb > 0 ? "text-amber-600" : "text-green-600"}`}>₹{Math.abs(rb).toFixed(2)}</TableCell>
+                                            </TableRow>
+                                          );
+                                        });
+                                      })()}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

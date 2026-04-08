@@ -198,6 +198,11 @@ export function AppLayout() {
         onOpenChange={setCommandPaletteOpen}
         onQuickSale={() => setCounterSaleOpen(true)}
       />
+      <Calculator
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+        onTransferValue={handleCalcTransfer}
+      />
     </SidebarProvider>
   );
 }

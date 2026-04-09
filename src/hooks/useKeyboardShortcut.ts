@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { isMac } from "@/lib/platform";
 
 type ModifierKey = "ctrl" | "alt" | "shift" | "meta";
 
@@ -11,6 +12,10 @@ interface ShortcutOptions {
   allowInInput?: boolean;
 }
 
+/**
+ * Legacy keyboard shortcut hook.
+ * For new shortcuts, prefer usePlatformShortcut which handles cross-platform automatically.
+ */
 export function useKeyboardShortcut({
   key,
   modifiers = [],

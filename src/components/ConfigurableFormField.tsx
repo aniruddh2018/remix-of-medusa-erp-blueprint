@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import type { FormFieldConfig } from "@/types/formConfig";
 
 interface ConfigurableFormFieldProps {
@@ -31,22 +32,7 @@ export function ConfigurableFormField({
   overrideRequired,
 }: ConfigurableFormFieldProps) {
   const isRequired = overrideRequired ?? field.required;
-
-  const handleEnterKey = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
-    const form = (e.currentTarget as HTMLElement).closest("form");
-    if (!form) return;
-    const focusable = Array.from(
-      form.querySelectorAll<HTMLElement>(
-        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([disabled])'
-      )
-    ).filter(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
-    const idx = focusable.indexOf(e.currentTarget as HTMLElement);
-    if (idx >= 0 && idx < focusable.length - 1) {
-      e.preventDefault();
-      focusable[idx + 1].focus();
-    }
-  }, []);
+  const handleEnterNav = useEnterNavigation();
 
   const labelEl = (
     <Label htmlFor={field.key} className={error ? "text-destructive" : ""}>
@@ -66,7 +52,7 @@ export function ConfigurableFormField({
   switch (field.type) {
     case "switch":
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-field-required="false">
           <Switch
             id={field.key}
             checked={!!value}
@@ -80,7 +66,7 @@ export function ConfigurableFormField({
 
     case "checkbox":
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-field-required="false">
           <Checkbox
             id={field.key}
             checked={!!value}
@@ -94,7 +80,7 @@ export function ConfigurableFormField({
 
     case "textarea":
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-field-required={String(!!isRequired)}>
           {labelEl}
           <Textarea
             id={field.key}
@@ -103,6 +89,8 @@ export function ConfigurableFormField({
             placeholder={field.placeholder}
             disabled={disabled}
             rows={3}
+            onKeyDown={handleEnterNav}
+            required={isRequired}
           />
           {helpEl}
           {errorEl}
@@ -111,14 +99,14 @@ export function ConfigurableFormField({
 
     case "select":
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-field-required={String(!!isRequired)}>
           {labelEl}
           <Select
             value={value ?? ""}
             onValueChange={(v) => onChange(field.key, v)}
             disabled={disabled}
           >
-            <SelectTrigger id={field.key}>
+            <SelectTrigger id={field.key} onKeyDown={handleEnterNav}>
               <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
             </SelectTrigger>
             <SelectContent>
@@ -136,7 +124,7 @@ export function ConfigurableFormField({
 
     case "number":
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-field-required={String(!!isRequired)}>
           {labelEl}
           <Input
             id={field.key}
@@ -147,7 +135,8 @@ export function ConfigurableFormField({
             disabled={disabled}
             min={field.min}
             max={field.max}
-            onKeyDown={handleEnterKey}
+            onKeyDown={handleEnterNav}
+            required={isRequired}
           />
           {helpEl}
           {errorEl}
@@ -156,7 +145,7 @@ export function ConfigurableFormField({
 
     case "date":
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-field-required={String(!!isRequired)}>
           {labelEl}
           <Input
             id={field.key}
@@ -164,7 +153,8 @@ export function ConfigurableFormField({
             value={value ?? ""}
             onChange={(e) => onChange(field.key, e.target.value)}
             disabled={disabled}
-            onKeyDown={handleEnterKey}
+            onKeyDown={handleEnterNav}
+            required={isRequired}
           />
           {helpEl}
           {errorEl}
@@ -173,7 +163,7 @@ export function ConfigurableFormField({
 
     default:
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-field-required={String(!!isRequired)}>
           {labelEl}
           <Input
             id={field.key}
@@ -183,7 +173,8 @@ export function ConfigurableFormField({
             placeholder={field.placeholder}
             disabled={disabled}
             pattern={field.pattern}
-            onKeyDown={handleEnterKey}
+            onKeyDown={handleEnterNav}
+            required={isRequired}
           />
           {helpEl}
           {errorEl}

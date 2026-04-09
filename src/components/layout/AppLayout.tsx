@@ -7,7 +7,9 @@ import { AppSidebar } from "./AppSidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Loader2, Zap, Keyboard } from "lucide-react";
-import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS, formatShortcut } from "@/lib/platform";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Badge } from "@/components/ui/badge";
@@ -25,19 +27,15 @@ export function AppLayout() {
   const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-  // Alt+A — Quick Counter Sale
-  useKeyboardShortcut({ key: "a", modifiers: ["alt"], callback: () => setCounterSaleOpen(true), enabled: !!user });
-
-  // Ctrl+K — Command Palette
-  useKeyboardShortcut({ key: "k", modifiers: ["ctrl"], callback: () => setCommandPaletteOpen(true), enabled: !!user });
-
-  // Alt+1-6 — Page shortcuts
-  useKeyboardShortcut({ key: "1", modifiers: ["alt"], callback: () => navigate("/dashboard"), enabled: !!user });
-  useKeyboardShortcut({ key: "2", modifiers: ["alt"], callback: () => navigate("/sales"), enabled: !!user });
-  useKeyboardShortcut({ key: "3", modifiers: ["alt"], callback: () => navigate("/purchase-orders"), enabled: !!user });
-  useKeyboardShortcut({ key: "4", modifiers: ["alt"], callback: () => navigate("/inventory"), enabled: !!user });
-  useKeyboardShortcut({ key: "5", modifiers: ["alt"], callback: () => navigate("/products"), enabled: !!user });
-  useKeyboardShortcut({ key: "6", modifiers: ["alt"], callback: () => navigate("/suppliers"), enabled: !!user });
+  // Platform-aware shortcuts
+  usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => setCounterSaleOpen(true), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.COMMAND_PALETTE, callback: () => setCommandPaletteOpen(true), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_DASHBOARD, callback: () => navigate("/dashboard"), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_SALES, callback: () => navigate("/sales"), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_PURCHASE, callback: () => navigate("/purchase-orders"), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_INVENTORY, callback: () => navigate("/inventory"), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_PRODUCTS, callback: () => navigate("/products"), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.NAV_SUPPLIERS, callback: () => navigate("/suppliers"), enabled: !!user });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -85,12 +83,12 @@ export function AppLayout() {
                     <Zap className="h-4 w-4" />
                     <span className="hidden xs:inline sm:inline">{config.terms.counterSale}</span>
                     <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0 hidden lg:inline-flex">
-                      Alt+A
+                      {formatShortcut(SHORTCUTS.QUICK_SALE.label)}
                     </Badge>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p>Quick Counter Sale <kbd className="ml-2 px-1.5 py-0.5 bg-muted rounded text-xs">Alt+A</kbd></p>
+                  <p>Quick Counter Sale <ShortcutHint shortcut={SHORTCUTS.QUICK_SALE} className="ml-2" /></p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -106,9 +104,7 @@ export function AppLayout() {
                     className="hidden sm:flex items-center gap-2 text-muted-foreground h-9 px-3"
                   >
                     <span className="text-sm">Search commands...</span>
-                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
-                      Ctrl+K
-                    </kbd>
+                    <ShortcutHint shortcut={SHORTCUTS.COMMAND_PALETTE} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Open command palette</TooltipContent>
@@ -129,23 +125,23 @@ export function AppLayout() {
                   <div className="text-xs space-y-1.5 py-1">
                     <p className="font-semibold text-foreground mb-2">Keyboard Shortcuts</p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-1">Global</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+K</kbd> Command palette</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+A</kbd> Quick Counter Sale</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+1–6</kbd> Navigate pages</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.COMMAND_PALETTE} /> Command palette</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.QUICK_SALE} /> Quick Counter Sale</p>
+                    <p><ShortcutHint shortcut="SECONDARY+1–6" variant="badge" /> Navigate pages</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">/</kbd> Focus search bar</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">N</kbd> New sale / purchase</p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In any table</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">↑ ↓</kbd> Navigate rows</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">P</kbd> Print bill (on focused row)</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">E</kbd> Edit bill (on focused row)</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">R</kbd> Receive order (purchase)</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">D</kbd> Delete invoice (admin)</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">$</kbd> Open payment dialog</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">P</kbd> Print bill</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">E</kbd> Edit bill</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">R</kbd> Receive order</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">D</kbd> Delete invoice</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">$</kbd> Open payment</p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In Quick Sale / Counter</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> Add product / Complete sale</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> Force complete sale</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> Cycle payment method</p>
-                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> Remove focused cart row</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> Add / Complete sale</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.CONFIRM} /> Force complete sale</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.CYCLE_PAYMENT} /> Cycle payment method</p>
+                    <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> Remove cart row</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Esc</kbd> Close dialogs</p>
                   </div>
                 </TooltipContent>

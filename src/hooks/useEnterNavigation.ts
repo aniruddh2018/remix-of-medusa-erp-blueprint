@@ -1,5 +1,13 @@
 import { useCallback } from "react";
 
+const ENTER_NAV_SELECTOR = [
+  'input:not([type="hidden"]):not([disabled]):not([readonly]):not([data-enter-nav-skip="true"])',
+  'select:not([disabled]):not([data-enter-nav-skip="true"])',
+  'textarea:not([disabled]):not([data-enter-nav-skip="true"])',
+  'button:not([disabled]):not([data-enter-nav-skip="true"])',
+  '[role="combobox"]:not([disabled]):not([data-enter-nav-skip="true"])',
+].join(", ");
+
 /**
  * Keyboard navigation for forms:
  * - Enter → move to next field (blocked if current field is required & empty)
@@ -11,7 +19,11 @@ import { useCallback } from "react";
 export function useEnterNavigation(onLastField?: () => void, onFirstField?: () => void) {
   const handleEnterNav = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
-      const target = e.currentTarget as HTMLElement;
+      const eventTarget = e.target;
+      if (!(eventTarget instanceof HTMLElement)) return;
+
+      const target = eventTarget.closest<HTMLElement>(ENTER_NAV_SELECTOR);
+      if (!target) return;
 
       // Find container
       const container =
@@ -22,9 +34,7 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
 
       // Collect visible focusable elements
       const focusable = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([disabled])'
-        )
+        container.querySelectorAll<HTMLElement>(ENTER_NAV_SELECTOR)
       ).filter((el) => {
         const rect = el.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
@@ -67,8 +77,17 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
       // === FORWARD: Enter ===
       if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
 
+      const isFieldLikeButton =
+        target.getAttribute("role") === "combobox" ||
+        target.hasAttribute("data-field-value");
+      const isPlainActionButton = target instanceof HTMLButtonElement && !isFieldLikeButton;
+
+      if (isPlainActionButton) return;
+      if (isFieldLikeButton && target.getAttribute("aria-expanded") === "true") return;
+
       // Check if current field is required and empty → block forward
       if (isRequiredAndEmpty(target)) {
+        if (isFieldLikeButton) return;
         e.preventDefault();
         // Shake animation hint
         target.classList.add("animate-shake");
@@ -109,11 +128,19 @@ function isRequiredAndEmpty(el: HTMLElement): boolean {
 }
 
 function isFieldEmpty(el: HTMLElement): boolean {
+  const fieldValue = el.getAttribute("data-field-value");
+  if (fieldValue !== null) {
+    return fieldValue.trim() === "";
+  }
+
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return el.value.trim() === "";
   }
   if (el instanceof HTMLSelectElement) {
     return !el.value;
+  }
+  if (el instanceof HTMLButtonElement) {
+    return false;
   }
   // For combobox roles, check inner input
   const inner = el.querySelector("input");

@@ -523,8 +523,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                       <div className="w-full grid grid-cols-6 gap-2 mt-2">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-muted-foreground">Qty *</Label>
-                          <Input type="number" min={1} value={newItemQty}
-                            onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
+                          <Input type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
+                            onChange={(e) => setNewItemQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                             className="h-8" />
                         </div>
                         <div className="space-y-1">

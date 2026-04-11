@@ -106,6 +106,7 @@ export default function Sales() {
     },
     enabled: !!companyId,
   });
+  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
 
 
 
@@ -696,19 +697,25 @@ export default function Sales() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
-                <DrugBrandSearch
-                  ref={productSearchRef}
-                  products={products}
-                  selectedProductId={selectedProduct}
-                  onSelect={(v) => {
-                    setSelectedProduct(v);
-                    const p = products?.find(pp => pp.id === v);
-                    if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
-                    // After product selected, move to Qty for speed
-                    setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
-                  }}
-                  showPrice priceType="sale"
-                />
+                <div className="flex gap-1">
+                  <div className="flex-1">
+                    <DrugBrandSearch
+                      ref={productSearchRef}
+                      products={products}
+                      selectedProductId={selectedProduct}
+                      onSelect={(v) => {
+                        setSelectedProduct(v);
+                        const p = products?.find(pp => pp.id === v);
+                        if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
+                      }}
+                      showPrice priceType="sale"
+                    />
+                  </div>
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => setShowProductDialog(true)} data-enter-nav-skip="true" tabIndex={-1}>
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>

@@ -107,23 +107,7 @@ export default function Sales() {
     enabled: !!companyId,
   });
 
-  const createCustomerMutation = useMutation({
-    mutationFn: async (cust: typeof newCustomerData) => {
-      const { data, error } = await supabase.from("customers").insert({ name: cust.name, phone: cust.phone || null, address: cust.address || null, gst_number: cust.gst_number || null, company_id: companyId }).select().single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
-      setSelectedCustomerId(data.id);
-      setCustomerName(data.name);
-      setCustomerPhone(data.phone || "");
-      setCustomerAddress(data.address || "");
-      setCustomerGstin(data.gst_number || "");
-      setShowCustomerDialog(false);
-      setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
-    },
-  });
+
 
   const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
 

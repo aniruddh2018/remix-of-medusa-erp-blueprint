@@ -121,7 +121,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setFreightCharges(Number(order.freight_charges) || 0);
       setHandlingCharges(Number(order.handling_charges) || 0);
       setOtherCharges(Number(order.other_charges) || 0);
-      setDiscountAmount(Number(order.discount_amount) || 0);
+      // Don't set discountAmount here - calculate after items load
     }
   }, [order]);
 

@@ -120,7 +120,7 @@ export default function Sales() {
       setCustomerPhone(data.phone || "");
       setCustomerAddress(data.address || "");
       setCustomerGstin(data.gst_number || "");
-      setIsAddingNewCustomer(false);
+      setShowCustomerDialog(false);
       setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
     },
   });
@@ -425,7 +425,7 @@ export default function Sales() {
     setDraftRestored(false);
     setSelectedCustomerId(null);
     setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
-    setIsAddingNewCustomer(false);
+    setShowCustomerDialog(false);
     // Re-focus product search
     focusProductSearch();
   }, [clearDraft, settings]);

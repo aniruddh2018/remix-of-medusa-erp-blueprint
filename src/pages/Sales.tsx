@@ -408,7 +408,7 @@ export default function Sales() {
     setOtherCharges(0);
     setDraftRestored(false);
     setSelectedCustomerId(null);
-    setNewCustomerData({ name: "", phone: "", address: "", gst_number: "" });
+    
     setShowCustomerDialog(false);
     // Re-focus product search
     focusProductSearch();

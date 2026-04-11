@@ -770,7 +770,7 @@ export default function Sales() {
                       {availableStock > 0 ? `${availableStock}` : "0"}
                     </Badge>
                   )}
-                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm">
+                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm" data-enter-nav-include="true">
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
@@ -952,6 +952,19 @@ export default function Sales() {
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
+      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
+        queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
+        // Find the customer after refetch to populate fields
+        supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+          if (data) {
+            setSelectedCustomerId(data.id);
+            setCustomerName(data.name);
+            setCustomerPhone(data.phone || "");
+            setCustomerAddress(data.address || "");
+            setCustomerGstin(data.gst_number || "");
+          }
+        });
+      }} />
     </div>
   );
 }

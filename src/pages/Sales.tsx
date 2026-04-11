@@ -339,18 +339,25 @@ export default function Sales() {
       }).select().single();
       if (orderError) throw orderError;
 
-      const orderItems = cart.map(i => ({
-        sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-        quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
-        gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-        total_price: i.total_price, company_id: companyId,
-      }));
-      const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
-      if (itemsError) throw itemsError;
+      try {
+        const orderItems = cart.map(i => ({
+          sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
+          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
+          total_price: i.total_price, company_id: companyId,
+        }));
+        const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
+        if (itemsError) throw itemsError;
 
-      const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-      const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-      if (deductError) throw new Error(deductError.message);
+        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+        if (deductError) throw new Error(deductError.message);
+      } catch (innerError) {
+        // Rollback: delete partially created order and its items
+        await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
+        await supabase.from("sales_orders").delete().eq("id", order.id);
+        throw innerError;
+      }
 
       return order;
     },

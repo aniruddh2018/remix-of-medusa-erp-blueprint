@@ -152,8 +152,17 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setEditableItems(items);
       setOriginalQuantities(origMap);
       setDeletedItemIds([]);
+
+      // Calculate bill-level discount = total discount - item-level discounts
+      if (order) {
+        const itemLevelDiscount = orderItems.reduce((sum, item) => {
+          return sum + Number(item.unit_price) * item.quantity * (Number(item.discount_percentage) / 100);
+        }, 0);
+        const totalDiscount = Number(order.discount_amount) || 0;
+        setDiscountAmount(Math.max(0, Math.round((totalDiscount - itemLevelDiscount) * 100) / 100));
+      }
     }
-  }, [orderItems]);
+  }, [orderItems, order]);
 
   const recalcItem = (item: EditableItem): EditableItem => {
     const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);

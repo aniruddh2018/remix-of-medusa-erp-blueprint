@@ -360,6 +360,12 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         }
       }
 
+      // Calculate combined discount (item-level + bill-level) to match creation format
+      const itemLevelDiscount = editableItems.reduce((sum, item) => {
+        return sum + item.unit_price * item.quantity * (item.discount_percentage / 100);
+      }, 0);
+      const combinedDiscount = itemLevelDiscount + discountAmount;
+
       // Update order header
       const { data: updOrder, error } = await supabase
         .from("sales_orders")
@@ -375,7 +381,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           handling_charges: handlingCharges,
           delivery_charges: deliveryCharges,
           other_charges: otherCharges,
-          discount_amount: discountAmount,
+          discount_amount: combinedDiscount,
           gst_amount: gstAmount,
           total_amount: grandTotal,
           updated_at: new Date().toISOString(),

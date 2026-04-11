@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Phone, Mail, Users } from "lucide-react";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 type Supplier = Tables<"suppliers">;
 
@@ -21,6 +22,10 @@ export default function Suppliers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
+  useKeyboardShortcut({ key: "n", callback: () => setIsDialogOpen(true), enabled: !isDialogOpen });
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ["suppliers", companyId],
@@ -88,6 +93,7 @@ export default function Suppliers() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchRef}
                 placeholder="Search suppliers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -167,7 +173,16 @@ export default function Suppliers() {
                   </TableHeader>
                   <TableBody>
                     {filteredSuppliers?.map((supplier) => (
-                      <TableRow key={supplier.id}>
+                      <TableRow key={supplier.id} tabIndex={0} data-kb-row data-id={supplier.id}
+                        className="cursor-pointer focus:bg-accent"
+                        onKeyDown={(e) => {
+                          const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                          const pos = rows.indexOf(e.currentTarget);
+                          if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                          else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                          else if (e.key === "Enter" || e.key === "e" || e.key === "E") { e.preventDefault(); handleEdit(supplier); }
+                          else if (e.key === "d" || e.key === "D") { e.preventDefault(); if (confirm("Delete?")) deleteMutation.mutate(supplier.id); }
+                        }}>
                         <TableCell>
                           <div>
                             <div className="font-medium">{supplier.name}</div>

@@ -653,6 +653,7 @@ export default function PurchaseOrders() {
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
+  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
 
   const filteredOrders = purchaseOrders?.filter(order =>
     order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||

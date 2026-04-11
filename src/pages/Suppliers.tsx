@@ -79,7 +79,18 @@ export default function Suppliers() {
       <div className="page-header">
         <div>
           <h1 className="text-responsive-xl font-bold">Suppliers</h1>
-          <p className="text-muted-foreground text-responsive-sm">Manage your supplier directory</p>
+          <p className="text-muted-foreground text-responsive-sm">
+            Manage your supplier directory
+            <span className="ml-2 text-xs opacity-60">
+              <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">/</kbd> search
+              <span className="mx-1">·</span>
+              <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
+              <span className="mx-1">·</span>
+              <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">↑↓</kbd> navigate
+              <span className="mx-1">·</span>
+              <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">E</kbd> edit
+            </span>
+          </p>
         </div>
         <Button className="gap-2 mobile-full" onClick={() => setIsDialogOpen(true)}>
           <Plus className="h-4 w-4" />

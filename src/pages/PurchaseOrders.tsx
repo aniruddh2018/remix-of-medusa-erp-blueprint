@@ -414,43 +414,50 @@ export default function PurchaseOrders() {
         await supabase.from("purchase_orders").update({ converted_from_challan_id: order.id, is_challan: false }).in("id", selectedChallanIds);
       }
 
-      // Insert items
-      const newItems = orderItems.filter(item => !item.fromChallan);
-      if (newItems.length > 0) {
-        const items = newItems.map((item) => ({
-          purchase_order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          free_quantity: item.free_quantity || 0,
-          unit_price: item.unit_price,
-          gst_percentage: item.gst_percentage,
-          discount_percentage: item.discount_percentage,
-          total_price: item.total_price,
-          company_id: companyId,
-        }));
-        const { error: itemsError } = await supabase.from("purchase_order_items").insert(items);
-        if (itemsError) throw itemsError;
-      }
+      try {
+        // Insert items
+        const newItems = orderItems.filter(item => !item.fromChallan);
+        if (newItems.length > 0) {
+          const items = newItems.map((item) => ({
+            purchase_order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            free_quantity: item.free_quantity || 0,
+            unit_price: item.unit_price,
+            gst_percentage: item.gst_percentage,
+            discount_percentage: item.discount_percentage,
+            total_price: item.total_price,
+            company_id: companyId,
+          }));
+          const { error: itemsError } = await supabase.from("purchase_order_items").insert(items);
+          if (itemsError) throw itemsError;
+        }
 
-      // Auto-receive via RPC (smart batch merge/create, MRP fallback)
-      const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
-      if (allItemsToReceive.length > 0) {
-        const batchPayload = allItemsToReceive.map((item) => ({
-          product_id: item.product_id,
-          batch_number: item.batch_number || "",
-          quantity: item.quantity + (item.free_quantity || 0),
-          purchase_price: item.unit_price,
-          mrp: item.mrp || item.unit_price * 1.2,
-          expiry_date: item.expiry_date || null,
-          manufacturing_date: null,
-          supplier_id: selectedSupplier || null,
-          company_id: companyId,
-        }));
-        const { error: batchError } = await supabase.rpc("receive_purchase_batches", {
-          _batches: batchPayload,
-          _purchase_order_id: order.id,
-        });
-        if (batchError) throw batchError;
+        // Auto-receive via RPC (smart batch merge/create, MRP fallback)
+        const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
+        if (allItemsToReceive.length > 0) {
+          const batchPayload = allItemsToReceive.map((item) => ({
+            product_id: item.product_id,
+            batch_number: item.batch_number || "",
+            quantity: item.quantity + (item.free_quantity || 0),
+            purchase_price: item.unit_price,
+            mrp: item.mrp || item.unit_price * 1.2,
+            expiry_date: item.expiry_date || null,
+            manufacturing_date: null,
+            supplier_id: selectedSupplier || null,
+            company_id: companyId,
+          }));
+          const { error: batchError } = await supabase.rpc("receive_purchase_batches", {
+            _batches: batchPayload,
+            _purchase_order_id: order.id,
+          });
+          if (batchError) throw batchError;
+        }
+      } catch (innerError) {
+        // Rollback: delete partially created order and its items
+        await supabase.from("purchase_order_items").delete().eq("purchase_order_id", order.id);
+        await supabase.from("purchase_orders").delete().eq("id", order.id);
+        throw innerError;
       }
 
       return order;

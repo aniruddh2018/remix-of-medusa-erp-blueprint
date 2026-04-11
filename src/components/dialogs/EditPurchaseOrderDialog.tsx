@@ -65,7 +65,11 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [addProductSearch, setAddProductSearch] = useState("");
   const [selectedNewProduct, setSelectedNewProduct] = useState<any>(null);
   const [newItemQty, setNewItemQty] = useState(1);
+  const [newItemFreeQty, setNewItemFreeQty] = useState(0);
   const [newItemPrice, setNewItemPrice] = useState(0);
+  const [newItemMrp, setNewItemMrp] = useState(0);
+  const [newItemBatch, setNewItemBatch] = useState("");
+  const [newItemExpiry, setNewItemExpiry] = useState("");
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ["purchase-order-for-edit", orderId],

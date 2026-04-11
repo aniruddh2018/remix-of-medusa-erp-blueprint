@@ -135,6 +135,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   });
 
   // Populate form when sale data loads
+  // Note: discount_amount in DB = item-level discounts + bill-level discount combined.
+  // We must subtract item-level discounts to get only the bill-level discount.
   useEffect(() => {
     if (sale) {
       setCustomerName(sale.customer_name || "");
@@ -148,9 +150,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       setHandlingCharges(Number(sale.handling_charges) || 0);
       setDeliveryCharges(Number(sale.delivery_charges) || 0);
       setOtherCharges(Number(sale.other_charges) || 0);
-      setDiscountAmount(Number(sale.discount_amount) || 0);
+      // Don't set discountAmount here - calculate after items load
     }
   }, [sale]);
+
+  // Calculate bill-level discount by subtracting item-level discounts from total discount_amount
+  useEffect(() => {
+    if (sale && saleItems && saleItems.length > 0) {
+      const itemLevelDiscount = saleItems.reduce((sum: number, item: any) => {
+        const itemDisc = Number(item.unit_price) * item.quantity * (Number(item.discount_percentage) / 100);
+        return sum + itemDisc;
+      }, 0);
+      const totalDiscount = Number(sale.discount_amount) || 0;
+      const billOnly = Math.max(0, totalDiscount - itemLevelDiscount);
+      setDiscountAmount(Math.round(billOnly * 100) / 100);
+    } else if (sale && (!saleItems || saleItems.length === 0)) {
+      setDiscountAmount(0);
+    }
+  }, [sale, saleItems]);
 
   useEffect(() => {
     if (saleItems) {

@@ -676,8 +676,8 @@ export default function Sales() {
             )}
             <div className="space-y-1">
               <Label className="text-[11px]">Payment</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+              <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); focusProductSearch(); }}>
+                <SelectTrigger className="h-8 text-sm" data-enter-nav-skip="true"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash"><span className="flex items-center gap-1"><Banknote className="h-3 w-3" /> Cash</span></SelectItem>
                   <SelectItem value="card"><span className="flex items-center gap-1"><CreditCard className="h-3 w-3" /> Card</span></SelectItem>

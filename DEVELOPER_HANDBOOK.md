@@ -795,3 +795,44 @@ toast({ title: "Error", description: err.message, variant: "destructive" });
 | Navigation | `AppSidebar.tsx`, `AppLayout.tsx`, `CommandPalette.tsx` |
 | Business Config | `BusinessContext.tsx` |
 | Keyboard Shortcuts | `useKeyboardShortcut.ts`, `useKeyboardTable.ts`, `CommandPalette.tsx` |
+
+---
+
+## 19. Clean Dev Rules (MANDATORY)
+
+> **These rules are NON-NEGOTIABLE for all AI agents and human developers.**
+
+### 19.1 — Do Not Touch What Works
+
+- **NEVER** modify a file unless the user explicitly asked for changes to that feature.
+- If a file is working correctly, leave it alone — even if you think it could be "improved."
+- Refactoring is ONLY allowed when the user requests it or when a file exceeds 500 lines and a new feature is being added to it.
+
+### 19.2 — Surgical Edits Only
+
+- Use **search-and-replace** (line_replace) for all changes. Never rewrite an entire file unless creating it from scratch.
+- Every edit must be the **minimum change** needed to achieve the requested feature.
+- Do NOT add imports, hooks, or state that aren't needed for the current task.
+
+### 19.3 — No Side-Effect Changes
+
+- Adding a feature to Page A must NOT alter behavior on Page B, C, or D.
+- Do NOT "fix" lint warnings, rename variables, reformat code, or restructure components unless explicitly asked.
+- Do NOT change CSS, design tokens, or styling unless the user asked for a visual change.
+
+### 19.4 — Test Before Claiming Done
+
+- Run `tsc --noEmit` after every change.
+- If the user reports a regression, check what changed and revert only the breaking part.
+
+### 19.5 — Preserve Existing Patterns
+
+- If the codebase uses `useKeyboardShortcut`, don't introduce a competing pattern.
+- If forms use `data-enter-nav`, keep using it — don't invent a new system.
+- Match existing code style: naming, spacing, component structure.
+
+### 19.6 — Communication
+
+- If a request is ambiguous, **ask** before implementing.
+- If a change might break existing functionality, **warn** the user first.
+- Never say "I also improved X" — only do what was asked.

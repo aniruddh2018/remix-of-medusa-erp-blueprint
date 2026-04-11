@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useRef } from "react";
 import type { FormFieldConfig } from "@/types/formConfig";
 
 interface ConfigurableFormFieldProps {
@@ -33,6 +34,7 @@ export function ConfigurableFormField({
 }: ConfigurableFormFieldProps) {
   const isRequired = overrideRequired ?? field.required;
   const handleEnterNav = useEnterNavigation();
+  const selectTriggerRef = useRef<HTMLButtonElement>(null);
 
   const labelEl = (
     <Label htmlFor={field.key} className={error ? "text-destructive" : ""}>
@@ -103,10 +105,13 @@ export function ConfigurableFormField({
           {labelEl}
           <Select
             value={value ?? ""}
-            onValueChange={(v) => onChange(field.key, v)}
+            onValueChange={(v) => {
+              onChange(field.key, v);
+              advanceToNextField(selectTriggerRef.current);
+            }}
             disabled={disabled}
           >
-            <SelectTrigger id={field.key} onKeyDown={handleEnterNav}>
+            <SelectTrigger id={field.key} ref={selectTriggerRef} onKeyDown={handleEnterNav}>
               <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
             </SelectTrigger>
             <SelectContent>

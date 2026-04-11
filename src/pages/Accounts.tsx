@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
 import { ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {
@@ -56,6 +57,9 @@ export default function Accounts() {
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   const [monthRange, setMonthRange] = useState("0");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);

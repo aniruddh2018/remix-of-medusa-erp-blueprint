@@ -696,7 +696,7 @@ export default function PurchaseOrders() {
         </TabsList>
 
         {/* ═══ BILLING TAB ═══ */}
-        <TabsContent value="billing" className="mt-4 space-y-4">
+        <TabsContent value="billing" className="mt-4 space-y-4" data-enter-nav onKeyDown={poEnterNav}>
           {draftRestored && (
             <div className="flex items-center gap-3 rounded-md border bg-muted px-4 py-2 text-sm">
               <span>💾</span>
@@ -767,7 +767,7 @@ export default function PurchaseOrders() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
               <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2" data-enter-nav>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}

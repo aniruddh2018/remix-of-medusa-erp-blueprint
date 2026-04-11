@@ -708,7 +708,15 @@ export default function Accounts() {
                       const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
                       return (
                         <>
-                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedCustomer(isExpanded ? null : l.name)}>
+                          <TableRow key={l.name} className="cursor-pointer focus:bg-accent" tabIndex={0} data-kb-row
+                            onClick={() => setExpandedCustomer(isExpanded ? null : l.name)}
+                            onKeyDown={(e) => {
+                              const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                              const pos = rows.indexOf(e.currentTarget);
+                              if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                              else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                              else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedCustomer(isExpanded ? null : l.name); }
+                            }}>
                             <TableCell className="pr-0">
                               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </TableCell>
@@ -819,7 +827,15 @@ export default function Accounts() {
                       const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
                       return (
                         <>
-                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedSupplier(isExpanded ? null : l.name)}>
+                          <TableRow key={l.name} className="cursor-pointer focus:bg-accent" tabIndex={0} data-kb-row
+                            onClick={() => setExpandedSupplier(isExpanded ? null : l.name)}
+                            onKeyDown={(e) => {
+                              const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                              const pos = rows.indexOf(e.currentTarget);
+                              if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                              else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                              else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedSupplier(isExpanded ? null : l.name); }
+                            }}>
                             <TableCell className="pr-0">
                               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </TableCell>

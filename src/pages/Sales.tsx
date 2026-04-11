@@ -28,7 +28,8 @@ import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
-import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -87,7 +88,7 @@ export default function Sales() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
-  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false);
+  const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [newCustomerData, setNewCustomerData] = useState({ name: "", phone: "", address: "", gst_number: "" });
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

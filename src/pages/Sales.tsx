@@ -89,7 +89,7 @@ export default function Sales() {
   const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
-  const [newCustomerData, setNewCustomerData] = useState({ name: "", phone: "", address: "", gst_number: "" });
+  
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SalesOrder | null>(null);

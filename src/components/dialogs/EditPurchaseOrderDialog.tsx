@@ -520,17 +520,43 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                       </Popover>
                     </div>
                     {selectedNewProduct && (
-                      <>
-                        <Input type="number" min={1} value={newItemQty}
-                          onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
-                          className="w-16 h-8" placeholder="Qty" />
-                        <Input type="number" step="0.01" value={newItemPrice}
-                          onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
-                          className="w-24 h-8" placeholder="Price" />
-                        <Button size="sm" onClick={addNewItem} className="gap-1">
-                          <Plus className="h-3 w-3" /> Add
-                        </Button>
-                      </>
+                      <div className="w-full grid grid-cols-6 gap-2 mt-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Qty *</Label>
+                          <Input type="number" min={1} value={newItemQty}
+                            onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
+                            className="h-8" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Free</Label>
+                          <Input type="number" min={0} value={newItemFreeQty || ""}
+                            onChange={(e) => setNewItemFreeQty(parseInt(e.target.value) || 0)}
+                            className="h-8" placeholder="0" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Price ₹</Label>
+                          <Input type="number" step="0.01" value={newItemPrice}
+                            onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
+                            className="h-8" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Batch</Label>
+                          <Input value={newItemBatch}
+                            onChange={(e) => setNewItemBatch(e.target.value)}
+                            className="h-8" placeholder="Optional" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Expiry</Label>
+                          <Input type="date" value={newItemExpiry}
+                            onChange={(e) => setNewItemExpiry(e.target.value)}
+                            className="h-8 text-xs" />
+                        </div>
+                        <div className="flex items-end">
+                          <Button size="sm" onClick={addNewItem} className="gap-1 w-full h-8">
+                            <Plus className="h-3 w-3" /> Add
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

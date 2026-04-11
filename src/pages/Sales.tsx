@@ -502,6 +502,7 @@ export default function Sales() {
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
   });
+  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {

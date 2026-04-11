@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -13,6 +13,7 @@ import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, Indi
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 interface Customer {
   id: string;
@@ -36,6 +37,10 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [outstandingCustomer, setOutstandingCustomer] = useState<Customer | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
+  useKeyboardShortcut({ key: "n", callback: () => setDialogOpen(true), enabled: !dialogOpen });
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers", companyId],
@@ -136,6 +141,7 @@ export default function Customers() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={searchRef}
             placeholder={config.requiresCustomerGST ? "Search by name, phone, email, or GSTIN..." : "Search by name, phone, or email..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -221,7 +227,16 @@ export default function Customers() {
                 </TableRow>
               ) : (
                 filteredCustomers?.map((customer) => (
-                  <TableRow key={customer.id}>
+                  <TableRow key={customer.id} tabIndex={0} data-kb-row data-id={customer.id}
+                    className="cursor-pointer focus:bg-accent"
+                    onKeyDown={(e) => {
+                      const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                      const pos = rows.indexOf(e.currentTarget);
+                      if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                      else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                      else if (e.key === "Enter" || e.key === "e" || e.key === "E") { e.preventDefault(); handleEdit(customer); }
+                      else if (e.key === "d" || e.key === "D") { e.preventDefault(); if (confirm("Delete this customer?")) deleteMutation.mutate(customer.id); }
+                    }}>
                     <TableCell>
                       <span className="font-medium">{customer.name}</span>
                     </TableCell>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { detectDuplicates } from "@/utils/duplicateDetection";
 import { DuplicateProductsBanner } from "@/components/DuplicateProductsBanner";
@@ -37,6 +37,7 @@ import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge 
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type DrugSchedule = Database["public"]["Enums"]["drug_schedule"];
@@ -69,6 +70,10 @@ export default function Products() {
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
+  useKeyboardShortcut({ key: "n", callback: () => setDialogOpen(true), enabled: !dialogOpen && isPharmacist });
 
   const duplicateGroups = useMemo(() => detectDuplicates(products), [products]);
 
@@ -480,6 +485,7 @@ export default function Products() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchRef}
                 placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -523,7 +529,17 @@ export default function Products() {
                 </TableHeader>
                 <TableBody>
                   {filteredProducts.map((product) => (
-                    <TableRow key={product.id} className="table-hover-row cursor-pointer" onClick={() => setHistoryProduct(product)}>
+                    <TableRow key={product.id} tabIndex={0} data-kb-row
+                      className="table-hover-row cursor-pointer focus:bg-accent"
+                      onClick={() => setHistoryProduct(product)}
+                      onKeyDown={(e) => {
+                        const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                        const pos = rows.indexOf(e.currentTarget);
+                        if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                        else if (e.key === "Enter") { e.preventDefault(); setHistoryProduct(product); }
+                        else if ((e.key === "e" || e.key === "E") && isPharmacist) { e.preventDefault(); handleEdit(product); }
+                      }}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{product.name}</p>

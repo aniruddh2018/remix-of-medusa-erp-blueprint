@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
 import { ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {
@@ -56,6 +57,9 @@ export default function Accounts() {
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   const [monthRange, setMonthRange] = useState("0");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);
@@ -500,7 +504,8 @@ export default function Accounts() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by number, name..."
+          ref={searchRef}
+          placeholder="Search by number, name... ( / )"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -703,7 +708,15 @@ export default function Accounts() {
                       const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
                       return (
                         <>
-                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedCustomer(isExpanded ? null : l.name)}>
+                          <TableRow key={l.name} className="cursor-pointer focus:bg-accent" tabIndex={0} data-kb-row
+                            onClick={() => setExpandedCustomer(isExpanded ? null : l.name)}
+                            onKeyDown={(e) => {
+                              const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                              const pos = rows.indexOf(e.currentTarget);
+                              if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                              else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                              else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedCustomer(isExpanded ? null : l.name); }
+                            }}>
                             <TableCell className="pr-0">
                               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </TableCell>
@@ -814,7 +827,15 @@ export default function Accounts() {
                       const periodLabel = MONTHS.find(m => m.value === monthRange)?.label || "";
                       return (
                         <>
-                          <TableRow key={l.name} className="cursor-pointer" onClick={() => setExpandedSupplier(isExpanded ? null : l.name)}>
+                          <TableRow key={l.name} className="cursor-pointer focus:bg-accent" tabIndex={0} data-kb-row
+                            onClick={() => setExpandedSupplier(isExpanded ? null : l.name)}
+                            onKeyDown={(e) => {
+                              const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                              const pos = rows.indexOf(e.currentTarget);
+                              if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                              else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                              else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedSupplier(isExpanded ? null : l.name); }
+                            }}>
                             <TableCell className="pr-0">
                               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </TableCell>

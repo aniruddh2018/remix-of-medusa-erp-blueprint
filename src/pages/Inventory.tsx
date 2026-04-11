@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 interface InventoryItem {
   id: string;
@@ -54,6 +55,9 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
 
   const fetchInventory = async () => {
     if (!companyId) return;
@@ -197,6 +201,7 @@ export default function Inventory() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchRef}
                 placeholder="Search inventory..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -232,7 +237,14 @@ export default function Inventory() {
                   {filteredProducts.map((product) => {
                     const status = getStockStatus(product.total_quantity, product.reorder_level);
                     return (
-                      <TableRow key={product.product_id} className="table-hover-row">
+                      <TableRow key={product.product_id} tabIndex={0} data-kb-row
+                        className="table-hover-row focus:bg-accent"
+                        onKeyDown={(e) => {
+                          const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
+                          const pos = rows.indexOf(e.currentTarget);
+                          if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
+                          else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                        }}>
                         <TableCell className="font-medium">{product.product_name}</TableCell>
                         <TableCell>{product.manufacturer}</TableCell>
                         <TableCell className="text-right font-mono">{product.total_quantity}</TableCell>

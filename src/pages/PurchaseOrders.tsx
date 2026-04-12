@@ -683,6 +683,8 @@ export default function PurchaseOrders() {
           <p className="text-muted-foreground text-sm">
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> save
             <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
+            <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
         </div>

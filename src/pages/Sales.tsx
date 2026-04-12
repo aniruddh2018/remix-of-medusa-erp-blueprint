@@ -503,6 +503,7 @@ export default function Sales() {
     enabled: activeTab === "history" && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
+  useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("sale-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
@@ -614,7 +615,7 @@ export default function Sales() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="space-y-1">
               <Label className="text-[11px]">Invoice #</Label>
-              <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto" className="h-8 text-sm" />
+              <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto" className="h-8 text-sm" data-enter-nav-skip="true" tabIndex={-1} />
             </div>
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
@@ -806,9 +807,11 @@ export default function Sales() {
                   onBillDiscountFlatChange={setBillDiscountFlat}
                 />
                 <Button
+                  id="sale-submit-btn"
                   className="w-full gap-2"
                   onClick={() => createSaleMutation.mutate()}
                   disabled={cart.length === 0 || !customerName || createSaleMutation.isPending}
+                  data-enter-nav-include="true"
                 >
                   {createSaleMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   Complete Sale (₹{grandTotal.toFixed(2)})

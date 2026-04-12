@@ -654,6 +654,7 @@ export default function PurchaseOrders() {
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("po-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && orderItems.length > 0, allowInInput: true });
 
   const filteredOrders = purchaseOrders?.filter(order =>
     order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -681,6 +682,8 @@ export default function PurchaseOrders() {
           <h1 className="text-2xl font-bold">Purchase Orders</h1>
           <p className="text-muted-foreground text-sm">
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> save
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
@@ -739,7 +742,7 @@ export default function PurchaseOrders() {
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">{isChallan ? "Challan #" : "Invoice #"}</Label>
-              <Input value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."} />
+              <Input value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."} data-enter-nav-skip="true" tabIndex={-1} />
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Delivery Date</Label>
@@ -842,7 +845,7 @@ export default function PurchaseOrders() {
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-                <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm">
+                <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>
               </div>
@@ -889,9 +892,11 @@ export default function PurchaseOrders() {
                   onBillDiscountFlatChange={setBillDiscountFlat}
                 />
                 <Button
+                  id="po-submit-btn"
                   className="w-full gap-2"
                   onClick={() => createOrderMutation.mutate()}
                   disabled={orderItems.length === 0 || !selectedSupplier || createOrderMutation.isPending}
+                  data-enter-nav-include="true"
                 >
                   {createOrderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create Order (₹{grandTotal.toFixed(2)})

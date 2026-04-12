@@ -111,6 +111,12 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         return;
       }
 
+      // BLOCK Enter on any non-included button to prevent accidental triggers
+      if (isForwardEnter && target instanceof HTMLButtonElement && !isIncludedButton) {
+        e.preventDefault();
+        return;
+      }
+
       // For combobox with open dropdown, let Enter select the item
       if (isFieldLikeButton && target.getAttribute("aria-expanded") === "true") return;
 

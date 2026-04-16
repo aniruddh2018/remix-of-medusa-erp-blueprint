@@ -632,38 +632,57 @@ export default function Sales() {
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
                 <div className="flex gap-1">
-                  <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                    <PopoverTrigger asChild>
-                       <Button variant="outline" className="flex-1 justify-between h-8 text-sm font-normal">
-                        {selectedCustomerId ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName : customerName || "Select customer..."}
-                        <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search by name or phone..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
-                        <CommandList>
-                          <CommandEmpty>No customer found.</CommandEmpty>
-                          <CommandGroup>
-                            {customers?.filter(c => c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).map(c => (
-                              <CommandItem key={c.id} value={c.name} onSelect={() => { setSelectedCustomerId(c.id); setCustomerName(c.name); setCustomerPhone(c.phone || ""); setCustomerAddress(c.address || ""); setCustomerGstin(c.gst_number || ""); setCustomerPopoverOpen(false); }}>
-                                <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
-                                <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer" data-enter-nav-skip="true"><UserPlus className="h-3 w-3" /></Button>
+                    <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="flex-1 justify-between h-8 text-sm font-normal"
+                          data-enter-nav-include="true"
+                          onKeyDown={(e) => {
+                            if (e.key === 'n' || e.key === 'N') {
+                              e.preventDefault();
+                              setShowCustomerDialog(true);
+                            }
+                          }}
+                        >
+                          {selectedCustomerId ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName : customerName || "Select customer..."}
+                          <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search by name or phone..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
+                          <CommandList>
+                            <CommandEmpty>No customer found.</CommandEmpty>
+                            <CommandGroup>
+                              {customers?.filter(c => c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).map(c => (
+                                <CommandItem key={c.id} value={c.name} onSelect={() => {
+                                  setSelectedCustomerId(c.id);
+                                  setCustomerName(c.name);
+                                  setCustomerPhone(c.phone || "");
+                                  setCustomerAddress(c.address || "");
+                                  setCustomerGstin(c.gst_number || "");
+                                  setCustomerPopoverOpen(false);
+                                  // Advance to next field after selection
+                                  setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50);
+                                }}>
+                                  <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                                  <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
                 </div>
-                {settings.show_customer_gstin && (
-                  <div className="space-y-1 mt-1">
-                    <Label className="text-[11px]">Customer GSTIN</Label>
-                    <Input value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} className="h-8 text-sm" placeholder="e.g., 27AABCU9603R1ZM" />
-                  </div>
-                )}
+                 {settings.show_customer_gstin && selectedCustomerId && (
+                   <div className="space-y-1 mt-1">
+                     <Label className="text-[11px]">Customer GSTIN</Label>
+                     <Input value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} className="h-8 text-sm" placeholder="e.g., 27AABCU9603R1ZM" />
+                   </div>
+                 )}
               </div>
             {config.hasPrescription && (
               <div className="space-y-1">
@@ -967,6 +986,9 @@ export default function Sales() {
             setCustomerPhone(data.phone || "");
             setCustomerAddress(data.address || "");
             setCustomerGstin(data.gst_number || "");
+            // Close dialog and advance focus to next field after customer selection
+            setShowCustomerDialog(false);
+            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
           }
         });
       }} />

@@ -112,6 +112,7 @@ export const SHORTCUTS = {
   DELETE_ROW: { key: "Delete", modifiers: [] as ModifierAbstract[], label: "Del" },
   FOCUS_SEARCH: { key: "/", modifiers: [] as ModifierAbstract[], label: "/" },
   NEW_ENTRY: { key: "n", modifiers: [] as ModifierAbstract[], label: "N" },
+  RESTORE_FOCUS: { key: "`", modifiers: [] as ModifierAbstract[], label: "`" },
 } as const;
 
 /** Renders a formatted shortcut badge string for the current platform */

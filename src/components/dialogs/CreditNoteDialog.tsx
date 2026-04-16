@@ -66,27 +66,6 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
   const handleEnterNav = useEnterNavigation();
   const invoiceSearchRef = useRef<HTMLInputElement>(null);
   const focusTrapRef = useFocusTrap(open, invoiceSearchRef);
-
-  const [invoiceSearch, setInvoiceSearch] = useState("");
-  const [selectedInvoice, setSelectedInvoice] = useState<SalesOrder | null>(null);
-  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
-  const [reason, setReason] = useState("");
-  const [customReason, setCustomReason] = useState("");
-  const [notes, setNotes] = useState("");
-  const [creditNoteNumber, setCreditNoteNumber] = useState("");
-  const [focusedRowIndex, setFocusedRowIndex] = useState<number>(-1);
-  const [customerName, setCustomerName] = useState("");
-
-  // Manual product addition state
-  const [manualProductOpen, setManualProductOpen] = useState(false);
-  const [manualProductSearch, setManualProductSearch] = useState("");
-  const [manualSelectedProduct, setManualSelectedProduct] = useState<Product | null>(null);
-  const [manualQty, setManualQty] = useState(1);
-  const [manualPrice, setManualPrice] = useState(0);
-  const [manualGst, setManualGst] = useState(0);
-  const [manualDiscount, setManualDiscount] = useState(0);
-
-  const invoiceSearchRef = useRef<HTMLInputElement>(null);
   const creditNoteRef = useRef<HTMLInputElement>(null);
   const manualQtyRef = useRef<HTMLInputElement>(null);
 

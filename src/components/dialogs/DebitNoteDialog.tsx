@@ -66,7 +66,6 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
   const orderSearchRef = useRef<HTMLInputElement>(null);
   const focusTrapRef = useFocusTrap(open, orderSearchRef);
   const manualQtyRef = useRef<HTMLInputElement>(null);
-  const manualQtyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {

@@ -45,6 +45,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
+  const [parseError, setParseError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Prevent body scroll when open
@@ -62,6 +63,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const handleParse = async () => {
     if (!text.trim() || !companyId) return;
     setIsParsing(true);
+    setParseError(null); // Clear any previous error
     try {
       const { data, error } = await supabase.functions.invoke("parse-order-text", {
         body: { text: text.trim(), company_id: companyId, type },
@@ -71,7 +73,9 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       setParsedItems(data.items || []);
       setStep("review");
     } catch (err: any) {
-      toast({ title: "Parse failed", description: err.message, variant: "destructive" });
+      const errorMessage = err.message || "Failed to parse text";
+      setParseError(errorMessage);
+      toast({ title: "Parse failed", description: errorMessage, variant: "destructive" });
     } finally {
       setIsParsing(false);
     }
@@ -123,6 +127,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
     setText("");
     setParsedItems([]);
     setStep("input");
+    setParseError(null); // Clear parse error
   };
 
   if (!open) {
@@ -173,6 +178,12 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                 onChange={(e) => setText(e.target.value)}
                 className="min-h-[200px] font-mono text-sm"
               />
+              {parseError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive font-medium">Parse Error</p>
+                  <p className="text-sm text-destructive/80">{parseError}</p>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose}>Cancel</Button>
                 <Button onClick={handleParse} disabled={!text.trim() || isParsing}>

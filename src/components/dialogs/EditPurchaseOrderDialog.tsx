@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +61,22 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [discountAmount, setDiscountAmount] = useState(0);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
+
+  // Invoice number confirmation dialog
+  const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
+  const [pendingInvoiceNumber, setPendingInvoiceNumber] = useState("");
+  const [invoicePopoverOpen, setInvoicePopoverOpen] = useState(false);
+
+  // Initialize invoice number when order data loads
+  useEffect(() => {
+    if (order?.invoice_number) {
+      setInvoiceNumber(order.invoice_number);
+    }
+  }, [order?.invoice_number]);
+
+  const handleEnterNav = useEnterNavigation();
+  const invoiceNumberRef = useRef<HTMLButtonElement>(null);
+  const focusTrapRef = useFocusTrap(open, invoiceNumberRef);
 
   // Add new item
   const [addProductOpen, setAddProductOpen] = useState(false);
@@ -395,6 +413,59 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Invoice Number */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="space-y-2">
+                  <Label>Invoice Number</Label>
+                  {isAdmin ? (
+                    <Popover open={invoicePopoverOpen} onOpenChange={setInvoicePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button ref={invoiceNumberRef} variant="outline" className="w-full justify-between font-mono" data-enter-nav-include="true">
+                          {invoiceNumber || "Loading..."}
+                          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder="Enter invoice number..."
+                            value={invoiceNumber}
+                            onValueChange={setInvoiceNumber}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Enter a unique invoice number
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                onSelect={() => {
+                                  // Check for duplicates
+                                  if (invoiceNumber && invoiceNumber !== order?.invoice_number) {
+                                    setPendingInvoiceNumber(invoiceNumber);
+                                    setShowInvoiceConfirm(true);
+                                  }
+                                  setInvoicePopoverOpen(false);
+                                }}
+                              >
+                                Confirm: {invoiceNumber}
+                              </CommandItem>
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <div className="font-mono text-sm p-2 bg-muted rounded border">
+                      {invoiceNumber || "Loading..."}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Order Info */}
             <Card>
               <CardHeader className="pb-3">
@@ -618,6 +689,74 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Invoice Number Confirmation Dialog */}
+      <Dialog open={showInvoiceConfirm} onOpenChange={setShowInvoiceConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Invoice Number Change</DialogTitle>
+            <DialogDescription>
+              Changing the invoice number to "{pendingInvoiceNumber}" may affect record keeping and compliance.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+              <p className="text-sm text-amber-800">
+                <strong>Current:</strong> {order?.invoice_number}
+              </p>
+              <p className="text-sm text-amber-800">
+                <strong>New:</strong> {pendingInvoiceNumber}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowInvoiceConfirm(false);
+                  setPendingInvoiceNumber("");
+                  setInvoiceNumber(order?.invoice_number || "");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  // Check for duplicates
+                  const { data: existing } = await supabase
+                    .from("purchase_orders")
+                    .select("id")
+                    .eq("invoice_number", pendingInvoiceNumber)
+                    .eq("company_id", companyId)
+                    .neq("id", orderId)
+                    .single();
+
+                  if (existing) {
+                    toast({
+                      title: "Duplicate Invoice Number",
+                      description: "This invoice number already exists for your company.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+
+                  setInvoiceNumber(pendingInvoiceNumber);
+                  setShowInvoiceConfirm(false);
+                  setPendingInvoiceNumber("");
+                  toast({
+                    title: "Invoice Number Updated",
+                    description: "The invoice number has been changed successfully."
+                  });
+                }}
+                className="flex-1"
+              >
+                Confirm Change
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

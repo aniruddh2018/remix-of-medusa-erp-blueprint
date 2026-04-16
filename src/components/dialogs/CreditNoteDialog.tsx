@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -551,7 +553,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Return Reason *</Label>
-              <Select value={reason} onValueChange={setReason}>
+              <Select value={reason} onValueChange={(value) => { setReason(value); setTimeout(() => advanceToNextField(), 50); }}>
                 <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
                 <SelectContent>
                   {RETURN_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}

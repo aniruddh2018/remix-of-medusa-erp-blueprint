@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -461,7 +463,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                   </div>
                   <div className="space-y-2">
                     <Label>Status</Label>
-                    <Select value={status} onValueChange={setStatus}>
+                    <Select value={status} onValueChange={(value) => { setStatus(value); setTimeout(() => advanceToNextField(), 50); }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
@@ -595,6 +597,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                         <Select value={selectedNewBatch?.id || ""} onValueChange={(v) => {
                           const b = newProductBatches?.find(b => b.id === v);
                           setSelectedNewBatch(b || null);
+                          setTimeout(() => advanceToNextField(), 50);
                         }}>
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Batch" />
@@ -663,7 +666,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setTimeout(() => advanceToNextField(), 50); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Cash</SelectItem>

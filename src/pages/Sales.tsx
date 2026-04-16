@@ -37,6 +37,7 @@ import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsT
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { getPaymentSummary } from "@/utils/transactionUx";
 
 type SalesOrder = Tables<"sales_orders">;
 type Product = Tables<"products">;
@@ -58,9 +59,11 @@ export default function Sales() {
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
+  const [historyPaymentFilter, setHistoryPaymentFilter] = useState<"all" | "paid" | "partial" | "unpaid">("all");
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [customerName, setCustomerName] = useState(settings.default_customer_name || "");
@@ -504,6 +507,8 @@ export default function Sales() {
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("sale-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
+  useKeyboardShortcut({ key: "C", modifiers: ["ctrl", "shift"], callback: () => setCreditNoteOpen(true), allowInInput: true });
+  useKeyboardShortcut({ key: "?", callback: () => setShowHelp(true), allowInInput: true });
 
   // Auto-focus product search on billing tab mount
   useEffect(() => {
@@ -569,6 +574,25 @@ export default function Sales() {
   }, [allBatches, products, cart, noGstBill, gstInclusive, toast, focusProductSearch]);
 
   const filteredOrders = salesOrders?.filter(o => o.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) || o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredOrdersByPayment = useMemo(() => {
+    if (!filteredOrders) return [];
+    if (historyPaymentFilter === "all") return filteredOrders;
+    return filteredOrders.filter((order) => {
+      const payment = getPaymentSummary(Number(order.total_amount), paidBySalesId[order.id] || 0);
+      return payment.state === historyPaymentFilter;
+    });
+  }, [filteredOrders, historyPaymentFilter, paidBySalesId]);
+
+  useEffect(() => {
+    const savedFilter = window.localStorage.getItem("sales_history_payment_filter");
+    if (savedFilter === "all" || savedFilter === "paid" || savedFilter === "partial" || savedFilter === "unpaid") {
+      setHistoryPaymentFilter(savedFilter);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("sales_history_payment_filter", historyPaymentFilter);
+  }, [historyPaymentFilter]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -586,6 +610,14 @@ export default function Sales() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1"
+            onClick={() => window.dispatchEvent(new CustomEvent("erp:open-quick-sale"))}
+          >
+            <Receipt className="h-3 w-3" /> {config.terms.counterSale}
+          </Button>
           <Button variant="outline" size="sm" className="gap-1" onClick={() => setCreditNoteOpen(true)}>
             <RotateCcw className="h-3 w-3" /> Credit Note
           </Button>
@@ -767,6 +799,9 @@ export default function Sales() {
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
+                {noGstBill && (
+                  <span className="text-[11px] text-amber-600">GST is disabled for this invoice.</span>
+                )}
               </div>
             </div>
           </div>
@@ -827,15 +862,28 @@ export default function Sales() {
         <TabsContent value="history" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input ref={searchRef} placeholder="Search invoices... ( / )" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative max-w-sm grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input ref={searchRef} placeholder="Search invoices... ( / )" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+                </div>
+                <Select value={historyPaymentFilter} onValueChange={(v) => setHistoryPaymentFilter(v as "all" | "paid" | "partial" | "unpaid")}>
+                  <SelectTrigger className="w-[170px] h-9">
+                    <SelectValue placeholder="Payment status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payments</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading...</div>
-              ) : filteredOrders?.length === 0 ? (
+              ) : filteredOrdersByPayment.length === 0 ? (
                 <div className="text-center py-8">
                   <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                   <p className="text-muted-foreground">No sales found.</p>
@@ -856,11 +904,10 @@ export default function Sales() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders?.map(order => {
-                        const paid = paidBySalesId[order.id] || 0;
-                        const balance = Number(order.total_amount) - paid;
-                        const isPaid = balance <= 0.01;
-                        const isPartial = paid > 0 && !isPaid;
+                      {filteredOrdersByPayment.map(order => {
+                        const payment = getPaymentSummary(Number(order.total_amount), paidBySalesId[order.id] || 0);
+                        const isPaid = payment.state === "paid";
+                        const isPartial = payment.state === "partial";
                         return (
                           <TableRow key={order.id} tabIndex={0} data-kb-row
                             onKeyDown={e => {
@@ -871,7 +918,7 @@ export default function Sales() {
                               else if (e.key === "p" || e.key === "P") { e.preventDefault(); handleBillAction(order, "print"); }
                               else if ((e.key === "e" || e.key === "E") && (isAdmin || isPharmacist)) { e.preventDefault(); setEditSaleId(order.id); setEditDialogOpen(true); }
                               else if ((e.key === "d" || e.key === "D") && isAdmin) { e.preventDefault(); setDeleteTarget(order); setDeleteConfirmText(""); setDeleteDialogOpen(true); }
-                              else if (e.key === "$") { e.preventDefault(); setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number, partyName: order.customer_name, totalAmount: Number(order.total_amount), paidAmount: paid }); }
+                              else if (e.key === "$") { e.preventDefault(); setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number, partyName: order.customer_name, totalAmount: Number(order.total_amount), paidAmount: payment.paid }); }
                             }}
                             className="cursor-pointer"
                           >
@@ -887,10 +934,10 @@ export default function Sales() {
                             <TableCell>
                               <Button variant="ghost" size="sm"
                                 className={`h-6 text-xs gap-1 px-1.5 ${isPaid ? "text-green-600" : isPartial ? "text-amber-600" : "text-destructive"}`}
-                                onClick={() => setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number, partyName: order.customer_name, totalAmount: Number(order.total_amount), paidAmount: paid })}
+                                onClick={() => setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number, partyName: order.customer_name, totalAmount: Number(order.total_amount), paidAmount: payment.paid })}
                               >
                                 <Banknote className="h-3 w-3" />
-                                {isPaid ? "Paid" : isPartial ? `₹${paid.toFixed(0)}` : "Unpaid"}
+                                {isPaid ? "Paid" : isPartial ? `₹${payment.paid.toFixed(0)}` : "Unpaid"}
                               </Button>
                             </TableCell>
                             <TableCell className="text-right">
@@ -960,6 +1007,25 @@ export default function Sales() {
           }
         });
       }} />
+
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Keyboard Shortcuts</DialogTitle>
+            <DialogDescription>Available shortcuts in Sales</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span>Focus submit button</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd></div>
+            <div className="flex justify-between"><span>Add new product</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F6</kbd></div>
+            <div className="flex justify-between"><span>Cycle payment method</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd></div>
+            <div className="flex justify-between"><span>Submit sale</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd></div>
+            <div className="flex justify-between"><span>Issue credit note</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Shift+C</kbd></div>
+            <div className="flex justify-between"><span>Search in history</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">/</kbd></div>
+            <div className="flex justify-between"><span>New sale</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd></div>
+            <div className="flex justify-between"><span>Show help</span><kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">?</kbd></div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

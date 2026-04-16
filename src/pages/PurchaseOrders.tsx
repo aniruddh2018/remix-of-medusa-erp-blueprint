@@ -37,6 +37,7 @@ import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/Purc
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
+import { getPaymentSummary, getReceiveState } from "@/utils/transactionUx";
 
 type PurchaseOrder = Tables<"purchase_orders">;
 type Supplier = Tables<"suppliers">;
@@ -54,6 +55,7 @@ export default function PurchaseOrders() {
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
+  const [historyPaymentFilter, setHistoryPaymentFilter] = useState<"all" | "paid" | "partial" | "unpaid">("all");
   const [orderItems, setOrderItems] = useState<PurchaseItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");
@@ -660,6 +662,25 @@ export default function PurchaseOrders() {
     order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (order.suppliers as any)?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const filteredOrdersByPayment = useMemo(() => {
+    if (!filteredOrders) return [];
+    if (historyPaymentFilter === "all") return filteredOrders;
+    return filteredOrders.filter((order) => {
+      const payment = getPaymentSummary(Number(order.total_amount), paidByPoId[order.id] || 0);
+      return payment.state === historyPaymentFilter;
+    });
+  }, [filteredOrders, historyPaymentFilter, paidByPoId]);
+
+  useEffect(() => {
+    const savedFilter = window.localStorage.getItem("purchase_history_payment_filter");
+    if (savedFilter === "all" || savedFilter === "paid" || savedFilter === "partial" || savedFilter === "unpaid") {
+      setHistoryPaymentFilter(savedFilter);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("purchase_history_payment_filter", historyPaymentFilter);
+  }, [historyPaymentFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -764,10 +785,24 @@ export default function PurchaseOrders() {
                   </label>
                 ))}
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                Imported challan lines are locked in the item table to preserve source document integrity.
+              </p>
               {selectedChallanIds.length > 0 && (
-                <Button size="sm" variant="secondary" onClick={importChallanItems} className="h-7 text-xs">
-                  Import from {selectedChallanIds.length} challan(s)
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="text-[11px]">
+                    {selectedChallanIds.length} selected
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    {pendingChallans
+                      .filter((challan) => selectedChallanIds.includes(challan.id))
+                      .reduce((sum, challan) => sum + Number(challan.total_amount), 0)
+                      .toFixed(2)} total selected amount
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={importChallanItems} className="h-7 text-xs">
+                    Import from {selectedChallanIds.length} challan(s)
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -910,15 +945,28 @@ export default function PurchaseOrders() {
         <TabsContent value="history" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input ref={searchRef} placeholder="Search orders... ( / )" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative max-w-sm grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input ref={searchRef} placeholder="Search orders... ( / )" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+                </div>
+                <Select value={historyPaymentFilter} onValueChange={(v) => setHistoryPaymentFilter(v as "all" | "paid" | "partial" | "unpaid")}>
+                  <SelectTrigger className="w-[170px] h-9">
+                    <SelectValue placeholder="Payment status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payments</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading...</div>
-              ) : filteredOrders?.length === 0 ? (
+              ) : filteredOrdersByPayment.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                   <p className="text-muted-foreground">No purchase orders found.</p>
@@ -940,11 +988,12 @@ export default function PurchaseOrders() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders?.map(order => {
-                        const paid = paidByPoId[order.id] || 0;
-                        const balance = Number(order.total_amount) - paid;
-                        const isPaid = balance <= 0.01;
-                        const isPartial = paid > 0 && !isPaid;
+                      {filteredOrdersByPayment.map(order => {
+                        const payment = getPaymentSummary(Number(order.total_amount), paidByPoId[order.id] || 0);
+                        const isPaid = payment.state === "paid";
+                        const isPartial = payment.state === "partial";
+                        const receiveState = getReceiveState(order.status);
+                        const canReceive = receiveState !== "received" && order.status !== "cancelled";
                         const supplierName = (order.suppliers as any)?.name || "-";
                         return (
                           <TableRow key={order.id} tabIndex={0} data-kb-row
@@ -955,12 +1004,12 @@ export default function PurchaseOrders() {
                               else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
                               else if (e.key === "p" || e.key === "P") { e.preventDefault(); handleBillAction(order, "print"); }
                               else if (e.key === "r" || e.key === "R") {
-                                if (order.status !== "delivered" && order.status !== "cancelled") {
+                                if (canReceive) {
                                   e.preventDefault(); handleReceiveInventory(order.id, order.supplier_id);
                                 }
                               }
                               else if (e.key === "e" || e.key === "E") { e.preventDefault(); setEditOrderId(order.id); setEditOrderDialogOpen(true); }
-                              else if (e.key === "$") { e.preventDefault(); setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number || order.order_number, partyName: supplierName, totalAmount: Number(order.total_amount), paidAmount: paid }); }
+                              else if (e.key === "$") { e.preventDefault(); setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number || order.order_number, partyName: supplierName, totalAmount: Number(order.total_amount), paidAmount: payment.paid }); }
                             }}
                             className="cursor-pointer"
                           >
@@ -969,15 +1018,22 @@ export default function PurchaseOrders() {
                             <TableCell>{(order as any).is_challan ? ((order as any).challan_number || "-") : ((order as any).invoice_number || "-")}</TableCell>
                             <TableCell>{supplierName}</TableCell>
                             <TableCell>{format(new Date(order.order_date), "dd/MM/yy")}</TableCell>
-                            <TableCell><Badge variant={getStatusColor(order.status)}>{order.status}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant={getStatusColor(order.status)}>{order.status}</Badge>
+                                <Badge variant={receiveState === "received" ? "default" : receiveState === "partially_received" ? "secondary" : "outline"}>
+                                  {receiveState === "received" ? "Received" : receiveState === "partially_received" ? "Partial Receive" : "Not Received"}
+                                </Badge>
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="sm"
                                 className={`h-6 text-xs gap-1 px-1.5 ${isPaid ? "text-green-600" : isPartial ? "text-amber-600" : "text-destructive"}`}
-                                onClick={() => setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number || order.order_number, partyName: supplierName, totalAmount: Number(order.total_amount), paidAmount: paid })}
+                                onClick={() => setPaymentDialog({ referenceId: order.id, referenceNumber: order.invoice_number || order.order_number, partyName: supplierName, totalAmount: Number(order.total_amount), paidAmount: payment.paid })}
                               >
                                 <Banknote className="h-3 w-3" />
-                                {isPaid ? "Paid" : isPartial ? `₹${paid.toFixed(0)}` : "Unpaid"}
+                                {isPaid ? "Paid" : isPartial ? `₹${payment.paid.toFixed(0)}` : "Unpaid"}
                               </Button>
                             </TableCell>
                             <TableCell className="text-right">
@@ -997,7 +1053,7 @@ export default function PurchaseOrders() {
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditOrderId(order.id); setEditOrderDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>
-                                {order.status !== "delivered" && order.status !== "cancelled" && (
+                                {canReceive && (
                                   <>
                                     <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={() => handleReceiveInventory(order.id, order.supplier_id)}>
                                       <Package className="h-3 w-3" /> Receive

@@ -45,6 +45,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
+  const [parseError, setParseError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Prevent body scroll when open
@@ -62,6 +63,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const handleParse = async () => {
     if (!text.trim() || !companyId) return;
     setIsParsing(true);
+    setParseError(null);
     try {
       const { data, error } = await supabase.functions.invoke("parse-order-text", {
         body: { text: text.trim(), company_id: companyId, type },
@@ -71,6 +73,7 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       setParsedItems(data.items || []);
       setStep("review");
     } catch (err: any) {
+      setParseError(err.message || "Unable to parse input.");
       toast({ title: "Parse failed", description: err.message, variant: "destructive" });
     } finally {
       setIsParsing(false);
@@ -116,6 +119,21 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
     handleClose();
     // Call after close so parent state is stable
     onItemsConfirmed(itemsToConfirm);
+  };
+
+  const handleConfirmMappedOnly = () => {
+    const mapped = parsedItems.filter((item) => !!item.product_id);
+    if (mapped.length === 0) {
+      toast({ title: "No mapped items", description: "Map at least one product to continue.", variant: "destructive" });
+      return;
+    }
+    const droppedCount = parsedItems.length - mapped.length;
+    const itemsToConfirm = [...mapped];
+    handleClose();
+    onItemsConfirmed(itemsToConfirm);
+    if (droppedCount > 0) {
+      toast({ title: "Added mapped items", description: `${droppedCount} unmapped item(s) were skipped.` });
+    }
   };
 
   const handleClose = () => {
@@ -166,6 +184,11 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
 
           {step === "input" && (
             <div className="space-y-4">
+              {parseError && (
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                  Parse failed: {parseError}. Try one item per line like "dolo 650 10" or "crocin qty 5 rate 45".
+                </div>
+              )}
               <Textarea
                 ref={textareaRef}
                 placeholder={`Type your order here...\n\nExamples:\nparacetamol 10\namox 500 qty 5 rate 45\ncrocin 12+1\ndolo 650 x 20\n\nYou can use broken/partial names, quantity, and optional rate.`}
@@ -294,6 +317,9 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                <Button variant="outline" onClick={handleConfirmMappedOnly} disabled={parsedItems.length === 0}>
+                  Add mapped only
+                </Button>
                 <Button onClick={handleConfirm} disabled={parsedItems.length === 0}>
                   Add {parsedItems.length} items to {type === "sale" ? "cart" : "order"}
                 </Button>

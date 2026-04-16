@@ -49,6 +49,12 @@ export function AppLayout() {
     }
   }, [loading, bizLoading, user, needsOnboarding, navigate]);
 
+  useEffect(() => {
+    const openQuickSale = () => setCounterSaleOpen(true);
+    window.addEventListener("erp:open-quick-sale", openQuickSale);
+    return () => window.removeEventListener("erp:open-quick-sale", openQuickSale);
+  }, []);
+
   if (loading || bizLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

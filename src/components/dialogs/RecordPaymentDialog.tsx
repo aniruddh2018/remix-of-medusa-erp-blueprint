@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Banknote, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { getPaymentSummary } from "@/utils/transactionUx";
 
 export interface RecordPaymentDialogProps {
   open: boolean;
@@ -46,7 +48,10 @@ export function RecordPaymentDialog({
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
 
-  const balance = totalAmount - paidAmount;
+  const handleEnterNav = useEnterNavigation();
+
+  const { balance } = getPaymentSummary(totalAmount, paidAmount);
+  const maxAllowedAmount = Math.max(0, Number(balance.toFixed(2)));
 
   const [amount, setAmount] = useState<number>(balance > 0 ? parseFloat(balance.toFixed(2)) : 0);
   const [method, setMethod] = useState("cash");
@@ -55,6 +60,7 @@ export function RecordPaymentDialog({
   const [bankName, setBankName] = useState("");
   const [notes, setNotes] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const isOverPayment = amount > maxAllowedAmount;
 
   // Fetch existing payments for this reference
   const { data: existingPayments } = useQuery({
@@ -73,6 +79,9 @@ export function RecordPaymentDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (amount > maxAllowedAmount) {
+        throw new Error(`Amount exceeds balance due (max ₹${maxAllowedAmount.toFixed(2)}).`);
+      }
       const { error } = await supabase.from("payments").insert({
         payment_type: paymentType,
         reference_type: referenceType,
@@ -131,7 +140,7 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-primary" />
@@ -237,11 +246,17 @@ export function RecordPaymentDialog({
               <Input
                 type="number"
                 min={0}
+                max={maxAllowedAmount || undefined}
                 step={0.01}
                 value={amount || ""}
                 onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
                 autoFocus
+                data-field-required="true"
               />
+              <p className={`text-xs ${isOverPayment ? "text-destructive" : "text-muted-foreground"}`}>
+                Max allowed: ₹{maxAllowedAmount.toFixed(2)}
+                {isOverPayment ? " (entered amount is higher than outstanding balance)" : ""}
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -307,7 +322,8 @@ export function RecordPaymentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={!amount || amount <= 0 || mutation.isPending}
+            disabled={!amount || amount <= 0 || mutation.isPending || isOverPayment}
+            data-enter-nav-include="true"
           >
             <Banknote className="h-4 w-4 mr-2" />
             {mutation.isPending ? "Saving..." : "Record Payment"}

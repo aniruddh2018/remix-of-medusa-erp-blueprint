@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -49,6 +50,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const { isAdmin, isPharmacist } = useAuth();
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
+
+  const handleEnterNav = useEnterNavigation();
 
   const [notes, setNotes] = useState("");
   const [challanNumber, setChallanNumber] = useState("");
@@ -224,6 +227,29 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
   const totalCharges = freightCharges + handlingCharges + otherCharges;
   const grandTotal = itemsSubtotal + gstAmount + totalCharges - discountAmount;
+  const inventoryDelta = useMemo(() => {
+    let delta = 0;
+
+    for (const itemId of deletedItemIds) {
+      const original = originalQuantities[itemId];
+      if (original) {
+        delta -= Number(original.quantity) + Number(original.free_quantity || 0);
+      }
+    }
+
+    editableItems.forEach((item) => {
+      const newTotal = Number(item.quantity) + Number(item.free_quantity || 0);
+      if (item.isNew) {
+        delta += newTotal;
+      } else {
+        const original = originalQuantities[item.id];
+        const oldTotal = original ? Number(original.quantity) + Number(original.free_quantity || 0) : 0;
+        delta += newTotal - oldTotal;
+      }
+    });
+
+    return delta;
+  }, [deletedItemIds, editableItems, originalQuantities]);
 
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
@@ -378,7 +404,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -395,6 +421,19 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           </div>
         ) : (
           <div className="space-y-4">
+            <Card className="border-amber-300/60 bg-amber-50/60">
+              <CardContent className="pt-4 text-sm">
+                <p className="font-medium text-amber-800">Inventory impact preview</p>
+                <p className="text-amber-800/90">
+                  {inventoryDelta > 0
+                    ? `This edit will add ${inventoryDelta} unit(s) to inventory.`
+                    : inventoryDelta < 0
+                      ? `This edit will remove ${Math.abs(inventoryDelta)} unit(s) from inventory.`
+                      : "This edit keeps total received inventory unchanged."}
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Order Info */}
             <Card>
               <CardHeader className="pb-3">
@@ -525,7 +564,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                           <Label className="text-[10px] text-muted-foreground">Qty *</Label>
                           <Input type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
                             onChange={(e) => setNewItemQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="h-8" />
+                            className="h-8" data-field-required="true" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-muted-foreground">Free</Label>
@@ -612,7 +651,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={() => updateOrderMutation.mutate()}
-            disabled={editableItems.length === 0 || updateOrderMutation.isPending} className="gap-2">
+            disabled={editableItems.length === 0 || updateOrderMutation.isPending} className="gap-2"
+            data-enter-nav-include="true">
             <Save className="h-4 w-4" />
             {updateOrderMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>

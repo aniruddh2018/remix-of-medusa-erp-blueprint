@@ -153,10 +153,11 @@ export function SalesItemsTable({
                 <TableCell className="py-1">
                   <Button
                     variant="ghost" size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+                    className="h-6 w-6 opacity-70 group-hover:opacity-100 text-destructive"
                     onClick={() => onRemoveItem(index)}
                     data-enter-nav-skip="true"
                     tabIndex={-1}
+                    title="Remove line"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

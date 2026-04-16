@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -60,6 +61,8 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
   const { user } = useAuth();
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
+
+  const handleEnterNav = useEnterNavigation();
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<SalesOrder | null>(null);
@@ -313,7 +316,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="text-destructive font-bold">CN</span> Issue Credit Note
@@ -328,7 +331,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label htmlFor="cn-number">Credit Note # *</Label>
-              <Input id="cn-number" ref={creditNoteRef} value={creditNoteNumber} onChange={(e) => setCreditNoteNumber(e.target.value)} placeholder="CN-XXXXXX" autoComplete="off" />
+              <Input id="cn-number" ref={creditNoteRef} value={creditNoteNumber} onChange={(e) => setCreditNoteNumber(e.target.value)} placeholder="CN-XXXXXX" autoComplete="off" data-field-required="true" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="customer-name">Customer Name</Label>
@@ -552,7 +555,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
             <div className="space-y-1">
               <Label>Return Reason *</Label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                <SelectTrigger data-field-required="true"><SelectValue placeholder="Select reason..." /></SelectTrigger>
                 <SelectContent>
                   {RETURN_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
@@ -591,6 +594,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
             onClick={() => createCreditNoteMutation.mutate()}
             disabled={createCreditNoteMutation.isPending || returnItems.length === 0 || !reason}
             className="gap-2"
+            data-enter-nav-include="true"
           >
             {createCreditNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Issue Credit Note (Ctrl+Enter)

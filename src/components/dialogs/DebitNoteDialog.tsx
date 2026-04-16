@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -59,6 +60,8 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
   const { user } = useAuth();
   const { companyId } = useBusiness();
   const queryClient = useQueryClient();
+
+  const handleEnterNav = useEnterNavigation();
 
   const [orderSearch, setOrderSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
@@ -298,7 +301,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="text-warning font-bold">DN</span> Issue Debit Note
@@ -313,7 +316,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label htmlFor="dn-number">Debit Note # *</Label>
-              <Input id="dn-number" value={debitNoteNumber} onChange={(e) => setDebitNoteNumber(e.target.value)} placeholder="DN-XXXXXX" autoComplete="off" />
+              <Input id="dn-number" value={debitNoteNumber} onChange={(e) => setDebitNoteNumber(e.target.value)} placeholder="DN-XXXXXX" autoComplete="off" data-field-required="true" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="supplier-name">Supplier Name</Label>
@@ -526,7 +529,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             <div className="space-y-1">
               <Label>Return Reason *</Label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                <SelectTrigger data-field-required="true"><SelectValue placeholder="Select reason..." /></SelectTrigger>
                 <SelectContent>
                   {RETURN_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
@@ -565,6 +568,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             onClick={() => createDebitNoteMutation.mutate()}
             disabled={createDebitNoteMutation.isPending || returnItems.length === 0 || !reason}
             className="gap-2"
+            data-enter-nav-include="true"
           >
             {createDebitNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Issue Debit Note (Ctrl+Enter)

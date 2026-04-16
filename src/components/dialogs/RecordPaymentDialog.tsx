@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export function RecordPaymentDialog({
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
+  const focusTrapRef = useFocusTrap(open);
 
   const { balance } = getPaymentSummary(totalAmount, paidAmount);
   const maxAllowedAmount = Math.max(0, Number(balance.toFixed(2)));
@@ -140,7 +142,7 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
+      <DialogContent ref={focusTrapRef} className="max-w-lg max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-primary" />

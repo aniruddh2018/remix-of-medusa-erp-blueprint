@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -63,6 +64,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
+  const focusTrapRef = useFocusTrap(open);
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<SalesOrder | null>(null);
@@ -316,7 +318,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
+      <DialogContent ref={focusTrapRef} className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="text-destructive font-bold">CN</span> Issue Credit Note

@@ -509,16 +509,15 @@ export default function Sales() {
   // Auto-focus invoice number on billing tab mount and prefetch next invoice number
   useEffect(() => {
     if (activeTab === "billing") {
-      // Pre-fetch next invoice number if field is empty
-      if (!invoiceNumber && companyId) {
-        supabase.rpc("get_next_invoice_number", { _company_id: companyId, _prefix: "INV" })
-          .then(({ data }) => {
-            if (data) setInvoiceNumber(data);
-          });
-      }
-      setTimeout(() => invoiceNumberRef.current?.focus(), 50);
+      // Focus customer dropdown by default on new sale - it's pre-selected to "Walk-in Customer"
+      setTimeout(() => {
+        const customerBtn = document.querySelector('[aria-haspopup="dialog"][data-enter-nav-include="true"]');
+        if (customerBtn && customerBtn instanceof HTMLElement) {
+          customerBtn.focus();
+        }
+      }, 50);
     }
-  }, [activeTab, companyId, invoiceNumber]);
+  }, [activeTab]);
 
   // Quick text entry handler
   const handleQuickTextItems = useCallback((items: any[]) => {
@@ -627,7 +626,7 @@ export default function Sales() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="space-y-1">
               <Label className="text-[11px]">Invoice #</Label>
-              <Input ref={invoiceNumberRef} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto" className="h-8 text-sm" />
+              <Input ref={invoiceNumberRef} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto-generated" className="h-8 text-sm" />
             </div>
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
@@ -663,8 +662,8 @@ export default function Sales() {
                                   setCustomerAddress(c.address || "");
                                   setCustomerGstin(c.gst_number || "");
                                   setCustomerPopoverOpen(false);
-                                  // Advance to next field after selection
-                                  setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50);
+                                  // Immediately move focus to Product Search
+                                  setTimeout(() => productSearchRef.current?.focus(), 50);
                                 }}>
                                   <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
                                   <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>

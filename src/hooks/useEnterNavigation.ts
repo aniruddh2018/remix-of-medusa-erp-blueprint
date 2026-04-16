@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useEffect } from "react";
 
 const ENTER_NAV_SELECTOR = [
   'input:not([type="hidden"]):not([disabled]):not([readonly]):not([data-enter-nav-skip="true"])',
@@ -24,6 +24,42 @@ const BUTTON_NAV_SELECTOR = 'button[data-enter-nav-include="true"]:not([disabled
  * are included in the navigation flow.
  */
 export function useEnterNavigation(onLastField?: () => void, onFirstField?: () => void) {
+  // Cache for focusable elements to improve performance
+  const focusableCache = useRef<{
+    container: HTMLElement | null;
+    elements: HTMLElement[];
+    timestamp: number;
+  }>({ container: null, elements: [], timestamp: 0 });
+
+  const getFocusableElements = useCallback((container: HTMLElement): HTMLElement[] => {
+    // Check if we can use cached elements (valid for 100ms)
+    const now = Date.now();
+    if (
+      focusableCache.current.container === container &&
+      now - focusableCache.current.timestamp < 100
+    ) {
+      return focusableCache.current.elements;
+    }
+
+    // Recalculate and cache
+    const elements = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        `${ENTER_NAV_SELECTOR}, ${BUTTON_NAV_SELECTOR}`
+      )
+    ).filter((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    focusableCache.current = {
+      container,
+      elements,
+      timestamp: now
+    };
+
+    return elements;
+  }, []);
+
   const handleEnterNav = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
       const eventTarget = e.target;
@@ -42,15 +78,8 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         target.parentElement?.parentElement?.parentElement;
       if (!container) return;
 
-      // Collect visible focusable elements (fields + explicitly included buttons)
-      const focusable = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          `${ENTER_NAV_SELECTOR}, ${BUTTON_NAV_SELECTOR}`
-        )
-      ).filter((el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-      });
+      // Get cached focusable elements
+      const focusable = getFocusableElements(container);
 
       const findIndex = () => {
         let idx = focusable.indexOf(target);
@@ -142,7 +171,7 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         onLastField();
       }
     },
-    [onLastField, onFirstField]
+    [onLastField, onFirstField, getFocusableElements]
   );
 
   return handleEnterNav;

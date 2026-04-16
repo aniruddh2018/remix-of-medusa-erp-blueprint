@@ -836,3 +836,10 @@ toast({ title: "Error", description: err.message, variant: "destructive" });
 - If a request is ambiguous, **ask** before implementing.
 - If a change might break existing functionality, **warn** the user first.
 - Never say "I also improved X" — only do what was asked.
+
+### 19.7 — Database Migration Rules
+
+- **NEVER** edit database migration files unless explicitly instructed by the user.
+- Database schema changes must be approved and requested specifically.
+- Migration files are production-critical and should only be modified when absolutely necessary.
+- If migration changes are needed, ask for explicit permission first.

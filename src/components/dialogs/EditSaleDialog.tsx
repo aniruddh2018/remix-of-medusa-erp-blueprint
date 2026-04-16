@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,7 +56,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
-  const focusTrapRef = useFocusTrap(open);
+  const customerNameRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(open, customerNameRef);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -490,7 +491,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Customer Name *</Label>
-                    <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} data-field-required="true" />
+                    <Input ref={customerNameRef} value={customerName} onChange={(e) => setCustomerName(e.target.value)} data-field-required="true" />
                   </div>
                   <div className="space-y-2">
                     <Label>Phone</Label>

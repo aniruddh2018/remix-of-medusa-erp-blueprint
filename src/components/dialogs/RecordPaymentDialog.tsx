@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,7 +50,8 @@ export function RecordPaymentDialog({
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
-  const focusTrapRef = useFocusTrap(open);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(open, amountRef);
 
   const { balance } = getPaymentSummary(totalAmount, paidAmount);
   const maxAllowedAmount = Math.max(0, Number(balance.toFixed(2)));
@@ -246,6 +247,7 @@ export function RecordPaymentDialog({
             <div className="space-y-1 col-span-2">
               <Label>Amount (₹) *</Label>
               <Input
+                ref={amountRef}
                 type="number"
                 min={0}
                 max={maxAllowedAmount || undefined}

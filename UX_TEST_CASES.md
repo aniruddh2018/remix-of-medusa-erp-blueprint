@@ -126,30 +126,34 @@
 - Table navigation not centralized in useEnterNavigation hook
 
 ### TC-005: Focus Trap and Modal Behavior
-**Objective**: Verify focus stays within dialogs
+**Objective**: Verify focus stays within dialogs and starts at logical beginning
 
 **Pre-conditions**:
 - Any edit dialog open
 
 **Steps**:
-1. Tab through all focusable elements in dialog
-2. Verify focus cycles within dialog
-3. Press Escape
-4. Verify dialog closes
-5. Try to tab outside dialog
-6. Verify focus stays trapped
+1. Verify dialog opens with focus on first logical input field
+2. Tab through all focusable elements in dialog
+3. Verify focus cycles within dialog from beginning to end
+4. Press Escape
+5. Verify dialog closes
+6. Try to tab outside dialog
+7. Verify focus stays trapped
 
 **Expected Results**:
+- Focus starts at logical beginning of form (first data entry field)
 - Focus cannot escape dialog when open
-- Tab cycles through dialog elements
+- Tab cycles through dialog elements from start to finish
 - Escape closes dialog
 - No focus leakage to background elements
 
-**Actual Results**: FIXED - Focus trapping implemented with useFocusTrap hook. Focus cycles within dialogs.
+**Actual Results**: ENHANCED - Focus trapping with logical initial focus. Dialogs now open with focus on the first meaningful data entry field.
 
 **Issues Found**:
-- ✅ Focus trapping now prevents leakage
+- ✅ Focus trapping prevents leakage
 - ✅ Tab cycles through dialog elements properly
+- ✅ Initial focus goes to logical starting point (customer name, quantity field, etc.)
+- ✅ Navigation flows from beginning to end of form
 - ✅ Focus returns to first element when reaching end
 
 ### TC-006: Mobile/Tablet Keyboard Support

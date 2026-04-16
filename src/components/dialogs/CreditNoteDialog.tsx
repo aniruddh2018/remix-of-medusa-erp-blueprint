@@ -64,7 +64,8 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
-  const focusTrapRef = useFocusTrap(open);
+  const invoiceSearchRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(open, invoiceSearchRef);
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<SalesOrder | null>(null);

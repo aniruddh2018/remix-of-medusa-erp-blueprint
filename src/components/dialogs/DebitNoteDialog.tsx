@@ -63,28 +63,9 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
-  const focusTrapRef = useFocusTrap(open);
-
-  const [orderSearch, setOrderSearch] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
-  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
-  const [reason, setReason] = useState("");
-  const [customReason, setCustomReason] = useState("");
-  const [notes, setNotes] = useState("");
-  const [debitNoteNumber, setDebitNoteNumber] = useState("");
-  const [supplierName, setSupplierName] = useState("");
-  const [focusedRowIndex, setFocusedRowIndex] = useState<number>(-1);
-
-  // Manual product addition state
-  const [manualProductOpen, setManualProductOpen] = useState(false);
-  const [manualProductSearch, setManualProductSearch] = useState("");
-  const [manualSelectedProduct, setManualSelectedProduct] = useState<Product | null>(null);
-  const [manualQty, setManualQty] = useState(1);
-  const [manualPrice, setManualPrice] = useState(0);
-  const [manualGst, setManualGst] = useState(0);
-  const [manualDiscount, setManualDiscount] = useState(0);
-
   const orderSearchRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(open, orderSearchRef);
+  const manualQtyRef = useRef<HTMLInputElement>(null);
   const manualQtyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +53,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const queryClient = useQueryClient();
 
   const handleEnterNav = useEnterNavigation();
-  const focusTrapRef = useFocusTrap(open);
+  const newItemQtyRef = useRef<HTMLInputElement>(null);
+  const focusTrapRef = useFocusTrap(open, newItemQtyRef);
 
   const [notes, setNotes] = useState("");
   const [challanNumber, setChallanNumber] = useState("");
@@ -564,7 +565,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                       <div className="w-full grid grid-cols-6 gap-2 mt-2">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-muted-foreground">Qty *</Label>
-                          <Input type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
+                          <Input ref={newItemQtyRef} type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
                             onChange={(e) => setNewItemQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                             className="h-8" data-field-required="true" />
                         </div>

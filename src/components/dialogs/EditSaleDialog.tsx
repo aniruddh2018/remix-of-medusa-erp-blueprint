@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS } from "@/lib/platform";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -86,6 +88,22 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const handleEnterNav = useEnterNavigation();
   const invoiceNumberRef = useRef<HTMLButtonElement>(null);
   const focusTrapRef = useFocusTrap(open, invoiceNumberRef);
+
+  // Payment type cycling shortcut
+  const paymentMethods = ["cash", "card", "upi"];
+  usePlatformShortcut({
+    shortcut: SHORTCUTS.CHANGE_PAYMENT_TYPE,
+    callback: () => {
+      const currentIndex = paymentMethods.indexOf(paymentMethod);
+      const nextIndex = (currentIndex + 1) % paymentMethods.length;
+      setPaymentMethod(paymentMethods[nextIndex]);
+      toast({
+        title: "Payment Method Changed",
+        description: `Changed to ${paymentMethods[nextIndex].toUpperCase()}`,
+      });
+    },
+    enabled: open
+  });
 
   const { data: sale, isLoading: saleLoading } = useQuery({
     queryKey: ["sale-for-edit", saleId],

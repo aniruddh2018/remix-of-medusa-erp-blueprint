@@ -109,6 +109,7 @@ export const SHORTCUTS = {
 
   // In-module
   CYCLE_PAYMENT: { key: "c", modifiers: ["secondary"] as ModifierAbstract[], label: "SECONDARY+C" },
+  CHANGE_PAYMENT_TYPE: { key: "p", modifiers: ["secondary"] as ModifierAbstract[], label: "SECONDARY+P" },
   DELETE_ROW: { key: "Delete", modifiers: [] as ModifierAbstract[], label: "Del" },
   FOCUS_SEARCH: { key: "/", modifiers: [] as ModifierAbstract[], label: "/" },
   NEW_ENTRY: { key: "n", modifiers: [] as ModifierAbstract[], label: "N" },

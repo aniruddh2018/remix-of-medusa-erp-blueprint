@@ -152,6 +152,7 @@ export function AppLayout() {
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Enter</kbd> Add / Complete sale</p>
                     <p><ShortcutHint shortcut={SHORTCUTS.CONFIRM} /> Force complete sale</p>
                     <p><ShortcutHint shortcut={SHORTCUTS.CYCLE_PAYMENT} /> Cycle payment method</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.CHANGE_PAYMENT_TYPE} /> Change payment type</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Del</kbd> Remove cart row</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">Esc</kbd> Close dialogs</p>
                   </div>

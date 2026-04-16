@@ -26,7 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
-import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
@@ -51,6 +51,7 @@ export default function PurchaseOrders() {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
+  const challanNumberRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
@@ -636,10 +637,12 @@ export default function PurchaseOrders() {
     focusProductSearch();
   }, [products, gstInclusive, toast, focusProductSearch]);
 
-  // Auto-focus product search on billing tab mount
+  // Auto-focus document number on billing tab mount
   useEffect(() => {
-    if (activeTab === "billing") focusProductSearch();
-  }, [activeTab, focusProductSearch]);
+    if (activeTab === "billing") {
+      setTimeout(() => challanNumberRef.current?.focus(), 50);
+    }
+  }, [activeTab]);
 
   // ── Keyboard shortcuts ──
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); }, enabled: activeTab === "history" });
@@ -721,8 +724,8 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Supplier *</Label>
               <div className="flex gap-1">
-                <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); }}>
-                  <SelectTrigger className="h-8 text-sm flex-1"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
+                    <SelectTrigger className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === 'n' || e.key === 'N') { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
@@ -732,7 +735,7 @@ export default function PurchaseOrders() {
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Doc Type</Label>
-              <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); }}>
+              <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="challan">Challan</SelectItem>
@@ -742,7 +745,7 @@ export default function PurchaseOrders() {
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">{isChallan ? "Challan #" : "Invoice #"}</Label>
-              <Input value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."} data-enter-nav-skip="true" tabIndex={-1} />
+              <Input ref={challanNumberRef} value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."} />
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Delivery Date</Label>
@@ -1072,7 +1075,15 @@ export default function PurchaseOrders() {
       </Dialog>
 
       <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />
-      <SupplierFormDialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog} onSuccess={(id) => { refetchSuppliers(); if (id) setSelectedSupplier(id); }} />
+      <SupplierFormDialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog} onSuccess={(id) => {
+        refetchSuppliers();
+        if (id) {
+          setSelectedSupplier(id);
+          // Close dialog and advance focus to next field
+          setShowSupplierDialog(false);
+          setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
+        }
+      }} />
       <ReceiveInventoryDialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen} orderId={selectedOrderForReceive?.id || null} supplierId={selectedOrderForReceive?.supplierId || null}
         onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); queryClient.invalidateQueries({ queryKey: ["inventory-batches"] }); }} />
       <LinkedChallansDialog open={linkedChallansDialogOpen} onOpenChange={setLinkedChallansDialogOpen} invoiceId={selectedInvoiceForChallans} />

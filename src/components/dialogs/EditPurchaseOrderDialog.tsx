@@ -67,13 +67,6 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [pendingInvoiceNumber, setPendingInvoiceNumber] = useState("");
   const [invoicePopoverOpen, setInvoicePopoverOpen] = useState(false);
 
-  // Initialize invoice number when order data loads
-  useEffect(() => {
-    if (order?.invoice_number) {
-      setInvoiceNumber(order.invoice_number);
-    }
-  }, [order?.invoice_number]);
-
   const handleEnterNav = useEnterNavigation();
   const invoiceNumberRef = useRef<HTMLButtonElement>(null);
   const focusTrapRef = useFocusTrap(open, invoiceNumberRef);
@@ -117,6 +110,13 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     },
     enabled: !!orderId && open,
   });
+
+  // Initialize invoice number when order data loads
+  useEffect(() => {
+    if (order?.invoice_number) {
+      setInvoiceNumber(order.invoice_number);
+    }
+  }, [order?.invoice_number]);
 
   const { data: allProducts } = useQuery({
     queryKey: ["products-for-edit-po"],

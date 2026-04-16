@@ -230,7 +230,7 @@ export function CounterSaleDialog({ open, onOpenChange }: CounterSaleDialogProps
 
   const createCounterSaleMutation = useMutation({
     mutationFn: async () => {
-      const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "CS" });
+      const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "INV" });
       if (seqErr) throw seqErr;
       const invoiceNumber = seqNum as string;
       

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTORS = [
   'a[href]',
@@ -18,14 +18,12 @@ const FOCUSABLE_SELECTORS = [
  * @param initialFocusRef - Optional ref to element that should receive initial focus
  */
 export function useFocusTrap(isActive: boolean, initialFocusRef?: React.RefObject<HTMLElement>) {
+  const containerRef = useRef<HTMLElement>(null);
+  
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !containerRef.current) return;
 
-    const container = document.activeElement?.closest('[data-enter-nav]') ||
-                     document.activeElement?.closest('form') ||
-                     document.activeElement?.closest('[role="dialog"]');
-
-    if (!container) return;
+    const container = containerRef.current;
 
     // Get all focusable elements within the container
     const getFocusableElements = (): HTMLElement[] => {
@@ -103,4 +101,6 @@ export function useFocusTrap(isActive: boolean, initialFocusRef?: React.RefObjec
       container.removeEventListener('focusout', handleFocusOut);
     };
   }, [isActive, initialFocusRef]);
+  
+  return containerRef;
 }

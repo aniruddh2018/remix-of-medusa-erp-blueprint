@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -396,7 +396,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent ref={focusTrapRef} className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -446,6 +446,9 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                                   if (invoiceNumber && invoiceNumber !== order?.invoice_number) {
                                     setPendingInvoiceNumber(invoiceNumber);
                                     setShowInvoiceConfirm(true);
+                                  } else {
+                                    // No change needed, just advance to next field
+                                    setTimeout(() => advanceToNextField(e.target as HTMLElement), 50);
                                   }
                                   setInvoicePopoverOpen(false);
                                 }}

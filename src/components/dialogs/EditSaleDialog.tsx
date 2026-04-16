@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -443,7 +443,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent ref={focusTrapRef} className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -493,6 +493,9 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                                   if (invoiceNumber && invoiceNumber !== sale?.invoice_number) {
                                     setPendingInvoiceNumber(invoiceNumber);
                                     setShowInvoiceConfirm(true);
+                                  } else {
+                                    // No change needed, just advance to next field
+                                    setTimeout(() => advanceToNextField(e.target as HTMLElement), 50);
                                   }
                                   setInvoicePopoverOpen(false);
                                 }}
@@ -534,7 +537,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                   </div>
                   <div className="space-y-2">
                     <Label>Status</Label>
-                    <Select value={status} onValueChange={(value) => { setStatus(value); setTimeout(() => advanceToNextField(), 50); }}>
+                     <Select value={status} onValueChange={(value) => { setStatus(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
@@ -668,7 +671,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                         <Select value={selectedNewBatch?.id || ""} onValueChange={(v) => {
                           const b = newProductBatches?.find(b => b.id === v);
                           setSelectedNewBatch(b || null);
-                          setTimeout(() => advanceToNextField(), 50);
+                          setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50);
                         }}>
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Batch" />
@@ -737,7 +740,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setTimeout(() => advanceToNextField(), 50); }}>
+                 <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Cash</SelectItem>

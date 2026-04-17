@@ -111,24 +111,31 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         return;
       }
 
-      // BLOCK Enter on any non-included button to prevent accidental triggers
-      if (isForwardEnter && target instanceof HTMLButtonElement && !isIncludedButton) {
+      // For combobox with OPEN dropdown, let Radix handle Enter (select the item)
+      if (isFieldLikeButton && target.getAttribute("aria-expanded") === "true") return;
+
+      // BLOCK Enter on any non-field, non-included button to prevent accidental triggers
+      // (Delete, Cancel, etc.) — but NEVER block field-like buttons (Select triggers, comboboxes)
+      if (isForwardEnter && target instanceof HTMLButtonElement && !isIncludedButton && !isFieldLikeButton) {
         e.preventDefault();
         return;
       }
 
-      // For combobox with open dropdown, let Enter select the item
-      if (isFieldLikeButton && target.getAttribute("aria-expanded") === "true") return;
-
-      // Check if current field is required and empty → block forward
+      // Check if current field is required and empty → block forward + shake
       if (isForwardEnter && isRequiredAndEmpty(target)) {
-        if (isFieldLikeButton) return;
         e.preventDefault();
         target.classList.add("animate-shake");
         setTimeout(() => target.classList.remove("animate-shake"), 500);
         target.classList.add("ring-2", "ring-destructive");
         setTimeout(() => target.classList.remove("ring-2", "ring-destructive"), 1500);
         return;
+      }
+
+      // For combobox CLOSED with a selected value → confirm + advance (do NOT open dropdown)
+      // For combobox CLOSED with no value → fall through to advance (will be blocked above if required)
+      if (isForwardEnter && isFieldLikeButton) {
+        e.preventDefault();
+        // fall through to advance
       }
 
       const idx = findIndex();
@@ -202,6 +209,15 @@ function isFieldEmpty(el: HTMLElement): boolean {
   }
   if (el instanceof HTMLSelectElement) {
     return !el.value;
+  }
+  // Radix Select / combobox: check if it has a placeholder showing (no value selected)
+  // SelectValue renders data-placeholder when empty
+  if (el.getAttribute("role") === "combobox") {
+    const placeholderShown = el.querySelector("[data-placeholder]") !== null;
+    if (placeholderShown) return true;
+    // Otherwise check the rendered text content of the value span
+    const valueSpan = el.querySelector("span");
+    return !valueSpan || valueSpan.textContent?.trim() === "";
   }
   if (el instanceof HTMLButtonElement) {
     return false;

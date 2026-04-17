@@ -462,21 +462,64 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const isLoading = saleLoading || itemsLoading;
 
+  // Map editableItems → CartItem[] shape for SalesItemsTable
+  const cartItems: CartItem[] = useMemo(() => editableItems.map((it) => {
+    const flat = it.unit_price * it.quantity * (it.discount_percentage / 100);
+    return {
+      product_id: it.product_id,
+      batch_id: it.batch_id,
+      product_name: it.product_name,
+      batch_number: it.batch_label,
+      hsn_code: "",
+      quantity: it.quantity,
+      free_quantity: it.free_quantity,
+      unit_price: it.unit_price,
+      gst_percentage: it.gst_percentage,
+      discount_percentage: it.discount_percentage,
+      discount_flat: flat,
+      total_price: it.total_price,
+      max_quantity: it.max_quantity,
+      expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+  }), [editableItems]);
+
+  const handleCartUpdate = (index: number, field: keyof CartItem, value: string | number) => {
+    if (field === "quantity" || field === "free_quantity" || field === "unit_price" || field === "discount_percentage") {
+      updateItem(index, field as string, Number(value));
+    } else if (field === "discount_flat") {
+      const it = editableItems[index];
+      const flat = Number(value);
+      const base = it.unit_price * it.quantity;
+      const pct = base > 0 ? Math.min((flat / base) * 100, 100) : 0;
+      updateItem(index, "discount_percentage", pct);
+    }
+  };
+
+  // Sync bill discount inputs → discountAmount
+  const grossSubtotal = itemsSubtotal + (gstInclusive ? 0 : gstAmount) + totalCharges;
+  useEffect(() => {
+    if (billDiscountPercent > 0) {
+      setDiscountAmount(Math.round(grossSubtotal * (billDiscountPercent / 100) * 100) / 100);
+    } else if (billDiscountFlat > 0) {
+      setDiscountAmount(billDiscountFlat);
+    }
+  }, [billDiscountPercent, billDiscountFlat, grossSubtotal]);
+
+  const itemDiscountTotal = editableItems.reduce((s, it) => s + it.unit_price * it.quantity * (it.discount_percentage / 100), 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent ref={focusTrapRef} className="max-w-4xl max-h-[90vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
+      <DialogContent ref={focusTrapRef} className="max-w-6xl max-h-[92vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
-            Edit Sale - {sale?.invoice_number}
+            Edit Sale — {sale?.invoice_number}
           </DialogTitle>
-          <DialogDescription>
-            Modify sale details, edit items, or add new products.
-          </DialogDescription>
+          <DialogDescription>Modify sale details, edit items, or add new products.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (

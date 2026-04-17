@@ -1091,6 +1091,14 @@ export default function CounterSales() {
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
+                  {selectedProduct && batchesForProduct.length > 0 && (
+                    <BatchSelector
+                      batches={batchesForProduct}
+                      selectedBatchId={selectedBatchId}
+                      existingCartQuantities={existingCartQuantities}
+                      onSelect={setSelectedBatchId}
+                    />
+                  )}
                   {selectedProduct && (
                     <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
                       {availableStock > 0 ? `${availableStock}` : (settings.allow_negative_stock ? "0 (override)" : "Out of stock")}

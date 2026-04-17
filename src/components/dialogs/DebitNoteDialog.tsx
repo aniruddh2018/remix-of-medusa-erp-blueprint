@@ -527,7 +527,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Return Reason *</Label>
-              <Select value={reason} onValueChange={(value) => { setReason(value); setTimeout(() => advanceToNextField(), 50); }}>
+              <Select value={reason} onValueChange={(value) => { setReason(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
                 <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
                 <SelectContent>
                   {RETURN_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}

@@ -225,6 +225,20 @@ export function InvoiceSettingsSection() {
                     />
                   </div>
                 ))}
+
+                <Separator className="my-2" />
+
+                {/* Inventory behavior */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="cursor-pointer">Allow Negative Stock</Label>
+                    <p className="text-xs text-muted-foreground">Allow billing products even when stock is 0 or insufficient (override).</p>
+                  </div>
+                  <Switch
+                    checked={form.allow_negative_stock}
+                    onCheckedChange={v => setForm(f => ({ ...f, allow_negative_stock: v }))}
+                  />
+                </div>
               </div>
             </div>
 

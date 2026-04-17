@@ -17,8 +17,11 @@ const FOCUSABLE_SELECTORS = [
  * @param isActive - Whether focus trapping is active
  * @param initialFocusRef - Optional ref to element that should receive initial focus
  */
-export function useFocusTrap(isActive: boolean, initialFocusRef?: React.RefObject<HTMLElement>) {
-  const containerRef = useRef<HTMLElement>(null);
+export function useFocusTrap<T extends HTMLElement = HTMLElement>(
+  isActive: boolean,
+  initialFocusRef?: React.RefObject<HTMLElement>
+) {
+  const containerRef = useRef<T>(null);
   
   useEffect(() => {
     if (!isActive || !containerRef.current) return;

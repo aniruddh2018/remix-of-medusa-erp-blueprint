@@ -87,7 +87,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const handleEnterNav = useEnterNavigation();
   const invoiceNumberRef = useRef<HTMLButtonElement>(null);
-  const focusTrapRef = useFocusTrap(open, invoiceNumberRef);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(open, invoiceNumberRef);
 
   // Payment type cycling shortcut
   const paymentMethods = ["cash", "card", "upi"];
@@ -513,7 +513,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                                     setShowInvoiceConfirm(true);
                                   } else {
                                     // No change needed, just advance to next field
-                                    setTimeout(() => advanceToNextField(e.target as HTMLElement), 50);
+                                    setTimeout(() => advanceToNextField(invoiceNumberRef.current), 50);
                                   }
                                   setInvoicePopoverOpen(false);
                                 }}

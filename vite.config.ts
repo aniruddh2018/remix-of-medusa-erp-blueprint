@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
       includeAssets: ["logo.png", "favicon.ico"],
       manifest: {
         name: "MedikaRP - Pharmacy Management",
@@ -43,6 +44,10 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api/, /^\/auth/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

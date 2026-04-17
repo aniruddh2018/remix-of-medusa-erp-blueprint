@@ -268,6 +268,7 @@ export default function PurchaseOrders() {
     setSelectedProduct(productId);
     setExistingBatchId("new");
     setItemBatchNumber("");
+    setEditBatchDetails(false);
     const product = products?.find((p) => p.id === productId);
     if (product) {
       setItemPrice(Number(product.purchase_price));
@@ -277,6 +278,7 @@ export default function PurchaseOrders() {
 
   const handleBatchSelect = useCallback((batchId: string) => {
     setExistingBatchId(batchId);
+    setEditBatchDetails(false);
     if (batchId === "new") {
       setItemBatchNumber("");
       return;
@@ -284,11 +286,14 @@ export default function PurchaseOrders() {
     const batch = existingBatches?.find(b => b.id === batchId);
     if (batch) {
       setItemBatchNumber(batch.batch_number);
-      setItemExpiryDate(batch.expiry_date);
+      setItemExpiryDate(batch.expiry_date || "");
       setItemMrp(Number(batch.mrp));
       setItemPrice(Number(batch.purchase_price));
     }
   }, [existingBatches]);
+
+  // Locked when an existing batch is bound and user hasn't toggled edit mode
+  const batchLocked = existingBatchId !== "new" && !editBatchDetails;
 
   const handleAddItem = useCallback(() => {
     if (!selectedProduct) {

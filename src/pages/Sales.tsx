@@ -51,6 +51,7 @@ export default function Sales() {
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
+  const customerButtonRef = useRef<HTMLButtonElement>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -634,11 +635,12 @@ export default function Sales() {
                     <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          ref={customerButtonRef}
                           variant="outline"
                           className="flex-1 justify-between h-8 text-sm font-normal"
                           data-enter-nav-include="true"
                           onKeyDown={(e) => {
-                            if (e.key === 'n' || e.key === 'N') {
+                            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
                               e.preventDefault();
                               setShowCustomerDialog(true);
                             }

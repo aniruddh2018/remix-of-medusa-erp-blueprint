@@ -307,7 +307,7 @@ export default function PurchaseOrders() {
     }
     if (itemPrice <= 0) {
       toast({ title: "Rate required", description: "Enter a purchase rate greater than 0.", variant: "destructive" });
-      const rateEl = document.getElementById("po-rate") as HTMLInputElement | null;
+      const rateEl = document.getElementById("po-price-input") as HTMLInputElement | null;
       rateEl?.focus();
       rateEl?.select();
       return;

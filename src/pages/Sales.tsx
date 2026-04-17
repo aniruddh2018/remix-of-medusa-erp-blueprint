@@ -926,11 +926,15 @@ export default function Sales() {
                       onSelect={setSelectedBatchId}
                     />
                   )}
-                  {selectedProduct && (
-                    <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
-                      {availableStock > 0 ? `${availableStock}` : (settings.allow_negative_stock ? "0 (override)" : "Out of stock")}
-                    </Badge>
-                  )}
+                  {selectedProduct && (() => {
+                    const projected = availableStock - (itemQuantity || 0) - (itemFreeQty || 0);
+                    const isNeg = projected < 0;
+                    return (
+                      <Badge variant={availableStock > 0 && !isNeg ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
+                        {availableStock <= 0 ? (settings.allow_negative_stock ? "0 (override)" : "Out of stock") : `${projected}/${availableStock}`}
+                      </Badge>
+                    );
+                  })()}
                   <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || itemQuantity <= 0 || (availableStock === 0 && !settings.allow_negative_stock)} size="sm" data-enter-nav-include="true">
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>

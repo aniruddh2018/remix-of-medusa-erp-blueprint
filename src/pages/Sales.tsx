@@ -37,6 +37,7 @@ import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConf
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
+import { BatchSelector } from "@/components/billing/BatchSelector";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -75,6 +76,7 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<string>(settings.default_payment_method || "cash");
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);

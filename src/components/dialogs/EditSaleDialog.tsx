@@ -524,288 +524,50 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Invoice Number */}
-            <Card>
-              <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <Label>Invoice Number</Label>
-                  {isAdmin ? (
-                    <Popover open={invoicePopoverOpen} onOpenChange={setInvoicePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button ref={invoiceNumberRef} variant="outline" className="w-full justify-between font-mono" data-enter-nav-include="true">
-                          {invoiceNumber || "Loading..."}
-                          <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput
-                            placeholder="Enter invoice number..."
-                            value={invoiceNumber}
-                            onValueChange={setInvoiceNumber}
-                          />
-                          <CommandList>
-                            <CommandEmpty>
-                              <div className="p-2 text-sm text-muted-foreground">
-                                Enter a unique invoice number
-                              </div>
-                            </CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => {
-                                  // Check for duplicates
-                                  if (invoiceNumber && invoiceNumber !== sale?.invoice_number) {
-                                    setPendingInvoiceNumber(invoiceNumber);
-                                    setShowInvoiceConfirm(true);
-                                  } else {
-                                    // No change needed, just advance to next field
-                                    setTimeout(() => advanceToNextField(invoiceNumberRef.current), 50);
-                                  }
-                                  setInvoicePopoverOpen(false);
-                                }}
-                              >
-                                Confirm: {invoiceNumber}
-                              </CommandItem>
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <div className="font-mono text-sm p-2 bg-muted rounded border">
-                      {invoiceNumber || "Loading..."}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Customer Info */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Customer Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Customer Name *</Label>
-                    <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Prescription #</Label>
-                    <Input value={prescriptionNumber} onChange={(e) => setPrescriptionNumber(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                     <Select value={status} onValueChange={(value) => { setStatus(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Editable Items */}
-            <Card>
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Sale Items</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead className="text-right w-20">Qty</TableHead>
-                      <TableHead className="text-right w-16">Free</TableHead>
-                      <TableHead className="text-right w-24">Price</TableHead>
-                      <TableHead className="text-right w-16">Disc%</TableHead>
-                      <TableHead className="text-right w-16">GST%</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {editableItems.map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium text-sm">
-                          {item.product_name}
-                          {item.isNew && <Badge variant="outline" className="ml-1 text-xs">New</Badge>}
-                        </TableCell>
-                        <TableCell className="text-sm">{item.batch_label}</TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number" min={1} max={item.max_quantity}
-                            value={item.quantity}
-                            onChange={(e) => updateItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="w-16 h-7 text-center"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number" min={0}
-                            value={item.free_quantity}
-                            onChange={(e) => updateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="w-14 h-7 text-center"
-                            placeholder="0"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number" step="0.01" min={0}
-                            value={item.unit_price}
-                            onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                            className="w-20 h-7 text-right"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number" step="0.1" min={0} max={100}
-                            value={item.discount_percentage}
-                            onChange={(e) => updateItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
-                            className="w-14 h-7 text-center"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number" step="1" min={0} max={28}
-                            value={item.gst_percentage}
-                            onChange={(e) => updateItem(index, "gst_percentage", parseFloat(e.target.value) || 0)}
-                            className="w-14 h-7 text-center"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">₹{item.total_price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(index)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Add New Product */}
-                <div className="p-3 border-t">
-                  <p className="text-sm font-medium mb-2">Add Product</p>
-                  <div className="flex gap-2 items-end flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
-                      <Popover open={addProductOpen} onOpenChange={setAddProductOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full justify-between text-sm">
-                            {selectedNewProduct ? selectedNewProduct.name : "Select product..."}
-                            <ChevronsUpDown className="h-3 w-3 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search products..." value={addProductSearch} onValueChange={setAddProductSearch} />
-                            <CommandList>
-                              <CommandEmpty>No products found</CommandEmpty>
-                              <CommandGroup>
-                                {allProducts?.filter(p =>
-                                  p.name.toLowerCase().includes(addProductSearch.toLowerCase()) ||
-                                  p.generic_name?.toLowerCase().includes(addProductSearch.toLowerCase())
-                                ).slice(0, 20).map(p => (
-                                  <CommandItem key={p.id} value={p.name} onSelect={() => {
-                                    setSelectedNewProduct(p);
-                                    setSelectedNewBatch(null);
-                                    setAddProductOpen(false);
-                                  }}>
-                                    {p.name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    {selectedNewProduct && (
-                      <div className="min-w-[140px]">
-                        <Select value={selectedNewBatch?.id || ""} onValueChange={(v) => {
-                          const b = newProductBatches?.find(b => b.id === v);
-                          setSelectedNewBatch(b || null);
-                          setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50);
-                        }}>
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue placeholder="Batch" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {newProductBatches?.map(b => (
-                              <SelectItem key={b.id} value={b.id}>
-                                {b.batch_number} (Qty: {b.quantity})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {selectedNewBatch && (
-                      <>
-                        <Input
-                          type="number" min={1} max={selectedNewBatch.quantity}
-                          value={newItemQty}
-                          onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
-                          className="w-16 h-8"
-                          placeholder="Qty"
-                        />
-                        <Button size="sm" onClick={addNewItem} className="gap-1">
-                          <Plus className="h-3 w-3" /> Add
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Charges */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Charges & Discounts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Freight (₹)</Label>
-                    <Input type="number" min={0} value={freightCharges || ""} onChange={(e) => setFreightCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Handling (₹)</Label>
-                    <Input type="number" min={0} value={handlingCharges || ""} onChange={(e) => setHandlingCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Delivery (₹)</Label>
-                    <Input type="number" min={0} value={deliveryCharges || ""} onChange={(e) => setDeliveryCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Other (₹)</Label>
-                    <Input type="number" min={0} value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Discount (₹)</Label>
-                    <Input type="number" min={0} value={discountAmount || ""} onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment & Notes */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Payment Method</Label>
-                 <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+            {/* Header row: Invoice / Customer / Payment / Status */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Invoice #</Label>
+                {isAdmin ? (
+                  <Popover open={invoicePopoverOpen} onOpenChange={setInvoicePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button ref={invoiceNumberRef} variant="outline" className="w-full justify-between font-mono h-10" data-enter-nav-include="true">
+                        {invoiceNumber || "Loading..."}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Enter invoice number..." value={invoiceNumber} onValueChange={setInvoiceNumber} />
+                        <CommandList>
+                          <CommandEmpty><div className="p-2 text-sm text-muted-foreground">Enter a unique invoice number</div></CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem onSelect={() => {
+                              if (invoiceNumber && invoiceNumber !== sale?.invoice_number) {
+                                setPendingInvoiceNumber(invoiceNumber);
+                                setShowInvoiceConfirm(true);
+                              } else {
+                                setTimeout(() => advanceToNextField(invoiceNumberRef.current), 50);
+                              }
+                              setInvoicePopoverOpen(false);
+                            }}>Confirm: {invoiceNumber}</CommandItem>
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <div className="font-mono text-sm p-2 bg-muted rounded border h-10 flex items-center">{invoiceNumber || "Loading..."}</div>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Customer *</Label>
+                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Payment</Label>
+                <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Cash</SelectItem>
                     <SelectItem value="card">Card</SelectItem>
@@ -813,25 +575,150 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={status} onValueChange={(value) => { setStatus(value); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Phone</Label>
+                <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Prescription #</Label>
+                <Input value={prescriptionNumber} onChange={(e) => setPrescriptionNumber(e.target.value)} className="h-10" />
               </div>
             </div>
 
-            {/* Totals */}
-            <Card className="bg-muted/50">
-              <CardContent className="pt-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>{gstInclusive ? "Net (GST Incl.):" : "Subtotal:"}</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-muted-foreground text-xs"><span>{gstInclusive ? "Incl. GST:" : "GST:"}</span><span>₹{gstAmount.toFixed(2)}</span></div>
-                  {totalCharges > 0 && <div className="flex justify-between"><span>Charges:</span><span>₹{totalCharges.toFixed(2)}</span></div>}
-                  {discountAmount > 0 && <div className="flex justify-between text-primary"><span>Discount:</span><span>-₹{discountAmount.toFixed(2)}</span></div>}
-                  <Separator />
-                  <div className="flex justify-between font-bold text-lg"><span>Grand Total:</span><span>₹{grandTotal.toFixed(2)}</span></div>
+            {/* Add Product strip — same shape as new billing screen */}
+            <div className="rounded-lg border bg-card p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add Products</Label>
+              </div>
+              <div className="flex gap-2 items-end flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                  <Popover open={addProductOpen} onOpenChange={setAddProductOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between h-9 text-sm">
+                        {selectedNewProduct ? selectedNewProduct.name : "Search product..."}
+                        <ChevronsUpDown className="h-3 w-3 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search products..." value={addProductSearch} onValueChange={setAddProductSearch} />
+                        <CommandList>
+                          <CommandEmpty>No products found</CommandEmpty>
+                          <CommandGroup>
+                            {allProducts?.filter(p =>
+                              p.name.toLowerCase().includes(addProductSearch.toLowerCase()) ||
+                              p.generic_name?.toLowerCase().includes(addProductSearch.toLowerCase())
+                            ).slice(0, 20).map(p => (
+                              <CommandItem key={p.id} value={p.name} onSelect={() => {
+                                setSelectedNewProduct(p);
+                                setSelectedNewBatch(null);
+                                setAddProductOpen(false);
+                              }}>{p.name}</CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              </CardContent>
-            </Card>
+                {selectedNewProduct && (
+                  <div className="min-w-[160px]">
+                    <Select value={selectedNewBatch?.id || ""} onValueChange={(v) => {
+                      const b = newProductBatches?.find(b => b.id === v);
+                      setSelectedNewBatch(b || null);
+                      setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50);
+                    }}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Batch" /></SelectTrigger>
+                      <SelectContent>
+                        {newProductBatches?.map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.batch_number} (Qty: {b.quantity})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {selectedNewBatch && (
+                  <>
+                    <Input
+                      type="number" min={1} max={selectedNewBatch.quantity}
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
+                      className="w-20 h-9" placeholder="Qty"
+                    />
+                    <Button size="sm" onClick={addNewItem} className="gap-1 h-9">
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Items table — same component used by new billing screen */}
+            <SalesItemsTable
+              cart={cartItems}
+              settings={settings}
+              maxDiscountAllowed={maxDiscountAllowed}
+              gstInclusive={gstInclusive}
+              onUpdateItem={handleCartUpdate}
+              onRemoveItem={removeItem}
+            />
+
+            {/* Bottom: notes + charges (left) | totals (right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Notes</Label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="h-9" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Freight ₹</Label>
+                    <Input type="number" min={0} value={freightCharges || ""} onChange={(e) => setFreightCharges(Number(e.target.value) || 0)} className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Handling ₹</Label>
+                    <Input type="number" min={0} value={handlingCharges || ""} onChange={(e) => setHandlingCharges(Number(e.target.value) || 0)} className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Delivery ₹</Label>
+                    <Input type="number" min={0} value={deliveryCharges || ""} onChange={(e) => setDeliveryCharges(Number(e.target.value) || 0)} className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Other ₹</Label>
+                    <Input type="number" min={0} value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value) || 0)} className="h-9" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <BillingTotals
+                  grossTotal={itemsSubtotal + itemDiscountTotal}
+                  itemDiscount={itemDiscountTotal}
+                  subtotal={itemsSubtotal}
+                  gstAmount={gstAmount}
+                  totalCharges={totalCharges}
+                  billDiscountAmount={discountAmount}
+                  grandTotal={grandTotal}
+                  gstInclusive={gstInclusive}
+                  settings={settings}
+                  maxDiscountAllowed={maxDiscountAllowed}
+                  billDiscountPercent={billDiscountPercent}
+                  billDiscountFlat={billDiscountFlat}
+                  onBillDiscountPercentChange={(v) => { setBillDiscountPercent(v); setBillDiscountFlat(0); }}
+                  onBillDiscountFlatChange={(v) => { setBillDiscountFlat(v); setBillDiscountPercent(0); }}
+                />
+              </div>
+            </div>
           </div>
         )}
 

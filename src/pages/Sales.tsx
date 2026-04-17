@@ -228,15 +228,23 @@ export default function Sales() {
   const handleAddToCart = useCallback(() => {
     if (!selectedProduct || itemQuantity <= 0) return;
     const product = products?.find(p => p.id === selectedProduct);
-    if (!product || batchesForProduct.length === 0) {
-      toast({ title: "No stock", description: "No available batches.", variant: "destructive" });
-      return;
+    if (!product) return;
+
+    // Block when no stock and negative stock is not allowed
+    if (batchesForProduct.length === 0 || availableStock <= 0) {
+      if (!settings.allow_negative_stock) {
+        toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
+        // Keep focus on product search — do NOT advance
+        productSearchRef.current?.focus();
+        return;
+      }
     }
 
     const totalNeeded = itemQuantity + itemFreeQty;
     const allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
-    if (!allocationResult.success) {
+    if (!allocationResult.success && !settings.allow_negative_stock) {
       toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
+      productSearchRef.current?.focus();
       return;
     }
 
@@ -288,7 +296,7 @@ export default function Sales() {
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 

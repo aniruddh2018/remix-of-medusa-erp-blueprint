@@ -105,14 +105,27 @@ export default function Expiry() {
     try {
       const { data, error } = await supabase
         .from("inventory_transactions")
-        .select("product_id, quantity, rate, products(name, manufacturer)")
+        .select("product_id, quantity, rate")
         .eq("company_id", companyId)
         .eq("transaction_type", "expiry_loss");
       if (error) throw error;
+
+      const productIds = Array.from(new Set((data || []).map((r: any) => r.product_id).filter(Boolean)));
+      let productMap = new Map<string, { name: string; manufacturer: string }>();
+      if (productIds.length > 0) {
+        const { data: prods, error: pErr } = await supabase
+          .from("products")
+          .select("id, name, manufacturer")
+          .in("id", productIds);
+        if (pErr) throw pErr;
+        (prods || []).forEach((p: any) => productMap.set(p.id, { name: p.name, manufacturer: p.manufacturer || "" }));
+      }
+
       const map = new Map<string, LossRow>();
       (data || []).forEach((r: any) => {
         const qty = Math.abs(Number(r.quantity) || 0);
         const value = qty * (Number(r.rate) || 0);
+        const prod = productMap.get(r.product_id);
         const existing = map.get(r.product_id);
         if (existing) {
           existing.total_qty += qty;
@@ -120,8 +133,8 @@ export default function Expiry() {
         } else {
           map.set(r.product_id, {
             product_id: r.product_id,
-            product_name: r.products?.name || "Unknown",
-            manufacturer: r.products?.manufacturer || "",
+            product_name: prod?.name || "Unknown",
+            manufacturer: prod?.manufacturer || "",
             total_qty: qty,
             loss_value: value,
           });

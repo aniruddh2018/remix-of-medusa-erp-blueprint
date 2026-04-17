@@ -33,6 +33,7 @@ import {
   Wallet,
   Upload,
   ScanLine,
+  Stethoscope,
   Zap,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -59,7 +60,7 @@ const allOrderMenuItems: MenuItem[] = [
 ];
 
 const allComplianceMenuItems: MenuItem[] = [
-  { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs" },
+  { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs", shortcut: null },
   { title: "Credit & Debit Notes", icon: RotateCcw, path: "/notes" },
   { title: "Accounts", icon: Wallet, path: "/accounts" },
 ];
@@ -67,6 +68,7 @@ const allComplianceMenuItems: MenuItem[] = [
 const allManagementMenuItems: MenuItem[] = [
   { title: "Suppliers", icon: Users, path: "/suppliers", shortcut: "Alt+6" },
   { title: "Customers", icon: Users, path: "/customers", shortcut: null },
+  { title: "Doctors", icon: Stethoscope, path: "/doctors", shortcut: null },
 ];
 
 const allAdminMenuItems: MenuItem[] = [

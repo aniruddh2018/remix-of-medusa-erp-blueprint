@@ -32,6 +32,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { DoctorSelector } from "@/components/DoctorSelector";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -73,7 +74,7 @@ export default function Sales() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string>(settings.default_payment_method || "cash");
+  const [doctor, setDoctor] = useState<{ id: string | null; name: string; registration_number: string }>({ id: null, name: "", registration_number: "" });
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export default function Sales() {
   });
 
 
-  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
+  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
 
   const { clearDraft } = useDraftSave("draft_sale", saleDraft, (draft) => {
     if (draft.cart?.length > 0 || draft.customerName || draft.invoiceNumber) {
@@ -126,7 +127,7 @@ export default function Sales() {
       setCustomerAddress(draft.customerAddress || "");
       setCustomerGstin(draft.customerGstin || "");
       setPrescriptionNumber(draft.prescriptionNumber || "");
-      setPaymentMethod(draft.paymentMethod || "cash");
+      if (draft.doctor) setDoctor(draft.doctor);
       setNotes(draft.notes || "");
       setFreightCharges(draft.freightCharges || 0);
       setHandlingCharges(draft.handlingCharges || 0);
@@ -426,10 +427,21 @@ export default function Sales() {
       const gstAmount = totalGst;
       const totalAmount = grandTotal;
 
+      // Doctor required for scheduled drugs
+      const scheduledInCart = cart.some(i => {
+        const p = products?.find(pp => pp.id === i.product_id);
+        return p && p.drug_schedule && p.drug_schedule !== 'none';
+      });
+      if (scheduledInCart && !doctor.name.trim()) {
+        throw new Error("Doctor is required when selling scheduled drugs (Schedule H/H1/X/Narcotic).");
+      }
+
       const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
         invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
         customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
-        prescription_number: prescriptionNumber || null, payment_method: paymentMethod, notes: notes || null,
+        prescription_number: prescriptionNumber || null,
+        doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
+        notes: notes || null,
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
         freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
         other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
@@ -512,7 +524,7 @@ export default function Sales() {
     setCustomerAddress("");
     setCustomerGstin("");
     setPrescriptionNumber("");
-    setPaymentMethod(settings.default_payment_method || "cash");
+    setDoctor({ id: null, name: "", registration_number: "" });
     setNotes("");
     setSelectedProduct("");
     setItemQuantity(1);
@@ -612,11 +624,6 @@ export default function Sales() {
   useKeyboardShortcut({
     key: "Enter", modifiers: ["ctrl"],
     callback: () => { if (cart.length > 0 && customerName && !createSaleMutation.isPending) createSaleMutation.mutate(); },
-    enabled: activeTab === "billing", allowInInput: true,
-  });
-  useKeyboardShortcut({
-    key: "c", modifiers: ["alt"],
-    callback: () => setPaymentMethod(prev => paymentMethods[(paymentMethods.indexOf(prev) + 1) % paymentMethods.length]),
     enabled: activeTab === "billing", allowInInput: true,
   });
   useKeyboardShortcut({
@@ -811,16 +818,16 @@ export default function Sales() {
                 <Input value={prescriptionNumber} onChange={e => setPrescriptionNumber(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
-            <div className="space-y-1">
-              <Label className="text-[11px]">Payment</Label>
-              <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); focusProductSearch(); }}>
-                <SelectTrigger className="h-8 text-sm" data-enter-nav-skip="true"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash"><span className="flex items-center gap-1"><Banknote className="h-3 w-3" /> Cash</span></SelectItem>
-                  <SelectItem value="card"><span className="flex items-center gap-1"><CreditCard className="h-3 w-3" /> Card</span></SelectItem>
-                  <SelectItem value="upi"><span className="flex items-center gap-1"><Receipt className="h-3 w-3" /> UPI</span></SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="md:col-span-2 space-y-1">
+              <DoctorSelector
+                value={doctor}
+                onChange={setDoctor}
+                required={cart.some(i => {
+                  const p = products?.find(pp => pp.id === i.product_id);
+                  return p && p.drug_schedule && p.drug_schedule !== 'none';
+                })}
+                onSelected={focusProductSearch}
+              />
             </div>
             <div className="flex items-end gap-2">
               <div className="flex items-center gap-1.5">

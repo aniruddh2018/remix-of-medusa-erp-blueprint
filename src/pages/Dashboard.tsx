@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, isBefore } from "date-fns";
+import { OverdueInvoicesCard } from "@/components/OverdueInvoicesCard";
 
 interface DashboardStats {
   totalProducts: number;
@@ -315,6 +316,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Overdue credit invoices */}
+      <OverdueInvoicesCard />
 
       {/* Alerts Section */}
       <div className={`grid gap-6 ${config.hasExpiryTracking ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>

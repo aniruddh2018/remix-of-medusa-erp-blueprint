@@ -503,7 +503,18 @@ export default function CounterSales() {
         const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
         const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
         if (deductError) throw new Error(deductError.message);
+
+        // Auto-record full payment for counter sale (paid by selected method)
+        const { error: payErr } = await supabase.from("payments").insert({
+          payment_type: "received", reference_type: "sales_order", reference_id: order.id,
+          reference_number: finalInvoiceNumber, party_name: customerName, party_type: "customer",
+          amount: totalAmount, payment_method: paymentMethod,
+          payment_date: new Date().toISOString().split("T")[0],
+          created_by: user?.id, company_id: companyId,
+        });
+        if (payErr) throw payErr;
       } catch (innerError) {
+        await supabase.from("payments").delete().eq("reference_id", order.id).eq("reference_type", "sales_order");
         await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
         await supabase.from("sales_orders").delete().eq("id", order.id);
         throw innerError;
@@ -514,7 +525,8 @@ export default function CounterSales() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] });
-      toast({ title: "Sale completed", description: "Invoice generated successfully." });
+      queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
+      toast({ title: "Sale completed", description: `Paid by ${paymentMethod.toUpperCase()} — invoice generated.` });
       handleResetActiveSlot();
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),

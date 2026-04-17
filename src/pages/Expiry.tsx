@@ -347,7 +347,7 @@ export default function Expiry() {
                         <TableHead className="text-right tablet-hide">Value (MRP)</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Days</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                        <TableHead className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

@@ -816,10 +816,10 @@ export default function Sales() {
                 <div className="flex gap-1">
                   {selectedProduct && (
                     <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
-                      {availableStock > 0 ? `${availableStock}` : "0"}
+                      {availableStock > 0 ? `${availableStock}` : (settings.allow_negative_stock ? "0 (override)" : "Out of stock")}
                     </Badge>
                   )}
-                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm" data-enter-nav-include="true">
+                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || itemQuantity <= 0 || (availableStock === 0 && !settings.allow_negative_stock)} size="sm" data-enter-nav-include="true">
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>

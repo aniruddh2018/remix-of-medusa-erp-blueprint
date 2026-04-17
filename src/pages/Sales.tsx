@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
+import { PostSalePaymentDialog } from "@/components/dialogs/PostSalePaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
@@ -98,6 +99,7 @@ export default function Sales() {
   const [deleteTarget, setDeleteTarget] = useState<SalesOrder | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [paymentDialog, setPaymentDialog] = useState<null | { referenceId: string; referenceNumber: string; partyName: string; totalAmount: number; paidAmount: number }>(null);
+  const [postSaleDialog, setPostSaleDialog] = useState<null | { id: string; invoice_number: string; customer_name: string; total_amount: number }>(null);
 
   // ── Queries ──
   const { data: customers } = useQuery({
@@ -337,7 +339,8 @@ export default function Sales() {
     mutationFn: async () => {
       let finalInvoiceNumber = invoiceNumber.trim();
       if (!finalInvoiceNumber) {
-        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "INV" });
+        const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: rawPrefix });
         if (seqErr) throw seqErr;
         finalInvoiceNumber = seqNum as string;
       }
@@ -382,10 +385,19 @@ export default function Sales() {
 
       return order;
     },
-    onSuccess: () => {
+    onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] });
       toast({ title: "Sale completed", description: "Invoice generated successfully." });
+      // Open post-sale payment dialog
+      if (order) {
+        setPostSaleDialog({
+          id: order.id,
+          invoice_number: order.invoice_number,
+          customer_name: order.customer_name,
+          total_amount: Number(order.total_amount),
+        });
+      }
       handleReset();
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),

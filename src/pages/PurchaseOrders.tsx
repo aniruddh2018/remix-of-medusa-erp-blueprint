@@ -52,6 +52,7 @@ export default function PurchaseOrders() {
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
+  const supplierTriggerRef = useRef<HTMLButtonElement>(null);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
@@ -151,6 +152,23 @@ export default function PurchaseOrders() {
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
   }, []);
+
+  const focusFirstEmptyField = useCallback(() => {
+    setTimeout(() => {
+      if (!selectedSupplier) {
+        supplierTriggerRef.current?.focus();
+      } else {
+        productSearchRef.current?.focus();
+      }
+    }, 80);
+  }, [selectedSupplier]);
+
+  // Auto-focus first empty actionable field when billing tab is active
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    focusFirstEmptyField();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, draftRestored]);
 
   // ── Queries ──
   const { data: purchaseOrders, isLoading } = useQuery({
@@ -724,8 +742,8 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Supplier *</Label>
               <div className="flex gap-1">
-                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
-                    <SelectTrigger className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === 'n' || e.key === 'N') { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => productSearchRef.current?.focus(), 80); }}>
+                    <SelectTrigger ref={supplierTriggerRef} className="h-8 text-sm flex-1" onKeyDown={(e) => { if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>

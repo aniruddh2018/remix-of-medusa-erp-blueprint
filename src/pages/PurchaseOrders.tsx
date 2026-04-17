@@ -74,6 +74,7 @@ export default function PurchaseOrders() {
   const [itemExpiryDate, setItemExpiryDate] = useState<string>("");
   const [existingBatchId, setExistingBatchId] = useState<string>("new");
   const [batchFieldFocused, setBatchFieldFocused] = useState(false);
+  const [batchHighlightIdx, setBatchHighlightIdx] = useState(0);
   const [editBatchDetails, setEditBatchDetails] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -871,71 +872,97 @@ export default function PurchaseOrders() {
                       </button>
                     )}
                   </Label>
-                  <Input
-                    value={itemBatchNumber}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setItemBatchNumber(v);
-                      // Auto-match: if typed value exactly matches an existing batch, prefill its details
-                      const exact = existingBatches?.find(b => b.batch_number.toLowerCase() === v.toLowerCase());
-                      if (exact) {
-                        if (existingBatchId !== exact.id) handleBatchSelect(exact.id);
-                      } else if (existingBatchId !== "new") {
-                        setExistingBatchId("new");
-                        setEditBatchDetails(false);
-                      }
-                    }}
-                    onFocus={() => setBatchFieldFocused(true)}
-                    onBlur={() => setTimeout(() => setBatchFieldFocused(false), 150)}
-                    onKeyDown={(e) => {
-                      if (e.altKey && e.key.toLowerCase() === "e" && existingBatchId !== "new") {
-                        e.preventDefault();
-                        setEditBatchDetails(v => !v);
-                        return;
-                      }
-                      if (e.key === "Escape") { setBatchFieldFocused(false); return; }
-                      poEnterNav(e);
-                    }}
-                    className="h-9 text-xs"
-                    placeholder={existingBatches && existingBatches.length > 0 ? "Search or type new batch" : "Type batch number"}
-                    autoComplete="off"
-                  />
-                  {/* Suggestion dropdown — shows on focus (full list) and filters as user types */}
-                  {batchFieldFocused && existingBatches && existingBatches.length > 0 && (() => {
+                  {(() => {
                     const q = itemBatchNumber.trim().toLowerCase();
+                    const allBatches = existingBatches || [];
                     const matches = q.length === 0
-                      ? existingBatches.slice(0, 8)
-                      : existingBatches.filter(b => b.batch_number.toLowerCase().includes(q)).slice(0, 8);
-                    if (matches.length === 0) {
-                      return (
-                        <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md p-2 text-[11px] text-muted-foreground">
-                          No match — will be saved as new batch
-                        </div>
-                      );
-                    }
+                      ? allBatches.slice(0, 8)
+                      : allBatches.filter(b => b.batch_number.toLowerCase().includes(q)).slice(0, 8);
+                    const showDropdown = batchFieldFocused && allBatches.length > 0;
                     return (
-                      <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md max-h-56 overflow-y-auto">
-                        <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/40">
-                          {q.length === 0 ? "Existing batches (FEFO)" : `${matches.length} match${matches.length > 1 ? "es" : ""}`}
-                        </div>
-                        {matches.map(b => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onMouseDown={(e) => {
+                      <>
+                        <Input
+                          value={itemBatchNumber}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setItemBatchNumber(v);
+                            setBatchHighlightIdx(0);
+                            const exact = allBatches.find(b => b.batch_number.toLowerCase() === v.toLowerCase());
+                            if (exact) {
+                              if (existingBatchId !== exact.id) handleBatchSelect(exact.id);
+                            } else if (existingBatchId !== "new") {
+                              setExistingBatchId("new");
+                              setEditBatchDetails(false);
+                            }
+                          }}
+                          onFocus={() => { setBatchFieldFocused(true); setBatchHighlightIdx(0); }}
+                          onBlur={() => setTimeout(() => setBatchFieldFocused(false), 150)}
+                          onKeyDown={(e) => {
+                            if (e.altKey && e.key.toLowerCase() === "e" && existingBatchId !== "new") {
                               e.preventDefault();
-                              handleBatchSelect(b.id);
-                              setBatchFieldFocused(false);
-                            }}
-                            className={`w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex justify-between items-center gap-2 ${existingBatchId === b.id ? "bg-muted/60" : ""}`}
-                          >
-                            <span className="font-medium truncate">{b.batch_number}</span>
-                            <span className="text-muted-foreground text-[10px] shrink-0">
-                              Qty {b.quantity} · ₹{Number(b.mrp).toFixed(0)}{b.expiry_date ? ` · ${b.expiry_date.slice(0, 7)}` : ""}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
+                              setEditBatchDetails(v => !v);
+                              return;
+                            }
+                            if (e.key === "Escape") { setBatchFieldFocused(false); return; }
+                            if (showDropdown && matches.length > 0) {
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setBatchHighlightIdx(i => Math.min(i + 1, matches.length - 1));
+                                return;
+                              }
+                              if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setBatchHighlightIdx(i => Math.max(i - 1, 0));
+                                return;
+                              }
+                              if (e.key === "Enter") {
+                                const pick = matches[batchHighlightIdx];
+                                if (pick) {
+                                  e.preventDefault();
+                                  handleBatchSelect(pick.id);
+                                  setBatchFieldFocused(false);
+                                  return;
+                                }
+                              }
+                            }
+                            poEnterNav(e);
+                          }}
+                          className="h-9 text-xs"
+                          placeholder={allBatches.length > 0 ? "Search or type new batch" : "Type batch number"}
+                          autoComplete="off"
+                        />
+                        {showDropdown && (
+                          matches.length === 0 ? (
+                            <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md p-2 text-[11px] text-muted-foreground">
+                              No match — will be saved as new batch
+                            </div>
+                          ) : (
+                            <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md max-h-56 overflow-y-auto">
+                              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/40">
+                                {q.length === 0 ? "Existing batches (FEFO) — ↑↓ to navigate" : `${matches.length} match${matches.length > 1 ? "es" : ""} — ↑↓ Enter`}
+                              </div>
+                              {matches.map((b, idx) => (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleBatchSelect(b.id);
+                                    setBatchFieldFocused(false);
+                                  }}
+                                  onMouseEnter={() => setBatchHighlightIdx(idx)}
+                                  className={`w-full text-left px-2 py-1.5 text-xs flex justify-between items-center gap-2 ${idx === batchHighlightIdx ? "bg-accent text-accent-foreground" : existingBatchId === b.id ? "bg-muted/60" : "hover:bg-muted"}`}
+                                >
+                                  <span className="font-medium truncate">{b.batch_number}</span>
+                                  <span className="text-[10px] shrink-0 opacity-80">
+                                    Qty {b.quantity} · ₹{Number(b.mrp).toFixed(0)}{b.expiry_date ? ` · ${b.expiry_date.slice(0, 7)}` : ""}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )
+                        )}
+                      </>
                     );
                   })()}
                 </div>

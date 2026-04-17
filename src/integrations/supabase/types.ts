@@ -1778,6 +1778,10 @@ export type Database = {
         Returns: number
       }
       deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
+      dispose_expired_batch: {
+        Args: { _batch_id: string; _notes?: string; _quantity: number }
+        Returns: Json
+      }
       get_current_financial_year: {
         Args: { _company_id: string }
         Returns: string

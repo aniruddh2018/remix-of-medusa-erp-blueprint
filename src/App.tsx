@@ -17,6 +17,7 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import Sales from "./pages/Sales";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
+import Doctors from "./pages/Doctors";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
@@ -61,6 +62,7 @@ const App = () => (
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/customers" element={<Customers />} />
+                <Route path="/doctors" element={<Doctors />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/super-admin" element={<SuperAdmin />} />

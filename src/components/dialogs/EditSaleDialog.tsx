@@ -71,6 +71,8 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const [deliveryCharges, setDeliveryCharges] = useState(0);
   const [otherCharges, setOtherCharges] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [billDiscountPercent, setBillDiscountPercent] = useState(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState(0);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 

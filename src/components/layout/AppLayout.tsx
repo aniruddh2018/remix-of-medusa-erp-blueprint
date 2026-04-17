@@ -10,7 +10,6 @@ import { Loader2, Zap, Keyboard } from "lucide-react";
 import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
 import { SHORTCUTS, formatShortcut } from "@/lib/platform";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
-import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Badge } from "@/components/ui/badge";
 import { useFocus } from "@/contexts/FocusContext";
@@ -25,14 +24,13 @@ export function AppLayout() {
   const { user, loading } = useAuth();
   const { config, needsOnboarding, isLoading: bizLoading } = useBusiness();
   const navigate = useNavigate();
-  const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Intelligent focus recovery (flow-aware)
   const { recoverFocus } = useFocus();
 
   // Platform-aware shortcuts
-  usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => setCounterSaleOpen(true), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => navigate("/counter-sales"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.COMMAND_PALETTE, callback: () => setCommandPaletteOpen(true), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_DASHBOARD, callback: () => navigate("/dashboard"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_SALES, callback: () => navigate("/sales"), enabled: !!user });
@@ -88,7 +86,7 @@ export function AppLayout() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={() => setCounterSaleOpen(true)}
+                    onClick={() => navigate("/counter-sales")}
                     className="gap-1 sm:gap-2 bg-primary hover:bg-primary/90 shadow-md h-9 px-3 sm:px-4"
                     size="sm"
                   >
@@ -170,11 +168,10 @@ export function AppLayout() {
         </SidebarInset>
       </div>
 
-      <CounterSaleDialog open={counterSaleOpen} onOpenChange={setCounterSaleOpen} />
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
-        onQuickSale={() => setCounterSaleOpen(true)}
+        onQuickSale={() => navigate("/counter-sales")}
       />
     </SidebarProvider>
   );

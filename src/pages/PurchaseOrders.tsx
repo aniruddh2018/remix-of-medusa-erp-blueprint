@@ -846,34 +846,60 @@ export default function PurchaseOrders() {
                 </div>
               </div>
               {(config.hasBatchTracking || settings.enable_batch_tracking) && (
-                <div className="col-span-1 lg:col-span-2">
+                <div className="col-span-1 lg:col-span-2 relative">
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">
                     Batch # <span className="text-primary font-normal">(source of truth)</span>
                   </Label>
-                  <div className="flex gap-1">
-                    <Input
-                      value={itemBatchNumber}
-                      onChange={e => { setItemBatchNumber(e.target.value); if (existingBatchId !== "new") setExistingBatchId("new"); }}
-                      onKeyDown={poEnterNav}
-                      className="h-9 text-xs flex-1"
-                      placeholder="Type batch # or pick existing"
-                    />
-                    {existingBatches && existingBatches.length > 0 && (
-                      <Select value={existingBatchId} onValueChange={handleBatchSelect}>
-                        <SelectTrigger className="h-9 w-20 text-xs shrink-0" data-enter-nav-skip="true" tabIndex={-1}>
-                          <SelectValue placeholder="Pick" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="new">+ New</SelectItem>
-                          {existingBatches.map(b => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.batch_number} (Qty {b.quantity})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                  <Input
+                    value={itemBatchNumber}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setItemBatchNumber(v);
+                      // Auto-match: if typed value exactly matches an existing batch, prefill its details
+                      const exact = existingBatches?.find(b => b.batch_number.toLowerCase() === v.toLowerCase());
+                      if (exact) {
+                        setExistingBatchId(exact.id);
+                        setItemExpiryDate(exact.expiry_date);
+                        setItemMrp(Number(exact.mrp));
+                        setItemPrice(Number(exact.purchase_price));
+                      } else if (existingBatchId !== "new") {
+                        setExistingBatchId("new");
+                      }
+                    }}
+                    onKeyDown={poEnterNav}
+                    className="h-9 text-xs"
+                    placeholder="Type batch number"
+                    autoComplete="off"
+                  />
+                  {/* Suggestion dropdown — appears only when typing & partial matches exist */}
+                  {itemBatchNumber.trim().length > 0 && existingBatches && (() => {
+                    const q = itemBatchNumber.trim().toLowerCase();
+                    const matches = existingBatches.filter(b =>
+                      b.batch_number.toLowerCase().includes(q) &&
+                      b.batch_number.toLowerCase() !== q
+                    ).slice(0, 5);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                        {matches.map(b => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleBatchSelect(b.id);
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex justify-between items-center"
+                          >
+                            <span className="font-medium">{b.batch_number}</span>
+                            <span className="text-muted-foreground">
+                              Qty {b.quantity}{b.expiry_date ? ` · exp ${b.expiry_date.slice(0, 7)}` : ""}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               <div>

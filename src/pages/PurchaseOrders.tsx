@@ -845,7 +845,7 @@ export default function PurchaseOrders() {
                   </Button>
                 </div>
               </div>
-              {config.hasBatchTracking && (
+              {(config.hasBatchTracking || settings.enable_batch_tracking) && (
                 <div className="col-span-1 lg:col-span-2">
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">
                     Batch # <span className="text-primary font-normal">(source of truth)</span>

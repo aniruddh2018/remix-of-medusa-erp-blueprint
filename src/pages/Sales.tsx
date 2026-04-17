@@ -427,10 +427,21 @@ export default function Sales() {
       const gstAmount = totalGst;
       const totalAmount = grandTotal;
 
+      // Doctor required for scheduled drugs
+      const scheduledInCart = cart.some(i => {
+        const p = products?.find(pp => pp.id === i.product_id);
+        return p && p.drug_schedule && p.drug_schedule !== 'none';
+      });
+      if (scheduledInCart && !doctor.name.trim()) {
+        throw new Error("Doctor is required when selling scheduled drugs (Schedule H/H1/X/Narcotic).");
+      }
+
       const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
         invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
         customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
-        prescription_number: prescriptionNumber || null, payment_method: paymentMethod, notes: notes || null,
+        prescription_number: prescriptionNumber || null,
+        doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
+        notes: notes || null,
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
         freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
         other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
@@ -513,7 +524,7 @@ export default function Sales() {
     setCustomerAddress("");
     setCustomerGstin("");
     setPrescriptionNumber("");
-    setPaymentMethod(settings.default_payment_method || "cash");
+    setDoctor({ id: null, name: "", registration_number: "" });
     setNotes("");
     setSelectedProduct("");
     setItemQuantity(1);
@@ -613,11 +624,6 @@ export default function Sales() {
   useKeyboardShortcut({
     key: "Enter", modifiers: ["ctrl"],
     callback: () => { if (cart.length > 0 && customerName && !createSaleMutation.isPending) createSaleMutation.mutate(); },
-    enabled: activeTab === "billing", allowInInput: true,
-  });
-  useKeyboardShortcut({
-    key: "c", modifiers: ["alt"],
-    callback: () => setPaymentMethod(prev => paymentMethods[(paymentMethods.indexOf(prev) + 1) % paymentMethods.length]),
     enabled: activeTab === "billing", allowInInput: true,
   });
   useKeyboardShortcut({

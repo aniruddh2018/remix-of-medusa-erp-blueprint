@@ -847,24 +847,31 @@ export default function PurchaseOrders() {
               </div>
               {config.hasBatchTracking && (
                 <div className="col-span-1 lg:col-span-2">
-                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">Batch</Label>
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                    Batch # <span className="text-primary font-normal">(source of truth)</span>
+                  </Label>
                   <div className="flex gap-1">
-                    <Select value={existingBatchId} onValueChange={handleBatchSelect}>
-                      <SelectTrigger className="h-9 text-xs flex-1">
-                        <SelectValue placeholder="New batch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">+ New Batch</SelectItem>
-                        {existingBatches?.map(b => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.batch_number} (Qty: {b.quantity}, Exp: {b.expiry_date})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {existingBatchId === "new" && (
-                      <Input value={itemBatchNumber} onChange={e => setItemBatchNumber(e.target.value)} onKeyDown={poEnterNav}
-                        className="h-9 w-28 text-xs" placeholder="Batch #" />
+                    <Input
+                      value={itemBatchNumber}
+                      onChange={e => { setItemBatchNumber(e.target.value); if (existingBatchId !== "new") setExistingBatchId("new"); }}
+                      onKeyDown={poEnterNav}
+                      className="h-9 text-xs flex-1"
+                      placeholder="Type batch # or pick existing"
+                    />
+                    {existingBatches && existingBatches.length > 0 && (
+                      <Select value={existingBatchId} onValueChange={handleBatchSelect}>
+                        <SelectTrigger className="h-9 w-20 text-xs shrink-0" data-enter-nav-skip="true" tabIndex={-1}>
+                          <SelectValue placeholder="Pick" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">+ New</SelectItem>
+                          {existingBatches.map(b => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.batch_number} (Qty {b.quantity})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
                   </div>
                 </div>

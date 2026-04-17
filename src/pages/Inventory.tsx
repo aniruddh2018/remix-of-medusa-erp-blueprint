@@ -14,9 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History } from "lucide-react";
 import { format } from "date-fns";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 
 interface InventoryItem {
   id: string;
@@ -55,6 +56,7 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
+  const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
@@ -238,14 +240,21 @@ export default function Inventory() {
                     const status = getStockStatus(product.total_quantity, product.reorder_level);
                     return (
                       <TableRow key={product.product_id} tabIndex={0} data-kb-row
-                        className="table-hover-row focus:bg-accent"
+                        className="table-hover-row focus:bg-accent cursor-pointer group"
+                        onClick={() => setHistoryProduct({ id: product.product_id, name: product.product_name })}
                         onKeyDown={(e) => {
                           const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-kb-row]"));
                           const pos = rows.indexOf(e.currentTarget);
                           if (e.key === "ArrowDown") { e.preventDefault(); rows[pos + 1]?.focus(); }
                           else if (e.key === "ArrowUp") { e.preventDefault(); rows[pos - 1]?.focus(); }
+                          else if (e.key === "Enter") { e.preventDefault(); setHistoryProduct({ id: product.product_id, name: product.product_name }); }
                         }}>
-                        <TableCell className="font-medium">{product.product_name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <History className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                            {product.product_name}
+                          </div>
+                        </TableCell>
                         <TableCell>{product.manufacturer}</TableCell>
                         <TableCell className="text-right font-mono">{product.total_quantity}</TableCell>
                         <TableCell className="text-right font-mono">{product.reorder_level}</TableCell>
@@ -264,6 +273,13 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      <ProductHistoryDialog
+        open={!!historyProduct}
+        onOpenChange={(open) => !open && setHistoryProduct(null)}
+        productId={historyProduct?.id || null}
+        productName={historyProduct?.name || ""}
+      />
     </div>
   );
 }

@@ -337,9 +337,23 @@ export default function CounterSales() {
   }, [gstInclusive]);
 
   const handleAddToCart = useCallback(() => {
-    if (!selectedProduct || itemQuantity <= 0) return;
+    if (!selectedProduct) {
+      toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
     const product = products?.find(p => p.id === selectedProduct);
-    if (!product) return;
+    if (!product) {
+      toast({ title: "Invalid product", description: "Please re-select the product.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
+
+    if (itemQuantity <= 0) {
+      toast({ title: "Quantity required", description: "Enter a quantity greater than 0.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
 
     if (batchesForProduct.length === 0 || availableStock <= 0) {
       if (!settings.allow_negative_stock) {
@@ -350,10 +364,21 @@ export default function CounterSales() {
     }
 
     const totalNeeded = itemQuantity + itemFreeQty;
+
+    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+      const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
+      qtyEl?.focus();
+      qtyEl?.select();
+      return;
+    }
+
     const allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
     if (!allocationResult.success && !settings.allow_negative_stock) {
       toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
-      productSearchRef.current?.focus();
+      const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
+      qtyEl?.focus();
+      qtyEl?.select();
       return;
     }
 

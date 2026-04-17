@@ -237,25 +237,52 @@ export default function Sales() {
   }, [gstInclusive]);
 
   const handleAddToCart = useCallback(() => {
-    if (!selectedProduct || itemQuantity <= 0) return;
+    // Guard 1: must have a product selected
+    if (!selectedProduct) {
+      toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
     const product = products?.find(p => p.id === selectedProduct);
-    if (!product) return;
+    if (!product) {
+      toast({ title: "Invalid product", description: "Please re-select the product.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
+
+    // Guard 2: quantity must be > 0 — refocus Product per spec
+    if (itemQuantity <= 0) {
+      toast({ title: "Quantity required", description: "Enter a quantity greater than 0.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
 
     // Block when no stock and negative stock is not allowed
     if (batchesForProduct.length === 0 || availableStock <= 0) {
       if (!settings.allow_negative_stock) {
         toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
-        // Keep focus on product search — do NOT advance
         productSearchRef.current?.focus();
         return;
       }
     }
 
     const totalNeeded = itemQuantity + itemFreeQty;
+
+    // Guard 3: requested qty exceeds available — refocus Quantity field per spec
+    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+      const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
+      qtyEl?.focus();
+      qtyEl?.select();
+      return;
+    }
+
     const allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
     if (!allocationResult.success && !settings.allow_negative_stock) {
       toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
-      productSearchRef.current?.focus();
+      const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
+      qtyEl?.focus();
+      qtyEl?.select();
       return;
     }
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,6 +51,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
   const { companyId } = useBusiness();
+  const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
   const [notes, setNotes] = useState("");
@@ -59,6 +61,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [handlingCharges, setHandlingCharges] = useState(0);
   const [otherCharges, setOtherCharges] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [billDiscountPercent, setBillDiscountPercent] = useState(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState(0);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 

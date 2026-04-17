@@ -8,12 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { CreditCustomersTab } from "@/components/CreditCustomersTab";
 
 interface Customer {
   id: string;
@@ -196,6 +198,18 @@ export default function Customers() {
         </Card>
       </div>
 
+      {/* Tabs: All Customers / Credit Customers */}
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" /> All Customers
+          </TabsTrigger>
+          <TabsTrigger value="credit" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" /> Credit Customers
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-4 space-y-4">
       {/* Table - Desktop */}
       <Card className="hidden md:block">
         <CardContent className="p-0">
@@ -384,6 +398,13 @@ export default function Customers() {
           ))
         )}
       </div>
+
+        </TabsContent>
+
+        <TabsContent value="credit" className="mt-4">
+          <CreditCustomersTab compact />
+        </TabsContent>
+      </Tabs>
 
       {/* Add/Edit Dialog */}
       <CustomerFormDialog

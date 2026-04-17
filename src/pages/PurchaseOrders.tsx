@@ -289,9 +289,29 @@ export default function PurchaseOrders() {
   }, [existingBatches]);
 
   const handleAddItem = useCallback(() => {
-    if (!selectedProduct || itemQuantity <= 0 || itemPrice <= 0) return;
+    if (!selectedProduct) {
+      toast({ title: "Select a product", description: "Pick a product before adding it to the purchase.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
     const product = products?.find((p) => p.id === selectedProduct);
-    if (!product) return;
+    if (!product) {
+      toast({ title: "Invalid product", description: "Please re-select the product.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
+    if (itemQuantity <= 0) {
+      toast({ title: "Quantity required", description: "Enter a quantity greater than 0.", variant: "destructive" });
+      productSearchRef.current?.focus();
+      return;
+    }
+    if (itemPrice <= 0) {
+      toast({ title: "Rate required", description: "Enter a purchase rate greater than 0.", variant: "destructive" });
+      const rateEl = document.getElementById("po-price-input") as HTMLInputElement | null;
+      rateEl?.focus();
+      rateEl?.select();
+      return;
+    }
 
     const gstPercentage = Number(product.gst_percentage);
     const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);

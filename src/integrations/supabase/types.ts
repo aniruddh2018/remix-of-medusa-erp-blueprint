@@ -752,6 +752,7 @@ export type Database = {
           bank_ifsc: string | null
           bank_name: string | null
           bill_discount_mode: string
+          block_expired_sales: boolean
           company_address: string | null
           company_email: string | null
           company_gstin: string | null
@@ -767,6 +768,7 @@ export type Database = {
           enable_batch_tracking: boolean
           enable_bill_discount: boolean
           enable_expiry_tracking: boolean
+          expiry_required_default: boolean
           id: string
           invoice_format: string | null
           invoice_layout: string
@@ -805,6 +807,7 @@ export type Database = {
           bank_ifsc?: string | null
           bank_name?: string | null
           bill_discount_mode?: string
+          block_expired_sales?: boolean
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null
@@ -820,6 +823,7 @@ export type Database = {
           enable_batch_tracking?: boolean
           enable_bill_discount?: boolean
           enable_expiry_tracking?: boolean
+          expiry_required_default?: boolean
           id?: string
           invoice_format?: string | null
           invoice_layout?: string
@@ -858,6 +862,7 @@ export type Database = {
           bank_ifsc?: string | null
           bank_name?: string | null
           bill_discount_mode?: string
+          block_expired_sales?: boolean
           company_address?: string | null
           company_email?: string | null
           company_gstin?: string | null
@@ -873,6 +878,7 @@ export type Database = {
           enable_batch_tracking?: boolean
           enable_bill_discount?: boolean
           enable_expiry_tracking?: boolean
+          expiry_required_default?: boolean
           id?: string
           invoice_format?: string | null
           invoice_layout?: string
@@ -1036,11 +1042,13 @@ export type Database = {
       }
       products: {
         Row: {
+          batch_tracking_enabled: boolean
           category: string | null
           company_id: string | null
           composition: string | null
           created_at: string
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
+          expiry_required: boolean | null
           generic_name: string | null
           gst_percentage: number
           hsn_code: string | null
@@ -1059,11 +1067,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          batch_tracking_enabled?: boolean
           category?: string | null
           company_id?: string | null
           composition?: string | null
           created_at?: string
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
+          expiry_required?: boolean | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null
@@ -1082,11 +1092,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          batch_tracking_enabled?: boolean
           category?: string | null
           company_id?: string | null
           composition?: string | null
           created_at?: string
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
+          expiry_required?: boolean | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null

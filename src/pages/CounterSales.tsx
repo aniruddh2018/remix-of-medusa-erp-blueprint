@@ -452,6 +452,7 @@ export default function CounterSales() {
 
     setCart(newCart);
     setSelectedProduct("");
+    setSelectedBatchId(null);
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemDiscount(0);

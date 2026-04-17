@@ -505,6 +505,59 @@ export type Database = {
           },
         ]
       }
+      doctors: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          registration_number: string | null
+          speciality: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          registration_number?: string | null
+          speciality?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          registration_number?: string | null
+          speciality?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_years: {
         Row: {
           closed_at: string | null
@@ -1458,6 +1511,9 @@ export type Database = {
           customer_phone: string | null
           delivery_charges: number
           discount_amount: number
+          doctor_id: string | null
+          doctor_name: string | null
+          doctor_registration_number: string | null
           due_date: string | null
           freight_charges: number
           gst_amount: number
@@ -1488,6 +1544,9 @@ export type Database = {
           customer_phone?: string | null
           delivery_charges?: number
           discount_amount?: number
+          doctor_id?: string | null
+          doctor_name?: string | null
+          doctor_registration_number?: string | null
           due_date?: string | null
           freight_charges?: number
           gst_amount?: number
@@ -1518,6 +1577,9 @@ export type Database = {
           customer_phone?: string | null
           delivery_charges?: number
           discount_amount?: number
+          doctor_id?: string | null
+          doctor_name?: string | null
+          doctor_registration_number?: string | null
           due_date?: string | null
           freight_charges?: number
           gst_amount?: number
@@ -1548,6 +1610,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
             referencedColumns: ["id"]
           },
         ]

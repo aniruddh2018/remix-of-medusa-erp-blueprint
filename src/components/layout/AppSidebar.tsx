@@ -33,6 +33,7 @@ import {
   Wallet,
   Upload,
   ScanLine,
+  Zap,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -46,13 +47,14 @@ interface MenuItem {
 const allMainMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard", shortcut: "Alt+1" },
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
-  { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+4" },
+  { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+6" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
 ];
 
 const allOrderMenuItems: MenuItem[] = [
-  { title: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", shortcut: "Alt+3" },
+  { title: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", shortcut: "Alt+4" },
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
+  { title: "Counter Sales", icon: Zap, path: "/counter-sales", shortcut: "Alt+3" },
   { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
 ];
 

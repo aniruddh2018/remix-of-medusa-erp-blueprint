@@ -61,7 +61,7 @@ const drugScheduleColors: Record<DrugSchedule, string> = {
 export default function Products() {
   const { isPharmacist } = useAuth();
   const { toast } = useToast();
-  const { companyId } = useBusiness();
+  const { companyId, config } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -315,16 +315,18 @@ export default function Products() {
                   required
                 />
               </div>
+              {config.hasGenericName && (
+                <div className="space-y-2">
+                  <Label htmlFor="generic_name">Generic Name</Label>
+                  <Input
+                    id="generic_name"
+                    value={formData.generic_name}
+                    onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="generic_name">Generic Name</Label>
-                <Input
-                  id="generic_name"
-                  value={formData.generic_name}
-                  onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="manufacturer">Manufacturer *</Label>
+                <Label htmlFor="manufacturer">{config.terms.manufacturer} *</Label>
                 <Input
                   id="manufacturer"
                   value={formData.manufacturer}
@@ -333,33 +335,35 @@ export default function Products() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">{config.terms.category}</Label>
                 <Input
                   id="category"
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="drug_schedule">Drug Schedule *</Label>
-                <Select
-                  value={formData.drug_schedule}
-                  onValueChange={(value: DrugSchedule) =>
-                    setFormData({ ...formData, drug_schedule: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(drugScheduleLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {config.hasDrugSchedule && (
+                <div className="space-y-2">
+                  <Label htmlFor="drug_schedule">Drug Schedule *</Label>
+                  <Select
+                    value={formData.drug_schedule}
+                    onValueChange={(value: DrugSchedule) =>
+                      setFormData({ ...formData, drug_schedule: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(drugScheduleLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
                 <Select
@@ -420,24 +424,28 @@ export default function Products() {
                   onChange={(e) => setFormData({ ...formData, gst_percentage: parseFloat(e.target.value) || 0 })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="strength">Strength</Label>
-                <Input
-                  id="strength"
-                  placeholder="e.g., 500mg, 10ml"
-                  value={formData.strength}
-                  onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="composition">Composition</Label>
-                <Input
-                  id="composition"
-                  placeholder="Active ingredients"
-                  value={formData.composition}
-                  onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
-                />
-              </div>
+              {config.hasStrength && (
+                <div className="space-y-2">
+                  <Label htmlFor="strength">Strength</Label>
+                  <Input
+                    id="strength"
+                    placeholder="e.g., 500mg, 10ml"
+                    value={formData.strength}
+                    onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                  />
+                </div>
+              )}
+              {config.hasComposition && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="composition">Composition</Label>
+                  <Input
+                    id="composition"
+                    placeholder="Active ingredients"
+                    value={formData.composition}
+                    onChange={(e) => setFormData({ ...formData, composition: e.target.value })}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="hsn_code">HSN Code</Label>
                 <Input
@@ -517,10 +525,10 @@ export default function Products() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Strength</TableHead>
-                    <TableHead>Manufacturer</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead className="text-right">MRP</TableHead>
+                    {config.hasStrength && <TableHead>Strength</TableHead>}
+                    <TableHead>{config.terms.manufacturer}</TableHead>
+                    {config.hasDrugSchedule && <TableHead>Schedule</TableHead>}
+                    <TableHead className="text-right">{config.terms.mrp}</TableHead>
                     <TableHead className="text-right">Purchase</TableHead>
                     <TableHead className="text-right">Sale</TableHead>
                     <TableHead className="text-right">GST</TableHead>
@@ -553,13 +561,17 @@ export default function Products() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{product.strength || "-"}</TableCell>
+                      {config.hasStrength && (
+                        <TableCell className="text-muted-foreground">{product.strength || "-"}</TableCell>
+                      )}
                       <TableCell>{product.manufacturer}</TableCell>
-                      <TableCell>
-                        <Badge className={drugScheduleColors[product.drug_schedule]}>
-                          {drugScheduleLabels[product.drug_schedule]}
-                        </Badge>
-                      </TableCell>
+                      {config.hasDrugSchedule && (
+                        <TableCell>
+                          <Badge className={drugScheduleColors[product.drug_schedule]}>
+                            {drugScheduleLabels[product.drug_schedule]}
+                          </Badge>
+                        </TableCell>
+                      )}
                       {/* Inline editable MRP */}
                       <TableCell className="text-right font-mono">
                         {editingCell?.id === product.id && editingCell?.field === "mrp" ? (

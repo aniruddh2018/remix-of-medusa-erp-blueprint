@@ -33,6 +33,22 @@ serve(async (req) => {
       throw new Error("text and company_id are required");
     }
 
+    // Verify the authenticated user belongs to the supplied company
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (profileError) throw new Error("Failed to verify company membership");
+
+    const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", { _user_id: user.id });
+    if (!isSuperAdmin && profile?.company_id !== company_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: company mismatch" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Fetch existing products for fuzzy matching
     const { data: products } = await supabase
       .from("products")

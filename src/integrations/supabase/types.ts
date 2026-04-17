@@ -1389,9 +1389,11 @@ export type Database = {
       }
       sales_orders: {
         Row: {
+          amount_paid: number
           company_id: string | null
           created_at: string
           created_by: string | null
+          credit_period_days: number | null
           customer_address: string | null
           customer_gstin: string | null
           customer_id: string | null
@@ -1399,6 +1401,7 @@ export type Database = {
           customer_phone: string | null
           delivery_charges: number
           discount_amount: number
+          due_date: string | null
           freight_charges: number
           gst_amount: number
           handling_charges: number
@@ -1407,16 +1410,20 @@ export type Database = {
           notes: string | null
           other_charges: number
           payment_method: string | null
+          payment_status: string
           prescription_number: string | null
+          reminder_enabled: boolean
           sale_date: string
           status: Database["public"]["Enums"]["order_status"]
           total_amount: number
           updated_at: string
         }
         Insert: {
+          amount_paid?: number
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          credit_period_days?: number | null
           customer_address?: string | null
           customer_gstin?: string | null
           customer_id?: string | null
@@ -1424,6 +1431,7 @@ export type Database = {
           customer_phone?: string | null
           delivery_charges?: number
           discount_amount?: number
+          due_date?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -1432,16 +1440,20 @@ export type Database = {
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
+          payment_status?: string
           prescription_number?: string | null
+          reminder_enabled?: boolean
           sale_date?: string
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
         }
         Update: {
+          amount_paid?: number
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          credit_period_days?: number | null
           customer_address?: string | null
           customer_gstin?: string | null
           customer_id?: string | null
@@ -1449,6 +1461,7 @@ export type Database = {
           customer_phone?: string | null
           delivery_charges?: number
           discount_amount?: number
+          due_date?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -1457,7 +1470,9 @@ export type Database = {
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
+          payment_status?: string
           prescription_number?: string | null
+          reminder_enabled?: boolean
           sale_date?: string
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number

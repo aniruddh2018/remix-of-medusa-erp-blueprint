@@ -150,6 +150,14 @@ export default function Sales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored]);
 
+  // Register Sales module with global focus tracker (intelligent recovery via `)
+  useModuleFocus({
+    module: "sales",
+    getEntryPoint: () => customerButtonRef.current,
+    getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
+    flowStartedWhen: !!selectedCustomerId || cart.length > 0,
+  });
+
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders", companyId],
     queryFn: async () => {

@@ -42,6 +42,33 @@ serve(async (req) => {
       throw new Error("file_paths (array) and company_id are required");
     }
 
+    // Verify the authenticated user belongs to the supplied company
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (profileError) throw new Error("Failed to verify company membership");
+
+    const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", { _user_id: user.id });
+    const callerCompany = profile?.company_id;
+    if (!isSuperAdmin && callerCompany !== company_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: company mismatch" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate that every file path is scoped to caller's company folder
+    for (const fp of file_paths) {
+      if (typeof fp !== "string" || !fp.startsWith(`${company_id}/`)) {
+        return new Response(
+          JSON.stringify({ error: `Forbidden: file path outside company scope: ${fp}` }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Download all files and convert to base64 safely (no spread operator)
     const imageContents: { type: string; image_url: { url: string } }[] = [];
     for (const filePath of file_paths) {

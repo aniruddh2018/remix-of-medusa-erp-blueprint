@@ -51,6 +51,7 @@ export default function Sales() {
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
+  const customerButtonRef = useRef<HTMLButtonElement>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -129,6 +130,24 @@ export default function Sales() {
       setDraftRestored(true);
     }
   });
+
+  // Focus first empty actionable field when billing tab is active or draft restored
+  const focusFirstEmptyField = useCallback(() => {
+    setTimeout(() => {
+      const hasCustomer = !!selectedCustomerId || !!customerName.trim();
+      if (!hasCustomer) {
+        customerButtonRef.current?.focus();
+      } else {
+        productSearchRef.current?.focus();
+      }
+    }, 80);
+  }, [selectedCustomerId, customerName]);
+
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    focusFirstEmptyField();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, draftRestored]);
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders", companyId],
@@ -634,11 +653,12 @@ export default function Sales() {
                     <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          ref={customerButtonRef}
                           variant="outline"
                           className="flex-1 justify-between h-8 text-sm font-normal"
                           data-enter-nav-include="true"
                           onKeyDown={(e) => {
-                            if (e.key === 'n' || e.key === 'N') {
+                            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
                               e.preventDefault();
                               setShowCustomerDialog(true);
                             }

@@ -847,6 +847,7 @@ export default function Sales() {
                       selectedProductId={selectedProduct}
                       onSelect={(v) => {
                         setSelectedProduct(v);
+                        setSelectedBatchId(null); // reset manual batch when product changes
                         const p = products?.find(pp => pp.id === v);
                         if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
                         // Compute available stock for this product right now
@@ -907,6 +908,14 @@ export default function Sales() {
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
+                  {selectedProduct && batchesForProduct.length > 0 && (
+                    <BatchSelector
+                      batches={batchesForProduct}
+                      selectedBatchId={selectedBatchId}
+                      existingCartQuantities={existingCartQuantities}
+                      onSelect={setSelectedBatchId}
+                    />
+                  )}
                   {selectedProduct && (
                     <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
                       {availableStock > 0 ? `${availableStock}` : (settings.allow_negative_stock ? "0 (override)" : "Out of stock")}

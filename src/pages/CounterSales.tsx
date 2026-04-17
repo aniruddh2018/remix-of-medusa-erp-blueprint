@@ -1032,6 +1032,7 @@ export default function CounterSales() {
                       selectedProductId={selectedProduct}
                       onSelect={(v) => {
                         setSelectedProduct(v);
+                        setSelectedBatchId(null);
                         const p = products?.find(pp => pp.id === v);
                         if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);

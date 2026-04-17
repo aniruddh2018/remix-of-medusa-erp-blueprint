@@ -58,6 +58,7 @@ export function InvoiceSettingsSection() {
     show_roundoff: true,
     show_gst_split: true,
     show_salesperson: false,
+    allow_negative_stock: false,
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -115,6 +116,7 @@ export function InvoiceSettingsSection() {
         show_roundoff: s.show_roundoff ?? true,
         show_gst_split: s.show_gst_split ?? true,
         show_salesperson: s.show_salesperson ?? false,
+        allow_negative_stock: s.allow_negative_stock ?? false,
       });
     }
   }, [settings]);

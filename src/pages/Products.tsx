@@ -525,10 +525,10 @@ export default function Products() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Strength</TableHead>
-                    <TableHead>Manufacturer</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead className="text-right">MRP</TableHead>
+                    {config.hasStrength && <TableHead>Strength</TableHead>}
+                    <TableHead>{config.terms.manufacturer}</TableHead>
+                    {config.hasDrugSchedule && <TableHead>Schedule</TableHead>}
+                    <TableHead className="text-right">{config.terms.mrp}</TableHead>
                     <TableHead className="text-right">Purchase</TableHead>
                     <TableHead className="text-right">Sale</TableHead>
                     <TableHead className="text-right">GST</TableHead>
@@ -561,13 +561,17 @@ export default function Products() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{product.strength || "-"}</TableCell>
+                      {config.hasStrength && (
+                        <TableCell className="text-muted-foreground">{product.strength || "-"}</TableCell>
+                      )}
                       <TableCell>{product.manufacturer}</TableCell>
-                      <TableCell>
-                        <Badge className={drugScheduleColors[product.drug_schedule]}>
-                          {drugScheduleLabels[product.drug_schedule]}
-                        </Badge>
-                      </TableCell>
+                      {config.hasDrugSchedule && (
+                        <TableCell>
+                          <Badge className={drugScheduleColors[product.drug_schedule]}>
+                            {drugScheduleLabels[product.drug_schedule]}
+                          </Badge>
+                        </TableCell>
+                      )}
                       {/* Inline editable MRP */}
                       <TableCell className="text-right font-mono">
                         {editingCell?.id === product.id && editingCell?.field === "mrp" ? (

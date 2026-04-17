@@ -74,6 +74,7 @@ export default function PurchaseOrders() {
   const [itemExpiryDate, setItemExpiryDate] = useState<string>("");
   const [existingBatchId, setExistingBatchId] = useState<string>("new");
   const [batchFieldFocused, setBatchFieldFocused] = useState(false);
+  const [batchHighlightIdx, setBatchHighlightIdx] = useState(0);
   const [editBatchDetails, setEditBatchDetails] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
 

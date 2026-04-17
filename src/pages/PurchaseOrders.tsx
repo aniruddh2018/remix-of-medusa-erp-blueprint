@@ -173,6 +173,14 @@ export default function PurchaseOrders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored]);
 
+  // Register Purchase module with global focus tracker (intelligent recovery via `)
+  useModuleFocus({
+    module: "purchase",
+    getEntryPoint: () => supplierTriggerRef.current,
+    getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
+    flowStartedWhen: !!selectedSupplier || orderItems.length > 0,
+  });
+
   // ── Queries ──
   const { data: purchaseOrders, isLoading } = useQuery({
     queryKey: ["purchase-orders", companyId],

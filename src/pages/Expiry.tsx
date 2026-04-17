@@ -377,7 +377,7 @@ export default function Expiry() {
                                 `${status.days}d`
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">
                               {status.isExpired ? (
                                 <Button
                                   variant="destructive"

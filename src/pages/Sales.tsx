@@ -427,13 +427,15 @@ export default function Sales() {
       const gstAmount = totalGst;
       const totalAmount = grandTotal;
 
-      // Doctor required for scheduled drugs
-      const scheduledInCart = cart.some(i => {
-        const p = products?.find(pp => pp.id === i.product_id);
-        return p && p.drug_schedule && p.drug_schedule !== 'none';
-      });
-      if (scheduledInCart && !doctor.name.trim()) {
-        throw new Error("Doctor is required when selling scheduled drugs (Schedule H/H1/X/Narcotic).");
+      // Doctor required for scheduled drugs (pharmacy businesses only)
+      if (config.hasDrugSchedule) {
+        const scheduledInCart = cart.some(i => {
+          const p = products?.find(pp => pp.id === i.product_id);
+          return p && p.drug_schedule && p.drug_schedule !== 'none';
+        });
+        if (scheduledInCart && !doctor.name.trim()) {
+          throw new Error("Doctor is required when selling scheduled drugs (Schedule H/H1/X/Narcotic).");
+        }
       }
 
       const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
@@ -818,17 +820,19 @@ export default function Sales() {
                 <Input value={prescriptionNumber} onChange={e => setPrescriptionNumber(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
-            <div className="md:col-span-2 space-y-1">
-              <DoctorSelector
-                value={doctor}
-                onChange={setDoctor}
-                required={cart.some(i => {
-                  const p = products?.find(pp => pp.id === i.product_id);
-                  return p && p.drug_schedule && p.drug_schedule !== 'none';
-                })}
-                onSelected={focusProductSearch}
-              />
-            </div>
+            {config.hasDrugSchedule && (
+              <div className="md:col-span-2 space-y-1">
+                <DoctorSelector
+                  value={doctor}
+                  onChange={setDoctor}
+                  required={cart.some(i => {
+                    const p = products?.find(pp => pp.id === i.product_id);
+                    return p && p.drug_schedule && p.drug_schedule !== 'none';
+                  })}
+                  onSelected={focusProductSearch}
+                />
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <div className="flex items-center gap-1.5">
                 <Switch id="no-gst" checked={noGstBill} onCheckedChange={(v) => {

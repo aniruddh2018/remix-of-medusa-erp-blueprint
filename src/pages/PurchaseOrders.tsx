@@ -944,26 +944,34 @@ export default function PurchaseOrders() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
                   Expiry {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
-                <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={poEnterNav}
-                  readOnly={batchLocked}
-                  className={`h-9 text-xs ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} />
+                <Input type="date" value={itemExpiryDate}
+                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value); }}
+                  onKeyDown={poEnterNav}
+                  aria-readonly={batchLocked}
+                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
+                  className={`h-9 text-xs ${batchLocked ? "bg-muted/50 cursor-not-allowed pointer-events-none" : ""}`} />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
                   MRP ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
-                <Input type="number" min={0} step={0.01} value={itemMrp || ""} onChange={e => setItemMrp(parseFloat(e.target.value) || 0)}
-                  readOnly={batchLocked}
-                  onKeyDown={poEnterNav} className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} placeholder="0.00" />
+                <Input type="number" min={0} step={0.01} value={itemMrp || ""}
+                  onChange={e => { if (!batchLocked) setItemMrp(parseFloat(e.target.value) || 0); }}
+                  onKeyDown={poEnterNav}
+                  aria-readonly={batchLocked}
+                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
+                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
                   Rate ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
                 <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
-                  onChange={e => setItemPrice(parseFloat(e.target.value) || 0)}
-                  readOnly={batchLocked}
-                  onKeyDown={poEnterNav} className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} placeholder="0.00" />
+                  onChange={e => { if (!batchLocked) setItemPrice(parseFloat(e.target.value) || 0); }}
+                  onKeyDown={poEnterNav}
+                  aria-readonly={batchLocked}
+                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
+                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>

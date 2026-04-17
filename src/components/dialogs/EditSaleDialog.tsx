@@ -55,6 +55,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
   const { companyId, gstInclusive } = useBusiness();
+  const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
   const [customerName, setCustomerName] = useState("");

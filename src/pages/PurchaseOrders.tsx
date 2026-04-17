@@ -854,8 +854,22 @@ export default function PurchaseOrders() {
               </div>
               {(config.hasBatchTracking || settings.enable_batch_tracking) && (
                 <div className="col-span-1 lg:col-span-2 relative">
-                  <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                    Batch # <span className="text-primary font-normal">(source of truth)</span>
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 flex items-center justify-between">
+                    <span>
+                      Batch # <span className="text-primary font-normal">(source of truth)</span>
+                    </span>
+                    {existingBatchId !== "new" && (
+                      <button
+                        type="button"
+                        onClick={() => setEditBatchDetails(v => !v)}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                        title="Toggle edit batch details (Alt+E)"
+                        tabIndex={-1}
+                        data-enter-nav-skip="true"
+                      >
+                        {editBatchDetails ? <><Lock className="h-2.5 w-2.5" /> Lock</> : <><Pencil className="h-2.5 w-2.5" /> Edit</>}
+                      </button>
+                    )}
                   </Label>
                   <Input
                     value={itemBatchNumber}
@@ -865,29 +879,45 @@ export default function PurchaseOrders() {
                       // Auto-match: if typed value exactly matches an existing batch, prefill its details
                       const exact = existingBatches?.find(b => b.batch_number.toLowerCase() === v.toLowerCase());
                       if (exact) {
-                        setExistingBatchId(exact.id);
-                        setItemExpiryDate(exact.expiry_date);
-                        setItemMrp(Number(exact.mrp));
-                        setItemPrice(Number(exact.purchase_price));
+                        if (existingBatchId !== exact.id) handleBatchSelect(exact.id);
                       } else if (existingBatchId !== "new") {
                         setExistingBatchId("new");
+                        setEditBatchDetails(false);
                       }
                     }}
-                    onKeyDown={poEnterNav}
+                    onFocus={() => setBatchFieldFocused(true)}
+                    onBlur={() => setTimeout(() => setBatchFieldFocused(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.altKey && e.key.toLowerCase() === "e" && existingBatchId !== "new") {
+                        e.preventDefault();
+                        setEditBatchDetails(v => !v);
+                        return;
+                      }
+                      if (e.key === "Escape") { setBatchFieldFocused(false); return; }
+                      poEnterNav(e);
+                    }}
                     className="h-9 text-xs"
-                    placeholder="Type batch number"
+                    placeholder={existingBatches && existingBatches.length > 0 ? "Search or type new batch" : "Type batch number"}
                     autoComplete="off"
                   />
-                  {/* Suggestion dropdown — appears only when typing & partial matches exist */}
-                  {itemBatchNumber.trim().length > 0 && existingBatches && (() => {
+                  {/* Suggestion dropdown — shows on focus (full list) and filters as user types */}
+                  {batchFieldFocused && existingBatches && existingBatches.length > 0 && (() => {
                     const q = itemBatchNumber.trim().toLowerCase();
-                    const matches = existingBatches.filter(b =>
-                      b.batch_number.toLowerCase().includes(q) &&
-                      b.batch_number.toLowerCase() !== q
-                    ).slice(0, 5);
-                    if (matches.length === 0) return null;
+                    const matches = q.length === 0
+                      ? existingBatches.slice(0, 8)
+                      : existingBatches.filter(b => b.batch_number.toLowerCase().includes(q)).slice(0, 8);
+                    if (matches.length === 0) {
+                      return (
+                        <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md p-2 text-[11px] text-muted-foreground">
+                          No match — will be saved as new batch
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                      <div className="absolute z-20 left-0 right-0 mt-0.5 bg-popover border rounded-md shadow-md max-h-56 overflow-y-auto">
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/40">
+                          {q.length === 0 ? "Existing batches (FEFO)" : `${matches.length} match${matches.length > 1 ? "es" : ""}`}
+                        </div>
                         {matches.map(b => (
                           <button
                             key={b.id}
@@ -895,12 +925,13 @@ export default function PurchaseOrders() {
                             onMouseDown={(e) => {
                               e.preventDefault();
                               handleBatchSelect(b.id);
+                              setBatchFieldFocused(false);
                             }}
-                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex justify-between items-center"
+                            className={`w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex justify-between items-center gap-2 ${existingBatchId === b.id ? "bg-muted/60" : ""}`}
                           >
-                            <span className="font-medium">{b.batch_number}</span>
-                            <span className="text-muted-foreground">
-                              Qty {b.quantity}{b.expiry_date ? ` · exp ${b.expiry_date.slice(0, 7)}` : ""}
+                            <span className="font-medium truncate">{b.batch_number}</span>
+                            <span className="text-muted-foreground text-[10px] shrink-0">
+                              Qty {b.quantity} · ₹{Number(b.mrp).toFixed(0)}{b.expiry_date ? ` · ${b.expiry_date.slice(0, 7)}` : ""}
                             </span>
                           </button>
                         ))}
@@ -910,20 +941,29 @@ export default function PurchaseOrders() {
                 </div>
               )}
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Expiry</Label>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  Expiry {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
                 <Input type="date" value={itemExpiryDate} onChange={e => setItemExpiryDate(e.target.value)} onKeyDown={poEnterNav}
-                  className="h-9 text-xs" />
+                  readOnly={batchLocked}
+                  className={`h-9 text-xs ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">MRP ₹</Label>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  MRP ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
                 <Input type="number" min={0} step={0.01} value={itemMrp || ""} onChange={e => setItemMrp(parseFloat(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
+                  readOnly={batchLocked}
+                  onKeyDown={poEnterNav} className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} placeholder="0.00" />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  Rate ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
                 <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
                   onChange={e => setItemPrice(parseFloat(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="0.00" />
+                  readOnly={batchLocked}
+                  onKeyDown={poEnterNav} className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed" : ""}`} placeholder="0.00" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>

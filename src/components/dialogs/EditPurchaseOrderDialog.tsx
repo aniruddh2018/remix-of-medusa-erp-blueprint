@@ -49,6 +49,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
   const { companyId } = useBusiness();
+  const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
   const [notes, setNotes] = useState("");
@@ -58,6 +59,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [handlingCharges, setHandlingCharges] = useState(0);
   const [otherCharges, setOtherCharges] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [billDiscountPercent, setBillDiscountPercent] = useState(0);
+  const [billDiscountFlat, setBillDiscountFlat] = useState(0);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 

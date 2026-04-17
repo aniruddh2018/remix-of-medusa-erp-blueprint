@@ -42,6 +42,7 @@ import {
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
+import { BatchSelector } from "@/components/billing/BatchSelector";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -168,6 +169,7 @@ export default function CounterSales() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
@@ -373,13 +375,45 @@ export default function CounterSales() {
       return;
     }
 
-    const allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
-    if (!allocationResult.success && !settings.allow_negative_stock) {
-      toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
-      const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
-      qtyEl?.focus();
-      qtyEl?.select();
-      return;
+    let allocationResult;
+    if (selectedBatchId) {
+      const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
+      if (!chosen) {
+        toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
+        setSelectedBatchId(null);
+        return;
+      }
+      const cartQty = existingCartQuantities.get(chosen.id) || 0;
+      const availInBatch = Math.max(0, chosen.quantity - cartQty);
+      if (totalNeeded > availInBatch && !settings.allow_negative_stock) {
+        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatch} in batch ${chosen.batch_number}.`, variant: "destructive" });
+        const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
+        qtyEl?.focus(); qtyEl?.select();
+        return;
+      }
+      allocationResult = {
+        success: true,
+        allocations: [{
+          batch_id: chosen.id,
+          batch_number: chosen.batch_number,
+          quantity: totalNeeded,
+          available_quantity: chosen.quantity,
+          expiry_date: chosen.expiry_date,
+          mrp: Number(chosen.mrp),
+          purchase_price: Number(chosen.purchase_price),
+        }],
+        totalAllocated: totalNeeded,
+        shortfall: 0,
+      };
+    } else {
+      allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
+      if (!allocationResult.success && !settings.allow_negative_stock) {
+        toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
+        const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
+        qtyEl?.focus();
+        qtyEl?.select();
+        return;
+      }
     }
 
     const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);

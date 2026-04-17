@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Banknote, Search, TrendingUp, TrendingDown, AlertCircle,
   CheckCircle2, Clock, FileText, ReceiptText, BarChart3, Lock,
-  Download, Trash2, Users, Building2, Loader2, AlertTriangle
+  Download, Trash2, Users, Building2, Loader2, AlertTriangle, CreditCard
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
@@ -24,6 +24,7 @@ import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
 import { ChevronDown, ChevronRight, FileDown } from "lucide-react";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { CreditCustomersTab } from "@/components/CreditCustomersTab";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {
@@ -521,6 +522,9 @@ export default function Accounts() {
           <TabsTrigger value="purchase" className="gap-1.5">
             <TrendingDown className="h-3.5 w-3.5" />Purchase Payable
           </TabsTrigger>
+          <TabsTrigger value="credit-customers" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" />Credit Customers
+          </TabsTrigger>
           <TabsTrigger value="customer-ledger" className="gap-1.5">
             <Users className="h-3.5 w-3.5" />Customer Ledger
           </TabsTrigger>
@@ -534,6 +538,11 @@ export default function Accounts() {
             <ReceiptText className="h-3.5 w-3.5" />GST Summary
           </TabsTrigger>
         </TabsList>
+
+        {/* ── Credit Customers (aging-aware) ───────────────────────────── */}
+        <TabsContent value="credit-customers" className="mt-4">
+          <CreditCustomersTab />
+        </TabsContent>
 
         {/* ── Sales Receivable ─────────────────────────────────────────── */}
         <TabsContent value="sales" className="mt-4">

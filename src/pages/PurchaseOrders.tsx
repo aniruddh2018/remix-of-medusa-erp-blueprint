@@ -918,7 +918,7 @@ export default function PurchaseOrders() {
             items={orderItems}
             discountMode={settings.discount_mode}
             maxDiscountAllowed={maxDiscountAllowed}
-            hasBatchTracking={config.hasBatchTracking}
+            hasBatchTracking={config.hasBatchTracking || settings.enable_batch_tracking}
             onUpdateItem={updateOrderItem}
             onRemoveItem={removeItem}
             onDiscountExceeded={(max) => toast({ title: "Limit exceeded", description: `Max discount: ${max}%`, variant: "destructive" })}

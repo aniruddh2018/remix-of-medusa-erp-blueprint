@@ -464,7 +464,8 @@ export default function CounterSales() {
     mutationFn: async () => {
       let finalInvoiceNumber = invoiceNumber.trim();
       if (!finalInvoiceNumber) {
-        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: "CS" });
+        const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: rawPrefix });
         if (seqErr) throw seqErr;
         finalInvoiceNumber = seqNum as string;
       }
@@ -484,6 +485,8 @@ export default function CounterSales() {
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
         freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
         other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
+        // Counter sales are paid in full by default with the chosen method
+        payment_status: "paid", amount_paid: totalAmount, credit_period_days: null, due_date: null, reminder_enabled: false,
       }).select().single();
       if (orderError) throw orderError;
 

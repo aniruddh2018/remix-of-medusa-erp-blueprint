@@ -69,7 +69,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
   const handleEnterNav = useEnterNavigation();
   const invoiceNumberRef = useRef<HTMLButtonElement>(null);
-  const focusTrapRef = useFocusTrap(open, invoiceNumberRef);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(open, invoiceNumberRef);
 
   // Add new item
   const [addProductOpen, setAddProductOpen] = useState(false);

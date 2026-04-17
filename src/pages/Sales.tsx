@@ -765,6 +765,15 @@ export default function Sales() {
                         setSelectedProduct(v);
                         const p = products?.find(pp => pp.id === v);
                         if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        // Compute available stock for this product right now
+                        const productBatches = (allBatches || []).filter(b => b.product_id === v);
+                        const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+                        if (stock <= 0 && !settings.allow_negative_stock) {
+                          // Out of stock — keep focus on product, show feedback
+                          toast({ title: "Out of stock", description: "This product has 0 available stock. Pick another, or enable negative stock in Settings.", variant: "destructive" });
+                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          return;
+                        }
                         setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
                       }}
                       showPrice priceType="sale"

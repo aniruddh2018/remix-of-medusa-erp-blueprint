@@ -13,7 +13,7 @@ import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CounterSaleDialog } from "@/components/dialogs/CounterSaleDialog";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Badge } from "@/components/ui/badge";
-import { useFocusRestoration } from "@/hooks/useFocusRestoration";
+import { useFocus } from "@/contexts/FocusContext";
 import {
   Tooltip,
   TooltipContent,
@@ -28,8 +28,8 @@ export function AppLayout() {
   const [counterSaleOpen, setCounterSaleOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-  // Focus restoration for lost focus recovery
-  const { restoreFocus } = useFocusRestoration();
+  // Intelligent focus recovery (flow-aware)
+  const { recoverFocus } = useFocus();
 
   // Platform-aware shortcuts
   usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => setCounterSaleOpen(true), enabled: !!user });
@@ -41,11 +41,12 @@ export function AppLayout() {
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_PRODUCTS, callback: () => navigate("/products"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_SUPPLIERS, callback: () => navigate("/suppliers"), enabled: !!user });
 
-  // Focus restoration shortcut - backtick key to restore last focus
+  // Intelligent focus recovery — backtick (`) restores last meaningful field or entry point
   usePlatformShortcut({
     shortcut: SHORTCUTS.RESTORE_FOCUS,
-    callback: () => restoreFocus(),
-    enabled: !!user
+    callback: () => recoverFocus(),
+    enabled: !!user,
+    allowInInput: true,
   });
 
   useEffect(() => {

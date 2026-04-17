@@ -53,6 +53,8 @@ export default function PurchaseOrders() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
   const supplierTriggerRef = useRef<HTMLButtonElement>(null);
+  const docTypeTriggerRef = useRef<HTMLButtonElement>(null);
+  const deliveryDateRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");

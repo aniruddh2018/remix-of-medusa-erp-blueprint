@@ -131,6 +131,24 @@ export default function Sales() {
     }
   });
 
+  // Focus first empty actionable field when billing tab is active or draft restored
+  const focusFirstEmptyField = useCallback(() => {
+    setTimeout(() => {
+      const hasCustomer = !!selectedCustomerId || !!customerName.trim();
+      if (!hasCustomer) {
+        customerButtonRef.current?.focus();
+      } else {
+        productSearchRef.current?.focus();
+      }
+    }, 80);
+  }, [selectedCustomerId, customerName]);
+
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    focusFirstEmptyField();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, draftRestored]);
+
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders", companyId],
     queryFn: async () => {

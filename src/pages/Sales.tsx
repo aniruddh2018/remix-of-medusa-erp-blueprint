@@ -29,6 +29,7 @@ import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";

@@ -445,24 +445,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     },
   });
 
-  if (!isAdmin && !isPharmacist) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <div className="flex flex-col items-center justify-center py-8 gap-4">
-            <AlertTriangle className="h-12 w-12 text-destructive" />
-            <p className="text-center text-muted-foreground">
-              Only administrators and pharmacists can modify bills.
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  const isLoading = saleLoading || itemsLoading;
-
-  // Map editableItems → CartItem[] shape for SalesItemsTable
+  // Map editableItems → CartItem[] shape for SalesItemsTable (must be before any early return)
   const cartItems: CartItem[] = useMemo(() => editableItems.map((it) => {
     const flat = it.unit_price * it.quantity * (it.discount_percentage / 100);
     return {
@@ -483,6 +466,33 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     };
   }), [editableItems]);
 
+  // Sync bill discount inputs → discountAmount
+  const grossSubtotal = itemsSubtotal + (gstInclusive ? 0 : gstAmount) + totalCharges;
+  useEffect(() => {
+    if (billDiscountPercent > 0) {
+      setDiscountAmount(Math.round(grossSubtotal * (billDiscountPercent / 100) * 100) / 100);
+    } else if (billDiscountFlat > 0) {
+      setDiscountAmount(billDiscountFlat);
+    }
+  }, [billDiscountPercent, billDiscountFlat, grossSubtotal]);
+
+  if (!isAdmin && !isPharmacist) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <div className="flex flex-col items-center justify-center py-8 gap-4">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <p className="text-center text-muted-foreground">
+              Only administrators and pharmacists can modify bills.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const isLoading = saleLoading || itemsLoading;
+
   const handleCartUpdate = (index: number, field: keyof CartItem, value: string | number) => {
     if (field === "quantity" || field === "free_quantity" || field === "unit_price" || field === "discount_percentage") {
       updateItem(index, field as string, Number(value));
@@ -494,16 +504,6 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       updateItem(index, "discount_percentage", pct);
     }
   };
-
-  // Sync bill discount inputs → discountAmount
-  const grossSubtotal = itemsSubtotal + (gstInclusive ? 0 : gstAmount) + totalCharges;
-  useEffect(() => {
-    if (billDiscountPercent > 0) {
-      setDiscountAmount(Math.round(grossSubtotal * (billDiscountPercent / 100) * 100) / 100);
-    } else if (billDiscountFlat > 0) {
-      setDiscountAmount(billDiscountFlat);
-    }
-  }, [billDiscountPercent, billDiscountFlat, grossSubtotal]);
 
   const itemDiscountTotal = editableItems.reduce((s, it) => s + it.unit_price * it.quantity * (it.discount_percentage / 100), 0);
 

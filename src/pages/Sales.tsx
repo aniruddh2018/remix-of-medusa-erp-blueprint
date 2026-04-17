@@ -32,6 +32,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { DoctorSelector } from "@/components/DoctorSelector";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -73,7 +74,7 @@ export default function Sales() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string>(settings.default_payment_method || "cash");
+  const [doctor, setDoctor] = useState<{ id: string | null; name: string; registration_number: string }>({ id: null, name: "", registration_number: "" });
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export default function Sales() {
   });
 
 
-  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
+  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
 
   const { clearDraft } = useDraftSave("draft_sale", saleDraft, (draft) => {
     if (draft.cart?.length > 0 || draft.customerName || draft.invoiceNumber) {
@@ -126,7 +127,7 @@ export default function Sales() {
       setCustomerAddress(draft.customerAddress || "");
       setCustomerGstin(draft.customerGstin || "");
       setPrescriptionNumber(draft.prescriptionNumber || "");
-      setPaymentMethod(draft.paymentMethod || "cash");
+      if (draft.doctor) setDoctor(draft.doctor);
       setNotes(draft.notes || "");
       setFreightCharges(draft.freightCharges || 0);
       setHandlingCharges(draft.handlingCharges || 0);

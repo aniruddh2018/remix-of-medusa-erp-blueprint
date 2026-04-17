@@ -121,13 +121,14 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         return;
       }
 
-      // Check if current field is required and empty → block forward + shake
+      // Check if current field is required and empty → block forward + shake + inline hint
       if (isForwardEnter && isRequiredAndEmpty(target)) {
         e.preventDefault();
         target.classList.add("animate-shake");
         setTimeout(() => target.classList.remove("animate-shake"), 500);
         target.classList.add("ring-2", "ring-destructive");
         setTimeout(() => target.classList.remove("ring-2", "ring-destructive"), 1500);
+        showInlineHint(target, "Please select a value");
         return;
       }
 
@@ -196,6 +197,27 @@ function isRequiredAndEmpty(el: HTMLElement): boolean {
 
   if (!isRequired) return false;
   return isFieldEmpty(el);
+}
+
+/** Show a transient inline hint near the field (non-blocking, auto-dismissed). */
+function showInlineHint(el: HTMLElement, message: string) {
+  // Avoid duplicate hints
+  const existing = el.parentElement?.querySelector("[data-enter-hint]");
+  if (existing) return;
+  const hint = document.createElement("div");
+  hint.setAttribute("data-enter-hint", "true");
+  hint.textContent = message;
+  hint.className =
+    "absolute -bottom-5 left-0 z-50 text-[10px] font-medium text-destructive bg-background px-1.5 py-0.5 rounded shadow-sm border border-destructive/30 animate-in fade-in slide-in-from-top-1";
+  const parent = el.parentElement;
+  if (!parent) return;
+  const prevPosition = parent.style.position;
+  if (!prevPosition || prevPosition === "static") parent.style.position = "relative";
+  parent.appendChild(hint);
+  setTimeout(() => {
+    hint.remove();
+    if (!prevPosition) parent.style.position = "";
+  }, 1800);
 }
 
 function isFieldEmpty(el: HTMLElement): boolean {

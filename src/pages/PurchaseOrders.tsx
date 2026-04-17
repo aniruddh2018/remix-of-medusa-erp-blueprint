@@ -53,6 +53,8 @@ export default function PurchaseOrders() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
   const supplierTriggerRef = useRef<HTMLButtonElement>(null);
+  const docTypeTriggerRef = useRef<HTMLButtonElement>(null);
+  const deliveryDateRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState("billing");
   const [searchQuery, setSearchQuery] = useState("");
@@ -742,19 +744,19 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Supplier *</Label>
               <div className="flex gap-1">
-                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => productSearchRef.current?.focus(), 80); }}>
+                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => docTypeTriggerRef.current?.focus(), 60); }}>
                     <SelectTrigger ref={supplierTriggerRef} className="h-8 text-sm flex-1" onKeyDown={(e) => { if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowSupplierDialog(true)}><PlusCircle className="h-3 w-3" /></Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowSupplierDialog(true)} data-enter-nav-skip="true" tabIndex={-1}><PlusCircle className="h-3 w-3" /></Button>
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Doc Type</Label>
-              <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 50); }}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+              <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => challanNumberRef.current?.focus(), 60); }}>
+                <SelectTrigger ref={docTypeTriggerRef} className="h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="challan">Challan</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
@@ -763,11 +765,13 @@ export default function PurchaseOrders() {
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">{isChallan ? "Challan #" : "Invoice #"}</Label>
-              <Input ref={challanNumberRef} value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."} />
+              <Input ref={challanNumberRef} value={challanNumber} onChange={e => setChallanNumber(e.target.value)} className="h-8 text-sm" placeholder={isChallan ? "Challan no." : "Invoice no."}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); deliveryDateRef.current?.focus(); } }} />
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Delivery Date</Label>
-              <Input type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="h-8 text-sm" />
+              <Input ref={deliveryDateRef} type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="h-8 text-sm"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); productSearchRef.current?.focus(); } }} />
             </div>
           </div>
 

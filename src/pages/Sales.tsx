@@ -228,15 +228,23 @@ export default function Sales() {
   const handleAddToCart = useCallback(() => {
     if (!selectedProduct || itemQuantity <= 0) return;
     const product = products?.find(p => p.id === selectedProduct);
-    if (!product || batchesForProduct.length === 0) {
-      toast({ title: "No stock", description: "No available batches.", variant: "destructive" });
-      return;
+    if (!product) return;
+
+    // Block when no stock and negative stock is not allowed
+    if (batchesForProduct.length === 0 || availableStock <= 0) {
+      if (!settings.allow_negative_stock) {
+        toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
+        // Keep focus on product search — do NOT advance
+        productSearchRef.current?.focus();
+        return;
+      }
     }
 
     const totalNeeded = itemQuantity + itemFreeQty;
     const allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
-    if (!allocationResult.success) {
+    if (!allocationResult.success && !settings.allow_negative_stock) {
       toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
+      productSearchRef.current?.focus();
       return;
     }
 
@@ -288,7 +296,7 @@ export default function Sales() {
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, existingCartQuantities, cart, noGstBill, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 
@@ -757,6 +765,15 @@ export default function Sales() {
                         setSelectedProduct(v);
                         const p = products?.find(pp => pp.id === v);
                         if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        // Compute available stock for this product right now
+                        const productBatches = (allBatches || []).filter(b => b.product_id === v);
+                        const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+                        if (stock <= 0 && !settings.allow_negative_stock) {
+                          // Out of stock — keep focus on product, show feedback
+                          toast({ title: "Out of stock", description: "This product has 0 available stock. Pick another, or enable negative stock in Settings.", variant: "destructive" });
+                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          return;
+                        }
                         setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
                       }}
                       showPrice priceType="sale"
@@ -808,10 +825,10 @@ export default function Sales() {
                 <div className="flex gap-1">
                   {selectedProduct && (
                     <Badge variant={availableStock > 0 ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
-                      {availableStock > 0 ? `${availableStock}` : "0"}
+                      {availableStock > 0 ? `${availableStock}` : (settings.allow_negative_stock ? "0 (override)" : "Out of stock")}
                     </Badge>
                   )}
-                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || availableStock === 0 || itemQuantity <= 0} size="sm" data-enter-nav-include="true">
+                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || itemQuantity <= 0 || (availableStock === 0 && !settings.allow_negative_stock)} size="sm" data-enter-nav-include="true">
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>

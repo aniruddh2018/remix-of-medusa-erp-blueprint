@@ -58,6 +58,7 @@ export function InvoiceSettingsSection() {
     show_roundoff: true,
     show_gst_split: true,
     show_salesperson: false,
+    allow_negative_stock: false,
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -115,6 +116,7 @@ export function InvoiceSettingsSection() {
         show_roundoff: s.show_roundoff ?? true,
         show_gst_split: s.show_gst_split ?? true,
         show_salesperson: s.show_salesperson ?? false,
+        allow_negative_stock: s.allow_negative_stock ?? false,
       });
     }
   }, [settings]);
@@ -225,6 +227,20 @@ export function InvoiceSettingsSection() {
                     />
                   </div>
                 ))}
+
+                <Separator className="my-2" />
+
+                {/* Inventory behavior */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="cursor-pointer">Allow Negative Stock</Label>
+                    <p className="text-xs text-muted-foreground">Allow billing products even when stock is 0 or insufficient (override).</p>
+                  </div>
+                  <Switch
+                    checked={form.allow_negative_stock}
+                    onCheckedChange={v => setForm(f => ({ ...f, allow_negative_stock: v }))}
+                  />
+                </div>
               </div>
             </div>
 

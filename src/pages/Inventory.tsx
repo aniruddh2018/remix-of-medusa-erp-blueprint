@@ -14,10 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History } from "lucide-react";
+import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History, Layers } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
+import { BatchViewerDialog } from "@/components/dialogs/BatchViewerDialog";
 
 interface InventoryItem {
   id: string;
@@ -57,6 +59,7 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
   const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
+  const [batchProduct, setBatchProduct] = useState<AggregatedProduct | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
@@ -233,6 +236,7 @@ export default function Inventory() {
                     <TableHead className="text-right">Reorder Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Batches</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -264,6 +268,15 @@ export default function Inventory() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">{product.batches.length}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); setBatchProduct(product); }}
+                          >
+                            <Layers className="h-3 w-3 mr-1" /> View Batches
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -279,6 +292,13 @@ export default function Inventory() {
         onOpenChange={(open) => !open && setHistoryProduct(null)}
         productId={historyProduct?.id || null}
         productName={historyProduct?.name || ""}
+      />
+
+      <BatchViewerDialog
+        open={!!batchProduct}
+        onOpenChange={(open) => !open && setBatchProduct(null)}
+        productName={batchProduct?.product_name || ""}
+        batches={batchProduct?.batches || []}
       />
     </div>
   );

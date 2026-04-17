@@ -73,6 +73,8 @@ export default function PurchaseOrders() {
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
   const [itemExpiryDate, setItemExpiryDate] = useState<string>("");
   const [existingBatchId, setExistingBatchId] = useState<string>("new");
+  const [batchFieldFocused, setBatchFieldFocused] = useState(false);
+  const [editBatchDetails, setEditBatchDetails] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
 
   // Other charges state

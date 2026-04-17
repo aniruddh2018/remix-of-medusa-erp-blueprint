@@ -357,6 +357,7 @@ export default function Sales() {
 
     setCart(newCart);
     setSelectedProduct("");
+    setSelectedBatchId(null);
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemDiscount(0);
@@ -369,7 +370,7 @@ export default function Sales() {
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 

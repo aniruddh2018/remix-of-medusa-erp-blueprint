@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
+import { FocusProvider } from "@/contexts/FocusContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -40,6 +41,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <BusinessProvider>
+            <FocusProvider>
             <Routes>
               {/* Public pages — no auth required */}
               <Route path="/" element={<LandingPage />} />
@@ -69,6 +71,7 @@ const App = () => (
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </FocusProvider>
           </BusinessProvider>
         </AuthProvider>
       </BrowserRouter>

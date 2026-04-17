@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useModuleFocus } from "@/contexts/FocusContext";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
@@ -171,6 +172,14 @@ export default function PurchaseOrders() {
     focusFirstEmptyField();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored]);
+
+  // Register Purchase module with global focus tracker (intelligent recovery via `)
+  useModuleFocus({
+    module: "purchase",
+    getEntryPoint: () => supplierTriggerRef.current,
+    getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
+    flowStartedWhen: !!selectedSupplier || orderItems.length > 0,
+  });
 
   // ── Queries ──
   const { data: purchaseOrders, isLoading } = useQuery({

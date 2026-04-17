@@ -29,6 +29,7 @@ import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
@@ -148,6 +149,14 @@ export default function Sales() {
     focusFirstEmptyField();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored]);
+
+  // Register Sales module with global focus tracker (intelligent recovery via `)
+  useModuleFocus({
+    module: "sales",
+    getEntryPoint: () => customerButtonRef.current,
+    getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
+    flowStartedWhen: !!selectedCustomerId || cart.length > 0,
+  });
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ["sales-orders", companyId],

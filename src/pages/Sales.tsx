@@ -818,16 +818,16 @@ export default function Sales() {
                 <Input value={prescriptionNumber} onChange={e => setPrescriptionNumber(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
-            <div className="space-y-1">
-              <Label className="text-[11px]">Payment</Label>
-              <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); focusProductSearch(); }}>
-                <SelectTrigger className="h-8 text-sm" data-enter-nav-skip="true"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash"><span className="flex items-center gap-1"><Banknote className="h-3 w-3" /> Cash</span></SelectItem>
-                  <SelectItem value="card"><span className="flex items-center gap-1"><CreditCard className="h-3 w-3" /> Card</span></SelectItem>
-                  <SelectItem value="upi"><span className="flex items-center gap-1"><Receipt className="h-3 w-3" /> UPI</span></SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="md:col-span-2 space-y-1">
+              <DoctorSelector
+                value={doctor}
+                onChange={setDoctor}
+                required={cart.some(i => {
+                  const p = products?.find(pp => pp.id === i.product_id);
+                  return p && p.drug_schedule && p.drug_schedule !== 'none';
+                })}
+                onSelected={focusProductSearch}
+              />
             </div>
             <div className="flex items-end gap-2">
               <div className="flex items-center gap-1.5">

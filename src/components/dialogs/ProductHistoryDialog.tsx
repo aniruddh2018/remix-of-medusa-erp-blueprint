@@ -22,7 +22,7 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
       const { data } = await supabase
         .from("sales_order_items")
         .select(`
-          quantity, unit_price, total_price, created_at,
+          quantity, free_quantity, unit_price, total_price, created_at,
           sales_orders(invoice_number, sale_date, customer_name)
         `)
         .eq("product_id", productId)
@@ -40,7 +40,7 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
       const { data } = await supabase
         .from("purchase_order_items")
         .select(`
-          quantity, unit_price, total_price, created_at,
+          quantity, free_quantity, unit_price, total_price, created_at,
           purchase_orders(order_number, order_date, suppliers(name))
         `)
         .eq("product_id", productId)
@@ -53,8 +53,8 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
 
   const isLoading = salesLoading || purchaseLoading;
 
-  const totalSold = salesHistory?.reduce((s, i) => s + i.quantity, 0) || 0;
-  const totalPurchased = purchaseHistory?.reduce((s, i) => s + i.quantity, 0) || 0;
+  const totalSold = salesHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
+  const totalPurchased = purchaseHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

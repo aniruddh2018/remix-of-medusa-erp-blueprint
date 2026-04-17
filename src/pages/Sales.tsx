@@ -326,15 +326,25 @@ export default function Sales() {
     const hsnCode = product.hsn_code || "";
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
+    // Distribute paid vs free quantities across batch allocations.
+    // allocation.quantity = (paid + free) chunk for this batch; we split it back.
+    let mainQtyLeft = itemQuantity;
+    let freeQtyLeft = itemFreeQty;
     let newCart = [...cart];
     for (const allocation of allocationResult.allocations) {
+      const takeMain = Math.min(mainQtyLeft, allocation.quantity);
+      const takeFree = Math.min(freeQtyLeft, allocation.quantity - takeMain);
+      mainQtyLeft -= takeMain;
+      freeQtyLeft -= takeFree;
+
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
       const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
       if (existingIndex >= 0) {
-        const newQty = newCart[existingIndex].quantity + allocation.quantity;
-        newCart[existingIndex].quantity = newQty;
-        newCart[existingIndex].total_price = calculateItemTotal(newCart[existingIndex].unit_price, newQty, gstPercentage, newCart[existingIndex].discount_percentage);
-        newCart[existingIndex].max_quantity = allocation.available_quantity;
+        const row = newCart[existingIndex];
+        row.quantity += takeMain;
+        row.free_quantity = (row.free_quantity || 0) + takeFree;
+        row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
+        row.max_quantity = allocation.available_quantity;
       } else {
         newCart.push({
           product_id: product.id,
@@ -342,13 +352,13 @@ export default function Sales() {
           product_name: productName,
           batch_number: allocation.batch_number,
           hsn_code: hsnCode,
-          quantity: allocation.quantity,
-          free_quantity: itemFreeQty,
+          quantity: takeMain,
+          free_quantity: takeFree,
           unit_price: unitPrice,
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           discount_flat: itemDiscountFlat,
-          total_price: calculateItemTotal(unitPrice, allocation.quantity, gstPercentage, itemDiscount, itemDiscountFlat),
+          total_price: calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat),
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
         });

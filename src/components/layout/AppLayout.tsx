@@ -13,6 +13,7 @@ import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Badge } from "@/components/ui/badge";
 import { useFocus } from "@/contexts/FocusContext";
+import { useOverdueLoginToast } from "@/hooks/useOverdueLoginToast";
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +29,9 @@ export function AppLayout() {
 
   // Intelligent focus recovery (flow-aware)
   const { recoverFocus } = useFocus();
+
+  // One-time per-session overdue invoices toast
+  useOverdueLoginToast();
 
   // Platform-aware shortcuts
   usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => navigate("/counter-sales"), enabled: !!user });

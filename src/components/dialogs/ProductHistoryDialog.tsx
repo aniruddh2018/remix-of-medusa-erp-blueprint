@@ -158,7 +158,10 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
                             : "-"}
                         </TableCell>
                         <TableCell className="text-sm">{(item.purchase_orders as any)?.suppliers?.name}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">
+                          {item.quantity}
+                          {item.free_quantity ? <span className="text-xs text-success ml-1">+{item.free_quantity} free</span> : null}
+                        </TableCell>
                         <TableCell className="text-right font-mono">₹{Number(item.unit_price).toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">₹{Number(item.total_price).toFixed(2)}</TableCell>
                       </TableRow>

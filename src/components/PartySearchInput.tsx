@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Search, X, Check, UserPlus, Phone } from "lucide-react";
+import { Search, X, Check, UserPlus, Phone, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export interface PartyRecord {

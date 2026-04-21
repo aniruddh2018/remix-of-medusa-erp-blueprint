@@ -98,6 +98,7 @@ export default function Sales() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingCustomer, setEditingCustomer] = useState<Tables<"customers"> | null>(null);
   
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

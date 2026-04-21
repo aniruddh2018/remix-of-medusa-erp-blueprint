@@ -844,6 +844,10 @@ export default function Sales() {
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> payment
             <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+H</kbd> history
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
+            <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
         </div>
@@ -928,6 +932,12 @@ export default function Sales() {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                   <Button
+                     variant="outline" size="icon" className="h-8 w-8"
+                     disabled={!selectedCustomerId && !customerName}
+                     onClick={() => setHistoryOpen(true)}
+                     title="Past purchases (Ctrl+H)"
+                   ><History className="h-3 w-3" /></Button>
                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
                 </div>
                  {settings.show_customer_gstin && selectedCustomerId && (

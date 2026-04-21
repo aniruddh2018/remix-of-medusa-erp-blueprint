@@ -609,11 +609,15 @@ export default function CounterSales() {
       if (orderError) throw orderError;
 
       try {
+        // Persist returns as negative qty (so delete can re-deduct correctly)
         const orderItems = cart.map(i => ({
           sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-          total_price: i.total_price, company_id: companyId,
+          total_price: i.is_return ? -Math.abs(i.total_price) : i.total_price,
+          company_id: companyId,
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;

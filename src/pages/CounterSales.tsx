@@ -34,6 +34,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import {
   printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF,
@@ -180,9 +181,8 @@ export default function CounterSales() {
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
 
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

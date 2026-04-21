@@ -5,6 +5,7 @@ const ENTER_NAV_SELECTOR = [
   'select:not([disabled]):not([data-enter-nav-skip="true"])',
   'textarea:not([disabled]):not([data-enter-nav-skip="true"])',
   '[role="combobox"]:not([disabled]):not([data-enter-nav-skip="true"])',
+  '[role="textbox"][tabindex]:not([data-enter-nav-skip="true"])',
 ].join(", ");
 
 // Buttons are ONLY included if explicitly marked

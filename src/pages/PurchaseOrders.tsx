@@ -65,7 +65,7 @@ export default function PurchaseOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<PurchaseItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);

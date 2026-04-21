@@ -278,7 +278,10 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
       if (!orderId || !order) throw new Error("No order ID");
-      const supplierId = order.supplier_id;
+      // Use chosen supplierId (may differ from original) for new batches; original lookups
+      // for existing items still match against the original supplier_id stored at receive time.
+      const originalSupplierId = order.supplier_id;
+      const effectiveSupplierId = supplierId || originalSupplierId;
 
       // --- 1. Handle DELETED items: restore inventory ---
       for (const itemId of deletedItemIds) {

@@ -52,7 +52,7 @@ export function PurchaseItemsTable({
           <TableRow className="bg-muted/30">
             <TableHead className="w-[200px]">Product</TableHead>
             {hasBatchTracking && <TableHead className="w-[110px]">Batch</TableHead>}
-            <TableHead className="w-[100px]">Expiry</TableHead>
+            <TableHead className="w-[110px]">Expiry (MM/YY)</TableHead>
             <TableHead className="w-[90px]">MRP ₹</TableHead>
             <TableHead className="w-[90px]">Rate ₹</TableHead>
             <TableHead className="w-[70px]">Qty</TableHead>
@@ -94,12 +94,12 @@ export function PurchaseItemsTable({
               )}
               <TableCell className="py-1">
                 {item.fromChallan ? (
-                  <span className="text-xs text-muted-foreground">{item.expiry_date || "-"}</span>
+                  <span className="text-xs text-muted-foreground">{item.expiry_date ? item.expiry_date.slice(0, 7) : "-"}</span>
                 ) : (
                   <Input
-                    type="date"
-                    value={item.expiry_date || ""}
-                    onChange={(e) => onUpdateItem(index, "expiry_date", e.target.value)}
+                    type="month"
+                    value={item.expiry_date ? item.expiry_date.slice(0, 7) : ""}
+                    onChange={(e) => onUpdateItem(index, "expiry_date", e.target.value ? `${e.target.value}-01` : "")}
                     className="w-28 h-7 text-xs"
                   />
                 )}

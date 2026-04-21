@@ -65,7 +65,7 @@ export default function PurchaseOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<PurchaseItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
@@ -281,6 +281,21 @@ export default function PurchaseOrders() {
     if (product) {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
+    }
+    // Auto-advance focus from product chip to next field (batch / expiry / qty)
+    if (productId) {
+      setTimeout(() => {
+        const container = document.querySelector<HTMLElement>('[data-enter-nav]');
+        if (!container) return;
+        // Prefer the batch input if batch tracking is on, else the expiry/qty field
+        const batchInput = container.querySelector<HTMLElement>('input[placeholder*="batch" i], input[placeholder*="Batch" i]');
+        const target =
+          batchInput ||
+          container.querySelector<HTMLElement>('input[type="month"]') ||
+          container.querySelector<HTMLElement>('#po-price-input');
+        target?.focus();
+        if (target instanceof HTMLInputElement) target.select();
+      }, 50);
     }
   }, [products]);
 
@@ -844,7 +859,21 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Doc Type</Label>
               <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => challanNumberRef.current?.focus(), 60); }}>
-                <SelectTrigger ref={docTypeTriggerRef} className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger
+                  ref={docTypeTriggerRef}
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => {
+                    // If dropdown is closed and value already set, Enter should advance to next field
+                    if (e.key === "Enter" && !e.shiftKey && e.currentTarget.getAttribute("aria-expanded") !== "true") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      challanNumberRef.current?.focus();
+                      challanNumberRef.current?.select();
+                    }
+                  }}
+                >
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="challan">Challan</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
@@ -857,7 +886,7 @@ export default function PurchaseOrders() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); deliveryDateRef.current?.focus(); } }} />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px]">Delivery Date</Label>
+              <Label className="text-[11px]">Invoice Date</Label>
               <Input ref={deliveryDateRef} type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="h-8 text-sm"
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); productSearchRef.current?.focus(); } }} />
             </div>
@@ -1025,10 +1054,10 @@ export default function PurchaseOrders() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  Expiry {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                  Expiry (MM/YYYY) {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
-                <Input type="date" value={itemExpiryDate}
-                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value); }}
+                <Input type="month" value={itemExpiryDate ? itemExpiryDate.slice(0, 7) : ""}
+                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value ? `${e.target.value}-01` : ""); }}
                   onKeyDown={poEnterNav}
                   aria-readonly={batchLocked}
                   title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}

@@ -94,9 +94,8 @@ export default function Sales() {
   const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
   
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

@@ -275,7 +275,9 @@ export default function Sales() {
       if (batchesForProduct.length === 0 || availableStock <= 0) {
         if (!settings.allow_negative_stock) {
           toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
-          productSearchRef.current?.focus();
+          setSelectedProduct("");
+          productSearchRef.current?.clear();
+          setTimeout(() => productSearchRef.current?.focus(), 50);
           return;
         }
       }

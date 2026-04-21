@@ -444,9 +444,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         .from("sales_orders")
         .update({
           invoice_number: invoiceNumber,
+          customer_id: customerId,
           customer_name: customerName,
           customer_phone: customerPhone || null,
           customer_address: customerAddress || null,
+          customer_gstin: customerGstin || null,
           prescription_number: prescriptionNumber || null,
           payment_method: paymentMethod,
           notes: notes || null,

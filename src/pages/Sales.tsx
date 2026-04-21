@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown, History, Undo2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +33,7 @@ import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigati
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { DoctorSelector } from "@/components/DoctorSelector";
+import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -103,6 +104,8 @@ export default function Sales() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [paymentDialog, setPaymentDialog] = useState<null | { referenceId: string; referenceNumber: string; partyName: string; totalAmount: number; paidAmount: number }>(null);
   const [postSaleDialog, setPostSaleDialog] = useState<null | { id: string; invoice_number: string; customer_name: string; total_amount: number }>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [returnMode, setReturnMode] = useState(false);
 
   // ── Queries ──
   const { data: customers } = useQuery({
@@ -219,6 +222,8 @@ export default function Sales() {
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(item => {
+      // Return rows do NOT consume available stock — skip them
+      if (item.is_return) return;
       if (item.product_id === selectedProduct) {
         map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
       }
@@ -260,19 +265,24 @@ export default function Sales() {
       return;
     }
 
-    // Block when no stock and negative stock is not allowed
-    if (batchesForProduct.length === 0 || availableStock <= 0) {
-      if (!settings.allow_negative_stock) {
-        toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
-        productSearchRef.current?.focus();
-        return;
+    const isReturn = returnMode;
+
+    // For RETURNS: skip stock checks (we're putting stock back). Use selected batch or first available batch (incl. zero/expired).
+    if (!isReturn) {
+      // Block when no stock and negative stock is not allowed
+      if (batchesForProduct.length === 0 || availableStock <= 0) {
+        if (!settings.allow_negative_stock) {
+          toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
+          productSearchRef.current?.focus();
+          return;
+        }
       }
     }
 
     const totalNeeded = itemQuantity + itemFreeQty;
 
-    // Guard 3: requested qty exceeds available — refocus Quantity field per spec
-    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
+    // Guard 3: only enforce stock for sales lines, not returns
+    if (!isReturn && totalNeeded > availableStock && !settings.allow_negative_stock) {
       toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
       const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
       qtyEl?.focus();
@@ -280,9 +290,34 @@ export default function Sales() {
       return;
     }
 
-    // Manual batch override: build a single-batch allocation if user picked one
     let allocationResult;
-    if (selectedBatchId) {
+
+    if (isReturn) {
+      // RETURN: pick a batch to credit the return into. Prefer manually-selected, else any existing batch (FEFO), else create a synthetic single allocation pointing to first batch.
+      const targetBatch = selectedBatchId
+        ? batchesForProduct.find(b => b.id === selectedBatchId)
+        : batchesForProduct[0];
+      if (!targetBatch) {
+        toast({ title: "No batch to credit", description: "This product has no existing batch to return into. Receive stock first or pick a batch.", variant: "destructive" });
+        productSearchRef.current?.focus();
+        return;
+      }
+      allocationResult = {
+        success: true,
+        allocations: [{
+          batch_id: targetBatch.id,
+          batch_number: targetBatch.batch_number,
+          quantity: totalNeeded,
+          available_quantity: targetBatch.quantity,
+          expiry_date: targetBatch.expiry_date,
+          mrp: Number(targetBatch.mrp),
+          purchase_price: Number(targetBatch.purchase_price),
+        }],
+        totalAllocated: totalNeeded,
+        shortfall: 0,
+      };
+    } else if (selectedBatchId) {
+      // Manual batch override for a sale line
       const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
       if (!chosen) {
         toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
@@ -328,7 +363,6 @@ export default function Sales() {
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
     // Distribute paid vs free quantities across batch allocations.
-    // allocation.quantity = (paid + free) chunk for this batch; we split it back.
     let mainQtyLeft = itemQuantity;
     let freeQtyLeft = itemFreeQty;
     let newCart = [...cart];
@@ -339,7 +373,10 @@ export default function Sales() {
       freeQtyLeft -= takeFree;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
+      // Returns are kept as separate rows (not merged with sale rows for the same batch)
+      const existingIndex = isReturn
+        ? -1
+        : newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
@@ -347,6 +384,7 @@ export default function Sales() {
         row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
         row.max_quantity = allocation.available_quantity;
       } else {
+        const baseTotal = calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat);
         newCart.push({
           product_id: product.id,
           batch_id: allocation.batch_id,
@@ -359,9 +397,10 @@ export default function Sales() {
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           discount_flat: itemDiscountFlat,
-          total_price: calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat),
+          total_price: isReturn ? -baseTotal : baseTotal,
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
+          is_return: isReturn || undefined,
         });
       }
     }
@@ -374,14 +413,67 @@ export default function Sales() {
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
-
-    if (allocationResult.allocations.length > 1) {
+    // Return mode is single-shot: turn off after one use
+    if (isReturn) {
+      setReturnMode(false);
+      toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
+    } else if (allocationResult.allocations.length > 1) {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });
     }
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
+
+  // Repeat-from-history: add a single product line using FEFO batches with the historic price/discount.
+  const handleRepeatItem = useCallback((item: RepeatItem) => {
+    if (!products || !allBatches) return;
+    const product = products.find(p => p.id === item.product_id);
+    if (!product) {
+      toast({ title: "Product missing", description: "This product no longer exists in your catalog.", variant: "destructive" });
+      return;
+    }
+    const productBatches = allBatches.filter(b => b.product_id === product.id);
+    // Cart map for already-allocated quantities (across all products)
+    const cartQtyMap = new Map<string, number>();
+    cart.forEach(ci => {
+      cartQtyMap.set(ci.batch_id, (cartQtyMap.get(ci.batch_id) || 0) + ci.quantity + (ci.free_quantity || 0));
+    });
+    const totalNeeded = item.quantity + (item.free_quantity || 0);
+    const result = allocateBatchesFIFO(productBatches, totalNeeded, cartQtyMap);
+    if (!result.success) {
+      toast({ title: "Cannot repeat", description: result.message || "Insufficient stock.", variant: "destructive" });
+      return;
+    }
+    const gst = noGstBill ? 0 : Number(product.gst_percentage);
+    const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+    let mainLeft = item.quantity;
+    let freeLeft = item.free_quantity;
+    const newRows: CartItem[] = [];
+    for (const a of result.allocations) {
+      const takeMain = Math.min(mainLeft, a.quantity);
+      const takeFree = Math.min(freeLeft, a.quantity - takeMain);
+      mainLeft -= takeMain;
+      freeLeft -= takeFree;
+      newRows.push({
+        product_id: product.id,
+        batch_id: a.batch_id,
+        product_name: productName,
+        batch_number: a.batch_number,
+        hsn_code: product.hsn_code || "",
+        quantity: takeMain,
+        free_quantity: takeFree,
+        unit_price: item.unit_price > 0 ? item.unit_price : a.mrp,
+        gst_percentage: gst,
+        discount_percentage: item.discount_percentage,
+        discount_flat: 0,
+        total_price: calculateItemTotal(item.unit_price > 0 ? item.unit_price : a.mrp, takeMain, gst, item.discount_percentage, 0),
+        max_quantity: a.available_quantity,
+        expiry_date: a.expiry_date,
+      });
+    }
+    setCart(prev => [...prev, ...newRows]);
+  }, [products, allBatches, cart, noGstBill, calculateItemTotal, toast]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 
@@ -395,13 +487,14 @@ export default function Sales() {
 
   const removeFromCart = useCallback((index: number) => setCart(c => c.filter((_, i) => i !== index)), []);
 
-  // ── Totals ──
-  const itemsGrossTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
-  const totalItemDiscount = cart.reduce((s, i) => s + (i.unit_price * i.quantity * i.discount_percentage / 100) + i.discount_flat, 0);
-  const itemsSubtotal = cart.reduce((s, i) => s + Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat), 0);
+  // ── Totals ── (returns count as negative contributions)
+  const sign = (i: CartItem) => (i.is_return ? -1 : 1);
+  const itemsGrossTotal = cart.reduce((s, i) => s + sign(i) * i.unit_price * i.quantity, 0);
+  const totalItemDiscount = cart.reduce((s, i) => s + sign(i) * ((i.unit_price * i.quantity * i.discount_percentage / 100) + i.discount_flat), 0);
+  const itemsSubtotal = cart.reduce((s, i) => s + sign(i) * Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat), 0);
   const totalGst = gstInclusive
-    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + (after - after / (1 + i.gst_percentage / 100)); }, 0)
-    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + (after * i.gst_percentage / 100); }, 0);
+    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + sign(i) * (after - after / (1 + i.gst_percentage / 100)); }, 0)
+    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + sign(i) * (after * i.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
   const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
@@ -451,18 +544,30 @@ export default function Sales() {
       if (orderError) throw orderError;
 
       try {
+        // For return rows, persist a NEGATIVE quantity so reports/aggregations net out correctly
         const orderItems = cart.map(i => ({
           sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
           total_price: i.total_price, company_id: companyId,
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-        if (deductError) throw new Error(deductError.message);
+        // Split: deduct stock for sale lines, restore stock for return lines
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0, reference_id: order.id }));
+
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
       } catch (innerError) {
         // Rollback: delete partially created order and its items
         await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
@@ -494,9 +599,15 @@ export default function Sales() {
     mutationFn: async (orderId: string) => {
       const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
-      const restoreItems = (saleItems || []).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+        if (error) throw new Error(error.message);
+      }
+      if (reDeductItems.length > 0) {
+        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
         if (error) throw new Error(error.message);
       }
       await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
@@ -635,6 +746,18 @@ export default function Sales() {
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("sale-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
+  // Ctrl+H — open customer purchase history
+  useKeyboardShortcut({
+    key: "h", modifiers: ["ctrl"],
+    callback: () => { if (selectedCustomerId || (customerName && customerName !== (settings.default_customer_name || ""))) setHistoryOpen(true); else toast({ title: "Select a customer first", description: "Pick an existing customer to view their purchase history." }); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
+  // * — toggle return mode for the next added item
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Auto-focus invoice number on billing tab mount and prefetch next invoice number
   useEffect(() => {
@@ -721,6 +844,10 @@ export default function Sales() {
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> payment
             <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+H</kbd> history
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
+            <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
         </div>
@@ -805,6 +932,12 @@ export default function Sales() {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                   <Button
+                     variant="outline" size="icon" className="h-8 w-8"
+                     disabled={!selectedCustomerId && !customerName}
+                     onClick={() => setHistoryOpen(true)}
+                     title="Past purchases (Ctrl+H)"
+                   ><History className="h-3 w-3" /></Button>
                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
                 </div>
                  {settings.show_customer_gstin && selectedCustomerId && (

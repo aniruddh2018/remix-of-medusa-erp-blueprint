@@ -56,13 +56,16 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
       },
     }));
 
-    // Filter & group products
-    const { flatResults } = useMemo(() => {
-      if (!products) return { flatResults: [] };
+    // Filter results, then arrange so brand alternates (same composition/generic + strength)
+    // appear immediately below the matched product as a "🔄 Same composition" group.
+    const { flatResults, alternateIds } = useMemo(() => {
+      if (!products) return { flatResults: [], alternateIds: new Set<string>() };
       const q = query.toLowerCase().trim();
-      if (!q && selectedProductId) return { flatResults: [] };
+      if (!q && selectedProductId) return { flatResults: [], alternateIds: new Set<string>() };
 
-      const filtered = q
+      const norm = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+
+      const direct = q
         ? products.filter(
             (p) =>
               p.name.toLowerCase().includes(q) ||
@@ -72,7 +75,37 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           )
         : products;
 
-      return { flatResults: filtered.slice(0, 30) };
+      // Build ordered list: each direct match followed by its alternates (same composition or generic + same strength)
+      const out: Product[] = [];
+      const seen = new Set<string>();
+      const altIds = new Set<string>();
+
+      for (const p of direct) {
+        if (seen.has(p.id)) continue;
+        out.push(p);
+        seen.add(p.id);
+
+        const key = norm(p.composition) || norm(p.generic_name);
+        if (!key) continue;
+
+        const alts = products.filter((x) => {
+          if (x.id === p.id || seen.has(x.id)) return false;
+          const xKey = norm(x.composition) || norm(x.generic_name);
+          if (xKey !== key) return false;
+          // Same strength when both defined; ignore strength match if either is missing
+          if (p.strength && x.strength && norm(p.strength) !== norm(x.strength)) return false;
+          return true;
+        });
+
+        for (const a of alts) {
+          out.push(a);
+          seen.add(a.id);
+          altIds.add(a.id);
+        }
+        if (out.length >= 30) break;
+      }
+
+      return { flatResults: out.slice(0, 30), alternateIds: altIds };
     }, [products, query, selectedProductId]);
 
     // Reset highlight on results change

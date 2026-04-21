@@ -113,6 +113,8 @@ export default function CounterSales() {
     makeSlot(1, settings.default_customer_name || "Walk-in Customer", settings.default_payment_method || "cash"),
   ]);
   const [activeSlotId, setActiveSlotId] = useState<number>(1);
+  // Global return-mode toggle (* key) — next item added becomes a customer return on the active slot
+  const [returnMode, setReturnMode] = useState(false);
 
   // Helpers to read/write the active slot
   const activeSlot = slots.find(s => s.id === activeSlotId) ?? slots[0];
@@ -357,6 +359,51 @@ export default function CounterSales() {
       return;
     }
 
+    const isReturn = returnMode;
+
+    // For RETURNS: skip stock checks (we restore stock). Use selected batch or first available batch (incl. zero/expired).
+    if (isReturn) {
+      const fallbackBatch = selectedBatchId
+        ? batchesForProduct.find(b => b.id === selectedBatchId)
+        : (batchesForProduct[0] || null);
+      if (!fallbackBatch) {
+        toast({ title: "No batch found", description: "Cannot record return — no batch exists for this product. Receive inventory first.", variant: "destructive" });
+        return;
+      }
+      const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
+      const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+      const unitPrice = itemRate > 0 ? itemRate : Number(fallbackBatch.mrp);
+      const newRow: CartItem = {
+        product_id: product.id,
+        batch_id: fallbackBatch.id,
+        product_name: productName,
+        batch_number: fallbackBatch.batch_number,
+        hsn_code: product.hsn_code || "",
+        quantity: itemQuantity,
+        free_quantity: itemFreeQty,
+        unit_price: unitPrice,
+        gst_percentage: gstPercentage,
+        discount_percentage: itemDiscount,
+        discount_flat: itemDiscountFlat,
+        total_price: calculateItemTotal(unitPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat),
+        max_quantity: fallbackBatch.quantity,
+        expiry_date: fallbackBatch.expiry_date,
+        is_return: true,
+      };
+      setCart([...cart, newRow]);
+      setSelectedProduct("");
+      setSelectedBatchId(null);
+      setItemQuantity(1);
+      setItemFreeQty(0);
+      setItemDiscount(0);
+      setItemDiscountFlat(0);
+      setItemRate(0);
+      setReturnMode(false);
+      toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
+      focusProductSearch();
+      return;
+    }
+
     if (batchesForProduct.length === 0 || availableStock <= 0) {
       if (!settings.allow_negative_stock) {
         toast({ title: "Out of stock", description: "This product has 0 available stock.", variant: "destructive" });
@@ -433,7 +480,7 @@ export default function CounterSales() {
       freeQtyLeft -= takeFree;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
+      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
@@ -475,7 +522,7 @@ export default function CounterSales() {
 
     focusProductSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 
@@ -493,13 +540,14 @@ export default function CounterSales() {
 
   const removeFromCart = useCallback((index: number) => setCart(c => c.filter((_, i) => i !== index)), []);
 
-  // ── Totals ──
-  const itemsGrossTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
-  const totalItemDiscount = cart.reduce((s, i) => s + (i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0), 0);
-  const itemsSubtotal = cart.reduce((s, i) => s + Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
+  // ── Totals ── (returns subtract from totals)
+  const sign = (i: CartItem) => (i.is_return ? -1 : 1);
+  const itemsGrossTotal = cart.reduce((s, i) => s + sign(i) * i.unit_price * i.quantity, 0);
+  const totalItemDiscount = cart.reduce((s, i) => s + sign(i) * ((i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0)), 0);
+  const itemsSubtotal = cart.reduce((s, i) => s + sign(i) * Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
   const totalGst = gstInclusive
-    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after - after / (1 + i.gst_percentage / 100)); }, 0)
-    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after * i.gst_percentage / 100); }, 0);
+    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after - after / (1 + i.gst_percentage / 100)); }, 0)
+    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after * i.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
   const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
@@ -561,18 +609,30 @@ export default function CounterSales() {
       if (orderError) throw orderError;
 
       try {
+        // Persist returns as negative qty (so delete can re-deduct correctly)
         const orderItems = cart.map(i => ({
           sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-          total_price: i.total_price, company_id: companyId,
+          total_price: i.is_return ? -Math.abs(i.total_price) : i.total_price,
+          company_id: companyId,
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-        if (deductError) throw new Error(deductError.message);
+        // Split items: returns restore stock, sales deduct stock
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0, reference_id: order.id }));
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
 
         // Auto-record full payment for counter sale (paid by selected method)
         const { error: payErr } = await supabase.from("payments").insert({
@@ -606,9 +666,15 @@ export default function CounterSales() {
     mutationFn: async (orderId: string) => {
       const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
-      const restoreItems = (saleItems || []).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+        if (error) throw new Error(error.message);
+      }
+      if (reDeductItems.length > 0) {
+        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
         if (error) throw new Error(error.message);
       }
       await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
@@ -751,6 +817,12 @@ export default function CounterSales() {
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("counter-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
   useKeyboardShortcut({ key: "F2", callback: () => addSlot(), enabled: activeTab === "billing", allowInInput: true });
+  // * — toggle return mode (next item added becomes a customer return)
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Ctrl+1..9 → switch to slot at that index (visible slot order)
   useEffect(() => {
@@ -854,6 +926,8 @@ export default function CounterSales() {
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+1–9</kbd> switch counter
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
           </p>
         </div>
         <div className="flex gap-2">
@@ -1025,6 +1099,14 @@ export default function CounterSales() {
             </div>
           </div>
 
+          {returnMode && (
+            <div className="rounded-md border-2 border-destructive bg-destructive/10 px-3 py-2 flex items-center justify-between animate-pulse">
+              <span className="text-xs font-semibold text-destructive flex items-center gap-2">
+                🔁 RETURN MODE — next item will be added as a customer return (stock restored, total subtracted)
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setReturnMode(false)}>Cancel (*)</Button>
+            </div>
+          )}
           {/* Product entry bar */}
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">

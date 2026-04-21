@@ -818,6 +818,22 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           </div>
         </DialogContent>
       </Dialog>
+
+      <SupplierFormDialog
+        open={supplierFormOpen}
+        onOpenChange={setSupplierFormOpen}
+        editingSupplier={editingSupplier}
+        initialData={supplierFormSeed}
+        onSuccess={(newId) => {
+          queryClient.invalidateQueries({ queryKey: ["suppliers", companyId] }).then(async () => {
+            const { data } = await supabase.from("suppliers").select("*").eq("id", newId).single();
+            if (data) {
+              setSupplierId(data.id);
+              setSupplierName(data.name);
+            }
+          });
+        }}
+      />
     </Dialog>
   );
 }

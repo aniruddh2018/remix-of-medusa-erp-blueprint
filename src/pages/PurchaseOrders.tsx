@@ -282,6 +282,21 @@ export default function PurchaseOrders() {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
     }
+    // Auto-advance focus from product chip to next field (batch / expiry / qty)
+    if (productId) {
+      setTimeout(() => {
+        const container = document.querySelector<HTMLElement>('[data-enter-nav]');
+        if (!container) return;
+        // Prefer the batch input if batch tracking is on, else the expiry/qty field
+        const batchInput = container.querySelector<HTMLElement>('input[placeholder*="batch" i], input[placeholder*="Batch" i]');
+        const target =
+          batchInput ||
+          container.querySelector<HTMLElement>('input[type="month"]') ||
+          container.querySelector<HTMLElement>('#po-price-input');
+        target?.focus();
+        if (target instanceof HTMLInputElement) target.select();
+      }, 50);
+    }
   }, [products]);
 
   const handleBatchSelect = useCallback((batchId: string) => {

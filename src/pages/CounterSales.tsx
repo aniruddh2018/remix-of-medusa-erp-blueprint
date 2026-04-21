@@ -113,6 +113,8 @@ export default function CounterSales() {
     makeSlot(1, settings.default_customer_name || "Walk-in Customer", settings.default_payment_method || "cash"),
   ]);
   const [activeSlotId, setActiveSlotId] = useState<number>(1);
+  // Global return-mode toggle (* key) — next item added becomes a customer return on the active slot
+  const [returnMode, setReturnMode] = useState(false);
 
   // Helpers to read/write the active slot
   const activeSlot = slots.find(s => s.id === activeSlotId) ?? slots[0];

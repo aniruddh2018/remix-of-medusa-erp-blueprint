@@ -618,9 +618,17 @@ export default function CounterSales() {
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-        if (deductError) throw new Error(deductError.message);
+        // Split items: returns restore stock, sales deduct stock
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0, reference_id: order.id }));
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
 
         // Auto-record full payment for counter sale (paid by selected method)
         const { error: payErr } = await supabase.from("payments").insert({

@@ -1370,7 +1370,7 @@ export default function CounterSales() {
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
+      <CustomerFormDialog open={showCustomerDialog} onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) setCustomerCreateSeed({}); }} initialData={customerCreateSeed} onSuccess={(customerId) => {
         queryClient.invalidateQueries({ queryKey: ["customers-for-counter"] });
         supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
           if (data) {
@@ -1380,7 +1380,8 @@ export default function CounterSales() {
             setCustomerAddress(data.address || "");
             setCustomerGstin(data.gst_number || "");
             setShowCustomerDialog(false);
-            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
+            setCustomerCreateSeed({});
+            setTimeout(() => productSearchRef.current?.focus(), 100);
           }
         });
       }} />

@@ -386,6 +386,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           notes: notes || null,
           challan_number: challanNumber || null,
           invoice_number: invoiceNumber || null,
+          supplier_id: effectiveSupplierId,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,

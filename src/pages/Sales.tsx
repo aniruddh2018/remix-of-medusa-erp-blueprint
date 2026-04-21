@@ -222,6 +222,8 @@ export default function Sales() {
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(item => {
+      // Return rows do NOT consume available stock — skip them
+      if (item.is_return) return;
       if (item.product_id === selectedProduct) {
         map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
       }

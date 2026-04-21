@@ -513,8 +513,30 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Supplier</Label>
-                    <p className="font-medium">{(order?.suppliers as any)?.name || "-"}</p>
+                    <Label className="text-xs text-muted-foreground">Supplier *</Label>
+                    <PartySearchInput
+                      parties={suppliers as PartyRecord[] | undefined}
+                      selectedId={supplierId}
+                      selectedName={supplierName}
+                      entityLabel="supplier"
+                      enterNavInclude
+                      placeholder="Type supplier name or phone…"
+                      onSelect={(p) => { setSupplierId(p.id); setSupplierName(p.name); }}
+                      onClear={() => { setSupplierId(null); setSupplierName(""); }}
+                      onCreateNew={(seed) => {
+                        setEditingSupplier(null);
+                        setSupplierFormSeed(seed);
+                        setSupplierFormOpen(true);
+                      }}
+                      onEditSelected={(p) => {
+                        const s = suppliers?.find((x) => x.id === p.id);
+                        if (s) {
+                          setEditingSupplier(s);
+                          setSupplierFormSeed({});
+                          setSupplierFormOpen(true);
+                        }
+                      }}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Order Date</Label>

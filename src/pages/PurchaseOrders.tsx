@@ -1272,16 +1272,28 @@ export default function PurchaseOrders() {
         </DialogContent>
       </Dialog>
 
-      <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />
-      <SupplierFormDialog open={showSupplierDialog} onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) setSupplierCreateSeed({}); }} initialData={supplierCreateSeed} onSuccess={(id) => {
-        refetchSuppliers();
-        if (id) {
-          setSelectedSupplier(id);
-          setShowSupplierDialog(false);
-          setSupplierCreateSeed({});
-          setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
-        }
-      }} />
+      <ProductFormDialog
+        open={showProductDialog}
+        onOpenChange={(o) => { setShowProductDialog(o); if (!o) setEditingProduct(null); }}
+        editingProduct={editingProduct}
+        onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); setEditingProduct(null); }}
+      />
+      <SupplierFormDialog
+        open={showSupplierDialog}
+        onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) { setSupplierCreateSeed({}); setEditingSupplier(null); } }}
+        editingSupplier={editingSupplier}
+        initialData={supplierCreateSeed}
+        onSuccess={(id) => {
+          refetchSuppliers();
+          if (id) {
+            setSelectedSupplier(id);
+            setShowSupplierDialog(false);
+            setSupplierCreateSeed({});
+            setEditingSupplier(null);
+            setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
+          }
+        }}
+      />
       <ReceiveInventoryDialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen} orderId={selectedOrderForReceive?.id || null} supplierId={selectedOrderForReceive?.supplierId || null}
         onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); queryClient.invalidateQueries({ queryKey: ["inventory-batches"] }); }} />
       <LinkedChallansDialog open={linkedChallansDialogOpen} onOpenChange={setLinkedChallansDialogOpen} invoiceId={selectedInvoiceForChallans} />

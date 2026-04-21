@@ -52,7 +52,7 @@ export function PurchaseItemsTable({
           <TableRow className="bg-muted/30">
             <TableHead className="w-[200px]">Product</TableHead>
             {hasBatchTracking && <TableHead className="w-[110px]">Batch</TableHead>}
-            <TableHead className="w-[100px]">Expiry</TableHead>
+            <TableHead className="w-[110px]">Expiry (MM/YY)</TableHead>
             <TableHead className="w-[90px]">MRP ₹</TableHead>
             <TableHead className="w-[90px]">Rate ₹</TableHead>
             <TableHead className="w-[70px]">Qty</TableHead>

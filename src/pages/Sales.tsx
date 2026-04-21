@@ -32,6 +32,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { DoctorSelector } from "@/components/DoctorSelector";
 import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
@@ -57,6 +58,7 @@ export default function Sales() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
   const customerButtonRef = useRef<HTMLButtonElement>(null);
+  const customerSearchRef = useRef<PartySearchHandle>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -1256,7 +1258,7 @@ export default function Sales() {
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {postSaleDialog && <PostSalePaymentDialog open={!!postSaleDialog} onOpenChange={(o) => { if (!o) setPostSaleDialog(null); }} salesOrderId={postSaleDialog.id} invoiceNumber={postSaleDialog.invoice_number} customerName={postSaleDialog.customer_name} totalAmount={postSaleDialog.total_amount} defaultPaymentMethod={(settings.default_payment_method as "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other") || "cash"} />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
+      <CustomerFormDialog open={showCustomerDialog} onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) setCustomerCreateSeed({}); }} initialData={customerCreateSeed} onSuccess={(customerId) => {
         queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
         // Find the customer after refetch to populate fields
         supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
@@ -1266,9 +1268,9 @@ export default function Sales() {
             setCustomerPhone(data.phone || "");
             setCustomerAddress(data.address || "");
             setCustomerGstin(data.gst_number || "");
-            // Close dialog and advance focus to next field after customer selection
             setShowCustomerDialog(false);
-            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
+            setCustomerCreateSeed({});
+            setTimeout(() => productSearchRef.current?.focus(), 100);
           }
         });
       }} />

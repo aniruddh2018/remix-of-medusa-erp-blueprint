@@ -146,7 +146,7 @@ export default function Sales() {
     setTimeout(() => {
       const hasCustomer = !!selectedCustomerId || !!customerName.trim();
       if (!hasCustomer) {
-        customerButtonRef.current?.focus();
+        customerSearchRef.current?.focus();
       } else {
         productSearchRef.current?.focus();
       }
@@ -162,7 +162,7 @@ export default function Sales() {
   // Register Sales module with global focus tracker (intelligent recovery via `)
   useModuleFocus({
     module: "sales",
-    getEntryPoint: () => customerButtonRef.current,
+    getEntryPoint: () => (customerSearchRef.current as unknown as HTMLElement) || customerButtonRef.current,
     getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });

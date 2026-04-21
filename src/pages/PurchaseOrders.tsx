@@ -829,9 +829,9 @@ export default function PurchaseOrders() {
 
           {/* Supplier & Invoice info — compact bar */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <Label className="text-[11px]">Supplier *</Label>
-              <div className="flex gap-1">
+              <div className="flex gap-1 min-w-0">
                 <PartySearchInput
                   ref={supplierSearchRef}
                   parties={suppliers as any}
@@ -840,7 +840,7 @@ export default function PurchaseOrders() {
                   entityLabel="supplier"
                   placeholder="Type name or phone…"
                   enterNavInclude
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                   onSelect={(s) => {
                     setSelectedSupplier(s.id);
                     if (!isChallan) fetchPendingChallans(s.id);

@@ -25,6 +25,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS } from "@/lib/platform";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
@@ -528,6 +530,23 @@ export default function CounterSales() {
   }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
+
+  // Jump-to-cart shortcut (Alt+L)
+  const focusCart = useCallback(() => {
+    if (cart.length === 0) {
+      toast({ title: "Cart is empty", description: "Add a product first." });
+      return;
+    }
+    const firstRow = document.querySelector<HTMLElement>("[data-billing-row]");
+    if (!firstRow) return;
+    firstRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    const firstInput = firstRow.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), [role="combobox"], button:not([disabled])'
+    );
+    (firstInput || firstRow).focus();
+    if (firstInput instanceof HTMLInputElement) firstInput.select();
+  }, [cart.length, toast]);
+  usePlatformShortcut({ shortcut: SHORTCUTS.FOCUS_CART, callback: focusCart, enabled: true, allowInInput: true });
 
   const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {
     setCart(prev => {

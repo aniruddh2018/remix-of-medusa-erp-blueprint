@@ -540,13 +540,14 @@ export default function CounterSales() {
 
   const removeFromCart = useCallback((index: number) => setCart(c => c.filter((_, i) => i !== index)), []);
 
-  // ── Totals ──
-  const itemsGrossTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
-  const totalItemDiscount = cart.reduce((s, i) => s + (i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0), 0);
-  const itemsSubtotal = cart.reduce((s, i) => s + Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
+  // ── Totals ── (returns subtract from totals)
+  const sign = (i: CartItem) => (i.is_return ? -1 : 1);
+  const itemsGrossTotal = cart.reduce((s, i) => s + sign(i) * i.unit_price * i.quantity, 0);
+  const totalItemDiscount = cart.reduce((s, i) => s + sign(i) * ((i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0)), 0);
+  const itemsSubtotal = cart.reduce((s, i) => s + sign(i) * Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
   const totalGst = gstInclusive
-    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after - after / (1 + i.gst_percentage / 100)); }, 0)
-    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after * i.gst_percentage / 100); }, 0);
+    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after - after / (1 + i.gst_percentage / 100)); }, 0)
+    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after * i.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
   const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;

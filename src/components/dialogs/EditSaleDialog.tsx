@@ -21,7 +21,11 @@ import { Loader2, Save, AlertTriangle, Receipt, Plus, ChevronsUpDown } from "luc
 import { format } from "date-fns";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
+import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
+import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
+
+type Customer = Tables<"customers">;
 
 type SalesOrder = Tables<"sales_orders">;
 type SalesOrderItem = Tables<"sales_order_items"> & {
@@ -58,12 +62,19 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+
+  // Customer create/edit form
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerFormSeed, setCustomerFormSeed] = useState<Record<string, any>>({});
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [status, setStatus] = useState<string>("confirmed");
   const [freightCharges, setFreightCharges] = useState(0);
@@ -158,6 +169,21 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     enabled: open,
   });
 
+  // Customers list for the inline search
+  const { data: customers } = useQuery({
+    queryKey: ["customers", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("name");
+      return (data || []) as Customer[];
+    },
+    enabled: !!companyId && open,
+  });
+
   // Fetch batches for selected new product
   const { data: newProductBatches } = useQuery({
     queryKey: ["batches-for-new-product", selectedNewProduct?.id],
@@ -179,12 +205,19 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   // We must subtract item-level discounts to get only the bill-level discount.
   useEffect(() => {
     if (sale) {
+      setCustomerId(sale.customer_id || null);
       setCustomerName(sale.customer_name || "");
       setCustomerPhone(sale.customer_phone || "");
       setCustomerAddress(sale.customer_address || "");
+      setCustomerGstin(sale.customer_gstin || "");
       setPrescriptionNumber(sale.prescription_number || "");
       setPaymentMethod(sale.payment_method || "cash");
       setNotes(sale.notes || "");
+      setStatus(sale.status);
+      setFreightCharges(Number(sale.freight_charges) || 0);
+      setHandlingCharges(Number(sale.handling_charges) || 0);
+      setDeliveryCharges(Number(sale.delivery_charges) || 0);
+      setOtherCharges(Number(sale.other_charges) || 0);
       setStatus(sale.status);
       setFreightCharges(Number(sale.freight_charges) || 0);
       setHandlingCharges(Number(sale.handling_charges) || 0);
@@ -411,9 +444,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         .from("sales_orders")
         .update({
           invoice_number: invoiceNumber,
+          customer_id: customerId,
           customer_name: customerName,
           customer_phone: customerPhone || null,
           customer_address: customerAddress || null,
+          customer_gstin: customerGstin || null,
           prescription_number: prescriptionNumber || null,
           payment_method: paymentMethod,
           notes: notes || null,
@@ -562,7 +597,42 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer *</Label>
-                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10" />
+                <PartySearchInput
+                  parties={customers as PartyRecord[] | undefined}
+                  selectedId={customerId}
+                  selectedName={customerName}
+                  entityLabel="customer"
+                  enterNavInclude
+                  placeholder="Type customer name or phone…"
+                  onSelect={(p) => {
+                    const c = customers?.find((x) => x.id === p.id);
+                    setCustomerId(p.id);
+                    setCustomerName(p.name);
+                    setCustomerPhone(c?.phone || "");
+                    setCustomerAddress(c?.address || "");
+                    setCustomerGstin(c?.gst_number || "");
+                  }}
+                  onClear={() => {
+                    setCustomerId(null);
+                    setCustomerName("");
+                    setCustomerPhone("");
+                    setCustomerAddress("");
+                    setCustomerGstin("");
+                  }}
+                  onCreateNew={(seed) => {
+                    setEditingCustomer(null);
+                    setCustomerFormSeed(seed);
+                    setCustomerFormOpen(true);
+                  }}
+                  onEditSelected={(p) => {
+                    const c = customers?.find((x) => x.id === p.id);
+                    if (c) {
+                      setEditingCustomer(c);
+                      setCustomerFormSeed({});
+                      setCustomerFormOpen(true);
+                    }
+                  }}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Payment</Label>
@@ -802,6 +872,25 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           </div>
         </DialogContent>
       </Dialog>
+
+      <CustomerFormDialog
+        open={customerFormOpen}
+        onOpenChange={setCustomerFormOpen}
+        editingCustomer={editingCustomer}
+        initialData={customerFormSeed}
+        onSuccess={(newId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers", companyId] }).then(async () => {
+            const { data } = await supabase.from("customers").select("*").eq("id", newId).single();
+            if (data) {
+              setCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+            }
+          });
+        }}
+      />
     </Dialog>
   );
 }

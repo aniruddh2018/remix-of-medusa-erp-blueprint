@@ -21,9 +21,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Trash2, AlertTriangle, Package, Plus, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
+import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
+import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type PurchaseOrder = Tables<"purchase_orders">;
+type Supplier = Tables<"suppliers">;
 type PurchaseOrderItem = Tables<"purchase_order_items"> & {
   products?: { name: string; strength?: string | null; hsn_code?: string | null };
 };
@@ -65,6 +68,13 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [billDiscountFlat, setBillDiscountFlat] = useState(0);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
+
+  // Supplier selection / inline edit-create
+  const [supplierId, setSupplierId] = useState<string | null>(null);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierFormOpen, setSupplierFormOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [supplierFormSeed, setSupplierFormSeed] = useState<Record<string, any>>({});
 
   // Invoice number confirmation dialog
   const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
@@ -135,6 +145,22 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     enabled: open,
   });
 
+  // Suppliers list for the inline search
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      return (data || []) as Supplier[];
+    },
+    enabled: !!companyId && open,
+  });
+
   useEffect(() => {
     if (order) {
       setNotes(order.notes || "");
@@ -143,6 +169,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setFreightCharges(Number(order.freight_charges) || 0);
       setHandlingCharges(Number(order.handling_charges) || 0);
       setOtherCharges(Number(order.other_charges) || 0);
+      setSupplierId(order.supplier_id || null);
+      setSupplierName(((order as any).suppliers?.name) || "");
       // Don't set discountAmount here - calculate after items load
     }
   }, [order]);
@@ -250,7 +278,10 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
       if (!orderId || !order) throw new Error("No order ID");
-      const supplierId = order.supplier_id;
+      // Use chosen supplierId (may differ from original) for new batches; original lookups
+      // for existing items still match against the original supplier_id stored at receive time.
+      const originalSupplierId = order.supplier_id;
+      const effectiveSupplierId = supplierId || originalSupplierId;
 
       // --- 1. Handle DELETED items: restore inventory ---
       for (const itemId of deletedItemIds) {
@@ -263,7 +294,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
               .from("inventory_batches")
               .select("id, quantity")
               .eq("product_id", orig.product_id)
-              .eq("supplier_id", supplierId)
+              .eq("supplier_id", originalSupplierId)
               .eq("company_id", companyId)
               .order("created_at", { ascending: false })
               .limit(1)
@@ -300,7 +331,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             .from("inventory_batches")
             .select("id, quantity")
             .eq("product_id", item.product_id)
-            .eq("supplier_id", supplierId)
+            .eq("supplier_id", originalSupplierId)
             .eq("company_id", companyId)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -342,7 +373,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             mrp: item.unit_price * 1.2,
             expiry_date: defaultExpiry.toISOString().split("T")[0],
             received_date: today,
-            supplier_id: supplierId,
+            supplier_id: effectiveSupplierId,
             company_id: companyId,
           });
         }
@@ -355,6 +386,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           notes: notes || null,
           challan_number: challanNumber || null,
           invoice_number: invoiceNumber || null,
+          supplier_id: effectiveSupplierId,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,
@@ -481,8 +513,30 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Supplier</Label>
-                    <p className="font-medium">{(order?.suppliers as any)?.name || "-"}</p>
+                    <Label className="text-xs text-muted-foreground">Supplier *</Label>
+                    <PartySearchInput
+                      parties={suppliers as PartyRecord[] | undefined}
+                      selectedId={supplierId}
+                      selectedName={supplierName}
+                      entityLabel="supplier"
+                      enterNavInclude
+                      placeholder="Type supplier name or phone…"
+                      onSelect={(p) => { setSupplierId(p.id); setSupplierName(p.name); }}
+                      onClear={() => { setSupplierId(null); setSupplierName(""); }}
+                      onCreateNew={(seed) => {
+                        setEditingSupplier(null);
+                        setSupplierFormSeed(seed);
+                        setSupplierFormOpen(true);
+                      }}
+                      onEditSelected={(p) => {
+                        const s = suppliers?.find((x) => x.id === p.id);
+                        if (s) {
+                          setEditingSupplier(s);
+                          setSupplierFormSeed({});
+                          setSupplierFormOpen(true);
+                        }
+                      }}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Order Date</Label>
@@ -764,6 +818,22 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           </div>
         </DialogContent>
       </Dialog>
+
+      <SupplierFormDialog
+        open={supplierFormOpen}
+        onOpenChange={setSupplierFormOpen}
+        editingSupplier={editingSupplier}
+        initialData={supplierFormSeed}
+        onSuccess={(newId) => {
+          queryClient.invalidateQueries({ queryKey: ["suppliers", companyId] }).then(async () => {
+            const { data } = await supabase.from("suppliers").select("*").eq("id", newId).single();
+            if (data) {
+              setSupplierId(data.id);
+              setSupplierName(data.name);
+            }
+          });
+        }}
+      />
     </Dialog>
   );
 }

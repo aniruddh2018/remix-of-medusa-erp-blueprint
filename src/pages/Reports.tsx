@@ -478,6 +478,91 @@ const Reports = () => {
         </Card>
       </div>
 
+      {/* Stock Valuation by Manufacturer & Supplier */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Valuation by Manufacturer</CardTitle>
+            <CardDescription>Inventory value broken down per manufacturer (cost & MRP)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Manufacturer</TableHead>
+                    <TableHead className="text-right">Products</TableHead>
+                    <TableHead className="text-right">Units</TableHead>
+                    <TableHead className="text-right">Cost ₹</TableHead>
+                    <TableHead className="text-right">MRP ₹</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockByManufacturer.length > 0 ? (
+                    stockByManufacturer.map((m) => (
+                      <TableRow key={m.name}>
+                        <TableCell className="font-medium">{m.name}</TableCell>
+                        <TableCell className="text-right">{m.productCount}</TableCell>
+                        <TableCell className="text-right font-mono">{m.units.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">{m.atCost.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-right font-mono">{m.atMRP.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock data
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Valuation by Supplier</CardTitle>
+            <CardDescription>Inventory value broken down per supplier (cost & MRP)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead className="text-right">Batches</TableHead>
+                    <TableHead className="text-right">Units</TableHead>
+                    <TableHead className="text-right">Cost ₹</TableHead>
+                    <TableHead className="text-right">MRP ₹</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockBySupplier.length > 0 ? (
+                    stockBySupplier.map((s) => (
+                      <TableRow key={s.name}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell className="text-right">{s.batches}</TableCell>
+                        <TableCell className="text-right font-mono">{s.units.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">{s.atCost.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-right font-mono">{s.atMRP.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock data
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Sales Trend Chart */}

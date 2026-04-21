@@ -359,6 +359,51 @@ export default function CounterSales() {
       return;
     }
 
+    const isReturn = returnMode;
+
+    // For RETURNS: skip stock checks (we restore stock). Use selected batch or first available batch (incl. zero/expired).
+    if (isReturn) {
+      const fallbackBatch = selectedBatchId
+        ? batchesForProduct.find(b => b.id === selectedBatchId)
+        : (batchesForProduct[0] || null);
+      if (!fallbackBatch) {
+        toast({ title: "No batch found", description: "Cannot record return — no batch exists for this product. Receive inventory first.", variant: "destructive" });
+        return;
+      }
+      const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
+      const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+      const unitPrice = itemRate > 0 ? itemRate : Number(fallbackBatch.mrp);
+      const newRow: CartItem = {
+        product_id: product.id,
+        batch_id: fallbackBatch.id,
+        product_name: productName,
+        batch_number: fallbackBatch.batch_number,
+        hsn_code: product.hsn_code || "",
+        quantity: itemQuantity,
+        free_quantity: itemFreeQty,
+        unit_price: unitPrice,
+        gst_percentage: gstPercentage,
+        discount_percentage: itemDiscount,
+        discount_flat: itemDiscountFlat,
+        total_price: calculateItemTotal(unitPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat),
+        max_quantity: fallbackBatch.quantity,
+        expiry_date: fallbackBatch.expiry_date,
+        is_return: true,
+      };
+      setCart([...cart, newRow]);
+      setSelectedProduct("");
+      setSelectedBatchId(null);
+      setItemQuantity(1);
+      setItemFreeQty(0);
+      setItemDiscount(0);
+      setItemDiscountFlat(0);
+      setItemRate(0);
+      setReturnMode(false);
+      toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
+      focusProductSearch();
+      return;
+    }
+
     if (batchesForProduct.length === 0 || availableStock <= 0) {
       if (!settings.allow_negative_stock) {
         toast({ title: "Out of stock", description: "This product has 0 available stock.", variant: "destructive" });
@@ -435,7 +480,7 @@ export default function CounterSales() {
       freeQtyLeft -= takeFree;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
+      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
@@ -477,7 +522,7 @@ export default function CounterSales() {
 
     focusProductSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 

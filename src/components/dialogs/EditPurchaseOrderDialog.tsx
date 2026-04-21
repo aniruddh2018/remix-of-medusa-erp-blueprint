@@ -21,9 +21,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Trash2, AlertTriangle, Package, Plus, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
+import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
+import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type PurchaseOrder = Tables<"purchase_orders">;
+type Supplier = Tables<"suppliers">;
 type PurchaseOrderItem = Tables<"purchase_order_items"> & {
   products?: { name: string; strength?: string | null; hsn_code?: string | null };
 };

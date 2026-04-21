@@ -181,7 +181,7 @@ export function SupplierFormDialog({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-enter-nav>
           {sections.length > 0 ? (
             sections.map((section) => {
               const sectionFields = visibleFields.filter((f) => f.section === section.key || (!f.section && section.order === 1));
@@ -232,7 +232,7 @@ export function SupplierFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit} data-enter-nav-include="true">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {uiOverrides.submitButtonText || (editingSupplier ? "Update Supplier" : "Add Supplier")}
             </Button>

@@ -1,57 +1,68 @@
 import { useCallback } from "react";
+import {
+  ENTER_NAV_SELECTOR,
+  BUTTON_NAV_SELECTOR,
+  findFocusables,
+  findNavigableTarget,
+  findNavContainer,
+} from "./enterNav/selectors";
+import {
+  shakeAndWarn,
+  isFieldEmpty,
+  isRequiredAndEmpty,
+  isFieldDeclaredInvalid,
+} from "./enterNav/feedback";
 
-const ENTER_NAV_SELECTOR = [
-  'input:not([type="hidden"]):not([disabled]):not([readonly]):not([data-enter-nav-skip="true"])',
-  'select:not([disabled]):not([data-enter-nav-skip="true"])',
-  'textarea:not([disabled]):not([data-enter-nav-skip="true"])',
-  '[role="combobox"]:not([disabled]):not([data-enter-nav-skip="true"])',
-  '[role="textbox"][tabindex]:not([data-enter-nav-skip="true"])',
-].join(", ");
-
-// Buttons are ONLY included if explicitly marked
-const BUTTON_NAV_SELECTOR = 'button[data-enter-nav-include="true"]:not([disabled])';
+export interface EnterNavOptions {
+  /** Called when forward Enter happens on the last field (e.g. submit). */
+  onLastField?: () => void;
+  /** Called when backward navigation happens past the first field. */
+  onFirstField?: () => void;
+  /**
+   * Custom guard. Return a string (error message) to BLOCK forward navigation,
+   * or null/undefined to allow. Receives the current field element.
+   * Use for business rules: out-of-stock, dependent fields, etc.
+   */
+  blockForward?: (currentField: HTMLElement) => string | null | undefined;
+}
 
 /**
- * Keyboard navigation for forms:
- * - Enter → move to next field (blocked if current field is required & empty)
- * - ArrowRight on non-text field → move to next field
- * - ArrowLeft / Backspace on empty → move to previous field
- * - Shift+Enter → move to previous field
- * - On last field Enter → calls onLastField
- * - On first field backward → calls onFirstField
- * 
- * Buttons are SKIPPED by default during navigation to prevent accidental
- * clicks on Delete/Cancel. Only buttons with data-enter-nav-include="true"
- * are included in the navigation flow.
+ * Keyboard navigation engine for forms (the ERP standard).
+ *
+ * Forward (Enter / ArrowRight on non-text):
+ *   - Blocked if current field is required & empty (shake + hint)
+ *   - Blocked if field declares data-field-invalid="true" (shake + hint)
+ *   - Blocked if blockForward() returns a message (shake + hint)
+ *   - On last field → onLastField()
+ *
+ * Backward (Shift+Enter / Backspace-on-empty / ArrowLeft on non-text):
+ *   - Strict reverse DOM order, no skipping
+ *   - On first field → onFirstField()
+ *
+ * Buttons are skipped by default. Opt-in via data-enter-nav-include="true".
+ * Fields can opt out via data-enter-nav-skip="true".
+ *
+ * Backwards-compatible signature: useEnterNavigation(onLast, onFirst)
+ * still works, or pass an options object.
  */
-export function useEnterNavigation(onLastField?: () => void, onFirstField?: () => void) {
+export function useEnterNavigation(
+  onLastFieldOrOptions?: (() => void) | EnterNavOptions,
+  onFirstField?: () => void
+) {
+  const opts: EnterNavOptions =
+    typeof onLastFieldOrOptions === "function" || onLastFieldOrOptions == null
+      ? { onLastField: onLastFieldOrOptions as (() => void) | undefined, onFirstField }
+      : onLastFieldOrOptions;
+
   const handleEnterNav = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
-      const eventTarget = e.target;
-      if (!(eventTarget instanceof HTMLElement)) return;
-
-      // Find the closest navigable element
-      const target = eventTarget.closest<HTMLElement>(
-        `${ENTER_NAV_SELECTOR}, ${BUTTON_NAV_SELECTOR}`
-      );
+      const target = findNavigableTarget(e.target);
       if (!target) return;
 
-      // Find container
-      const container =
-        target.closest("[data-enter-nav]") ||
-        target.closest("form") ||
-        target.parentElement?.parentElement?.parentElement;
+      const container = findNavContainer(target);
       if (!container) return;
 
-      // Collect visible focusable elements (fields + explicitly included buttons)
-      const focusable = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          `${ENTER_NAV_SELECTOR}, ${BUTTON_NAV_SELECTOR}`
-        )
-      ).filter((el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-      });
+      const focusable = findFocusables(container);
 
       const findIndex = () => {
         let idx = focusable.indexOf(target);
@@ -67,26 +78,25 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         target.getAttribute("role") === "combobox" ||
         target.hasAttribute("data-field-value");
 
-      // Check if current element is an input with a text cursor
       const isTextInput =
-        (target instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit"].includes(target.type)) ||
+        (target instanceof HTMLInputElement &&
+          !["checkbox", "radio", "button", "submit"].includes(target.type)) ||
         target instanceof HTMLTextAreaElement;
 
-      // === BACKWARD: Shift+Enter, ArrowLeft (on non-text / start of text), or Backspace on empty ===
+      // === BACKWARD ===
       const isBackward =
         (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) ||
         (e.key === "Backspace" && isFieldEmpty(target)) ||
         (e.key === "ArrowLeft" && !isTextInput);
 
       if (isBackward) {
-        // For ArrowLeft on text inputs, only navigate if cursor is at position 0
         if (e.key === "ArrowLeft" && isTextInput) return;
 
         const idx = findIndex();
         if (idx <= 0) {
-          if (onFirstField) {
+          if (opts.onFirstField) {
             e.preventDefault();
-            onFirstField();
+            opts.onFirstField();
           }
           return;
         }
@@ -99,42 +109,59 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
         return;
       }
 
-      // === FORWARD: Enter or ArrowRight (on non-text fields) ===
+      // === FORWARD ===
       const isForwardArrow = e.key === "ArrowRight" && !isTextInput;
-      const isForwardEnter = e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
+      const isForwardEnter =
+        e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
 
       if (!isForwardEnter && !isForwardArrow) return;
 
-      // For included buttons, Enter should activate them (submit action)
-      const isIncludedButton = target instanceof HTMLButtonElement && target.getAttribute("data-enter-nav-include") === "true";
-      if (isForwardEnter && isIncludedButton) {
-        // Let the button's click fire naturally
-        return;
-      }
+      const isIncludedButton =
+        target instanceof HTMLButtonElement &&
+        target.getAttribute("data-enter-nav-include") === "true";
 
-      // For combobox with OPEN dropdown, let Radix handle Enter (select the item)
+      if (isForwardEnter && isIncludedButton) return; // let click fire
+
+      // Combobox with OPEN dropdown — let Radix handle it
       if (isFieldLikeButton && target.getAttribute("aria-expanded") === "true") return;
 
-      // BLOCK Enter on any non-field, non-included button to prevent accidental triggers
-      // (Delete, Cancel, etc.) — but NEVER block field-like buttons (Select triggers, comboboxes)
-      if (isForwardEnter && target instanceof HTMLButtonElement && !isIncludedButton && !isFieldLikeButton) {
+      // Block Enter on non-field, non-included buttons
+      if (
+        isForwardEnter &&
+        target instanceof HTMLButtonElement &&
+        !isIncludedButton &&
+        !isFieldLikeButton
+      ) {
         e.preventDefault();
         return;
       }
 
-      // Check if current field is required and empty → block forward + shake + inline hint
+      // 1) Required + empty
       if (isForwardEnter && isRequiredAndEmpty(target)) {
         e.preventDefault();
-        target.classList.add("animate-shake");
-        setTimeout(() => target.classList.remove("animate-shake"), 500);
-        target.classList.add("ring-2", "ring-destructive");
-        setTimeout(() => target.classList.remove("ring-2", "ring-destructive"), 1500);
-        showInlineHint(target, "Please select a value");
+        shakeAndWarn(target, "Please complete this field");
         return;
       }
 
-      // For combobox CLOSED with a selected value → confirm + advance (do NOT open dropdown)
-      // For combobox CLOSED with no value → fall through to advance (will be blocked above if required)
+      // 2) Field-declared invalid
+      if (isForwardEnter && isFieldDeclaredInvalid(target)) {
+        e.preventDefault();
+        const msg = target.getAttribute("data-field-error") || "Please correct this field";
+        shakeAndWarn(target, msg);
+        return;
+      }
+
+      // 3) Custom business-rule guard
+      if (isForwardEnter && opts.blockForward) {
+        const msg = opts.blockForward(target);
+        if (msg) {
+          e.preventDefault();
+          shakeAndWarn(target, msg);
+          return;
+        }
+      }
+
+      // Combobox closed with selected value → confirm + advance
       if (isForwardEnter && isFieldLikeButton) {
         e.preventDefault();
         // fall through to advance
@@ -146,12 +173,12 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
       if (idx < focusable.length - 1) {
         e.preventDefault();
         focusable[idx + 1].focus();
-      } else if (onLastField && isForwardEnter) {
+      } else if (opts.onLastField && isForwardEnter) {
         e.preventDefault();
-        onLastField();
+        opts.onLastField();
       }
     },
-    [onLastField, onFirstField]
+    [opts.onLastField, opts.onFirstField, opts.blockForward]
   );
 
   return handleEnterNav;
@@ -159,23 +186,15 @@ export function useEnterNavigation(onLastField?: () => void, onFirstField?: () =
 
 /**
  * Auto-advance focus after a dropdown/select value is chosen.
- * Call this in onValueChange of Select components.
+ * Call in onValueChange of Select / custom selectors.
  */
 export function advanceToNextField(currentElement: HTMLElement | null) {
   if (!currentElement) return;
   const container =
-    currentElement.closest("[data-enter-nav]") ||
-    currentElement.closest("form");
+    currentElement.closest("[data-enter-nav]") || currentElement.closest("form");
   if (!container) return;
 
-  const focusable = Array.from(
-    container.querySelectorAll<HTMLElement>(
-      `${ENTER_NAV_SELECTOR}, ${BUTTON_NAV_SELECTOR}`
-    )
-  ).filter((el) => {
-    const rect = el.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  });
+  const focusable = findFocusables(container);
 
   let idx = focusable.indexOf(currentElement);
   if (idx === -1) {
@@ -189,63 +208,5 @@ export function advanceToNextField(currentElement: HTMLElement | null) {
   }
 }
 
-/** Check if a field has the required attribute and is empty */
-function isRequiredAndEmpty(el: HTMLElement): boolean {
-  const wrapper = el.closest("[data-field-required]");
-  const isRequired = wrapper?.getAttribute("data-field-required") === "true" ||
-    el.getAttribute("required") !== null ||
-    el.getAttribute("aria-required") === "true";
-
-  if (!isRequired) return false;
-  return isFieldEmpty(el);
-}
-
-/** Show a transient inline hint near the field (non-blocking, auto-dismissed). */
-function showInlineHint(el: HTMLElement, message: string) {
-  // Avoid duplicate hints
-  const existing = el.parentElement?.querySelector("[data-enter-hint]");
-  if (existing) return;
-  const hint = document.createElement("div");
-  hint.setAttribute("data-enter-hint", "true");
-  hint.textContent = message;
-  hint.className =
-    "absolute -bottom-5 left-0 z-50 text-[10px] font-medium text-destructive bg-background px-1.5 py-0.5 rounded shadow-sm border border-destructive/30 animate-in fade-in slide-in-from-top-1";
-  const parent = el.parentElement;
-  if (!parent) return;
-  const prevPosition = parent.style.position;
-  if (!prevPosition || prevPosition === "static") parent.style.position = "relative";
-  parent.appendChild(hint);
-  setTimeout(() => {
-    hint.remove();
-    if (!prevPosition) parent.style.position = "";
-  }, 1800);
-}
-
-function isFieldEmpty(el: HTMLElement): boolean {
-  const fieldValue = el.getAttribute("data-field-value");
-  if (fieldValue !== null) {
-    return fieldValue.trim() === "";
-  }
-
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-    return el.value.trim() === "";
-  }
-  if (el instanceof HTMLSelectElement) {
-    return !el.value;
-  }
-  // Radix Select / combobox: check if it has a placeholder showing (no value selected)
-  // SelectValue renders data-placeholder when empty
-  if (el.getAttribute("role") === "combobox") {
-    const placeholderShown = el.querySelector("[data-placeholder]") !== null;
-    if (placeholderShown) return true;
-    // Otherwise check the rendered text content of the value span
-    const valueSpan = el.querySelector("span");
-    return !valueSpan || valueSpan.textContent?.trim() === "";
-  }
-  if (el instanceof HTMLButtonElement) {
-    return false;
-  }
-  const inner = el.querySelector("input");
-  if (inner) return inner.value.trim() === "";
-  return false;
-}
+// Re-export selector constants for advanced usage
+export { ENTER_NAV_SELECTOR, BUTTON_NAV_SELECTOR };

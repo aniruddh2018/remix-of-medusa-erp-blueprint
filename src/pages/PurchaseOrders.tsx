@@ -1041,13 +1041,18 @@ export default function PurchaseOrders() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="1" />
+                  onKeyDown={poEnterNav}
+                  disabled={!selectedProduct}
+                  title={!selectedProduct ? "Select a product first" : ""}
+                  className="h-9" placeholder="1" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                 <Input type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="0" />
+                  onKeyDown={poEnterNav}
+                  disabled={!selectedProduct}
+                  className="h-9" placeholder="0" />
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>

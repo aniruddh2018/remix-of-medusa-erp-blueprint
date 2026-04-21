@@ -119,11 +119,48 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
         : Number(product.mrp);
     };
 
+    const shakeAndWarn = useCallback((message: string) => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.classList.add("animate-shake", "ring-2", "ring-destructive");
+      setTimeout(() => el.classList.remove("animate-shake"), 500);
+      setTimeout(() => el.classList.remove("ring-2", "ring-destructive"), 1500);
+      // Inline hint
+      const parent = el.parentElement;
+      if (parent && !parent.querySelector("[data-product-hint]")) {
+        const hint = document.createElement("div");
+        hint.setAttribute("data-product-hint", "true");
+        hint.textContent = message;
+        hint.className =
+          "absolute -bottom-5 left-0 z-50 text-[10px] font-medium text-destructive bg-background px-1.5 py-0.5 rounded shadow-sm border border-destructive/30";
+        const prev = parent.style.position;
+        if (!prev || prev === "static") parent.style.position = "relative";
+        parent.appendChild(hint);
+        setTimeout(() => {
+          hint.remove();
+          if (!prev) parent.style.position = "";
+        }, 1800);
+      }
+    }, []);
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
+      // Allow backward nav (Shift+Enter, ArrowLeft on empty) to bubble to parent
+      if (e.key === "Enter" && e.shiftKey) {
+        return; // parent enter-nav handles backward
+      }
+
       if (!open || flatResults.length === 0) {
         if (e.key === "ArrowDown" && flatResults.length > 0) {
           setOpen(true);
           e.preventDefault();
+          return;
+        }
+        // Block forward Enter when nothing selectable — must pick a product
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          shakeAndWarn(query.trim() ? "No matching product" : "Select a product");
+          return;
         }
         return;
       }
@@ -139,8 +176,11 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           break;
         case "Enter":
           e.preventDefault();
+          e.stopPropagation(); // prevent parent advancing before onSelect resolves
           if (flatResults[highlightIndex]) {
             handleSelect(flatResults[highlightIndex].id);
+          } else {
+            shakeAndWarn("Select a product");
           }
           break;
         case "Escape":
@@ -153,6 +193,18 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           }
           setOpen(false);
           break;
+      }
+    };
+
+    // Backward nav (Shift+Enter) lands on selected-chip — re-open editor on Enter forward, or bubble Shift+Enter back.
+    const handleChipKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        // Selected product is valid — let parent enter-nav advance to next field
+        return;
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        clearSelection();
       }
     };
 

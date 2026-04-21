@@ -30,6 +30,7 @@ import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigati
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
@@ -54,6 +55,7 @@ export default function PurchaseOrders() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
   const supplierTriggerRef = useRef<HTMLButtonElement>(null);
+  const supplierSearchRef = useRef<PartySearchHandle>(null);
   const docTypeTriggerRef = useRef<HTMLButtonElement>(null);
   const deliveryDateRef = useRef<HTMLInputElement>(null);
 
@@ -98,6 +100,7 @@ export default function PurchaseOrders() {
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  const [supplierCreateSeed, setSupplierCreateSeed] = useState<{ name?: string; phone?: string }>({});
 
   // Bill-level discount
   const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
@@ -781,13 +784,24 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Supplier *</Label>
               <div className="flex gap-1">
-                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => docTypeTriggerRef.current?.focus(), 60); }}>
-                    <SelectTrigger ref={supplierTriggerRef} className="h-8 text-sm flex-1" onKeyDown={(e) => { if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowSupplierDialog(true)} data-enter-nav-skip="true" tabIndex={-1}><PlusCircle className="h-3 w-3" /></Button>
+                <PartySearchInput
+                  ref={supplierSearchRef}
+                  parties={suppliers as any}
+                  selectedId={selectedSupplier || null}
+                  selectedName={suppliers?.find((s: any) => s.id === selectedSupplier)?.name || ""}
+                  entityLabel="supplier"
+                  placeholder="Type name or phone…"
+                  enterNavInclude
+                  className="flex-1"
+                  onSelect={(s) => {
+                    setSelectedSupplier(s.id);
+                    if (!isChallan) fetchPendingChallans(s.id);
+                    setTimeout(() => docTypeTriggerRef.current?.focus(), 60);
+                  }}
+                  onClear={() => setSelectedSupplier("")}
+                  onCreateNew={(seed) => { setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                />
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
               </div>
             </div>
             <div className="space-y-1">
@@ -1241,13 +1255,13 @@ export default function PurchaseOrders() {
       </Dialog>
 
       <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />
-      <SupplierFormDialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog} onSuccess={(id) => {
+      <SupplierFormDialog open={showSupplierDialog} onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) setSupplierCreateSeed({}); }} initialData={supplierCreateSeed} onSuccess={(id) => {
         refetchSuppliers();
         if (id) {
           setSelectedSupplier(id);
-          // Close dialog and advance focus to next field
           setShowSupplierDialog(false);
-          setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
+          setSupplierCreateSeed({});
+          setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
         }
       }} />
       <ReceiveInventoryDialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen} orderId={selectedOrderForReceive?.id || null} supplierId={selectedOrderForReceive?.supplierId || null}

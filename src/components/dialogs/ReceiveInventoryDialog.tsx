@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Package } from "lucide-react";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 
 interface OrderItem {
   id: string;
@@ -159,6 +160,8 @@ export function ReceiveInventoryDialog({
     }
   };
 
+  const enterNav = useEnterNavigation({ onLastField: handleReceive });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -181,7 +184,7 @@ export function ReceiveInventoryDialog({
             No items to receive
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4" data-enter-nav onKeyDown={enterNav}>
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Batch Details</CardTitle>
@@ -293,6 +296,7 @@ export function ReceiveInventoryDialog({
           <Button
             onClick={handleReceive}
             disabled={batchDetails.length === 0 || saving}
+            data-enter-nav-include="true"
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Receive {batchDetails.length} Batch(es)

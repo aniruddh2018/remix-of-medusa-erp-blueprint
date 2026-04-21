@@ -56,13 +56,16 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
       },
     }));
 
-    // Filter & group products
-    const { flatResults } = useMemo(() => {
-      if (!products) return { flatResults: [] };
+    // Filter results, then arrange so brand alternates (same composition/generic + strength)
+    // appear immediately below the matched product as a "🔄 Same composition" group.
+    const { flatResults, alternateIds } = useMemo(() => {
+      if (!products) return { flatResults: [], alternateIds: new Set<string>() };
       const q = query.toLowerCase().trim();
-      if (!q && selectedProductId) return { flatResults: [] };
+      if (!q && selectedProductId) return { flatResults: [], alternateIds: new Set<string>() };
 
-      const filtered = q
+      const norm = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+
+      const direct = q
         ? products.filter(
             (p) =>
               p.name.toLowerCase().includes(q) ||
@@ -72,7 +75,37 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           )
         : products;
 
-      return { flatResults: filtered.slice(0, 30) };
+      // Build ordered list: each direct match followed by its alternates (same composition or generic + same strength)
+      const out: Product[] = [];
+      const seen = new Set<string>();
+      const altIds = new Set<string>();
+
+      for (const p of direct) {
+        if (seen.has(p.id)) continue;
+        out.push(p);
+        seen.add(p.id);
+
+        const key = norm(p.composition) || norm(p.generic_name);
+        if (!key) continue;
+
+        const alts = products.filter((x) => {
+          if (x.id === p.id || seen.has(x.id)) return false;
+          const xKey = norm(x.composition) || norm(x.generic_name);
+          if (xKey !== key) return false;
+          // Same strength when both defined; ignore strength match if either is missing
+          if (p.strength && x.strength && norm(p.strength) !== norm(x.strength)) return false;
+          return true;
+        });
+
+        for (const a of alts) {
+          out.push(a);
+          seen.add(a.id);
+          altIds.add(a.id);
+        }
+        if (out.length >= 30) break;
+      }
+
+      return { flatResults: out.slice(0, 30), alternateIds: altIds };
     }, [products, query, selectedProductId]);
 
     // Reset highlight on results change
@@ -284,43 +317,53 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
             ref={listRef}
             className="absolute z-50 mt-1 w-full min-w-[340px] max-h-[280px] overflow-y-auto rounded-md border bg-popover shadow-lg"
           >
-            {flatResults.map((product, idx) => (
-              <div
-                key={product.id}
-                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
-                  idx === highlightIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-                } ${selectedProductId === product.id ? "font-medium" : ""}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(product.id);
-                }}
-                onMouseEnter={() => setHighlightIndex(idx)}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    {selectedProductId === product.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
-                    <span className="truncate font-medium">{product.name}</span>
-                    {product.strength && (
-                      <span className="text-muted-foreground text-xs">{product.strength}</span>
-                    )}
+            {flatResults.map((product, idx) => {
+              const isAlt = alternateIds.has(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    idx === highlightIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                  } ${selectedProductId === product.id ? "font-medium" : ""} ${
+                    isAlt ? "border-l-2 border-l-primary/40 pl-2.5 bg-muted/30" : ""
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(product.id);
+                  }}
+                  onMouseEnter={() => setHighlightIndex(idx)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      {selectedProductId === product.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
+                      {isAlt && (
+                        <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded shrink-0">
+                          🔄 ALT
+                        </span>
+                      )}
+                      <span className="truncate font-medium">{product.name}</span>
+                      {product.strength && (
+                        <span className="text-muted-foreground text-xs">{product.strength}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {product.generic_name && (
+                        <span className="flex items-center gap-0.5">
+                          <Pill className="h-2.5 w-2.5" />
+                          {product.generic_name}
+                        </span>
+                      )}
+                      {product.manufacturer && <span>{product.manufacturer}</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {product.generic_name && (
-                      <span className="flex items-center gap-0.5">
-                        <Pill className="h-2.5 w-2.5" />
-                        {product.generic_name}
-                      </span>
-                    )}
-                    {product.manufacturer && <span>{product.manufacturer}</span>}
-                  </div>
+                  {showPrice && (
+                    <span className="text-sm font-mono text-right ml-3 shrink-0">
+                      ₹{getDisplayPrice(product)}
+                    </span>
+                  )}
                 </div>
-                {showPrice && (
-                  <span className="text-sm font-mono text-right ml-3 shrink-0">
-                    ₹{getDisplayPrice(product)}
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {open && query.trim() && flatResults.length === 0 && (

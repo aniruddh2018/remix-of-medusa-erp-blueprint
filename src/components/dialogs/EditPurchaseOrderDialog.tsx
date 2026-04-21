@@ -145,6 +145,22 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     enabled: open,
   });
 
+  // Suppliers list for the inline search
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      return (data || []) as Supplier[];
+    },
+    enabled: !!companyId && open,
+  });
+
   useEffect(() => {
     if (order) {
       setNotes(order.notes || "");
@@ -153,6 +169,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setFreightCharges(Number(order.freight_charges) || 0);
       setHandlingCharges(Number(order.handling_charges) || 0);
       setOtherCharges(Number(order.other_charges) || 0);
+      setSupplierId(order.supplier_id || null);
+      setSupplierName(((order as any).suppliers?.name) || "");
       // Don't set discountAmount here - calculate after items load
     }
   }, [order]);

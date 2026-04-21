@@ -62,12 +62,19 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+
+  // Customer create/edit form
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerFormSeed, setCustomerFormSeed] = useState<Record<string, any>>({});
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [status, setStatus] = useState<string>("confirmed");
   const [freightCharges, setFreightCharges] = useState(0);

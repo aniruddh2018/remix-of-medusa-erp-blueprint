@@ -313,6 +313,12 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
     p.generic_name?.toLowerCase().includes(manualProductSearch.toLowerCase())
   ).slice(0, 20) ?? [];
 
+  const enterNav = useEnterNavigation({
+    onLastField: () => {
+      if (returnItems.length > 0 && reason) createCreditNoteMutation.mutate();
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -325,7 +331,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5" data-enter-nav onKeyDown={enterNav}>
           {/* Step 1: Credit note number + customer + Invoice search */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
@@ -593,6 +599,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
             onClick={() => createCreditNoteMutation.mutate()}
             disabled={createCreditNoteMutation.isPending || returnItems.length === 0 || !reason}
             className="gap-2"
+            data-enter-nav-include="true"
           >
             {createCreditNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Issue Credit Note (Ctrl+Enter)

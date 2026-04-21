@@ -926,6 +926,8 @@ export default function CounterSales() {
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+1–9</kbd> switch counter
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
           </p>
         </div>
         <div className="flex gap-2">

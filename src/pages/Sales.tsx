@@ -746,6 +746,18 @@ export default function Sales() {
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("sale-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
+  // Ctrl+H — open customer purchase history
+  useKeyboardShortcut({
+    key: "h", modifiers: ["ctrl"],
+    callback: () => { if (selectedCustomerId || (customerName && customerName !== (settings.default_customer_name || ""))) setHistoryOpen(true); else toast({ title: "Select a customer first", description: "Pick an existing customer to view their purchase history." }); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
+  // * — toggle return mode for the next added item
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Auto-focus invoice number on billing tab mount and prefetch next invoice number
   useEffect(() => {

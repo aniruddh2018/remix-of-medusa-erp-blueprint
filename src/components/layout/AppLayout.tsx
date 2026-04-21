@@ -143,6 +143,7 @@ export function AppLayout() {
                     <p><ShortcutHint shortcut={SHORTCUTS.QUICK_SALE} /> Quick Counter Sale</p>
                     <p><ShortcutHint shortcut="SECONDARY+1–6" variant="badge" /> Navigate pages</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">/</kbd> Focus search bar</p>
+                    <p><ShortcutHint shortcut={SHORTCUTS.FOCUS_CART} /> Jump to cart (1st row)</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">N</kbd> New sale / purchase</p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-2">In any table</p>
                     <p><kbd className="px-1.5 py-0.5 bg-muted rounded border text-[10px]">↑ ↓</kbd> Navigate rows</p>

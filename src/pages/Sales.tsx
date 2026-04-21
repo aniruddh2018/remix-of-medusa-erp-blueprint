@@ -1013,9 +1013,11 @@ export default function Sales() {
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                         if (stock <= 0 && !settings.allow_negative_stock) {
-                          // Out of stock — keep focus on product, show feedback
+                          // Out of stock — clear selection so input remounts, then refocus
                           toast({ title: "Out of stock", description: "This product has 0 available stock. Pick another, or enable negative stock in Settings.", variant: "destructive" });
-                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          setSelectedProduct("");
+                          productSearchRef.current?.clear();
+                          setTimeout(() => productSearchRef.current?.focus(), 50);
                           return;
                         }
                         setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);

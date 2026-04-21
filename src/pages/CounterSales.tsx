@@ -1127,7 +1127,9 @@ export default function CounterSales() {
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                         if (stock <= 0 && !settings.allow_negative_stock) {
                           toast({ title: "Out of stock", description: "This product has 0 available stock.", variant: "destructive" });
-                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          setSelectedProduct("");
+                          productSearchRef.current?.clear();
+                          setTimeout(() => productSearchRef.current?.focus(), 50);
                           return;
                         }
                         setTimeout(() => (document.getElementById("counter-qty") as HTMLInputElement)?.focus(), 30);

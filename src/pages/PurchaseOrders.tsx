@@ -754,6 +754,23 @@ export default function PurchaseOrders() {
     if (selectedProduct && itemPrice > 0) handleAddItem();
   });
 
+  // Jump-to-cart shortcut (Alt+L)
+  const focusCart = useCallback(() => {
+    if (orderItems.length === 0) {
+      toast({ title: "Cart is empty", description: "Add a product first." });
+      return;
+    }
+    const firstRow = document.querySelector<HTMLElement>("[data-billing-row]");
+    if (!firstRow) return;
+    firstRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    const firstInput = firstRow.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), [role="combobox"], button:not([disabled])'
+    );
+    (firstInput || firstRow).focus();
+    if (firstInput instanceof HTMLInputElement) firstInput.select();
+  }, [orderItems.length, toast]);
+  usePlatformShortcut({ shortcut: SHORTCUTS.FOCUS_CART, callback: focusCart, enabled: true, allowInInput: true });
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">

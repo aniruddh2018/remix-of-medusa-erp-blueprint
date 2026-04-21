@@ -872,6 +872,25 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           </div>
         </DialogContent>
       </Dialog>
+
+      <CustomerFormDialog
+        open={customerFormOpen}
+        onOpenChange={setCustomerFormOpen}
+        editingCustomer={editingCustomer}
+        initialData={customerFormSeed}
+        onSuccess={(newId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers", companyId] }).then(async () => {
+            const { data } = await supabase.from("customers").select("*").eq("id", newId).single();
+            if (data) {
+              setCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+            }
+          });
+        }}
+      />
     </Dialog>
   );
 }

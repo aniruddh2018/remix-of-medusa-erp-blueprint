@@ -32,6 +32,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { DoctorSelector } from "@/components/DoctorSelector";
 import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
@@ -57,6 +58,7 @@ export default function Sales() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
   const customerButtonRef = useRef<HTMLButtonElement>(null);
+  const customerSearchRef = useRef<PartySearchHandle>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -94,9 +96,8 @@ export default function Sales() {
   const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
   
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -145,7 +146,7 @@ export default function Sales() {
     setTimeout(() => {
       const hasCustomer = !!selectedCustomerId || !!customerName.trim();
       if (!hasCustomer) {
-        customerButtonRef.current?.focus();
+        customerSearchRef.current?.focus();
       } else {
         productSearchRef.current?.focus();
       }
@@ -161,7 +162,7 @@ export default function Sales() {
   // Register Sales module with global focus tracker (intelligent recovery via `)
   useModuleFocus({
     module: "sales",
-    getEntryPoint: () => customerButtonRef.current,
+    getEntryPoint: () => (customerSearchRef.current as unknown as HTMLElement) || customerButtonRef.current,
     getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });
@@ -888,57 +889,42 @@ export default function Sales() {
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
                 <div className="flex gap-1">
-                    <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          ref={customerButtonRef}
-                          variant="outline"
-                          className="flex-1 justify-between h-8 text-sm font-normal"
-                          data-enter-nav-include="true"
-                          onKeyDown={(e) => {
-                            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
-                              e.preventDefault();
-                              setShowCustomerDialog(true);
-                            }
-                          }}
-                        >
-                          {selectedCustomerId ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName : customerName || "Select customer..."}
-                          <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search by name or phone..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
-                          <CommandList>
-                            <CommandEmpty>No customer found.</CommandEmpty>
-                            <CommandGroup>
-                              {customers?.filter(c => c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).map(c => (
-                                <CommandItem key={c.id} value={c.name} onSelect={() => {
-                                  setSelectedCustomerId(c.id);
-                                  setCustomerName(c.name);
-                                  setCustomerPhone(c.phone || "");
-                                  setCustomerAddress(c.address || "");
-                                  setCustomerGstin(c.gst_number || "");
-                                  setCustomerPopoverOpen(false);
-                                  // Immediately move focus to Product Search
-                                  setTimeout(() => productSearchRef.current?.focus(), 50);
-                                }}>
-                                  <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
-                                  <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <PartySearchInput
+                      ref={customerSearchRef}
+                      parties={customers}
+                      selectedId={selectedCustomerId}
+                      selectedName={selectedCustomerId ? (customers?.find(c => c.id === selectedCustomerId)?.name || customerName) : customerName}
+                      entityLabel="customer"
+                      placeholder="Type name or phone…"
+                      enterNavInclude
+                      className="flex-1"
+                      onSelect={(c) => {
+                        setSelectedCustomerId(c.id);
+                        setCustomerName(c.name);
+                        setCustomerPhone(c.phone || "");
+                        setCustomerAddress(c.address || "");
+                        setCustomerGstin(c.gst_number || "");
+                        setTimeout(() => productSearchRef.current?.focus(), 50);
+                      }}
+                      onClear={() => {
+                        setSelectedCustomerId(null);
+                        setCustomerName("");
+                        setCustomerPhone("");
+                        setCustomerAddress("");
+                        setCustomerGstin("");
+                      }}
+                      onCreateNew={(seed) => {
+                        setCustomerCreateSeed(seed);
+                        setShowCustomerDialog(true);
+                      }}
+                    />
                    <Button
                      variant="outline" size="icon" className="h-8 w-8"
                      disabled={!selectedCustomerId && !customerName}
                      onClick={() => setHistoryOpen(true)}
                      title="Past purchases (Ctrl+H)"
                    ><History className="h-3 w-3" /></Button>
-                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
+                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setCustomerCreateSeed({}); setShowCustomerDialog(true); }} title="Add new customer (Ctrl+N)"><UserPlus className="h-3 w-3" /></Button>
                 </div>
                  {settings.show_customer_gstin && selectedCustomerId && (
                    <div className="space-y-1 mt-1">
@@ -1272,7 +1258,7 @@ export default function Sales() {
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {postSaleDialog && <PostSalePaymentDialog open={!!postSaleDialog} onOpenChange={(o) => { if (!o) setPostSaleDialog(null); }} salesOrderId={postSaleDialog.id} invoiceNumber={postSaleDialog.invoice_number} customerName={postSaleDialog.customer_name} totalAmount={postSaleDialog.total_amount} defaultPaymentMethod={(settings.default_payment_method as "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other") || "cash"} />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
+      <CustomerFormDialog open={showCustomerDialog} onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) setCustomerCreateSeed({}); }} initialData={customerCreateSeed} onSuccess={(customerId) => {
         queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
         // Find the customer after refetch to populate fields
         supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
@@ -1282,9 +1268,9 @@ export default function Sales() {
             setCustomerPhone(data.phone || "");
             setCustomerAddress(data.address || "");
             setCustomerGstin(data.gst_number || "");
-            // Close dialog and advance focus to next field after customer selection
             setShowCustomerDialog(false);
-            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
+            setCustomerCreateSeed({});
+            setTimeout(() => productSearchRef.current?.focus(), 100);
           }
         });
       }} />

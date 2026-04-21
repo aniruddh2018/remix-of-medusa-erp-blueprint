@@ -1054,10 +1054,10 @@ export default function PurchaseOrders() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  Expiry {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                  Expiry (MM/YYYY) {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
-                <Input type="date" value={itemExpiryDate}
-                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value); }}
+                <Input type="month" value={itemExpiryDate ? itemExpiryDate.slice(0, 7) : ""}
+                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value ? `${e.target.value}-01` : ""); }}
                   onKeyDown={poEnterNav}
                   aria-readonly={batchLocked}
                   title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}

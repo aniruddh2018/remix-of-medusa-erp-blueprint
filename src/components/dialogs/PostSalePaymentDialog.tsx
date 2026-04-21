@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Banknote, Plus, Trash2, Loader2, CalendarClock } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 
 type PaymentStatus = "paid" | "partial" | "credit";
 type SplitMethod = "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other";
@@ -169,6 +170,8 @@ export function PostSalePaymentDialog({
     onError: (e: Error) => toast({ title: "Failed to record payment", description: e.message, variant: "destructive" }),
   });
 
+  const enterNav = useEnterNavigation({ onLastField: () => mutation.mutate() });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
@@ -182,7 +185,7 @@ export function PostSalePaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4" data-enter-nav onKeyDown={enterNav}>
           {/* Status selector */}
           <div className="grid grid-cols-3 gap-2">
             {(["paid", "partial", "credit"] as PaymentStatus[]).map((s) => (
@@ -315,7 +318,7 @@ export function PostSalePaymentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
             Skip
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} data-enter-nav-include="true">
             {mutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Banknote className="h-4 w-4 mr-2" />}
             Save Payment
           </Button>

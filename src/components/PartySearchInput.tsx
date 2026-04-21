@@ -159,16 +159,25 @@ export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function Pa
             if ((e.key === "n" || e.key === "N") && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               onCreateNew({});
-            }
-          }}
-          ref={(el) => {
-            // expose this element for focus when no query
-            if (el && enterNavInclude) {
-              // no-op; outer focus() handler hits inputRef which is the active editor
+            } else if ((e.key === "e" || e.key === "E") && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              const sel = parties?.find(p => p.id === selectedId);
+              if (sel && onEditSelected) onEditSelected(sel);
             }
           }}
         >
           <span className="truncate flex-1">{selectedName}</span>
+          {onEditSelected && (
+            <Pencil
+              className="h-3.5 w-3.5 mr-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer shrink-0 hover:text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                const sel = parties?.find(p => p.id === selectedId);
+                if (sel) onEditSelected(sel);
+              }}
+              aria-label={`Edit ${entityLabel}`}
+            />
+          )}
           <X
             className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
             onClick={(e) => { e.stopPropagation(); clearSelection(); }}

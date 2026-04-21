@@ -99,8 +99,10 @@ export default function PurchaseOrders() {
 
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [supplierCreateSeed, setSupplierCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   // Bill-level discount
   const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);

@@ -294,7 +294,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
               .from("inventory_batches")
               .select("id, quantity")
               .eq("product_id", orig.product_id)
-              .eq("supplier_id", supplierId)
+              .eq("supplier_id", originalSupplierId)
               .eq("company_id", companyId)
               .order("created_at", { ascending: false })
               .limit(1)
@@ -331,7 +331,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             .from("inventory_batches")
             .select("id, quantity")
             .eq("product_id", item.product_id)
-            .eq("supplier_id", supplierId)
+            .eq("supplier_id", originalSupplierId)
             .eq("company_id", companyId)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -373,7 +373,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             mrp: item.unit_price * 1.2,
             expiry_date: defaultExpiry.toISOString().split("T")[0],
             received_date: today,
-            supplier_id: supplierId,
+            supplier_id: effectiveSupplierId,
             company_id: companyId,
           });
         }

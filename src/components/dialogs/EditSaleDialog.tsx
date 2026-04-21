@@ -21,7 +21,11 @@ import { Loader2, Save, AlertTriangle, Receipt, Plus, ChevronsUpDown } from "luc
 import { format } from "date-fns";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
+import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
+import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
+
+type Customer = Tables<"customers">;
 
 type SalesOrder = Tables<"sales_orders">;
 type SalesOrderItem = Tables<"sales_order_items"> & {

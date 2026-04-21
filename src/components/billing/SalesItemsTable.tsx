@@ -78,12 +78,12 @@ export function SalesItemsTable({
             return (
               <TableRow
                 key={`${item.batch_id}-${index}`}
-                className={`${isInsufficient || isNoStock ? "bg-destructive/10" : ""} ${item.is_return ? "bg-amber-500/10 dark:bg-amber-500/15" : ""} group`}
+                className={`${isInsufficient || isNoStock ? "bg-destructive/10" : ""} ${item.is_return ? "bg-secondary/60 border-l-2 border-l-destructive" : ""} group`}
                 data-billing-row
               >
                 <TableCell className="font-medium py-1">
                   {item.is_return && (
-                    <Badge variant="secondary" className="mr-1 text-[10px] py-0 gap-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40">
+                    <Badge variant="destructive" className="mr-1 text-[10px] py-0 gap-0.5">
                       <Undo2 className="h-2.5 w-2.5" /> RETURN
                     </Badge>
                   )}
@@ -154,7 +154,7 @@ export function SalesItemsTable({
                 <TableCell className="py-1 text-xs text-muted-foreground text-center">
                   {item.gst_percentage}%
                 </TableCell>
-                <TableCell className={`py-1 text-right font-mono text-sm font-medium ${item.is_return ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                <TableCell className={`py-1 text-right font-mono text-sm font-medium ${item.is_return ? "text-destructive" : ""}`}>
                   {item.is_return ? "−" : ""}₹{Math.abs(item.total_price).toFixed(2)}
                 </TableCell>
                 <TableCell className="py-1">

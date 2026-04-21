@@ -222,11 +222,20 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
     };
 
     return (
-      <div ref={containerRef} className="relative">
+      <div
+        ref={containerRef}
+        className="relative"
+        data-field-required="true"
+        data-field-value={selectedProductId ? (selectedProduct?.name || "selected") : ""}
+      >
         {/* Always-visible input */}
         {selectedProduct && !query ? (
           <div
-            className="flex items-center h-9 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group"
+            tabIndex={0}
+            role="textbox"
+            aria-label={`Selected product: ${selectedProduct.name}. Press Enter to continue, Backspace to clear.`}
+            onKeyDown={handleChipKeyDown}
+            className="flex items-center h-9 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => {
               onSelect("");
               setQuery("");
@@ -263,6 +272,8 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
               className="h-9 pl-8 pr-3"
               autoComplete="off"
               spellCheck={false}
+              required
+              aria-required="true"
             />
           </div>
         )}

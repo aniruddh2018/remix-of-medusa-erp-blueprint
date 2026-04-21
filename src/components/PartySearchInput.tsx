@@ -24,6 +24,8 @@ interface Props {
   /** Called when the user opts to create a new entry. Receives whatever they typed
    *  so the form can be pre-seeded (name OR phone). */
   onCreateNew: (seed: { name?: string; phone?: string }) => void;
+  /** Called when the user wants to edit the currently-selected party (pencil icon or Ctrl+E). */
+  onEditSelected?: (party: PartyRecord) => void;
   placeholder?: string;
   /** Label used in the "create new" prompt, e.g. 'customer' or 'supplier' */
   entityLabel?: string;
@@ -35,7 +37,7 @@ interface Props {
 const isProbablyPhone = (s: string) => /^[\d+\-\s]{4,}$/.test(s.trim());
 
 export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function PartySearchInput(
-  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, className },
+  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, onEditSelected, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, className },
   ref
 ) {
   const [query, setQuery] = useState("");

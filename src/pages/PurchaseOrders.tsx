@@ -880,9 +880,14 @@ export default function PurchaseOrders() {
                     <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                       showPrice priceType="purchase" placeholder="Search product..." />
                   </div>
-                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => setShowProductDialog(true)} data-enter-nav-skip="true" tabIndex={-1}>
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => { setEditingProduct(null); setShowProductDialog(true); }} data-enter-nav-skip="true" tabIndex={-1}>
                     <PlusCircle className="h-4 w-4" />
                   </Button>
+                  {selectedProduct && (
+                    <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="Edit selected product (Ctrl+E)" onClick={() => { const p = products?.find(p => p.id === selectedProduct); if (p) { setEditingProduct(p); setShowProductDialog(true); } }} data-enter-nav-skip="true" tabIndex={-1}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
               {(config.hasBatchTracking || settings.enable_batch_tracking) && (

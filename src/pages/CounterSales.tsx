@@ -184,6 +184,7 @@ export default function CounterSales() {
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingCustomer, setEditingCustomer] = useState<Tables<"customers"> | null>(null);
 
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -1037,8 +1038,17 @@ export default function CounterSales() {
                     setCustomerGstin("");
                   }}
                   onCreateNew={(seed) => {
+                    setEditingCustomer(null);
                     setCustomerCreateSeed(seed);
                     setShowCustomerDialog(true);
+                  }}
+                  onEditSelected={async (party) => {
+                    const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                    if (data) {
+                      setEditingCustomer(data as Tables<"customers">);
+                      setCustomerCreateSeed({});
+                      setShowCustomerDialog(true);
+                    }
                   }}
                 />
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setCustomerCreateSeed({}); setShowCustomerDialog(true); }} title="Add new customer (Ctrl+N)"><UserPlus className="h-3 w-3" /></Button>
@@ -1370,21 +1380,29 @@ export default function CounterSales() {
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) setCustomerCreateSeed({}); }} initialData={customerCreateSeed} onSuccess={(customerId) => {
-        queryClient.invalidateQueries({ queryKey: ["customers-for-counter"] });
-        supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
-          if (data) {
-            setSelectedCustomerId(data.id);
-            setCustomerName(data.name);
-            setCustomerPhone(data.phone || "");
-            setCustomerAddress(data.address || "");
-            setCustomerGstin(data.gst_number || "");
-            setShowCustomerDialog(false);
-            setCustomerCreateSeed({});
-            setTimeout(() => productSearchRef.current?.focus(), 100);
-          }
-        });
-      }} />
+      <CustomerFormDialog
+        open={showCustomerDialog}
+        onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) { setCustomerCreateSeed({}); setEditingCustomer(null); } }}
+        editingCustomer={editingCustomer}
+        initialData={customerCreateSeed}
+        onSuccess={(customerId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers-for-counter"] });
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+            if (data) {
+              setSelectedCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+              setShowCustomerDialog(false);
+              setCustomerCreateSeed({});
+              setEditingCustomer(null);
+              setTimeout(() => productSearchRef.current?.focus(), 100);
+            }
+          });
+        }}
+      />
     </div>
   );
 }

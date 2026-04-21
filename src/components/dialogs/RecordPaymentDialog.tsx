@@ -313,6 +313,7 @@ export function RecordPaymentDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={!amount || amount <= 0 || mutation.isPending}
+            data-enter-nav-include="true"
           >
             <Banknote className="h-4 w-4 mr-2" />
             {mutation.isPending ? "Saving..." : "Record Payment"}

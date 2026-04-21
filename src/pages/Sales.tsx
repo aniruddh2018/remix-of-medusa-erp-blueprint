@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown, History, Undo2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +33,7 @@ import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigati
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { DoctorSelector } from "@/components/DoctorSelector";
+import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
@@ -103,6 +104,8 @@ export default function Sales() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [paymentDialog, setPaymentDialog] = useState<null | { referenceId: string; referenceNumber: string; partyName: string; totalAmount: number; paidAmount: number }>(null);
   const [postSaleDialog, setPostSaleDialog] = useState<null | { id: string; invoice_number: string; customer_name: string; total_amount: number }>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [returnMode, setReturnMode] = useState(false);
 
   // ── Queries ──
   const { data: customers } = useQuery({

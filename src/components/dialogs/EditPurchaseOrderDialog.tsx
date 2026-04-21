@@ -69,6 +69,13 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
+  // Supplier selection / inline edit-create
+  const [supplierId, setSupplierId] = useState<string | null>(null);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierFormOpen, setSupplierFormOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [supplierFormSeed, setSupplierFormSeed] = useState<Record<string, any>>({});
+
   // Invoice number confirmation dialog
   const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
   const [pendingInvoiceNumber, setPendingInvoiceNumber] = useState("");

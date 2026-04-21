@@ -112,17 +112,21 @@ const Reports = () => {
     enabled: !!companyId,
   });
 
-  // Fetch inventory batches for total value
+  // Fetch inventory batches for total value (with product + supplier for breakdowns)
   const { data: inventoryBatches = [] } = useQuery({
     queryKey: ["inventory-batches-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_batches")
-        .select("quantity, purchase_price, mrp")
+        .select(`
+          quantity, purchase_price, mrp,
+          product:products(name, manufacturer),
+          supplier:suppliers(name)
+        `)
         .eq("company_id", companyId!)
         .gt("quantity", 0);
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     enabled: !!companyId,
   });
@@ -132,6 +136,36 @@ const Reports = () => {
     const atMRP = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.mrp)), 0);
     const totalUnits = inventoryBatches.reduce((sum, b) => sum + b.quantity, 0);
     return { atCost, atMRP, totalUnits };
+  }, [inventoryBatches]);
+
+  // Stock valuation grouped by manufacturer
+  const stockByManufacturer = useMemo(() => {
+    const grouped: Record<string, { name: string; units: number; atCost: number; atMRP: number; products: Set<string> }> = {};
+    inventoryBatches.forEach((b) => {
+      const name = b.product?.manufacturer || "Unknown";
+      if (!grouped[name]) grouped[name] = { name, units: 0, atCost: 0, atMRP: 0, products: new Set() };
+      grouped[name].units += b.quantity;
+      grouped[name].atCost += b.quantity * Number(b.purchase_price);
+      grouped[name].atMRP += b.quantity * Number(b.mrp);
+      if (b.product?.name) grouped[name].products.add(b.product.name);
+    });
+    return Object.values(grouped)
+      .map((g) => ({ ...g, productCount: g.products.size }))
+      .sort((a, b) => b.atCost - a.atCost);
+  }, [inventoryBatches]);
+
+  // Stock valuation grouped by supplier
+  const stockBySupplier = useMemo(() => {
+    const grouped: Record<string, { name: string; units: number; atCost: number; atMRP: number; batches: number }> = {};
+    inventoryBatches.forEach((b) => {
+      const name = b.supplier?.name || "Unknown";
+      if (!grouped[name]) grouped[name] = { name, units: 0, atCost: 0, atMRP: 0, batches: 0 };
+      grouped[name].units += b.quantity;
+      grouped[name].atCost += b.quantity * Number(b.purchase_price);
+      grouped[name].atMRP += b.quantity * Number(b.mrp);
+      grouped[name].batches += 1;
+    });
+    return Object.values(grouped).sort((a, b) => b.atCost - a.atCost);
   }, [inventoryBatches]);
 
   // Fetch suppliers

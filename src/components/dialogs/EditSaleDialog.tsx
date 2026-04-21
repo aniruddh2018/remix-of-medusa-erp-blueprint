@@ -169,6 +169,21 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     enabled: open,
   });
 
+  // Customers list for the inline search
+  const { data: customers } = useQuery({
+    queryKey: ["customers", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("name");
+      return (data || []) as Customer[];
+    },
+    enabled: !!companyId && open,
+  });
+
   // Fetch batches for selected new product
   const { data: newProductBatches } = useQuery({
     queryKey: ["batches-for-new-product", selectedNewProduct?.id],
@@ -190,12 +205,19 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   // We must subtract item-level discounts to get only the bill-level discount.
   useEffect(() => {
     if (sale) {
+      setCustomerId(sale.customer_id || null);
       setCustomerName(sale.customer_name || "");
       setCustomerPhone(sale.customer_phone || "");
       setCustomerAddress(sale.customer_address || "");
+      setCustomerGstin(sale.customer_gstin || "");
       setPrescriptionNumber(sale.prescription_number || "");
       setPaymentMethod(sale.payment_method || "cash");
       setNotes(sale.notes || "");
+      setStatus(sale.status);
+      setFreightCharges(Number(sale.freight_charges) || 0);
+      setHandlingCharges(Number(sale.handling_charges) || 0);
+      setDeliveryCharges(Number(sale.delivery_charges) || 0);
+      setOtherCharges(Number(sale.other_charges) || 0);
       setStatus(sale.status);
       setFreightCharges(Number(sale.freight_charges) || 0);
       setHandlingCharges(Number(sale.handling_charges) || 0);

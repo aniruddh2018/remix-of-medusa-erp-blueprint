@@ -1288,6 +1288,14 @@ export default function Sales() {
           }
         });
       }} />
+      <CustomerHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        customerId={selectedCustomerId}
+        customerName={customerName}
+        companyId={companyId}
+        onRepeatItem={handleRepeatItem}
+      />
     </div>
   );
 }

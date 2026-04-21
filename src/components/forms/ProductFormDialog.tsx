@@ -175,7 +175,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-enter-nav>
           {sections.length > 0 ? (
             sections.map((section) => {
               const sectionFields = visibleFields.filter(
@@ -228,7 +228,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit} data-enter-nav-include="true">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {uiOverrides.submitButtonText || (editingProduct ? "Update Product" : "Add Product")}
             </Button>

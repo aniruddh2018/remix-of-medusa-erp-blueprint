@@ -16,15 +16,19 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
-import type { TablesInsert } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+
+type Product = Tables<"products">;
 
 interface ProductFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (productId: string) => void;
+  /** When provided, the form opens in edit mode for this product. */
+  editingProduct?: Product | null;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductFormDialogProps) {
+export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduct }: ProductFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { companyId } = useBusiness();
@@ -33,14 +37,21 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
   const [formData, setFormData] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (editingProduct) {
+      const data: Record<string, any> = {};
+      fields.forEach((f) => {
+        data[f.key] = (editingProduct as any)[f.key] ?? f.defaultValue ?? "";
+      });
+      setFormData(data);
+    } else {
       const data: Record<string, any> = {};
       fields.forEach((f) => {
         data[f.key] = f.defaultValue ?? (f.type === "switch" ? true : "");
       });
       setFormData(data);
     }
-  }, [open, fields]);
+  }, [open, fields, editingProduct]);
 
   const ruleResult = evaluateAllRules(rules, formData);
 
@@ -54,6 +65,12 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const invalidateProductQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["products-active"] });
+    queryClient.invalidateQueries({ queryKey: ["products-for-sale"] });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const { data: product, error } = await supabase
@@ -65,10 +82,30 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
       return product;
     },
     onSuccess: (product) => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-active"] });
-      queryClient.invalidateQueries({ queryKey: ["products-for-sale"] });
+      invalidateProductQueries();
       toast({ title: uiOverrides.successMessage || "Product created successfully" });
+      onOpenChange(false);
+      onSuccess?.(product.id);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      const { data: product, error } = await supabase
+        .from("products")
+        .update(data as TablesUpdate<"products">)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return product;
+    },
+    onSuccess: (product) => {
+      invalidateProductQueries();
+      toast({ title: uiOverrides.successMessage || "Product updated successfully" });
       onOpenChange(false);
       onSuccess?.(product.id);
     },
@@ -97,9 +134,14 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     const submitData = { ...formData };
     ruleResult.hiddenFields.forEach((key) => delete submitData[key]);
 
-    createMutation.mutate(submitData);
+    if (editingProduct) {
+      updateMutation.mutate({ id: editingProduct.id, data: submitData });
+    } else {
+      createMutation.mutate(submitData);
+    }
   };
 
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const visibleFields = fields.filter((f) => !ruleResult.hiddenFields.has(f.key));
 
   const gridClass = layout.columns === 3
@@ -112,9 +154,13 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{uiOverrides.formTitle || "Add New Product"}</DialogTitle>
-          {uiOverrides.formDescription && (
-            <DialogDescription>{uiOverrides.formDescription}</DialogDescription>
+          <DialogTitle>
+            {uiOverrides.formTitle || (editingProduct ? "Edit Product" : "Add New Product")}
+          </DialogTitle>
+          {(uiOverrides.formDescription || editingProduct) && (
+            <DialogDescription>
+              {uiOverrides.formDescription || "Update product information"}
+            </DialogDescription>
           )}
         </DialogHeader>
 
@@ -148,7 +194,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                           field={field}
                           value={formData[field.key]}
                           onChange={handleChange}
-                          disabled={createMutation.isPending}
+                          disabled={isSubmitting}
                           overrideRequired={
                             ruleResult.requiredFields.has(field.key)
                               ? true
@@ -171,7 +217,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                     field={field}
                     value={formData[field.key]}
                     onChange={handleChange}
-                    disabled={createMutation.isPending}
+                    disabled={isSubmitting}
                   />
                 </div>
               ))}
@@ -182,9 +228,9 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={createMutation.isPending || ruleResult.blockSubmit}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {uiOverrides.submitButtonText || "Add Product"}
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {uiOverrides.submitButtonText || (editingProduct ? "Update Product" : "Add Product")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Search, X, Check, UserPlus, Phone } from "lucide-react";
+import { Search, X, Check, UserPlus, Phone, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export interface PartyRecord {
@@ -24,6 +24,8 @@ interface Props {
   /** Called when the user opts to create a new entry. Receives whatever they typed
    *  so the form can be pre-seeded (name OR phone). */
   onCreateNew: (seed: { name?: string; phone?: string }) => void;
+  /** Called when the user wants to edit the currently-selected party (pencil icon or Ctrl+E). */
+  onEditSelected?: (party: PartyRecord) => void;
   placeholder?: string;
   /** Label used in the "create new" prompt, e.g. 'customer' or 'supplier' */
   entityLabel?: string;
@@ -35,7 +37,7 @@ interface Props {
 const isProbablyPhone = (s: string) => /^[\d+\-\s]{4,}$/.test(s.trim());
 
 export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function PartySearchInput(
-  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, className },
+  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, onEditSelected, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, className },
   ref
 ) {
   const [query, setQuery] = useState("");
@@ -157,16 +159,25 @@ export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function Pa
             if ((e.key === "n" || e.key === "N") && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               onCreateNew({});
-            }
-          }}
-          ref={(el) => {
-            // expose this element for focus when no query
-            if (el && enterNavInclude) {
-              // no-op; outer focus() handler hits inputRef which is the active editor
+            } else if ((e.key === "e" || e.key === "E") && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              const sel = parties?.find(p => p.id === selectedId);
+              if (sel && onEditSelected) onEditSelected(sel);
             }
           }}
         >
           <span className="truncate flex-1">{selectedName}</span>
+          {onEditSelected && (
+            <Pencil
+              className="h-3.5 w-3.5 mr-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer shrink-0 hover:text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                const sel = parties?.find(p => p.id === selectedId);
+                if (sel) onEditSelected(sel);
+              }}
+              aria-label={`Edit ${entityLabel}`}
+            />
+          )}
           <X
             className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
             onClick={(e) => { e.stopPropagation(); clearSelection(); }}

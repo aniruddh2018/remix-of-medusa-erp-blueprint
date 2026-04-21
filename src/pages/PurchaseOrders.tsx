@@ -99,8 +99,10 @@ export default function PurchaseOrders() {
 
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [supplierCreateSeed, setSupplierCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   // Bill-level discount
   const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
@@ -716,7 +718,19 @@ export default function PurchaseOrders() {
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
-  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  useKeyboardShortcut({ key: "F6", callback: () => { setEditingProduct(null); setShowProductDialog(true); }, enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  // Ctrl+E → quick edit the currently-selected product (or focus product search)
+  useKeyboardShortcut({
+    key: "e", modifiers: ["ctrl"],
+    callback: () => {
+      if (selectedProduct) {
+        const p = products?.find(p => p.id === selectedProduct);
+        if (p) { setEditingProduct(p); setShowProductDialog(true); return; }
+      }
+      productSearchRef.current?.focus();
+    },
+    enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true,
+  });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("po-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && orderItems.length > 0, allowInInput: true });
 
   const filteredOrders = purchaseOrders?.filter(order =>
@@ -799,9 +813,13 @@ export default function PurchaseOrders() {
                     setTimeout(() => docTypeTriggerRef.current?.focus(), 60);
                   }}
                   onClear={() => setSelectedSupplier("")}
-                  onCreateNew={(seed) => { setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                  onCreateNew={(seed) => { setEditingSupplier(null); setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                  onEditSelected={async (party) => {
+                    const { data } = await supabase.from("suppliers").select("*").eq("id", party.id).single();
+                    if (data) { setEditingSupplier(data as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
+                  }}
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditingSupplier(null); setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
               </div>
             </div>
             <div className="space-y-1">
@@ -862,9 +880,14 @@ export default function PurchaseOrders() {
                     <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                       showPrice priceType="purchase" placeholder="Search product..." />
                   </div>
-                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => setShowProductDialog(true)} data-enter-nav-skip="true" tabIndex={-1}>
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => { setEditingProduct(null); setShowProductDialog(true); }} data-enter-nav-skip="true" tabIndex={-1}>
                     <PlusCircle className="h-4 w-4" />
                   </Button>
+                  {selectedProduct && (
+                    <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="Edit selected product (Ctrl+E)" onClick={() => { const p = products?.find(p => p.id === selectedProduct); if (p) { setEditingProduct(p); setShowProductDialog(true); } }} data-enter-nav-skip="true" tabIndex={-1}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
               {(config.hasBatchTracking || settings.enable_batch_tracking) && (
@@ -1254,16 +1277,28 @@ export default function PurchaseOrders() {
         </DialogContent>
       </Dialog>
 
-      <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />
-      <SupplierFormDialog open={showSupplierDialog} onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) setSupplierCreateSeed({}); }} initialData={supplierCreateSeed} onSuccess={(id) => {
-        refetchSuppliers();
-        if (id) {
-          setSelectedSupplier(id);
-          setShowSupplierDialog(false);
-          setSupplierCreateSeed({});
-          setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
-        }
-      }} />
+      <ProductFormDialog
+        open={showProductDialog}
+        onOpenChange={(o) => { setShowProductDialog(o); if (!o) setEditingProduct(null); }}
+        editingProduct={editingProduct}
+        onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); setEditingProduct(null); }}
+      />
+      <SupplierFormDialog
+        open={showSupplierDialog}
+        onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) { setSupplierCreateSeed({}); setEditingSupplier(null); } }}
+        editingSupplier={editingSupplier}
+        initialData={supplierCreateSeed}
+        onSuccess={(id) => {
+          refetchSuppliers();
+          if (id) {
+            setSelectedSupplier(id);
+            setShowSupplierDialog(false);
+            setSupplierCreateSeed({});
+            setEditingSupplier(null);
+            setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
+          }
+        }}
+      />
       <ReceiveInventoryDialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen} orderId={selectedOrderForReceive?.id || null} supplierId={selectedOrderForReceive?.supplierId || null}
         onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); queryClient.invalidateQueries({ queryKey: ["inventory-batches"] }); }} />
       <LinkedChallansDialog open={linkedChallansDialogOpen} onOpenChange={setLinkedChallansDialogOpen} invoiceId={selectedInvoiceForChallans} />

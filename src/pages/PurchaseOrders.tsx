@@ -718,7 +718,19 @@ export default function PurchaseOrders() {
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
-  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  useKeyboardShortcut({ key: "F6", callback: () => { setEditingProduct(null); setShowProductDialog(true); }, enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  // Ctrl+E → quick edit the currently-selected product (or focus product search)
+  useKeyboardShortcut({
+    key: "e", modifiers: ["ctrl"],
+    callback: () => {
+      if (selectedProduct) {
+        const p = products?.find(p => p.id === selectedProduct);
+        if (p) { setEditingProduct(p); setShowProductDialog(true); return; }
+      }
+      productSearchRef.current?.focus();
+    },
+    enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true,
+  });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("po-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && orderItems.length > 0, allowInInput: true });
 
   const filteredOrders = purchaseOrders?.filter(order =>
@@ -801,9 +813,13 @@ export default function PurchaseOrders() {
                     setTimeout(() => docTypeTriggerRef.current?.focus(), 60);
                   }}
                   onClear={() => setSelectedSupplier("")}
-                  onCreateNew={(seed) => { setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                  onCreateNew={(seed) => { setEditingSupplier(null); setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                  onEditSelected={async (party) => {
+                    const { data } = await supabase.from("suppliers").select("*").eq("id", party.id).single();
+                    if (data) { setEditingSupplier(data as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
+                  }}
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditingSupplier(null); setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
               </div>
             </div>
             <div className="space-y-1">

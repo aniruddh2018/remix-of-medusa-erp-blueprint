@@ -817,6 +817,12 @@ export default function CounterSales() {
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("counter-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
   useKeyboardShortcut({ key: "F2", callback: () => addSlot(), enabled: activeTab === "billing", allowInInput: true });
+  // * — toggle return mode (next item added becomes a customer return)
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Ctrl+1..9 → switch to slot at that index (visible slot order)
   useEffect(() => {

@@ -112,17 +112,21 @@ const Reports = () => {
     enabled: !!companyId,
   });
 
-  // Fetch inventory batches for total value
+  // Fetch inventory batches for total value (with product + supplier for breakdowns)
   const { data: inventoryBatches = [] } = useQuery({
     queryKey: ["inventory-batches-report", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_batches")
-        .select("quantity, purchase_price, mrp")
+        .select(`
+          quantity, purchase_price, mrp,
+          product:products(name, manufacturer),
+          supplier:suppliers(name)
+        `)
         .eq("company_id", companyId!)
         .gt("quantity", 0);
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     enabled: !!companyId,
   });
@@ -132,6 +136,36 @@ const Reports = () => {
     const atMRP = inventoryBatches.reduce((sum, b) => sum + (b.quantity * Number(b.mrp)), 0);
     const totalUnits = inventoryBatches.reduce((sum, b) => sum + b.quantity, 0);
     return { atCost, atMRP, totalUnits };
+  }, [inventoryBatches]);
+
+  // Stock valuation grouped by manufacturer
+  const stockByManufacturer = useMemo(() => {
+    const grouped: Record<string, { name: string; units: number; atCost: number; atMRP: number; products: Set<string> }> = {};
+    inventoryBatches.forEach((b) => {
+      const name = b.product?.manufacturer || "Unknown";
+      if (!grouped[name]) grouped[name] = { name, units: 0, atCost: 0, atMRP: 0, products: new Set() };
+      grouped[name].units += b.quantity;
+      grouped[name].atCost += b.quantity * Number(b.purchase_price);
+      grouped[name].atMRP += b.quantity * Number(b.mrp);
+      if (b.product?.name) grouped[name].products.add(b.product.name);
+    });
+    return Object.values(grouped)
+      .map((g) => ({ ...g, productCount: g.products.size }))
+      .sort((a, b) => b.atCost - a.atCost);
+  }, [inventoryBatches]);
+
+  // Stock valuation grouped by supplier
+  const stockBySupplier = useMemo(() => {
+    const grouped: Record<string, { name: string; units: number; atCost: number; atMRP: number; batches: number }> = {};
+    inventoryBatches.forEach((b) => {
+      const name = b.supplier?.name || "Unknown";
+      if (!grouped[name]) grouped[name] = { name, units: 0, atCost: 0, atMRP: 0, batches: 0 };
+      grouped[name].units += b.quantity;
+      grouped[name].atCost += b.quantity * Number(b.purchase_price);
+      grouped[name].atMRP += b.quantity * Number(b.mrp);
+      grouped[name].batches += 1;
+    });
+    return Object.values(grouped).sort((a, b) => b.atCost - a.atCost);
   }, [inventoryBatches]);
 
   // Fetch suppliers
@@ -440,6 +474,91 @@ const Reports = () => {
             <p className="text-xs text-muted-foreground">
               {inventoryValue.atCost > 0 ? (((inventoryValue.atMRP - inventoryValue.atCost) / inventoryValue.atCost) * 100).toFixed(1) : 0}% markup
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stock Valuation by Manufacturer & Supplier */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Valuation by Manufacturer</CardTitle>
+            <CardDescription>Inventory value broken down per manufacturer (cost & MRP)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Manufacturer</TableHead>
+                    <TableHead className="text-right">Products</TableHead>
+                    <TableHead className="text-right">Units</TableHead>
+                    <TableHead className="text-right">Cost ₹</TableHead>
+                    <TableHead className="text-right">MRP ₹</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockByManufacturer.length > 0 ? (
+                    stockByManufacturer.map((m) => (
+                      <TableRow key={m.name}>
+                        <TableCell className="font-medium">{m.name}</TableCell>
+                        <TableCell className="text-right">{m.productCount}</TableCell>
+                        <TableCell className="text-right font-mono">{m.units.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">{m.atCost.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-right font-mono">{m.atMRP.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock data
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Valuation by Supplier</CardTitle>
+            <CardDescription>Inventory value broken down per supplier (cost & MRP)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead className="text-right">Batches</TableHead>
+                    <TableHead className="text-right">Units</TableHead>
+                    <TableHead className="text-right">Cost ₹</TableHead>
+                    <TableHead className="text-right">MRP ₹</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockBySupplier.length > 0 ? (
+                    stockBySupplier.map((s) => (
+                      <TableRow key={s.name}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell className="text-right">{s.batches}</TableCell>
+                        <TableCell className="text-right font-mono">{s.units.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">{s.atCost.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                        <TableCell className="text-right font-mono">{s.atMRP.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock data
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

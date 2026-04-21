@@ -859,7 +859,21 @@ export default function PurchaseOrders() {
             <div className="space-y-1">
               <Label className="text-[11px]">Doc Type</Label>
               <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => challanNumberRef.current?.focus(), 60); }}>
-                <SelectTrigger ref={docTypeTriggerRef} className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger
+                  ref={docTypeTriggerRef}
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => {
+                    // If dropdown is closed and value already set, Enter should advance to next field
+                    if (e.key === "Enter" && !e.shiftKey && e.currentTarget.getAttribute("aria-expanded") !== "true") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      challanNumberRef.current?.focus();
+                      challanNumberRef.current?.select();
+                    }
+                  }}
+                >
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="challan">Challan</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
@@ -872,7 +886,7 @@ export default function PurchaseOrders() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); deliveryDateRef.current?.focus(); } }} />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px]">Delivery Date</Label>
+              <Label className="text-[11px]">Invoice Date</Label>
               <Input ref={deliveryDateRef} type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="h-8 text-sm"
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); productSearchRef.current?.focus(); } }} />
             </div>

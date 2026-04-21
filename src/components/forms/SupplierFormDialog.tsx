@@ -25,6 +25,8 @@ interface SupplierFormDialogProps {
   onOpenChange: (open: boolean) => void;
   editingSupplier?: Supplier | null;
   onSuccess?: (supplierId: string) => void;
+  /** Optional seed values when creating a new supplier (e.g. typed name or phone) */
+  initialData?: Partial<Record<string, any>>;
 }
 
 export function SupplierFormDialog({
@@ -32,6 +34,7 @@ export function SupplierFormDialog({
   onOpenChange,
   editingSupplier,
   onSuccess,
+  initialData,
 }: SupplierFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,11 +53,12 @@ export function SupplierFormDialog({
     } else if (open) {
       const data: Record<string, any> = {};
       fields.forEach((f) => {
-        data[f.key] = f.defaultValue ?? (f.type === "switch" ? true : "");
+        const seeded = initialData?.[f.key];
+        data[f.key] = seeded !== undefined && seeded !== "" ? seeded : (f.defaultValue ?? (f.type === "switch" ? true : ""));
       });
       setFormData(data);
     }
-  }, [editingSupplier, open, fields]);
+  }, [editingSupplier, open, fields, initialData]);
 
   // Evaluate rules
   const ruleResult = evaluateAllRules(rules, formData);

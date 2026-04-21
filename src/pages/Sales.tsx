@@ -915,8 +915,18 @@ export default function Sales() {
                         setCustomerGstin("");
                       }}
                       onCreateNew={(seed) => {
+                        setEditingCustomer(null);
                         setCustomerCreateSeed(seed);
                         setShowCustomerDialog(true);
+                      }}
+                      onEditSelected={async (party) => {
+                        // Fetch full record for the form
+                        const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                        if (data) {
+                          setEditingCustomer(data as Tables<"customers">);
+                          setCustomerCreateSeed({});
+                          setShowCustomerDialog(true);
+                        }
                       }}
                     />
                    <Button
@@ -1259,22 +1269,30 @@ export default function Sales() {
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {postSaleDialog && <PostSalePaymentDialog open={!!postSaleDialog} onOpenChange={(o) => { if (!o) setPostSaleDialog(null); }} salesOrderId={postSaleDialog.id} invoiceNumber={postSaleDialog.invoice_number} customerName={postSaleDialog.customer_name} totalAmount={postSaleDialog.total_amount} defaultPaymentMethod={(settings.default_payment_method as "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other") || "cash"} />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) setCustomerCreateSeed({}); }} initialData={customerCreateSeed} onSuccess={(customerId) => {
-        queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
-        // Find the customer after refetch to populate fields
-        supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
-          if (data) {
-            setSelectedCustomerId(data.id);
-            setCustomerName(data.name);
-            setCustomerPhone(data.phone || "");
-            setCustomerAddress(data.address || "");
-            setCustomerGstin(data.gst_number || "");
-            setShowCustomerDialog(false);
-            setCustomerCreateSeed({});
-            setTimeout(() => productSearchRef.current?.focus(), 100);
-          }
-        });
-      }} />
+      <CustomerFormDialog
+        open={showCustomerDialog}
+        onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) { setCustomerCreateSeed({}); setEditingCustomer(null); } }}
+        editingCustomer={editingCustomer}
+        initialData={customerCreateSeed}
+        onSuccess={(customerId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+          // Refresh the active customer's fields with the latest record
+          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+            if (data) {
+              setSelectedCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+              setShowCustomerDialog(false);
+              setCustomerCreateSeed({});
+              setEditingCustomer(null);
+              setTimeout(() => productSearchRef.current?.focus(), 100);
+            }
+          });
+        }}
+      />
       <CustomerHistoryDialog
         open={historyOpen}
         onOpenChange={setHistoryOpen}

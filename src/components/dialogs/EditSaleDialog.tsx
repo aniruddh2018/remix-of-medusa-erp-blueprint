@@ -597,7 +597,42 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer *</Label>
-                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10" />
+                <PartySearchInput
+                  parties={customers as PartyRecord[] | undefined}
+                  selectedId={customerId}
+                  selectedName={customerName}
+                  entityLabel="customer"
+                  enterNavInclude
+                  placeholder="Type customer name or phone…"
+                  onSelect={(p) => {
+                    const c = customers?.find((x) => x.id === p.id);
+                    setCustomerId(p.id);
+                    setCustomerName(p.name);
+                    setCustomerPhone(c?.phone || "");
+                    setCustomerAddress(c?.address || "");
+                    setCustomerGstin(c?.gst_number || "");
+                  }}
+                  onClear={() => {
+                    setCustomerId(null);
+                    setCustomerName("");
+                    setCustomerPhone("");
+                    setCustomerAddress("");
+                    setCustomerGstin("");
+                  }}
+                  onCreateNew={(seed) => {
+                    setEditingCustomer(null);
+                    setCustomerFormSeed(seed);
+                    setCustomerFormOpen(true);
+                  }}
+                  onEditSelected={(p) => {
+                    const c = customers?.find((x) => x.id === p.id);
+                    if (c) {
+                      setEditingCustomer(c);
+                      setCustomerFormSeed({});
+                      setCustomerFormOpen(true);
+                    }
+                  }}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Payment</Label>

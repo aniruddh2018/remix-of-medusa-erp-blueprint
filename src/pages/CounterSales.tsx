@@ -225,7 +225,7 @@ export default function CounterSales() {
     setTimeout(() => {
       const hasCustomer = !!selectedCustomerId || !!customerName.trim();
       if (!hasCustomer) {
-        customerButtonRef.current?.focus();
+        customerSearchRef.current?.focus();
       } else {
         productSearchRef.current?.focus();
       }
@@ -238,10 +238,9 @@ export default function CounterSales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored, activeSlotId]);
 
-  // Register Counter module with global focus tracker
   useModuleFocus({
     module: "counter",
-    getEntryPoint: () => customerButtonRef.current,
+    getEntryPoint: () => (customerSearchRef.current as unknown as HTMLElement) || customerButtonRef.current,
     getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });

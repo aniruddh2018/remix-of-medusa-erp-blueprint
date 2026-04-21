@@ -1028,11 +1028,17 @@ export default function Sales() {
                   </Button>
                 </div>
               </div>
+              {(() => {
+                const entryDisabled = !selectedProduct || (availableStock <= 0 && !settings.allow_negative_stock && !returnMode);
+                return (
+                  <>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" id="sale-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
+                  title={entryDisabled ? "Select an in-stock product first" : ""}
                   className="h-9" placeholder="1"
                 />
               </div>
@@ -1042,6 +1048,7 @@ export default function Sales() {
                   <Input type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
@@ -1051,6 +1058,7 @@ export default function Sales() {
                 <Input type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
                   className="h-9" placeholder="0.00"
                 />
               </div>
@@ -1060,10 +1068,14 @@ export default function Sales() {
                   <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
               )}
+                  </>
+                );
+              })()}
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">

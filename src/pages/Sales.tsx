@@ -985,6 +985,14 @@ export default function Sales() {
           </div>
 
           {/* Product entry bar — MARG-style inline */}
+          {returnMode && (
+            <div className="rounded-md border-2 border-destructive bg-destructive/10 px-3 py-2 flex items-center justify-between animate-pulse">
+              <span className="text-xs font-semibold text-destructive flex items-center gap-2">
+                🔁 RETURN MODE — next item will be added as a customer return (stock restored, total subtracted)
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setReturnMode(false)}>Cancel (*)</Button>
+            </div>
+          )}
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>

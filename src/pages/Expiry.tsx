@@ -74,6 +74,7 @@ export default function Expiry() {
   const [disposeQty, setDisposeQty] = useState<string>("");
   const [lossRows, setLossRows] = useState<LossRow[]>([]);
   const [lossLoading, setLossLoading] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<SupplierReturnBatch | null>(null);
 
   const fetchExpiryItems = async () => {
     if (!companyId) return;

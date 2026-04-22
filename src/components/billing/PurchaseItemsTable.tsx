@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Lock } from "lucide-react";
+import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
 
 interface PurchaseItem {
   product_id: string;
@@ -96,11 +97,9 @@ export function PurchaseItemsTable({
                 {item.fromChallan ? (
                   <span className="text-xs text-muted-foreground">{item.expiry_date ? item.expiry_date.slice(0, 7) : "-"}</span>
                 ) : (
-                  <Input
-                    type="month"
-                    value={item.expiry_date ? item.expiry_date.slice(0, 7) : ""}
-                    onChange={(e) => onUpdateItem(index, "expiry_date", e.target.value ? `${e.target.value}-01` : "")}
-                    className="w-28 h-7 text-xs"
+                  <ExpiryMMYYInput
+                    value={item.expiry_date}
+                    onChange={(iso) => onUpdateItem(index, "expiry_date", iso)}
                   />
                 )}
               </TableCell>

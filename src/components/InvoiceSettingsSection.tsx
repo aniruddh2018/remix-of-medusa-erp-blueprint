@@ -385,6 +385,41 @@ export function InvoiceSettingsSection() {
               </div>
             </div>
 
+            {config.hasDrugSchedule && (
+              <>
+                <Separator />
+                <div>
+                  <h3 className="font-semibold text-sm mb-1 flex items-center gap-2">
+                    <Pill className="h-4 w-4" />
+                    Prescription Check (per Schedule)
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    When enabled, sales of products in that schedule require a Doctor, Prescription Date and Duration.
+                    Admins can override warnings; staff & pharmacists are blocked.
+                  </p>
+                  <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                    {(["schedule_h", "schedule_h1", "schedule_x", "narcotic"] as const).map((key) => (
+                      <div key={key} className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <Label className="cursor-pointer text-sm">{SCHEDULE_LABELS[key].label}</Label>
+                          <p className="text-xs text-muted-foreground">{SCHEDULE_LABELS[key].hint}</p>
+                        </div>
+                        <Switch
+                          checked={!!form.prescription_check[key]}
+                          onCheckedChange={(v) =>
+                            setForm((f) => ({
+                              ...f,
+                              prescription_check: { ...f.prescription_check, [key]: v },
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             <Separator />
 
             {/* Bank Details */}

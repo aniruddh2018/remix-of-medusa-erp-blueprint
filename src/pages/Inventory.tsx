@@ -298,7 +298,9 @@ export default function Inventory() {
         open={!!batchProduct}
         onOpenChange={(open) => !open && setBatchProduct(null)}
         productName={batchProduct?.product_name || ""}
-        batches={batchProduct?.batches || []}
+        productId={batchProduct?.product_id}
+        batches={(batchProduct?.batches || []).map((b: any) => ({ ...b, product_id: batchProduct?.product_id }))}
+        onChanged={() => fetchInventory()}
       />
     </div>
   );

@@ -547,14 +547,31 @@ export default function Sales() {
       const gstAmount = totalGst;
       const totalAmount = grandTotal;
 
-      // Doctor required for scheduled drugs (pharmacy businesses only)
+      // Per-schedule prescription check (configurable per pharmacy in Settings)
       if (config.hasDrugSchedule) {
-        const scheduledInCart = cart.some(i => {
+        const rxCheck = settings.prescription_check || {};
+        const triggeredSchedules = new Set<string>();
+        for (const i of cart) {
           const p = products?.find(pp => pp.id === i.product_id);
-          return p && p.drug_schedule && p.drug_schedule !== 'none';
-        });
-        if (scheduledInCart && !doctor.name.trim()) {
-          throw new Error("Doctor is required when selling scheduled drugs (Schedule H/H1/X/Narcotic).");
+          if (p && p.drug_schedule && p.drug_schedule !== 'none' && (rxCheck as Record<string, boolean>)[p.drug_schedule]) {
+            triggeredSchedules.add(p.drug_schedule);
+          }
+        }
+        if (triggeredSchedules.size > 0) {
+          const missing: string[] = [];
+          if (!doctor.name.trim()) missing.push("Doctor");
+          if (!prescriptionDate) missing.push("Prescription Date");
+          if (!prescriptionDurationDays || parseInt(prescriptionDurationDays, 10) <= 0) missing.push("Prescription Duration");
+          if (missing.length > 0) {
+            const scheduleList = Array.from(triggeredSchedules).map(s => s.replace('schedule_', 'Schedule ').replace('Schedule h1', 'Schedule H1').replace('Schedule h', 'Schedule H').replace('Schedule x', 'Schedule X').replace('narcotic', 'Narcotic')).join(", ");
+            const msg = `${missing.join(", ")} required for ${scheduleList}.`;
+            if (isAdmin) {
+              const ok = window.confirm(`${msg}\n\nAs Admin you may override and proceed. Continue anyway?`);
+              if (!ok) throw new Error(msg);
+            } else {
+              throw new Error(`${msg} Ask an admin to override.`);
+            }
+          }
         }
       }
 
@@ -562,6 +579,8 @@ export default function Sales() {
         invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
         customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
         prescription_number: prescriptionNumber || null,
+        prescription_date: prescriptionDate || null,
+        prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
         doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
         notes: notes || null,
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,

@@ -996,19 +996,54 @@ export default function Sales() {
                 <Input value={prescriptionNumber} onChange={e => setPrescriptionNumber(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
-            {config.hasDrugSchedule && (
-              <div className="md:col-span-2 space-y-1">
-                <DoctorSelector
-                  value={doctor}
-                  onChange={setDoctor}
-                  required={cart.some(i => {
-                    const p = products?.find(pp => pp.id === i.product_id);
-                    return p && p.drug_schedule && p.drug_schedule !== 'none';
-                  })}
-                  onSelected={focusProductSearch}
-                />
-              </div>
-            )}
+            {config.hasDrugSchedule && (() => {
+              const rxCheck = (settings.prescription_check || {}) as Record<string, boolean>;
+              const rxRequired = cart.some(i => {
+                const p = products?.find(pp => pp.id === i.product_id);
+                return p && p.drug_schedule && p.drug_schedule !== 'none' && rxCheck[p.drug_schedule];
+              });
+              return (
+                <>
+                  <div className="md:col-span-2 space-y-1">
+                    <DoctorSelector
+                      value={doctor}
+                      onChange={setDoctor}
+                      required={rxRequired}
+                      onSelected={focusProductSearch}
+                    />
+                  </div>
+                  {rxRequired && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">
+                          Rx Date <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="date"
+                          value={prescriptionDate}
+                          onChange={(e) => setPrescriptionDate(e.target.value)}
+                          max={new Date().toISOString().slice(0, 10)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">
+                          Duration (days) <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={prescriptionDurationDays}
+                          onChange={(e) => setPrescriptionDurationDays(e.target.value)}
+                          placeholder="e.g. 7"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             <div className="flex items-end gap-2">
               <div className="flex items-center gap-1.5">
                 <Switch id="no-gst" checked={noGstBill} onCheckedChange={(v) => {

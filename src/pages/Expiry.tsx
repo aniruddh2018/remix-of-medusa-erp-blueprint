@@ -32,8 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown } from "lucide-react";
+import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown, RotateCcw } from "lucide-react";
 import { format, addDays, isBefore, differenceInDays } from "date-fns";
+import { SupplierReturnDialog, type SupplierReturnBatch } from "@/components/dialogs/SupplierReturnDialog";
 
 interface ExpiryItem {
   id: string;

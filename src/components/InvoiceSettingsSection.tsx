@@ -12,10 +12,17 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, FileText, Percent, BadgePercent } from "lucide-react";
+import { Save, Loader2, FileText, Percent, BadgePercent, Pill } from "lucide-react";
+
+const SCHEDULE_LABELS: Record<string, { label: string; hint: string }> = {
+  schedule_h: { label: "Schedule H", hint: "Most prescription drugs (antibiotics, antihypertensives, etc.)" },
+  schedule_h1: { label: "Schedule H1", hint: "Higher-risk antibiotics & habit-forming drugs (register required)" },
+  schedule_x: { label: "Schedule X", hint: "Psychotropic drugs (strict register, 2-yr record)" },
+  narcotic: { label: "Narcotic", hint: "NDPS Act controlled — strictest compliance" },
+};
 
 export function InvoiceSettingsSection() {
-  const { companyId } = useBusiness();
+  const { companyId, config } = useBusiness();
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -59,6 +66,12 @@ export function InvoiceSettingsSection() {
     show_gst_split: true,
     show_salesperson: false,
     allow_negative_stock: false,
+    prescription_check: {
+      schedule_h: false,
+      schedule_h1: true,
+      schedule_x: true,
+      narcotic: true,
+    } as Record<string, boolean>,
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -117,6 +130,12 @@ export function InvoiceSettingsSection() {
         show_gst_split: s.show_gst_split ?? true,
         show_salesperson: s.show_salesperson ?? false,
         allow_negative_stock: s.allow_negative_stock ?? false,
+        prescription_check: {
+          schedule_h: s.prescription_check?.schedule_h ?? false,
+          schedule_h1: s.prescription_check?.schedule_h1 ?? true,
+          schedule_x: s.prescription_check?.schedule_x ?? true,
+          narcotic: s.prescription_check?.narcotic ?? true,
+        },
       });
     }
   }, [settings]);
@@ -365,6 +384,41 @@ export function InvoiceSettingsSection() {
                 </div>
               </div>
             </div>
+
+            {config.hasDrugSchedule && (
+              <>
+                <Separator />
+                <div>
+                  <h3 className="font-semibold text-sm mb-1 flex items-center gap-2">
+                    <Pill className="h-4 w-4" />
+                    Prescription Check (per Schedule)
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    When enabled, sales of products in that schedule require a Doctor, Prescription Date and Duration.
+                    Admins can override warnings; staff & pharmacists are blocked.
+                  </p>
+                  <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                    {(["schedule_h", "schedule_h1", "schedule_x", "narcotic"] as const).map((key) => (
+                      <div key={key} className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <Label className="cursor-pointer text-sm">{SCHEDULE_LABELS[key].label}</Label>
+                          <p className="text-xs text-muted-foreground">{SCHEDULE_LABELS[key].hint}</p>
+                        </div>
+                        <Switch
+                          checked={!!form.prescription_check[key]}
+                          onCheckedChange={(v) =>
+                            setForm((f) => ({
+                              ...f,
+                              prescription_check: { ...f.prescription_check, [key]: v },
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <Separator />
 

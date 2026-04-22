@@ -876,6 +876,7 @@ export type Database = {
           max_discount_admin: number
           max_discount_pharmacist: number
           max_discount_staff: number
+          prescription_check: Json
           print_alignment: string
           print_font_size: string
           show_amount_in_words: boolean | null
@@ -931,6 +932,7 @@ export type Database = {
           max_discount_admin?: number
           max_discount_pharmacist?: number
           max_discount_staff?: number
+          prescription_check?: Json
           print_alignment?: string
           print_font_size?: string
           show_amount_in_words?: boolean | null
@@ -986,6 +988,7 @@ export type Database = {
           max_discount_admin?: number
           max_discount_pharmacist?: number
           max_discount_staff?: number
+          prescription_check?: Json
           print_alignment?: string
           print_font_size?: string
           show_amount_in_words?: boolean | null
@@ -1524,6 +1527,8 @@ export type Database = {
           other_charges: number
           payment_method: string | null
           payment_status: string
+          prescription_date: string | null
+          prescription_duration_days: number | null
           prescription_number: string | null
           reminder_enabled: boolean
           sale_date: string
@@ -1557,6 +1562,8 @@ export type Database = {
           other_charges?: number
           payment_method?: string | null
           payment_status?: string
+          prescription_date?: string | null
+          prescription_duration_days?: number | null
           prescription_number?: string | null
           reminder_enabled?: boolean
           sale_date?: string
@@ -1590,6 +1597,8 @@ export type Database = {
           other_charges?: number
           payment_method?: string | null
           payment_status?: string
+          prescription_date?: string | null
+          prescription_duration_days?: number | null
           prescription_number?: string | null
           reminder_enabled?: boolean
           sale_date?: string

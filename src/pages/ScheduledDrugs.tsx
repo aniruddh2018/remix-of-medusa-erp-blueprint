@@ -23,8 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Pill, Loader2, FileText, ClipboardList } from "lucide-react";
+import { Search, Pill, Loader2, FileText, ClipboardList, Download, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { generateScheduledRegisterPdf } from "@/utils/scheduledRegisterPdf";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const scheduleLabels: Record<string, string> = {
   schedule_h: "Schedule H",

@@ -1878,6 +1878,16 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      process_supplier_return: {
+        Args: {
+          _batch_id: string
+          _debit_note_id?: string
+          _notes?: string
+          _quantity: number
+          _reason: string
+        }
+        Returns: Json
+      }
       receive_purchase_batches: {
         Args: { _batches: Json; _purchase_order_id?: string }
         Returns: Json

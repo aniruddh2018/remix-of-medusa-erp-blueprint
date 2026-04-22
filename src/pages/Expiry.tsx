@@ -32,8 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown } from "lucide-react";
+import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown, RotateCcw } from "lucide-react";
 import { format, addDays, isBefore, differenceInDays } from "date-fns";
+import { SupplierReturnDialog, type SupplierReturnBatch } from "@/components/dialogs/SupplierReturnDialog";
 
 interface ExpiryItem {
   id: string;
@@ -42,6 +43,8 @@ interface ExpiryItem {
   expiry_date: string;
   mrp: number;
   purchase_price: number;
+  supplier_id: string | null;
+  supplier?: { name: string } | null;
   product: {
     id: string;
     name: string;
@@ -71,6 +74,7 @@ export default function Expiry() {
   const [disposeQty, setDisposeQty] = useState<string>("");
   const [lossRows, setLossRows] = useState<LossRow[]>([]);
   const [lossLoading, setLossLoading] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<SupplierReturnBatch | null>(null);
 
   const fetchExpiryItems = async () => {
     if (!companyId) return;
@@ -84,6 +88,8 @@ export default function Expiry() {
           expiry_date,
           mrp,
           purchase_price,
+          supplier_id,
+          supplier:suppliers(name),
           product:products(id, name, manufacturer)
         `)
         .eq("company_id", companyId)
@@ -391,23 +397,44 @@ export default function Expiry() {
                               )}
                             </TableCell>
                             <TableCell className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">
-                              {status.isExpired ? (
+                              <div className="flex gap-1 justify-end">
                                 <Button
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm"
-                                  disabled={disposing === item.id}
-                                  onClick={() => openDispose(item)}
+                                  onClick={() => setReturnTarget({
+                                    id: item.id,
+                                    batch_number: item.batch_number,
+                                    quantity: item.quantity,
+                                    expiry_date: item.expiry_date,
+                                    purchase_price: item.purchase_price,
+                                    mrp: item.mrp,
+                                    product_id: item.product.id,
+                                    product_name: item.product.name,
+                                    manufacturer: item.product.manufacturer,
+                                    supplier_id: item.supplier_id,
+                                    supplier_name: item.supplier?.name,
+                                  })}
                                   className="h-7 px-2 text-xs"
+                                  title="Return to supplier"
                                 >
-                                  {disposing === item.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
-                                  )}
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Return
                                 </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
+                                {status.isExpired && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={disposing === item.id}
+                                    onClick={() => openDispose(item)}
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    {disposing === item.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -516,6 +543,13 @@ export default function Expiry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SupplierReturnDialog
+        open={!!returnTarget}
+        onOpenChange={(o) => !o && setReturnTarget(null)}
+        batch={returnTarget}
+        onSuccess={() => { fetchExpiryItems(); fetchLossSummary(); }}
+      />
     </div>
   );
 }

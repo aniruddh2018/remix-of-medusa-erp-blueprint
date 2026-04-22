@@ -397,23 +397,44 @@ export default function Expiry() {
                               )}
                             </TableCell>
                             <TableCell className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">
-                              {status.isExpired ? (
+                              <div className="flex gap-1 justify-end">
                                 <Button
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm"
-                                  disabled={disposing === item.id}
-                                  onClick={() => openDispose(item)}
+                                  onClick={() => setReturnTarget({
+                                    id: item.id,
+                                    batch_number: item.batch_number,
+                                    quantity: item.quantity,
+                                    expiry_date: item.expiry_date,
+                                    purchase_price: item.purchase_price,
+                                    mrp: item.mrp,
+                                    product_id: item.product.id,
+                                    product_name: item.product.name,
+                                    manufacturer: item.product.manufacturer,
+                                    supplier_id: item.supplier_id,
+                                    supplier_name: item.supplier?.name,
+                                  })}
                                   className="h-7 px-2 text-xs"
+                                  title="Return to supplier"
                                 >
-                                  {disposing === item.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
-                                  )}
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Return
                                 </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
+                                {status.isExpired && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={disposing === item.id}
+                                    onClick={() => openDispose(item)}
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    {disposing === item.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

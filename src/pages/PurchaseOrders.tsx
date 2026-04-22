@@ -292,7 +292,7 @@ export default function PurchaseOrders() {
         const batchInput = container.querySelector<HTMLElement>('input[placeholder*="batch" i], input[placeholder*="Batch" i]');
         const target =
           batchInput ||
-          container.querySelector<HTMLElement>('input[type="month"]') ||
+          container.querySelector<HTMLElement>('input[aria-label="Expiry month"]') ||
           container.querySelector<HTMLElement>('#po-price-input');
         target?.focus();
         if (target instanceof HTMLInputElement) target.select();

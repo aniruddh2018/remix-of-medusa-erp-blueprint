@@ -88,6 +88,8 @@ export default function Expiry() {
           expiry_date,
           mrp,
           purchase_price,
+          supplier_id,
+          supplier:suppliers(name),
           product:products(id, name, manufacturer)
         `)
         .eq("company_id", companyId)

@@ -543,6 +543,13 @@ export default function Expiry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SupplierReturnDialog
+        open={!!returnTarget}
+        onOpenChange={(o) => !o && setReturnTarget(null)}
+        batch={returnTarget}
+        onSuccess={() => { fetchExpiryItems(); fetchLossSummary(); }}
+      />
     </div>
   );
 }

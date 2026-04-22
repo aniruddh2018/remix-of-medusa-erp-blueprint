@@ -80,6 +80,8 @@ export default function Sales() {
   const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
   const [doctor, setDoctor] = useState<{ id: string | null; name: string; registration_number: string }>({ id: null, name: "", registration_number: "" });
+  const [prescriptionDate, setPrescriptionDate] = useState<string>("");
+  const [prescriptionDurationDays, setPrescriptionDurationDays] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export default function Sales() {
   });
 
 
-  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
+  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
 
   const { clearDraft } = useDraftSave("draft_sale", saleDraft, (draft) => {
     if (draft.cart?.length > 0 || draft.customerName || draft.invoiceNumber) {
@@ -134,6 +136,8 @@ export default function Sales() {
       setCustomerAddress(draft.customerAddress || "");
       setCustomerGstin(draft.customerGstin || "");
       setPrescriptionNumber(draft.prescriptionNumber || "");
+      setPrescriptionDate(draft.prescriptionDate || "");
+      setPrescriptionDurationDays(draft.prescriptionDurationDays || "");
       if (draft.doctor) setDoctor(draft.doctor);
       setNotes(draft.notes || "");
       setFreightCharges(draft.freightCharges || 0);
@@ -660,6 +664,8 @@ export default function Sales() {
     setCustomerAddress("");
     setCustomerGstin("");
     setPrescriptionNumber("");
+    setPrescriptionDate("");
+    setPrescriptionDurationDays("");
     setDoctor({ id: null, name: "", registration_number: "" });
     setNotes("");
     setSelectedProduct("");

@@ -24,6 +24,12 @@ interface CartItem {
   expiry_date: string;
   /** When true, this line is a customer return (refund) — restores inventory and subtracts from total */
   is_return?: boolean;
+  /** Unit the line was billed in (e.g. "strip"). If absent, falls back to base unit. */
+  sold_unit?: string;
+  /** Base-unit equivalent of `quantity + free_quantity` (e.g. 2 strips × 10 = 20 tablets) */
+  base_quantity?: number;
+  /** Product's base unit, for the "(20 tab)" hint */
+  base_unit?: string;
 }
 
 interface SalesItemsTableProps {
@@ -88,6 +94,12 @@ export function SalesItemsTable({
                     </Badge>
                   )}
                   <span className="text-sm">{item.product_name}</span>
+                  {item.sold_unit && item.base_unit && item.sold_unit.toLowerCase() !== item.base_unit.toLowerCase() && (
+                    <Badge variant="outline" className="ml-1 text-[10px] py-0 capitalize">
+                      {item.sold_unit}
+                      {item.base_quantity ? ` · ${item.base_quantity} ${item.base_unit}` : ""}
+                    </Badge>
+                  )}
                   {!item.is_return && isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">No Stock</Badge>}
                   {!item.is_return && isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">{totalNeeded}/{item.max_quantity}</Badge>}
                 </TableCell>

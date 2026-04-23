@@ -1291,6 +1291,20 @@ export default function CounterSales() {
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        batchId={selectedBatchId}
+                        value={itemUnit || baseUnit}
+                        onChange={setItemUnit}
+                      />
+                    );
+                  })()}
                   {selectedProduct && batchesForProduct.length > 0 && (
                     <BatchSelector
                       batches={batchesForProduct}

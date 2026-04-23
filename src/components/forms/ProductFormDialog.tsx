@@ -297,6 +297,13 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
             </div>
           )}
 
+          {editingProduct && companyId && (
+            <ProductConversionsEditor
+              productId={editingProduct.id}
+              companyId={companyId}
+              baseUnit={(editingProduct as any).base_unit || editingProduct.unit || "pcs"}
+            />
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}

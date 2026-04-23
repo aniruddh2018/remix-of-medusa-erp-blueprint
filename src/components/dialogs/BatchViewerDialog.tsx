@@ -11,6 +11,8 @@ interface Batch {
   id: string;
   batch_number: string;
   quantity: number;
+  loose_quantity?: number;
+  pack_size?: number | null;
   expiry_date: string | null;
   manufacturing_date: string | null;
   purchase_price: number;
@@ -49,7 +51,10 @@ export function BatchViewerDialog({ open, onOpenChange, productName, productId, 
                 <TableRow>
                   <TableHead>Batch #</TableHead>
                   <TableHead>Supplier</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Packing</TableHead>
+                  <TableHead className="text-right">Sealed</TableHead>
+                  <TableHead className="text-right">Loose</TableHead>
+                  <TableHead className="text-right">Total Base</TableHead>
                   <TableHead className="text-right">Purchase ₹</TableHead>
                   <TableHead className="text-right">MRP ₹</TableHead>
                   <TableHead>Received</TableHead>
@@ -67,7 +72,14 @@ export function BatchViewerDialog({ open, onOpenChange, productName, productId, 
                     <TableRow key={b.id}>
                       <TableCell className="font-mono text-xs">{b.batch_number}</TableCell>
                       <TableCell>{b.supplier?.name || "—"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {b.pack_size && b.pack_size > 1 ? `${b.pack_size}/pack` : "loose"}
+                      </TableCell>
                       <TableCell className="text-right font-mono">{b.quantity}</TableCell>
+                      <TableCell className="text-right font-mono">{b.loose_quantity ?? 0}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {b.quantity * (b.pack_size && b.pack_size > 0 ? b.pack_size : 1) + (b.loose_quantity ?? 0)}
+                      </TableCell>
                       <TableCell className="text-right font-mono">{Number(b.purchase_price).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">{Number(b.mrp).toFixed(2)}</TableCell>
                       <TableCell className="text-xs">{format(new Date(b.received_date), "dd/MM/yy")}</TableCell>

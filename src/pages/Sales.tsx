@@ -255,7 +255,7 @@ export default function Sales() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     // Guard 1: must have a product selected
     if (!selectedProduct) {
       toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
@@ -269,7 +269,7 @@ export default function Sales() {
       return;
     }
 
-    // Guard 2: quantity must be > 0 — refocus Product per spec
+    // Guard 2: quantity must be > 0
     if (itemQuantity <= 0) {
       toast({ title: "Quantity required", description: "Enter a quantity greater than 0.", variant: "destructive" });
       productSearchRef.current?.focus();
@@ -277,10 +277,12 @@ export default function Sales() {
     }
 
     const isReturn = returnMode;
+    const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
+    const soldUnit = (itemUnit || baseUnit).toLowerCase();
+    const needsConversion = soldUnit !== baseUnit;
 
-    // For RETURNS: skip stock checks (we're putting stock back). Use selected batch or first available batch (incl. zero/expired).
+    // For RETURNS: skip stock checks
     if (!isReturn) {
-      // Block when no stock and negative stock is not allowed
       if (batchesForProduct.length === 0 || availableStock <= 0) {
         if (!settings.allow_negative_stock) {
           toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
@@ -292,11 +294,51 @@ export default function Sales() {
       }
     }
 
-    const totalNeeded = itemQuantity + itemFreeQty;
+    // Resolve conversion factor (sold → base). For non-base units we REQUIRE a specific batch
+    // so the conversion is unambiguous (different batches can have different pack sizes).
+    let factor = 1;
+    let batchForConversion = selectedBatchId;
+    if (needsConversion) {
+      if (!batchForConversion) {
+        // Auto-pick first batch by FEFO so a single strip→tablet conversion is unambiguous.
+        const sorted = [...batchesForProduct].sort((a, b) => {
+          if (!a.expiry_date && !b.expiry_date) return 0;
+          if (!a.expiry_date) return 1;
+          if (!b.expiry_date) return -1;
+          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        });
+        batchForConversion = sorted[0]?.id ?? null;
+      }
+      if (!batchForConversion) {
+        toast({ title: "Select a batch", description: `To sell in ${soldUnit}, please pick a specific batch (different batches may have different pack sizes).`, variant: "destructive" });
+        return;
+      }
+      try {
+        const conv = await resolveConversion({
+          companyId: companyId!,
+          productId: product.id,
+          batchId: batchForConversion,
+          fromUnit: soldUnit,
+          toUnit: baseUnit,
+        });
+        factor = conv.toBase(1); // how many base units per 1 sold unit
+        if (factor <= 0) throw new Error("Invalid factor");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
+        return;
+      }
+    }
 
-    // Guard 3: only enforce stock for sales lines, not returns
-    if (!isReturn && totalNeeded > availableStock && !settings.allow_negative_stock) {
-      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+    // BASE-unit totals used for stock checks and allocations
+    const baseQtyMain = itemQuantity * factor;
+    const baseQtyFree = (itemFreeQty || 0) * factor;
+    const totalBaseNeeded = baseQtyMain + baseQtyFree;
+    const totalNeeded = itemQuantity + (itemFreeQty || 0); // user-unit total (for cart UI)
+
+    // Guard 3: stock check in base units
+    if (!isReturn && totalBaseNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} ${baseUnit} available.`, variant: "destructive" });
       const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
       qtyEl?.focus();
       qtyEl?.select();
@@ -306,10 +348,9 @@ export default function Sales() {
     let allocationResult;
 
     if (isReturn) {
-      // RETURN: pick a batch to credit the return into. Prefer manually-selected, else any existing batch (FEFO), else create a synthetic single allocation pointing to first batch.
-      const targetBatch = selectedBatchId
+      const targetBatch = (selectedBatchId
         ? batchesForProduct.find(b => b.id === selectedBatchId)
-        : batchesForProduct[0];
+        : batchesForProduct[0]);
       if (!targetBatch) {
         toast({ title: "No batch to credit", description: "This product has no existing batch to return into. Receive stock first or pick a batch.", variant: "destructive" });
         productSearchRef.current?.focus();
@@ -320,27 +361,30 @@ export default function Sales() {
         allocations: [{
           batch_id: targetBatch.id,
           batch_number: targetBatch.batch_number,
-          quantity: totalNeeded,
+          quantity: totalBaseNeeded,
           available_quantity: targetBatch.quantity,
           expiry_date: targetBatch.expiry_date,
           mrp: Number(targetBatch.mrp),
           purchase_price: Number(targetBatch.purchase_price),
+          pack_size: targetBatch.pack_size,
         }],
-        totalAllocated: totalNeeded,
+        totalAllocated: totalBaseNeeded,
         shortfall: 0,
       };
-    } else if (selectedBatchId) {
-      // Manual batch override for a sale line
-      const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
+    } else if (needsConversion || selectedBatchId) {
+      // Forced single-batch path (manual override OR unit conversion)
+      const chosenId = batchForConversion || selectedBatchId;
+      const chosen = batchesForProduct.find(b => b.id === chosenId);
       if (!chosen) {
         toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
         setSelectedBatchId(null);
         return;
       }
-      const cartQty = existingCartQuantities.get(chosen.id) || 0;
-      const availInBatch = Math.max(0, chosen.quantity - cartQty);
-      if (totalNeeded > availInBatch && !settings.allow_negative_stock) {
-        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatch} in batch ${chosen.batch_number}.`, variant: "destructive" });
+      const cartBaseInBatch = existingCartQuantities.get(chosen.id) || 0;
+      const pack = chosen.pack_size && chosen.pack_size > 0 ? chosen.pack_size : 1;
+      const availInBatchBase = Math.max(0, chosen.quantity * pack + (chosen.loose_quantity || 0) - cartBaseInBatch);
+      if (totalBaseNeeded > availInBatchBase && !settings.allow_negative_stock) {
+        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatchBase} ${baseUnit} in batch ${chosen.batch_number}.`, variant: "destructive" });
         const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
         qtyEl?.focus(); qtyEl?.select();
         return;
@@ -350,17 +394,19 @@ export default function Sales() {
         allocations: [{
           batch_id: chosen.id,
           batch_number: chosen.batch_number,
-          quantity: totalNeeded,
-          available_quantity: chosen.quantity,
+          quantity: totalBaseNeeded,
+          available_quantity: chosen.quantity * pack + (chosen.loose_quantity || 0),
           expiry_date: chosen.expiry_date,
           mrp: Number(chosen.mrp),
           purchase_price: Number(chosen.purchase_price),
+          pack_size: chosen.pack_size,
         }],
-        totalAllocated: totalNeeded,
+        totalAllocated: totalBaseNeeded,
         shortfall: 0,
       };
     } else {
-      allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
+      // Default FEFO across batches (base-unit aware)
+      allocationResult = allocateBatchesFIFO(batchesForProduct, totalBaseNeeded, existingCartQuantities);
       if (!allocationResult.success && !settings.allow_negative_stock) {
         toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
         const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
@@ -375,25 +421,30 @@ export default function Sales() {
     const hsnCode = product.hsn_code || "";
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
-    // Distribute paid vs free quantities across batch allocations.
-    let mainQtyLeft = itemQuantity;
-    let freeQtyLeft = itemFreeQty;
+    // Distribute paid vs free across batch allocations.
+    // allocations are in BASE units; convert back to user units (sold_unit) by dividing by factor.
+    let mainBaseLeft = baseQtyMain;
+    let freeBaseLeft = baseQtyFree;
     let newCart = [...cart];
     for (const allocation of allocationResult.allocations) {
-      const takeMain = Math.min(mainQtyLeft, allocation.quantity);
-      const takeFree = Math.min(freeQtyLeft, allocation.quantity - takeMain);
-      mainQtyLeft -= takeMain;
-      freeQtyLeft -= takeFree;
+      const takeMainBase = Math.min(mainBaseLeft, allocation.quantity);
+      const takeFreeBase = Math.min(freeBaseLeft, allocation.quantity - takeMainBase);
+      mainBaseLeft -= takeMainBase;
+      freeBaseLeft -= takeFreeBase;
+
+      // For multi-batch FEFO splits in non-base units, convert back to user-units (rounded).
+      const takeMain = needsConversion ? Math.round(takeMainBase / factor) : takeMainBase;
+      const takeFree = needsConversion ? Math.round(takeFreeBase / factor) : takeFreeBase;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      // Returns are kept as separate rows (not merged with sale rows for the same batch)
       const existingIndex = isReturn
         ? -1
-        : newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return);
+        : newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return && (i.sold_unit || baseUnit) === soldUnit);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
         row.free_quantity = (row.free_quantity || 0) + takeFree;
+        row.base_quantity = (row.base_quantity || 0) + takeMainBase + takeFreeBase;
         row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
         row.max_quantity = allocation.available_quantity;
       } else {
@@ -414,6 +465,9 @@ export default function Sales() {
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
           is_return: isReturn || undefined,
+          sold_unit: soldUnit,
+          base_unit: baseUnit,
+          base_quantity: takeMainBase + takeFreeBase,
         });
       }
     }
@@ -426,7 +480,7 @@ export default function Sales() {
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
-    // Return mode is single-shot: turn off after one use
+    setItemUnit("");
     if (isReturn) {
       setReturnMode(false);
       toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
@@ -434,9 +488,8 @@ export default function Sales() {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });
     }
 
-    // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, itemUnit, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode, companyId]);
 
   // Repeat-from-history: add a single product line using FEFO batches with the historic price/discount.
   const handleRepeatItem = useCallback((item: RepeatItem) => {

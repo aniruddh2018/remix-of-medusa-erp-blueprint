@@ -14,6 +14,64 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_conversions: {
+        Row: {
+          batch_id: string
+          company_id: string
+          conversion_factor: number
+          created_at: string
+          from_unit: string
+          id: string
+          product_id: string
+          to_unit: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          company_id: string
+          conversion_factor: number
+          created_at?: string
+          from_unit: string
+          id?: string
+          product_id: string
+          to_unit: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          company_id?: string
+          conversion_factor?: number
+          created_at?: string
+          from_unit?: string
+          id?: string
+          product_id?: string
+          to_unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_conversions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_conversions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_conversions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_rules: {
         Row: {
           actions: Json
@@ -155,6 +213,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversion_audit: {
+        Row: {
+          batch_id: string | null
+          company_id: string
+          conversion_factor: number
+          created_at: string
+          created_by: string | null
+          from_unit: string
+          id: string
+          product_id: string | null
+          reference_id: string | null
+          reference_type: string | null
+          resolution_path: string
+          to_unit: string
+        }
+        Insert: {
+          batch_id?: string | null
+          company_id: string
+          conversion_factor: number
+          created_at?: string
+          created_by?: string | null
+          from_unit: string
+          id?: string
+          product_id?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          resolution_path: string
+          to_unit: string
+        }
+        Update: {
+          batch_id?: string | null
+          company_id?: string
+          conversion_factor?: number
+          created_at?: string
+          created_by?: string | null
+          from_unit?: string
+          id?: string
+          product_id?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          resolution_path?: string
+          to_unit?: string
+        }
+        Relationships: []
       }
       credit_note_items: {
         Row: {
@@ -695,8 +798,10 @@ export type Database = {
           created_at: string
           expiry_date: string | null
           id: string
+          loose_quantity: number
           manufacturing_date: string | null
           mrp: number
+          pack_size: number | null
           product_id: string
           purchase_price: number
           quantity: number
@@ -710,8 +815,10 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          loose_quantity?: number
           manufacturing_date?: string | null
           mrp: number
+          pack_size?: number | null
           product_id: string
           purchase_price: number
           quantity?: number
@@ -725,8 +832,10 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          loose_quantity?: number
           manufacturing_date?: string | null
           mrp?: number
+          pack_size?: number | null
           product_id?: string
           purchase_price?: number
           quantity?: number
@@ -1141,8 +1250,60 @@ export type Database = {
           },
         ]
       }
+      product_conversions: {
+        Row: {
+          company_id: string
+          conversion_factor: number
+          created_at: string
+          from_unit: string
+          id: string
+          is_active: boolean
+          product_id: string
+          to_unit: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conversion_factor: number
+          created_at?: string
+          from_unit: string
+          id?: string
+          is_active?: boolean
+          product_id: string
+          to_unit: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number
+          created_at?: string
+          from_unit?: string
+          id?: string
+          is_active?: boolean
+          product_id?: string
+          to_unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_conversions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_conversions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          base_unit: string | null
           batch_tracking_enabled: boolean
           category: string | null
           company_id: string | null
@@ -1168,6 +1329,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_unit?: string | null
           batch_tracking_enabled?: boolean
           category?: string | null
           company_id?: string | null
@@ -1193,6 +1355,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_unit?: string | null
           batch_tracking_enabled?: boolean
           category?: string | null
           company_id?: string | null
@@ -1270,6 +1433,7 @@ export type Database = {
       }
       purchase_order_items: {
         Row: {
+          base_quantity: number | null
           company_id: string | null
           created_at: string
           discount_percentage: number
@@ -1278,11 +1442,13 @@ export type Database = {
           id: string
           product_id: string
           purchase_order_id: string
+          purchased_unit: string | null
           quantity: number
           total_price: number
           unit_price: number
         }
         Insert: {
+          base_quantity?: number | null
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
@@ -1291,11 +1457,13 @@ export type Database = {
           id?: string
           product_id: string
           purchase_order_id: string
+          purchased_unit?: string | null
           quantity: number
           total_price: number
           unit_price: number
         }
         Update: {
+          base_quantity?: number | null
           company_id?: string | null
           created_at?: string
           discount_percentage?: number
@@ -1304,6 +1472,7 @@ export type Database = {
           id?: string
           product_id?: string
           purchase_order_id?: string
+          purchased_unit?: string | null
           quantity?: number
           total_price?: number
           unit_price?: number
@@ -1428,6 +1597,7 @@ export type Database = {
       }
       sales_order_items: {
         Row: {
+          base_quantity: number | null
           batch_id: string
           company_id: string | null
           created_at: string
@@ -1438,10 +1608,12 @@ export type Database = {
           product_id: string
           quantity: number
           sales_order_id: string
+          sold_unit: string | null
           total_price: number
           unit_price: number
         }
         Insert: {
+          base_quantity?: number | null
           batch_id: string
           company_id?: string | null
           created_at?: string
@@ -1452,10 +1624,12 @@ export type Database = {
           product_id: string
           quantity: number
           sales_order_id: string
+          sold_unit?: string | null
           total_price: number
           unit_price: number
         }
         Update: {
+          base_quantity?: number | null
           batch_id?: string
           company_id?: string | null
           created_at?: string
@@ -1466,6 +1640,7 @@ export type Database = {
           product_id?: string
           quantity?: number
           sales_order_id?: string
+          sold_unit?: string | null
           total_price?: number
           unit_price?: number
         }
@@ -1759,6 +1934,30 @@ export type Database = {
           },
         ]
       }
+      system_conversions: {
+        Row: {
+          conversion_factor: number
+          created_at: string
+          from_unit: string
+          id: string
+          to_unit: string
+        }
+        Insert: {
+          conversion_factor: number
+          created_at?: string
+          from_unit: string
+          id?: string
+          to_unit: string
+        }
+        Update: {
+          conversion_factor?: number
+          created_at?: string
+          from_unit?: string
+          id?: string
+          to_unit?: string
+        }
+        Relationships: []
+      }
       tax_sessions: {
         Row: {
           company_id: string | null
@@ -1815,6 +2014,50 @@ export type Database = {
           },
         ]
       }
+      unit_master: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          unit_code: string
+          unit_name: string
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          unit_code: string
+          unit_name: string
+          unit_type?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          unit_code?: string
+          unit_name?: string
+          unit_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_master_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1855,6 +2098,10 @@ export type Database = {
         Args: { _batch_id: string; _quantity: number }
         Returns: number
       }
+      deduct_mixed_stock: {
+        Args: { _base_quantity: number; _batch_id: string }
+        Returns: Json
+      }
       deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
       dispose_expired_batch: {
         Args: { _batch_id: string; _notes?: string; _quantity: number }
@@ -1890,6 +2137,16 @@ export type Database = {
       }
       receive_purchase_batches: {
         Args: { _batches: Json; _purchase_order_id?: string }
+        Returns: Json
+      }
+      resolve_conversion: {
+        Args: {
+          _batch_id: string
+          _company_id: string
+          _from_unit: string
+          _product_id: string
+          _to_unit: string
+        }
         Returns: Json
       }
       restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }

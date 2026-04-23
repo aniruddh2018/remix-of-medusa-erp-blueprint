@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 
 type Product = Tables<"products">;
 
@@ -200,6 +201,12 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       submitData[key] = value === "" ? null : value;
     }
 
+    // Default base_unit to the user-facing unit if not explicitly set.
+    // base_unit drives all conversion math; without it, stock ops fall back to `unit`.
+    if (!submitData.base_unit && submitData.unit) {
+      submitData.base_unit = submitData.unit;
+    }
+
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data: submitData });
     } else {
@@ -290,6 +297,13 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
             </div>
           )}
 
+          {editingProduct && companyId && (
+            <ProductConversionsEditor
+              productId={editingProduct.id}
+              companyId={companyId}
+              baseUnit={(editingProduct as any).base_unit || editingProduct.unit || "pcs"}
+            />
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}

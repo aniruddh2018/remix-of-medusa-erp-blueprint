@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -28,13 +28,57 @@ interface ProductFormDialogProps {
   editingProduct?: Product | null;
 }
 
+// Pharma-only product fields hidden for non-pharma businesses
+const PHARMA_ONLY_FIELDS = new Set([
+  "generic_name",
+  "composition",
+  "strength",
+  "drug_schedule",
+  "hsn_code",
+]);
+
+// Numeric product columns — empty strings must become null/0 before insert
+const NUMERIC_KEYS = new Set([
+  "mrp", "purchase_price", "sale_price", "gst_percentage",
+  "min_stock_level", "max_stock_level", "reorder_level",
+]);
+
+// Enum-typed product columns and their fallback when blank
+const ENUM_DEFAULTS: Record<string, string> = {
+  drug_schedule: "none",
+};
+
 export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduct }: ProductFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { companyId } = useBusiness();
-  const { fields, sections, uiOverrides, layout } = useFormConfig("products");
+  const { companyId, config: businessConfig } = useBusiness();
+  const { fields: rawFields, sections, uiOverrides, layout } = useFormConfig("products");
   const rules = useBusinessRules("products");
   const [formData, setFormData] = useState<Record<string, any>>({});
+
+  // Tailor field set + unit options to the active business type
+  const fields = useMemo(() => {
+    const isPharma = businessConfig.hasGenericName || businessConfig.hasComposition || businessConfig.hasDrugSchedule;
+    return rawFields
+      .filter((f) => {
+        if (!isPharma && PHARMA_ONLY_FIELDS.has(f.key)) {
+          // hsn_code is still useful for general trading (GST-bearing items) — keep it there
+          if (f.key === "hsn_code") return true;
+          return false;
+        }
+        if (f.key === "generic_name" && !businessConfig.hasGenericName) return false;
+        if (f.key === "composition" && !businessConfig.hasComposition) return false;
+        if (f.key === "strength" && !businessConfig.hasStrength) return false;
+        if (f.key === "drug_schedule" && !businessConfig.hasDrugSchedule) return false;
+        return true;
+      })
+      .map((f) => {
+        if (f.key === "unit" && businessConfig.units?.length) {
+          return { ...f, options: businessConfig.units, defaultValue: f.defaultValue ?? businessConfig.units[0]?.value };
+        }
+        return f;
+      });
+  }, [rawFields, businessConfig]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,8 +175,30 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       }
     }
 
-    const submitData = { ...formData };
-    ruleResult.hiddenFields.forEach((key) => delete submitData[key]);
+    // Sanitize: drop fields hidden by rules + filtered out by business config,
+    // coerce numeric empties to null, and ensure enums have a valid value.
+    const allowedKeys = new Set(fields.map((f) => f.key));
+    const submitData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(formData)) {
+      if (!allowedKeys.has(key)) continue;
+      if (ruleResult.hiddenFields.has(key)) continue;
+
+      if (NUMERIC_KEYS.has(key)) {
+        if (value === "" || value === null || value === undefined) {
+          submitData[key] = null;
+        } else {
+          const n = Number(value);
+          submitData[key] = Number.isFinite(n) ? n : null;
+        }
+        continue;
+      }
+      if (key in ENUM_DEFAULTS) {
+        submitData[key] = value === "" || value == null ? ENUM_DEFAULTS[key] : value;
+        continue;
+      }
+      // Generic text/select: empty string → null so nullable columns stay clean
+      submitData[key] = value === "" ? null : value;
+    }
 
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data: submitData });

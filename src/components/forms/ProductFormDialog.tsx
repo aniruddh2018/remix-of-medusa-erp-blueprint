@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 
 type Product = Tables<"products">;
 

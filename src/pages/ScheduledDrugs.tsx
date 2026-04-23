@@ -504,6 +504,132 @@ export default function ScheduledDrugs() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Manual Add Entry Dialog */}
+      <Dialog open={manualOpen} onOpenChange={(o) => { setManualOpen(o); if (!o) resetManualForm(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Register Entry</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            <div className="sm:col-span-2">
+              <Label>Product *</Label>
+              <Select
+                value={manualForm.product_id}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, product_id: v, batch_id: "" }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select scheduled drug" /></SelectTrigger>
+                <SelectContent>
+                  {products?.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}{p.strength ? ` ${p.strength}` : ""} — {scheduleLabels[p.drug_schedule] || p.drug_schedule}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Batch *</Label>
+              <Select
+                value={manualForm.batch_id}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, batch_id: v }))}
+                disabled={!manualForm.product_id}
+              >
+                <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
+                <SelectContent>
+                  {manualBatches?.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.batch_number} (Qty: {b.quantity}{b.expiry_date ? ` · Exp ${format(new Date(b.expiry_date), "MM/yy")}` : ""})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Type *</Label>
+              <Select
+                value={manualForm.transaction_type}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, transaction_type: v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale">Sale</SelectItem>
+                  <SelectItem value="receipt">Receipt</SelectItem>
+                  <SelectItem value="adjustment">Adjustment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Quantity *</Label>
+              <Input
+                type="number"
+                min="1"
+                value={manualForm.quantity}
+                onChange={(e) => setManualForm((f) => ({ ...f, quantity: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Date *</Label>
+              <Input
+                type="date"
+                value={manualForm.transaction_date}
+                onChange={(e) => setManualForm((f) => ({ ...f, transaction_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Patient Name</Label>
+              <Input
+                value={manualForm.patient_name}
+                onChange={(e) => setManualForm((f) => ({ ...f, patient_name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Prescription #</Label>
+              <Input
+                value={manualForm.prescription_number}
+                onChange={(e) => setManualForm((f) => ({ ...f, prescription_number: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Doctor Name</Label>
+              <Input
+                value={manualForm.doctor_name}
+                onChange={(e) => setManualForm((f) => ({ ...f, doctor_name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Doctor Reg. #</Label>
+              <Input
+                value={manualForm.doctor_registration_number}
+                onChange={(e) => setManualForm((f) => ({ ...f, doctor_registration_number: e.target.value }))}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label>Notes</Label>
+              <Textarea
+                rows={2}
+                value={manualForm.notes}
+                onChange={(e) => setManualForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancel</Button>
+            <Button onClick={handleManualSubmit} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

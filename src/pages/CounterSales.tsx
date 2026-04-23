@@ -46,6 +46,8 @@ import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { BatchSelector } from "@/components/billing/BatchSelector";
+import { UnitSelector } from "@/components/billing/UnitSelector";
+import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -181,6 +183,7 @@ export default function CounterSales() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
+  const [itemUnit, setItemUnit] = useState<string>("");
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);

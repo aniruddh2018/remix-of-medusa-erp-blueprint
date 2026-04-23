@@ -201,6 +201,12 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       submitData[key] = value === "" ? null : value;
     }
 
+    // Default base_unit to the user-facing unit if not explicitly set.
+    // base_unit drives all conversion math; without it, stock ops fall back to `unit`.
+    if (!submitData.base_unit && submitData.unit) {
+      submitData.base_unit = submitData.unit;
+    }
+
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data: submitData });
     } else {

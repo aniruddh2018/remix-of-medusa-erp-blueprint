@@ -43,6 +43,8 @@ import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { BatchSelector } from "@/components/billing/BatchSelector";
+import { UnitSelector } from "@/components/billing/UnitSelector";
+import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 

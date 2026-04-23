@@ -348,7 +348,7 @@ export default function CounterSales() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     if (!selectedProduct) {
       toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
       productSearchRef.current?.focus();
@@ -368,8 +368,11 @@ export default function CounterSales() {
     }
 
     const isReturn = returnMode;
+    const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
+    const soldUnit = (itemUnit || baseUnit).toLowerCase();
+    const needsConversion = soldUnit !== baseUnit;
 
-    // For RETURNS: skip stock checks (we restore stock). Use selected batch or first available batch (incl. zero/expired).
+    // For RETURNS: skip stock checks (we restore stock).
     if (isReturn) {
       const fallbackBatch = selectedBatchId
         ? batchesForProduct.find(b => b.id === selectedBatchId)
@@ -378,9 +381,28 @@ export default function CounterSales() {
         toast({ title: "No batch found", description: "Cannot record return — no batch exists for this product. Receive inventory first.", variant: "destructive" });
         return;
       }
+      // Resolve conversion for return rows too (so base_quantity is correct)
+      let returnFactor = 1;
+      if (needsConversion) {
+        try {
+          const conv = await resolveConversion({
+            companyId: companyId!,
+            productId: product.id,
+            batchId: fallbackBatch.id,
+            fromUnit: soldUnit,
+            toUnit: baseUnit,
+          });
+          returnFactor = conv.toBase(1);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
+          return;
+        }
+      }
       const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
       const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
       const unitPrice = itemRate > 0 ? itemRate : Number(fallbackBatch.mrp);
+      const baseQtyTotal = (itemQuantity + (itemFreeQty || 0)) * returnFactor;
       const newRow: CartItem = {
         product_id: product.id,
         batch_id: fallbackBatch.id,
@@ -397,6 +419,9 @@ export default function CounterSales() {
         max_quantity: fallbackBatch.quantity,
         expiry_date: fallbackBatch.expiry_date,
         is_return: true,
+        sold_unit: soldUnit,
+        base_unit: baseUnit,
+        base_quantity: baseQtyTotal,
       };
       setCart([...cart, newRow]);
       setSelectedProduct("");
@@ -406,6 +431,7 @@ export default function CounterSales() {
       setItemDiscount(0);
       setItemDiscountFlat(0);
       setItemRate(0);
+      setItemUnit("");
       setReturnMode(false);
       toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
       focusProductSearch();
@@ -422,10 +448,46 @@ export default function CounterSales() {
       }
     }
 
-    const totalNeeded = itemQuantity + itemFreeQty;
+    // Resolve conversion factor (sold → base). Non-base units REQUIRE a specific batch.
+    let factor = 1;
+    let batchForConversion = selectedBatchId;
+    if (needsConversion) {
+      if (!batchForConversion) {
+        const sorted = [...batchesForProduct].sort((a, b) => {
+          if (!a.expiry_date && !b.expiry_date) return 0;
+          if (!a.expiry_date) return 1;
+          if (!b.expiry_date) return -1;
+          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        });
+        batchForConversion = sorted[0]?.id ?? null;
+      }
+      if (!batchForConversion) {
+        toast({ title: "Select a batch", description: `To sell in ${soldUnit}, please pick a specific batch (different batches may have different pack sizes).`, variant: "destructive" });
+        return;
+      }
+      try {
+        const conv = await resolveConversion({
+          companyId: companyId!,
+          productId: product.id,
+          batchId: batchForConversion,
+          fromUnit: soldUnit,
+          toUnit: baseUnit,
+        });
+        factor = conv.toBase(1);
+        if (factor <= 0) throw new Error("Invalid factor");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
+        return;
+      }
+    }
 
-    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
-      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+    const baseQtyMain = itemQuantity * factor;
+    const baseQtyFree = (itemFreeQty || 0) * factor;
+    const totalBaseNeeded = baseQtyMain + baseQtyFree;
+
+    if (totalBaseNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} ${baseUnit} available.`, variant: "destructive" });
       const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
       qtyEl?.focus();
       qtyEl?.select();
@@ -433,17 +495,19 @@ export default function CounterSales() {
     }
 
     let allocationResult;
-    if (selectedBatchId) {
-      const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
+    if (needsConversion || selectedBatchId) {
+      const chosenId = batchForConversion || selectedBatchId;
+      const chosen = batchesForProduct.find(b => b.id === chosenId);
       if (!chosen) {
         toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
         setSelectedBatchId(null);
         return;
       }
-      const cartQty = existingCartQuantities.get(chosen.id) || 0;
-      const availInBatch = Math.max(0, chosen.quantity - cartQty);
-      if (totalNeeded > availInBatch && !settings.allow_negative_stock) {
-        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatch} in batch ${chosen.batch_number}.`, variant: "destructive" });
+      const cartBaseInBatch = existingCartQuantities.get(chosen.id) || 0;
+      const pack = chosen.pack_size && chosen.pack_size > 0 ? chosen.pack_size : 1;
+      const availInBatchBase = Math.max(0, chosen.quantity * pack + (chosen.loose_quantity || 0) - cartBaseInBatch);
+      if (totalBaseNeeded > availInBatchBase && !settings.allow_negative_stock) {
+        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatchBase} ${baseUnit} in batch ${chosen.batch_number}.`, variant: "destructive" });
         const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
         qtyEl?.focus(); qtyEl?.select();
         return;
@@ -453,17 +517,18 @@ export default function CounterSales() {
         allocations: [{
           batch_id: chosen.id,
           batch_number: chosen.batch_number,
-          quantity: totalNeeded,
-          available_quantity: chosen.quantity,
+          quantity: totalBaseNeeded,
+          available_quantity: chosen.quantity * pack + (chosen.loose_quantity || 0),
           expiry_date: chosen.expiry_date,
           mrp: Number(chosen.mrp),
           purchase_price: Number(chosen.purchase_price),
+          pack_size: chosen.pack_size,
         }],
-        totalAllocated: totalNeeded,
+        totalAllocated: totalBaseNeeded,
         shortfall: 0,
       };
     } else {
-      allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
+      allocationResult = allocateBatchesFIFO(batchesForProduct, totalBaseNeeded, existingCartQuantities);
       if (!allocationResult.success && !settings.allow_negative_stock) {
         toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
         const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
@@ -478,23 +543,26 @@ export default function CounterSales() {
     const hsnCode = product.hsn_code || "";
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
-    // Distribute paid vs free quantities across batch allocations.
-    // allocation.quantity = (paid + free) chunk for this batch; we split it back.
-    let mainQtyLeft = itemQuantity;
-    let freeQtyLeft = itemFreeQty;
+    // Distribute paid vs free across batch allocations (allocations are in BASE units).
+    let mainBaseLeft = baseQtyMain;
+    let freeBaseLeft = baseQtyFree;
     const newCart = [...cart];
     for (const allocation of allocationResult.allocations) {
-      const takeMain = Math.min(mainQtyLeft, allocation.quantity);
-      const takeFree = Math.min(freeQtyLeft, allocation.quantity - takeMain);
-      mainQtyLeft -= takeMain;
-      freeQtyLeft -= takeFree;
+      const takeMainBase = Math.min(mainBaseLeft, allocation.quantity);
+      const takeFreeBase = Math.min(freeBaseLeft, allocation.quantity - takeMainBase);
+      mainBaseLeft -= takeMainBase;
+      freeBaseLeft -= takeFreeBase;
+
+      const takeMain = needsConversion ? Math.round(takeMainBase / factor) : takeMainBase;
+      const takeFree = needsConversion ? Math.round(takeFreeBase / factor) : takeFreeBase;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return);
+      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return && (i.sold_unit || baseUnit) === soldUnit);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
         row.free_quantity = (row.free_quantity || 0) + takeFree;
+        row.base_quantity = (row.base_quantity || 0) + takeMainBase + takeFreeBase;
         row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
         row.max_quantity = allocation.available_quantity;
       } else {
@@ -513,6 +581,9 @@ export default function CounterSales() {
           total_price: calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat),
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
+          sold_unit: soldUnit,
+          base_unit: baseUnit,
+          base_quantity: takeMainBase + takeFreeBase,
         });
       }
     }
@@ -525,6 +596,7 @@ export default function CounterSales() {
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
+    setItemUnit("");
 
     if (allocationResult.allocations.length > 1) {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });
@@ -532,7 +604,7 @@ export default function CounterSales() {
 
     focusProductSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, itemUnit, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode, companyId]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
 

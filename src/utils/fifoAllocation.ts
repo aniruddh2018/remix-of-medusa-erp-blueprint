@@ -5,11 +5,15 @@ type InventoryBatch = Tables<"inventory_batches">;
 export interface BatchAllocation {
   batch_id: string;
   batch_number: string;
+  /** Quantity in BASE units (tablets, ml, etc.) allocated from this batch */
   quantity: number;
+  /** Available BASE units in batch = quantity*pack_size + loose_quantity */
   available_quantity: number;
   expiry_date: string;
   mrp: number;
   purchase_price: number;
+  /** Pack size for this batch (e.g. 10 tablets/strip), or null if not packed */
+  pack_size: number | null;
 }
 
 export interface AllocationResult {
@@ -21,13 +25,23 @@ export interface AllocationResult {
 }
 
 /**
- * FIFO (First Expiry First Out) batch allocation
- * Allocates requested quantity across batches starting with nearest expiry date
- * 
- * @param batches - Available inventory batches sorted by expiry (ascending)
- * @param requestedQuantity - Total quantity needed
- * @param existingCartQuantities - Map of batch_id to already-allocated quantity in cart
- * @returns AllocationResult with batch allocations or error message
+ * Compute available BASE units for a batch:
+ *   sealed_packs * pack_size + loose_units
+ * If pack_size is null/0, treat sealed quantity as base 1:1.
+ */
+function batchBaseAvailable(b: InventoryBatch): number {
+  const pack = b.pack_size && b.pack_size > 0 ? b.pack_size : 1;
+  return (b.quantity || 0) * pack + (b.loose_quantity || 0);
+}
+
+/**
+ * FIFO (First Expiry First Out) batch allocation — BASE-UNIT aware.
+ * `requestedQuantity` is always in base units (e.g. tablets). The caller is
+ * responsible for converting "2 strips" → "20 tablets" before invoking.
+ *
+ * @param batches - Available inventory batches
+ * @param requestedQuantity - Total quantity needed in BASE units
+ * @param existingCartQuantities - Map of batch_id → already-allocated BASE units in cart
  */
 export function allocateBatchesFIFO(
   batches: InventoryBatch[],
@@ -40,28 +54,28 @@ export function allocateBatchesFIFO(
       allocations: [],
       totalAllocated: 0,
       shortfall: requestedQuantity,
-      message: "Quantity must be greater than 0"
+      message: "Quantity must be greater than 0",
     };
   }
 
-  // Sort batches: expiry batches first (FIFO by nearest expiry), then MRP-only batches (null expiry last)
+  // Sort: nearest expiry first; null expiry last.
   const sortedBatches = [...batches].sort((a, b) => {
     if (!a.expiry_date && !b.expiry_date) return 0;
-    if (!a.expiry_date) return 1; // null expiry goes last
+    if (!a.expiry_date) return 1;
     if (!b.expiry_date) return -1;
     return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
   });
 
-  // Filter out expired batches (keep null expiry) and batches with no stock
-  const today = new Date().toISOString().split('T')[0];
-  const validBatches = sortedBatches.filter(batch => 
-    (batch.expiry_date === null || batch.expiry_date > today) && batch.quantity > 0
+  // Filter expired and zero-stock batches.
+  const today = new Date().toISOString().split("T")[0];
+  const validBatches = sortedBatches.filter(
+    (b) => (b.expiry_date === null || b.expiry_date > today) && batchBaseAvailable(b) > 0
   );
 
-  // Calculate total available stock (minus what's already in cart)
-  const totalAvailable = validBatches.reduce((sum, batch) => {
-    const cartQty = existingCartQuantities.get(batch.id) || 0;
-    return sum + Math.max(0, batch.quantity - cartQty);
+  // Total available in BASE units across all batches.
+  const totalAvailable = validBatches.reduce((sum, b) => {
+    const cartQty = existingCartQuantities.get(b.id) || 0;
+    return sum + Math.max(0, batchBaseAvailable(b) - cartQty);
   }, 0);
 
   if (totalAvailable < requestedQuantity) {
@@ -70,58 +84,55 @@ export function allocateBatchesFIFO(
       allocations: [],
       totalAllocated: 0,
       shortfall: requestedQuantity - totalAvailable,
-      message: `Insufficient stock. Only ${totalAvailable} units available.`
+      message: `Insufficient stock. Only ${totalAvailable} units available.`,
     };
   }
 
-  // Allocate quantity across batches (FIFO)
   const allocations: BatchAllocation[] = [];
-  let remainingQuantity = requestedQuantity;
+  let remaining = requestedQuantity;
 
-  for (const batch of validBatches) {
-    if (remainingQuantity <= 0) break;
+  for (const b of validBatches) {
+    if (remaining <= 0) break;
 
-    const cartQty = existingCartQuantities.get(batch.id) || 0;
-    const availableInBatch = batch.quantity - cartQty;
-    
+    const cartQty = existingCartQuantities.get(b.id) || 0;
+    const availableInBatch = batchBaseAvailable(b) - cartQty;
     if (availableInBatch <= 0) continue;
 
-    const allocateQty = Math.min(remainingQuantity, availableInBatch);
-    
+    const allocateQty = Math.min(remaining, availableInBatch);
     allocations.push({
-      batch_id: batch.id,
-      batch_number: batch.batch_number,
+      batch_id: b.id,
+      batch_number: b.batch_number,
       quantity: allocateQty,
-      available_quantity: batch.quantity,
-      expiry_date: batch.expiry_date,
-      mrp: Number(batch.mrp),
-      purchase_price: Number(batch.purchase_price)
+      available_quantity: batchBaseAvailable(b),
+      expiry_date: b.expiry_date,
+      mrp: Number(b.mrp),
+      purchase_price: Number(b.purchase_price),
+      pack_size: b.pack_size,
     });
 
-    remainingQuantity -= allocateQty;
+    remaining -= allocateQty;
   }
 
   return {
     success: true,
     allocations,
-    totalAllocated: requestedQuantity - remainingQuantity,
-    shortfall: 0
+    totalAllocated: requestedQuantity - remaining,
+    shortfall: 0,
   };
 }
 
 /**
- * Get total available stock for a product across all valid batches
+ * Total available BASE-unit stock across non-expired batches, excluding cart reservations.
  */
 export function getTotalAvailableStock(
   batches: InventoryBatch[],
   existingCartQuantities: Map<string, number> = new Map()
 ): number {
-  const today = new Date().toISOString().split('T')[0];
-  
+  const today = new Date().toISOString().split("T")[0];
   return batches
-    .filter(batch => (batch.expiry_date === null || batch.expiry_date > today) && batch.quantity > 0)
-    .reduce((sum, batch) => {
-      const cartQty = existingCartQuantities.get(batch.id) || 0;
-      return sum + Math.max(0, batch.quantity - cartQty);
+    .filter((b) => (b.expiry_date === null || b.expiry_date > today) && batchBaseAvailable(b) > 0)
+    .reduce((sum, b) => {
+      const cartQty = existingCartQuantities.get(b.id) || 0;
+      return sum + Math.max(0, batchBaseAvailable(b) - cartQty);
     }, 0);
 }

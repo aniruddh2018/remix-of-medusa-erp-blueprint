@@ -656,13 +656,31 @@ export default function Sales() {
           unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
           total_price: i.total_price, company_id: companyId,
+          sold_unit: i.sold_unit || null,
+          base_quantity: i.is_return
+            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
+            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        // Split: deduct stock for sale lines, restore stock for return lines
-        const deductItems = cart.filter(i => !i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const restoreItems = cart.filter(i => i.is_return).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0, reference_id: order.id }));
+        // Split: deduct stock for sale lines, restore stock for return lines.
+        // Pass base_quantity so the RPC can deduct in the correct unit (mixed loose+sealed).
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+          unit_price: i.unit_price,
+        }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+        }));
 
         if (deductItems.length > 0) {
           const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });

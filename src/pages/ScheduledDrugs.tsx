@@ -47,8 +47,26 @@ const scheduleColors: Record<string, string> = {
 export default function ScheduledDrugs() {
   const { companyId } = useBusiness();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [scheduleFilter, setScheduleFilter] = useState<string>("all");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  // Manual entry form state
+  const [manualForm, setManualForm] = useState({
+    product_id: "",
+    batch_id: "",
+    transaction_type: "sale",
+    quantity: "",
+    patient_name: "",
+    doctor_name: "",
+    doctor_registration_number: "",
+    prescription_number: "",
+    transaction_date: format(new Date(), "yyyy-MM-dd"),
+    notes: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   // Fetch scheduled drug products
   const { data: products, isLoading: productsLoading } = useQuery({

@@ -175,8 +175,30 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       }
     }
 
-    const submitData = { ...formData };
-    ruleResult.hiddenFields.forEach((key) => delete submitData[key]);
+    // Sanitize: drop fields hidden by rules + filtered out by business config,
+    // coerce numeric empties to null, and ensure enums have a valid value.
+    const allowedKeys = new Set(fields.map((f) => f.key));
+    const submitData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(formData)) {
+      if (!allowedKeys.has(key)) continue;
+      if (ruleResult.hiddenFields.has(key)) continue;
+
+      if (NUMERIC_KEYS.has(key)) {
+        if (value === "" || value === null || value === undefined) {
+          submitData[key] = null;
+        } else {
+          const n = Number(value);
+          submitData[key] = Number.isFinite(n) ? n : null;
+        }
+        continue;
+      }
+      if (key in ENUM_DEFAULTS) {
+        submitData[key] = value === "" || value == null ? ENUM_DEFAULTS[key] : value;
+        continue;
+      }
+      // Generic text/select: empty string → null so nullable columns stay clean
+      submitData[key] = value === "" ? null : value;
+    }
 
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data: submitData });

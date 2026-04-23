@@ -322,12 +322,14 @@ export default function CounterSales() {
     return allBatches.filter(b => b.product_id === selectedProduct);
   }, [allBatches, selectedProduct]);
 
-  // Reserve quantities for items already in *active* slot's cart
+  // Reserve quantities for items already in *active* slot's cart (BASE units)
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(item => {
+      if (item.is_return) return;
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
+        const baseUsed = item.base_quantity ?? (item.quantity + (item.free_quantity || 0));
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + baseUsed);
       }
     });
     return map;

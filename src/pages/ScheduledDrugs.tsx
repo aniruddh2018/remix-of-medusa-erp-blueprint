@@ -122,6 +122,121 @@ export default function ScheduledDrugs() {
     return matchesSearch && matchesSchedule;
   });
 
+  // Batches for the selected product (manual entry)
+  const { data: manualBatches } = useQuery({
+    queryKey: ["manual-batches", manualForm.product_id],
+    queryFn: async () => {
+      if (!manualForm.product_id) return [];
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("id, batch_number, quantity, expiry_date")
+        .eq("product_id", manualForm.product_id)
+        .gt("quantity", 0)
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!manualForm.product_id && manualOpen,
+  });
+
+  const handleDownloadFormIII = async () => {
+    if (!filteredRegister || filteredRegister.length === 0) {
+      toast({ title: "Nothing to export", description: "No register entries match the current filter.", variant: "destructive" });
+      return;
+    }
+    setDownloading(true);
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("name, address, gst_number")
+        .eq("id", companyId!)
+        .maybeSingle();
+      const { data: settings } = await supabase
+        .from("invoice_settings")
+        .select("company_name, company_address, company_gstin")
+        .eq("company_id", companyId!)
+        .maybeSingle();
+      const filterLabel =
+        scheduleFilter === "all" ? "All Schedules" : scheduleLabels[scheduleFilter] || scheduleFilter;
+      generateScheduledRegisterPdf(
+        filteredRegister as any,
+        {
+          name: settings?.company_name || company?.name || "Pharmacy",
+          address: settings?.company_address || company?.address || "",
+          gstin: settings?.company_gstin || company?.gst_number || "",
+        },
+        filterLabel,
+      );
+      toast({ title: "Form III generated", description: "PDF opened for download." });
+    } catch (err: any) {
+      toast({ title: "Download failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const resetManualForm = () => {
+    setManualForm({
+      product_id: "",
+      batch_id: "",
+      transaction_type: "sale",
+      quantity: "",
+      patient_name: "",
+      doctor_name: "",
+      doctor_registration_number: "",
+      prescription_number: "",
+      transaction_date: format(new Date(), "yyyy-MM-dd"),
+      notes: "",
+    });
+  };
+
+  const handleManualSubmit = async () => {
+    if (!manualForm.product_id || !manualForm.batch_id || !manualForm.quantity) {
+      toast({ title: "Missing fields", description: "Product, batch, and quantity are required.", variant: "destructive" });
+      return;
+    }
+    const qty = parseInt(manualForm.quantity, 10);
+    if (!qty || qty <= 0) {
+      toast({ title: "Invalid quantity", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data: batch } = await supabase
+        .from("inventory_batches")
+        .select("quantity")
+        .eq("id", manualForm.batch_id)
+        .maybeSingle();
+      const balance = batch?.quantity ?? 0;
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("scheduled_drug_register").insert({
+        company_id: companyId!,
+        product_id: manualForm.product_id,
+        batch_id: manualForm.batch_id,
+        transaction_type: manualForm.transaction_type,
+        quantity: qty,
+        balance_quantity: balance,
+        patient_name: manualForm.patient_name || null,
+        doctor_name: manualForm.doctor_name || null,
+        doctor_registration_number: manualForm.doctor_registration_number || null,
+        prescription_number: manualForm.prescription_number || null,
+        transaction_date: manualForm.transaction_date,
+        recorded_by: userData.user?.id!,
+        notes: manualForm.notes || "Manual entry",
+      });
+      if (error) throw error;
+      toast({ title: "Entry added", description: "Register updated." });
+      queryClient.invalidateQueries({ queryKey: ["scheduled-drug-register", companyId] });
+      resetManualForm();
+      setManualOpen(false);
+    } catch (err: any) {
+      toast({ title: "Failed to add entry", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
   return (
     <div className="page-container">
       <div>

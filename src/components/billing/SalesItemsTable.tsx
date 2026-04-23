@@ -24,6 +24,12 @@ interface CartItem {
   expiry_date: string;
   /** When true, this line is a customer return (refund) — restores inventory and subtracts from total */
   is_return?: boolean;
+  /** Unit the line was billed in (e.g. "strip"). If absent, falls back to base unit. */
+  sold_unit?: string;
+  /** Base-unit equivalent of `quantity + free_quantity` (e.g. 2 strips × 10 = 20 tablets) */
+  base_quantity?: number;
+  /** Product's base unit, for the "(20 tab)" hint */
+  base_unit?: string;
 }
 
 interface SalesItemsTableProps {

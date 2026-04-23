@@ -239,9 +239,21 @@ export default function ScheduledDrugs() {
 
   return (
     <div className="page-container">
-      <div>
-        <h1 className="text-responsive-xl font-bold">Scheduled Drugs</h1>
-        <p className="text-muted-foreground text-responsive-sm">Manage controlled substances and compliance register</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-responsive-xl font-bold">Scheduled Drugs</h1>
+          <p className="text-muted-foreground text-responsive-sm">Manage controlled substances and compliance register</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadFormIII} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <span className="hidden sm:inline">Form III PDF</span>
+          </Button>
+          <Button size="sm" onClick={() => setManualOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Entry</span>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

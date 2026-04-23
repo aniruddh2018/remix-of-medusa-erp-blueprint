@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
@@ -47,8 +47,26 @@ const scheduleColors: Record<string, string> = {
 export default function ScheduledDrugs() {
   const { companyId } = useBusiness();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [scheduleFilter, setScheduleFilter] = useState<string>("all");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  // Manual entry form state
+  const [manualForm, setManualForm] = useState({
+    product_id: "",
+    batch_id: "",
+    transaction_type: "sale",
+    quantity: "",
+    patient_name: "",
+    doctor_name: "",
+    doctor_registration_number: "",
+    prescription_number: "",
+    transaction_date: format(new Date(), "yyyy-MM-dd"),
+    notes: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   // Fetch scheduled drug products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -104,11 +122,138 @@ export default function ScheduledDrugs() {
     return matchesSearch && matchesSchedule;
   });
 
+  // Batches for the selected product (manual entry)
+  const { data: manualBatches } = useQuery({
+    queryKey: ["manual-batches", manualForm.product_id],
+    queryFn: async () => {
+      if (!manualForm.product_id) return [];
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select("id, batch_number, quantity, expiry_date")
+        .eq("product_id", manualForm.product_id)
+        .gt("quantity", 0)
+        .order("expiry_date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!manualForm.product_id && manualOpen,
+  });
+
+  const handleDownloadFormIII = async () => {
+    if (!filteredRegister || filteredRegister.length === 0) {
+      toast({ title: "Nothing to export", description: "No register entries match the current filter.", variant: "destructive" });
+      return;
+    }
+    setDownloading(true);
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("name, address, gst_number")
+        .eq("id", companyId!)
+        .maybeSingle();
+      const { data: settings } = await supabase
+        .from("invoice_settings")
+        .select("company_name, company_address, company_gstin")
+        .eq("company_id", companyId!)
+        .maybeSingle();
+      const filterLabel =
+        scheduleFilter === "all" ? "All Schedules" : scheduleLabels[scheduleFilter] || scheduleFilter;
+      generateScheduledRegisterPdf(
+        filteredRegister as any,
+        {
+          name: settings?.company_name || company?.name || "Pharmacy",
+          address: settings?.company_address || company?.address || "",
+          gstin: settings?.company_gstin || company?.gst_number || "",
+        },
+        filterLabel,
+      );
+      toast({ title: "Form III generated", description: "PDF opened for download." });
+    } catch (err: any) {
+      toast({ title: "Download failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const resetManualForm = () => {
+    setManualForm({
+      product_id: "",
+      batch_id: "",
+      transaction_type: "sale",
+      quantity: "",
+      patient_name: "",
+      doctor_name: "",
+      doctor_registration_number: "",
+      prescription_number: "",
+      transaction_date: format(new Date(), "yyyy-MM-dd"),
+      notes: "",
+    });
+  };
+
+  const handleManualSubmit = async () => {
+    if (!manualForm.product_id || !manualForm.batch_id || !manualForm.quantity) {
+      toast({ title: "Missing fields", description: "Product, batch, and quantity are required.", variant: "destructive" });
+      return;
+    }
+    const qty = parseInt(manualForm.quantity, 10);
+    if (!qty || qty <= 0) {
+      toast({ title: "Invalid quantity", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data: batch } = await supabase
+        .from("inventory_batches")
+        .select("quantity")
+        .eq("id", manualForm.batch_id)
+        .maybeSingle();
+      const balance = batch?.quantity ?? 0;
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("scheduled_drug_register").insert({
+        company_id: companyId!,
+        product_id: manualForm.product_id,
+        batch_id: manualForm.batch_id,
+        transaction_type: manualForm.transaction_type,
+        quantity: qty,
+        balance_quantity: balance,
+        patient_name: manualForm.patient_name || null,
+        doctor_name: manualForm.doctor_name || null,
+        doctor_registration_number: manualForm.doctor_registration_number || null,
+        prescription_number: manualForm.prescription_number || null,
+        transaction_date: manualForm.transaction_date,
+        recorded_by: userData.user?.id!,
+        notes: manualForm.notes || "Manual entry",
+      });
+      if (error) throw error;
+      toast({ title: "Entry added", description: "Register updated." });
+      queryClient.invalidateQueries({ queryKey: ["scheduled-drug-register", companyId] });
+      resetManualForm();
+      setManualOpen(false);
+    } catch (err: any) {
+      toast({ title: "Failed to add entry", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
   return (
     <div className="page-container">
-      <div>
-        <h1 className="text-responsive-xl font-bold">Scheduled Drugs</h1>
-        <p className="text-muted-foreground text-responsive-sm">Manage controlled substances and compliance register</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-responsive-xl font-bold">Scheduled Drugs</h1>
+          <p className="text-muted-foreground text-responsive-sm">Manage controlled substances and compliance register</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadFormIII} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <span className="hidden sm:inline">Form III PDF</span>
+          </Button>
+          <Button size="sm" onClick={() => setManualOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Entry</span>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -359,6 +504,132 @@ export default function ScheduledDrugs() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Manual Add Entry Dialog */}
+      <Dialog open={manualOpen} onOpenChange={(o) => { setManualOpen(o); if (!o) resetManualForm(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Register Entry</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            <div className="sm:col-span-2">
+              <Label>Product *</Label>
+              <Select
+                value={manualForm.product_id}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, product_id: v, batch_id: "" }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select scheduled drug" /></SelectTrigger>
+                <SelectContent>
+                  {products?.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}{p.strength ? ` ${p.strength}` : ""} — {scheduleLabels[p.drug_schedule] || p.drug_schedule}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Batch *</Label>
+              <Select
+                value={manualForm.batch_id}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, batch_id: v }))}
+                disabled={!manualForm.product_id}
+              >
+                <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
+                <SelectContent>
+                  {manualBatches?.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.batch_number} (Qty: {b.quantity}{b.expiry_date ? ` · Exp ${format(new Date(b.expiry_date), "MM/yy")}` : ""})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Type *</Label>
+              <Select
+                value={manualForm.transaction_type}
+                onValueChange={(v) => setManualForm((f) => ({ ...f, transaction_type: v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale">Sale</SelectItem>
+                  <SelectItem value="receipt">Receipt</SelectItem>
+                  <SelectItem value="adjustment">Adjustment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Quantity *</Label>
+              <Input
+                type="number"
+                min="1"
+                value={manualForm.quantity}
+                onChange={(e) => setManualForm((f) => ({ ...f, quantity: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Date *</Label>
+              <Input
+                type="date"
+                value={manualForm.transaction_date}
+                onChange={(e) => setManualForm((f) => ({ ...f, transaction_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Patient Name</Label>
+              <Input
+                value={manualForm.patient_name}
+                onChange={(e) => setManualForm((f) => ({ ...f, patient_name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Prescription #</Label>
+              <Input
+                value={manualForm.prescription_number}
+                onChange={(e) => setManualForm((f) => ({ ...f, prescription_number: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Doctor Name</Label>
+              <Input
+                value={manualForm.doctor_name}
+                onChange={(e) => setManualForm((f) => ({ ...f, doctor_name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Doctor Reg. #</Label>
+              <Input
+                value={manualForm.doctor_registration_number}
+                onChange={(e) => setManualForm((f) => ({ ...f, doctor_registration_number: e.target.value }))}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label>Notes</Label>
+              <Textarea
+                rows={2}
+                value={manualForm.notes}
+                onChange={(e) => setManualForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancel</Button>
+            <Button onClick={handleManualSubmit} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

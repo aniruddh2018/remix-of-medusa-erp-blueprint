@@ -257,6 +257,7 @@ export default function Inventory() {
                     <TableHead>Product</TableHead>
                     <TableHead>Manufacturer</TableHead>
                     <TableHead className="text-right">Total Stock</TableHead>
+                    <TableHead>Packing</TableHead>
                     <TableHead className="text-right">Reorder Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Batches</TableHead>
@@ -265,7 +266,7 @@ export default function Inventory() {
                 </TableHeader>
                 <TableBody>
                   {filteredProducts.map((product) => {
-                    const status = getStockStatus(product.total_quantity, product.reorder_level);
+                    const status = getStockStatus(product.total_base_quantity, product.reorder_level);
                     return (
                       <TableRow key={product.product_id} tabIndex={0} data-kb-row
                         className="table-hover-row focus:bg-accent cursor-pointer group"
@@ -284,7 +285,10 @@ export default function Inventory() {
                           </div>
                         </TableCell>
                         <TableCell>{product.manufacturer}</TableCell>
-                        <TableCell className="text-right font-mono">{product.total_quantity}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {product.total_base_quantity} <span className="text-xs text-muted-foreground">{product.base_unit}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{product.pack_summary || "—"}</TableCell>
                         <TableCell className="text-right font-mono">{product.reorder_level}</TableCell>
                         <TableCell>
                           <Badge className={status.color}>

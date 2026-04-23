@@ -94,6 +94,12 @@ export function SalesItemsTable({
                     </Badge>
                   )}
                   <span className="text-sm">{item.product_name}</span>
+                  {item.sold_unit && item.base_unit && item.sold_unit.toLowerCase() !== item.base_unit.toLowerCase() && (
+                    <Badge variant="outline" className="ml-1 text-[10px] py-0 capitalize">
+                      {item.sold_unit}
+                      {item.base_quantity ? ` · ${item.base_quantity} ${item.base_unit}` : ""}
+                    </Badge>
+                  )}
                   {!item.is_return && isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">No Stock</Badge>}
                   {!item.is_return && isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">{totalNeeded}/{item.max_quantity}</Badge>}
                 </TableCell>

@@ -236,7 +236,9 @@ export default function Sales() {
       // Return rows do NOT consume available stock — skip them
       if (item.is_return) return;
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
+        // Reserve in BASE units (use base_quantity if present, else fall back to qty+free)
+        const baseUsed = item.base_quantity ?? (item.quantity + (item.free_quantity || 0));
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + baseUsed);
       }
     });
     return map;

@@ -37,8 +37,8 @@ const productFields: FormFieldConfig[] = [
   { key: "mrp", label: "MRP", type: "number", required: true, visible: true, order: 9, section: "pricing", width: "half", min: 0 },
   { key: "purchase_price", label: "Purchase Price", type: "number", required: true, visible: true, order: 10, section: "pricing", width: "half", min: 0 },
   { key: "sale_price", label: "Sale Price", type: "number", required: false, visible: true, order: 11, section: "pricing", width: "half", min: 0 },
-  { key: "gst_percentage", label: "GST %", type: "number", required: true, visible: true, order: 12, section: "pricing", width: "half", defaultValue: 12, min: 0, max: 100 },
-  { key: "drug_schedule", label: "Drug Schedule", type: "select", required: false, visible: true, order: 13, section: "regulatory", width: "half", options: [
+  { key: "gst_percentage", label: "GST %", type: "number", required: true, visible: true, order: 12, section: "pricing", width: "half", defaultValue: 18, min: 0, max: 100 },
+  { key: "drug_schedule", label: "Drug Schedule", type: "select", required: false, visible: true, order: 13, section: "regulatory", width: "half", defaultValue: "none", options: [
     { label: "None", value: "none" }, { label: "Schedule H", value: "schedule_h" },
     { label: "Schedule H1", value: "schedule_h1" }, { label: "Schedule X", value: "schedule_x" },
     { label: "Narcotic", value: "narcotic" },

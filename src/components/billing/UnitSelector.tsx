@@ -78,10 +78,14 @@ export function UnitSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
-  // Single-unit products: render a passive label-style trigger.
+  // Single-unit products: render a passive label-style trigger with a hint
+  // so users know where to add pack conversions.
   if (options.length <= 1) {
     return (
-      <div className="h-9 px-2 inline-flex items-center text-xs rounded-md border bg-muted/40 text-muted-foreground capitalize">
+      <div
+        className="h-9 px-2 inline-flex items-center text-xs rounded-md border bg-muted/40 text-muted-foreground capitalize cursor-help"
+        title="Add pack conversions on this product (Products → edit → Pack Conversions) or set Pack Size when receiving inventory to enable Strip/Box selling."
+      >
         {fallbackBase}
       </div>
     );
@@ -89,7 +93,12 @@ export function UnitSelector({
 
   return (
     <Select value={value.toLowerCase()} onValueChange={(v) => onChange(v)} disabled={disabled}>
-      <SelectTrigger className="h-9 w-24 text-xs" data-enter-nav-skip="true" tabIndex={-1}>
+      <SelectTrigger
+        className="h-9 w-24 text-xs border-primary/40 bg-primary/5"
+        data-enter-nav-skip="true"
+        tabIndex={-1}
+        title="Choose the unit you're selling in (e.g. Strip, Box). Stock auto-converts to base units."
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

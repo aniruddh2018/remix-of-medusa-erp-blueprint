@@ -37,6 +37,7 @@ import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge 
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
+import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -473,6 +474,18 @@ export default function Products() {
                 />
               </div>
             </div>
+
+            {editingProduct && companyId ? (
+              <ProductConversionsEditor
+                productId={editingProduct.id}
+                companyId={companyId}
+                baseUnit={(editingProduct as any).base_unit || editingProduct.unit || "pcs"}
+              />
+            ) : (
+              <div className="border rounded-md p-3 bg-muted/30 text-xs text-muted-foreground">
+                💡 <span className="font-semibold">Pack Conversions</span> (e.g. 1 Strip = 10 Tablets) can be added after saving — reopen this product with the edit button to configure them.
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>

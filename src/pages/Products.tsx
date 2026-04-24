@@ -37,6 +37,7 @@ import { Plus, Search, Edit, Trash2, Package, Loader2, Check, X, History, Merge 
 import type { Database } from "@/integrations/supabase/types";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
+import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];

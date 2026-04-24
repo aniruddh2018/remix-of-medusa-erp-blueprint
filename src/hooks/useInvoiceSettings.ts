@@ -59,6 +59,13 @@ export interface FullInvoiceSettings {
   bank_ifsc: string;
   bank_branch: string;
   bank_account_holder: string;
+  // Per-schedule prescription enforcement
+  prescription_check: {
+    schedule_h?: boolean;
+    schedule_h1?: boolean;
+    schedule_x?: boolean;
+    narcotic?: boolean;
+  };
 }
 
 const DEFAULTS: FullInvoiceSettings = {
@@ -109,6 +116,12 @@ const DEFAULTS: FullInvoiceSettings = {
   bank_ifsc: "",
   bank_branch: "",
   bank_account_holder: "",
+  prescription_check: {
+    schedule_h: false,
+    schedule_h1: true,
+    schedule_x: true,
+    narcotic: true,
+  },
 };
 
 export function useInvoiceSettings() {

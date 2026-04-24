@@ -25,6 +25,8 @@ interface CustomerFormDialogProps {
   onOpenChange: (open: boolean) => void;
   editingCustomer?: Customer | null;
   onSuccess?: (customerId: string) => void;
+  /** Optional seed values when creating a new customer (e.g. typed name or phone) */
+  initialData?: Partial<Record<string, any>>;
 }
 
 export function CustomerFormDialog({
@@ -32,6 +34,7 @@ export function CustomerFormDialog({
   onOpenChange,
   editingCustomer,
   onSuccess,
+  initialData,
 }: CustomerFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,11 +53,12 @@ export function CustomerFormDialog({
     } else if (open) {
       const data: Record<string, any> = {};
       fields.forEach((f) => {
-        data[f.key] = f.defaultValue ?? "";
+        const seeded = initialData?.[f.key];
+        data[f.key] = seeded !== undefined && seeded !== "" ? seeded : (f.defaultValue ?? "");
       });
       setFormData(data);
     }
-  }, [editingCustomer, open, fields]);
+  }, [editingCustomer, open, fields, initialData]);
 
   const ruleResult = evaluateAllRules(rules, formData);
 
@@ -170,7 +174,7 @@ export function CustomerFormDialog({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-enter-nav>
           {sections.length > 0 ? (
             sections.map((section) => {
               const sectionFields = visibleFields.filter(
@@ -223,7 +227,7 @@ export function CustomerFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit} data-enter-nav-include="true">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {uiOverrides.submitButtonText || (editingCustomer ? "Update" : "Add Customer")}
             </Button>

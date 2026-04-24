@@ -32,8 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown } from "lucide-react";
+import { Search, AlertTriangle, Clock, Loader2, Calendar, Trash2, TrendingDown, RotateCcw } from "lucide-react";
 import { format, addDays, isBefore, differenceInDays } from "date-fns";
+import { SupplierReturnDialog, type SupplierReturnBatch } from "@/components/dialogs/SupplierReturnDialog";
 
 interface ExpiryItem {
   id: string;
@@ -42,6 +43,8 @@ interface ExpiryItem {
   expiry_date: string;
   mrp: number;
   purchase_price: number;
+  supplier_id: string | null;
+  supplier?: { name: string } | null;
   product: {
     id: string;
     name: string;
@@ -71,6 +74,7 @@ export default function Expiry() {
   const [disposeQty, setDisposeQty] = useState<string>("");
   const [lossRows, setLossRows] = useState<LossRow[]>([]);
   const [lossLoading, setLossLoading] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<SupplierReturnBatch | null>(null);
 
   const fetchExpiryItems = async () => {
     if (!companyId) return;
@@ -84,6 +88,8 @@ export default function Expiry() {
           expiry_date,
           mrp,
           purchase_price,
+          supplier_id,
+          supplier:suppliers(name),
           product:products(id, name, manufacturer)
         `)
         .eq("company_id", companyId)
@@ -105,14 +111,27 @@ export default function Expiry() {
     try {
       const { data, error } = await supabase
         .from("inventory_transactions")
-        .select("product_id, quantity, rate, products(name, manufacturer)")
+        .select("product_id, quantity, rate")
         .eq("company_id", companyId)
         .eq("transaction_type", "expiry_loss");
       if (error) throw error;
+
+      const productIds = Array.from(new Set((data || []).map((r: any) => r.product_id).filter(Boolean)));
+      let productMap = new Map<string, { name: string; manufacturer: string }>();
+      if (productIds.length > 0) {
+        const { data: prods, error: pErr } = await supabase
+          .from("products")
+          .select("id, name, manufacturer")
+          .in("id", productIds);
+        if (pErr) throw pErr;
+        (prods || []).forEach((p: any) => productMap.set(p.id, { name: p.name, manufacturer: p.manufacturer || "" }));
+      }
+
       const map = new Map<string, LossRow>();
       (data || []).forEach((r: any) => {
         const qty = Math.abs(Number(r.quantity) || 0);
         const value = qty * (Number(r.rate) || 0);
+        const prod = productMap.get(r.product_id);
         const existing = map.get(r.product_id);
         if (existing) {
           existing.total_qty += qty;
@@ -120,8 +139,8 @@ export default function Expiry() {
         } else {
           map.set(r.product_id, {
             product_id: r.product_id,
-            product_name: r.products?.name || "Unknown",
-            manufacturer: r.products?.manufacturer || "",
+            product_name: prod?.name || "Unknown",
+            manufacturer: prod?.manufacturer || "",
             total_qty: qty,
             loss_value: value,
           });
@@ -347,7 +366,7 @@ export default function Expiry() {
                         <TableHead className="text-right tablet-hide">Value (MRP)</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Days</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                        <TableHead className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -377,24 +396,45 @@ export default function Expiry() {
                                 `${status.days}d`
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {status.isExpired ? (
+                            <TableCell className="text-right sticky right-0 bg-background shadow-[-4px_0_8px_-4px_hsl(var(--border))]">
+                              <div className="flex gap-1 justify-end">
                                 <Button
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm"
-                                  disabled={disposing === item.id}
-                                  onClick={() => openDispose(item)}
+                                  onClick={() => setReturnTarget({
+                                    id: item.id,
+                                    batch_number: item.batch_number,
+                                    quantity: item.quantity,
+                                    expiry_date: item.expiry_date,
+                                    purchase_price: item.purchase_price,
+                                    mrp: item.mrp,
+                                    product_id: item.product.id,
+                                    product_name: item.product.name,
+                                    manufacturer: item.product.manufacturer,
+                                    supplier_id: item.supplier_id,
+                                    supplier_name: item.supplier?.name,
+                                  })}
                                   className="h-7 px-2 text-xs"
+                                  title="Return to supplier"
                                 >
-                                  {disposing === item.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
-                                  )}
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Return
                                 </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
+                                {status.isExpired && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={disposing === item.id}
+                                    onClick={() => openDispose(item)}
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    {disposing === item.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <><Trash2 className="h-3 w-3 mr-1" /> Dispose</>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -503,6 +543,13 @@ export default function Expiry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SupplierReturnDialog
+        open={!!returnTarget}
+        onOpenChange={(o) => !o && setReturnTarget(null)}
+        batch={returnTarget}
+        onSuccess={() => { fetchExpiryItems(); fetchLossSummary(); }}
+      />
     </div>
   );
 }

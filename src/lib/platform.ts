@@ -114,6 +114,7 @@ export const SHORTCUTS = {
   FOCUS_SEARCH: { key: "/", modifiers: [] as ModifierAbstract[], label: "/" },
   NEW_ENTRY: { key: "n", modifiers: [] as ModifierAbstract[], label: "N" },
   RESTORE_FOCUS: { key: "`", modifiers: [] as ModifierAbstract[], label: "`" },
+  FOCUS_CART: { key: "l", modifiers: ["secondary"] as ModifierAbstract[], label: "SECONDARY+L" },
 } as const;
 
 /** Renders a formatted shortcut badge string for the current platform */

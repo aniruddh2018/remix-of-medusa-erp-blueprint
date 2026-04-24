@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote, AlertTriangle, Receipt } from "lucide-react";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS } from "@/lib/platform";
 import { printBill, downloadBillHTML, downloadBillCSV, downloadBillPDF, type BillData } from "@/utils/billGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
@@ -30,11 +32,13 @@ import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigati
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { ReceiveInventoryDialog } from "@/components/dialogs/ReceiveInventoryDialog";
 import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog";
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
+import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
@@ -54,6 +58,7 @@ export default function PurchaseOrders() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
   const supplierTriggerRef = useRef<HTMLButtonElement>(null);
+  const supplierSearchRef = useRef<PartySearchHandle>(null);
   const docTypeTriggerRef = useRef<HTMLButtonElement>(null);
   const deliveryDateRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +66,7 @@ export default function PurchaseOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<PurchaseItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
@@ -97,7 +102,10 @@ export default function PurchaseOrders() {
 
   // Inline add dialogs
   const [showProductDialog, setShowProductDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  const [supplierCreateSeed, setSupplierCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   // Bill-level discount
   const [billDiscountPercent, setBillDiscountPercent] = useState<number>(0);
@@ -274,6 +282,21 @@ export default function PurchaseOrders() {
     if (product) {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
+    }
+    // Auto-advance focus from product chip to next field (batch / expiry / qty)
+    if (productId) {
+      setTimeout(() => {
+        const container = document.querySelector<HTMLElement>('[data-enter-nav]');
+        if (!container) return;
+        // Prefer the batch input if batch tracking is on, else the expiry/qty field
+        const batchInput = container.querySelector<HTMLElement>('input[placeholder*="batch" i], input[placeholder*="Batch" i]');
+        const target =
+          batchInput ||
+          container.querySelector<HTMLElement>('input[aria-label="Expiry month"]') ||
+          container.querySelector<HTMLElement>('#po-price-input');
+        target?.focus();
+        if (target instanceof HTMLInputElement) target.select();
+      }, 50);
     }
   }, [products]);
 
@@ -713,7 +736,19 @@ export default function PurchaseOrders() {
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
-  useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  useKeyboardShortcut({ key: "F6", callback: () => { setEditingProduct(null); setShowProductDialog(true); }, enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  // Ctrl+E → quick edit the currently-selected product (or focus product search)
+  useKeyboardShortcut({
+    key: "e", modifiers: ["ctrl"],
+    callback: () => {
+      if (selectedProduct) {
+        const p = products?.find(p => p.id === selectedProduct);
+        if (p) { setEditingProduct(p); setShowProductDialog(true); return; }
+      }
+      productSearchRef.current?.focus();
+    },
+    enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true,
+  });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("po-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && orderItems.length > 0, allowInInput: true });
 
   const filteredOrders = purchaseOrders?.filter(order =>
@@ -734,6 +769,23 @@ export default function PurchaseOrders() {
   const poEnterNav = useEnterNavigation(() => {
     if (selectedProduct && itemPrice > 0) handleAddItem();
   });
+
+  // Jump-to-cart shortcut (Alt+L)
+  const focusCart = useCallback(() => {
+    if (orderItems.length === 0) {
+      toast({ title: "Cart is empty", description: "Add a product first." });
+      return;
+    }
+    const firstRow = document.querySelector<HTMLElement>("[data-billing-row]");
+    if (!firstRow) return;
+    firstRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    const firstInput = firstRow.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), [role="combobox"], button:not([disabled])'
+    );
+    (firstInput || firstRow).focus();
+    if (firstInput instanceof HTMLInputElement) firstInput.select();
+  }, [orderItems.length, toast]);
+  usePlatformShortcut({ shortcut: SHORTCUTS.FOCUS_CART, callback: focusCart, enabled: true, allowInInput: true });
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -778,22 +830,51 @@ export default function PurchaseOrders() {
 
           {/* Supplier & Invoice info — compact bar */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <Label className="text-[11px]">Supplier *</Label>
-              <div className="flex gap-1">
-                  <Select value={selectedSupplier} onValueChange={(v) => { setSelectedSupplier(v); if (!isChallan) fetchPendingChallans(v); setTimeout(() => docTypeTriggerRef.current?.focus(), 60); }}>
-                    <SelectTrigger ref={supplierTriggerRef} className="h-8 text-sm flex-1" onKeyDown={(e) => { if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setShowSupplierDialog(true); } }}><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowSupplierDialog(true)} data-enter-nav-skip="true" tabIndex={-1}><PlusCircle className="h-3 w-3" /></Button>
+              <div className="flex gap-1 min-w-0">
+                <PartySearchInput
+                  ref={supplierSearchRef}
+                  parties={suppliers as any}
+                  selectedId={selectedSupplier || null}
+                  selectedName={suppliers?.find((s: any) => s.id === selectedSupplier)?.name || ""}
+                  entityLabel="supplier"
+                  placeholder="Type name or phone…"
+                  enterNavInclude
+                  className="flex-1 min-w-0"
+                  onSelect={(s) => {
+                    setSelectedSupplier(s.id);
+                    if (!isChallan) fetchPendingChallans(s.id);
+                    setTimeout(() => docTypeTriggerRef.current?.focus(), 60);
+                  }}
+                  onClear={() => setSelectedSupplier("")}
+                  onCreateNew={(seed) => { setEditingSupplier(null); setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
+                  onEditSelected={async (party) => {
+                    const { data } = await supabase.from("suppliers").select("*").eq("id", party.id).single();
+                    if (data) { setEditingSupplier(data as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
+                  }}
+                />
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditingSupplier(null); setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Doc Type</Label>
               <Select value={isChallan ? "challan" : "invoice"} onValueChange={(v) => { const c = v === "challan"; setIsChallan(c); if (!c && selectedSupplier) fetchPendingChallans(selectedSupplier); setTimeout(() => challanNumberRef.current?.focus(), 60); }}>
-                <SelectTrigger ref={docTypeTriggerRef} className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger
+                  ref={docTypeTriggerRef}
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => {
+                    // If dropdown is closed and value already set, Enter should advance to next field
+                    if (e.key === "Enter" && !e.shiftKey && e.currentTarget.getAttribute("aria-expanded") !== "true") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      challanNumberRef.current?.focus();
+                      challanNumberRef.current?.select();
+                    }
+                  }}
+                >
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="challan">Challan</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
@@ -806,7 +887,7 @@ export default function PurchaseOrders() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); deliveryDateRef.current?.focus(); } }} />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px]">Delivery Date</Label>
+              <Label className="text-[11px]">Invoice Date</Label>
               <Input ref={deliveryDateRef} type="date" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} className="h-8 text-sm"
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); productSearchRef.current?.focus(); } }} />
             </div>
@@ -848,9 +929,14 @@ export default function PurchaseOrders() {
                     <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
                       showPrice priceType="purchase" placeholder="Search product..." />
                   </div>
-                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => setShowProductDialog(true)} data-enter-nav-skip="true" tabIndex={-1}>
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => { setEditingProduct(null); setShowProductDialog(true); }} data-enter-nav-skip="true" tabIndex={-1}>
                     <PlusCircle className="h-4 w-4" />
                   </Button>
+                  {selectedProduct && (
+                    <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="Edit selected product (Ctrl+E)" onClick={() => { const p = products?.find(p => p.id === selectedProduct); if (p) { setEditingProduct(p); setShowProductDialog(true); } }} data-enter-nav-skip="true" tabIndex={-1}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
               {(config.hasBatchTracking || settings.enable_batch_tracking) && (
@@ -969,14 +1055,14 @@ export default function PurchaseOrders() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  Expiry {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                  Expiry (MM/YY) {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
                 </Label>
-                <Input type="date" value={itemExpiryDate}
-                  onChange={e => { if (!batchLocked) setItemExpiryDate(e.target.value); }}
+                <ExpiryMMYYInput
+                  value={itemExpiryDate}
+                  onChange={(iso) => { if (!batchLocked) setItemExpiryDate(iso); }}
                   onKeyDown={poEnterNav}
-                  aria-readonly={batchLocked}
-                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
-                  className={`h-9 text-xs ${batchLocked ? "bg-muted/50 cursor-not-allowed pointer-events-none" : ""}`} />
+                  disabled={batchLocked}
+                />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">
@@ -1004,13 +1090,18 @@ export default function PurchaseOrders() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="1" />
+                  onKeyDown={poEnterNav}
+                  disabled={!selectedProduct}
+                  title={!selectedProduct ? "Select a product first" : ""}
+                  className="h-9" placeholder="1" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
                 <Input type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav} className="h-9" placeholder="0" />
+                  onKeyDown={poEnterNav}
+                  disabled={!selectedProduct}
+                  className="h-9" placeholder="0" />
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
@@ -1240,16 +1331,28 @@ export default function PurchaseOrders() {
         </DialogContent>
       </Dialog>
 
-      <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />
-      <SupplierFormDialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog} onSuccess={(id) => {
-        refetchSuppliers();
-        if (id) {
-          setSelectedSupplier(id);
-          // Close dialog and advance focus to next field
-          setShowSupplierDialog(false);
-          setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
-        }
-      }} />
+      <ProductFormDialog
+        open={showProductDialog}
+        onOpenChange={(o) => { setShowProductDialog(o); if (!o) setEditingProduct(null); }}
+        editingProduct={editingProduct}
+        onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); setEditingProduct(null); }}
+      />
+      <SupplierFormDialog
+        open={showSupplierDialog}
+        onOpenChange={(o) => { setShowSupplierDialog(o); if (!o) { setSupplierCreateSeed({}); setEditingSupplier(null); } }}
+        editingSupplier={editingSupplier}
+        initialData={supplierCreateSeed}
+        onSuccess={(id) => {
+          refetchSuppliers();
+          if (id) {
+            setSelectedSupplier(id);
+            setShowSupplierDialog(false);
+            setSupplierCreateSeed({});
+            setEditingSupplier(null);
+            setTimeout(() => docTypeTriggerRef.current?.focus(), 100);
+          }
+        }}
+      />
       <ReceiveInventoryDialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen} orderId={selectedOrderForReceive?.id || null} supplierId={selectedOrderForReceive?.supplierId || null}
         onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); queryClient.invalidateQueries({ queryKey: ["inventory-batches"] }); }} />
       <LinkedChallansDialog open={linkedChallansDialogOpen} onOpenChange={setLinkedChallansDialogOpen} invoiceId={selectedInvoiceForChallans} />

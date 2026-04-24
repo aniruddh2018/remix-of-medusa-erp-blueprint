@@ -1,0 +1,1 @@
+ALTER TABLE public.products ALTER COLUMN gst_percentage SET DEFAULT 18.00;

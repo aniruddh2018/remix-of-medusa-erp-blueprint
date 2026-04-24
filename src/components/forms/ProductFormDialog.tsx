@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -16,31 +16,87 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
-import type { TablesInsert } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
+
+type Product = Tables<"products">;
 
 interface ProductFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (productId: string) => void;
+  /** When provided, the form opens in edit mode for this product. */
+  editingProduct?: Product | null;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductFormDialogProps) {
+// Pharma-only product fields hidden for non-pharma businesses
+const PHARMA_ONLY_FIELDS = new Set([
+  "generic_name",
+  "composition",
+  "strength",
+  "drug_schedule",
+  "hsn_code",
+]);
+
+// Numeric product columns — empty strings must become null/0 before insert
+const NUMERIC_KEYS = new Set([
+  "mrp", "purchase_price", "sale_price", "gst_percentage",
+  "min_stock_level", "max_stock_level", "reorder_level",
+]);
+
+// Enum-typed product columns and their fallback when blank
+const ENUM_DEFAULTS: Record<string, string> = {
+  drug_schedule: "none",
+};
+
+export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduct }: ProductFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { companyId } = useBusiness();
-  const { fields, sections, uiOverrides, layout } = useFormConfig("products");
+  const { companyId, config: businessConfig } = useBusiness();
+  const { fields: rawFields, sections, uiOverrides, layout } = useFormConfig("products");
   const rules = useBusinessRules("products");
   const [formData, setFormData] = useState<Record<string, any>>({});
 
+  // Tailor field set + unit options to the active business type
+  const fields = useMemo(() => {
+    const isPharma = businessConfig.hasGenericName || businessConfig.hasComposition || businessConfig.hasDrugSchedule;
+    return rawFields
+      .filter((f) => {
+        if (!isPharma && PHARMA_ONLY_FIELDS.has(f.key)) {
+          // hsn_code is still useful for general trading (GST-bearing items) — keep it there
+          if (f.key === "hsn_code") return true;
+          return false;
+        }
+        if (f.key === "generic_name" && !businessConfig.hasGenericName) return false;
+        if (f.key === "composition" && !businessConfig.hasComposition) return false;
+        if (f.key === "strength" && !businessConfig.hasStrength) return false;
+        if (f.key === "drug_schedule" && !businessConfig.hasDrugSchedule) return false;
+        return true;
+      })
+      .map((f) => {
+        if (f.key === "unit" && businessConfig.units?.length) {
+          return { ...f, options: businessConfig.units, defaultValue: f.defaultValue ?? businessConfig.units[0]?.value };
+        }
+        return f;
+      });
+  }, [rawFields, businessConfig]);
+
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (editingProduct) {
+      const data: Record<string, any> = {};
+      fields.forEach((f) => {
+        data[f.key] = (editingProduct as any)[f.key] ?? f.defaultValue ?? "";
+      });
+      setFormData(data);
+    } else {
       const data: Record<string, any> = {};
       fields.forEach((f) => {
         data[f.key] = f.defaultValue ?? (f.type === "switch" ? true : "");
       });
       setFormData(data);
     }
-  }, [open, fields]);
+  }, [open, fields, editingProduct]);
 
   const ruleResult = evaluateAllRules(rules, formData);
 
@@ -54,6 +110,12 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const invalidateProductQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["products-active"] });
+    queryClient.invalidateQueries({ queryKey: ["products-for-sale"] });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const { data: product, error } = await supabase
@@ -65,10 +127,30 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
       return product;
     },
     onSuccess: (product) => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-active"] });
-      queryClient.invalidateQueries({ queryKey: ["products-for-sale"] });
+      invalidateProductQueries();
       toast({ title: uiOverrides.successMessage || "Product created successfully" });
+      onOpenChange(false);
+      onSuccess?.(product.id);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      const { data: product, error } = await supabase
+        .from("products")
+        .update(data as TablesUpdate<"products">)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return product;
+    },
+    onSuccess: (product) => {
+      invalidateProductQueries();
+      toast({ title: uiOverrides.successMessage || "Product updated successfully" });
       onOpenChange(false);
       onSuccess?.(product.id);
     },
@@ -94,12 +176,45 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
       }
     }
 
-    const submitData = { ...formData };
-    ruleResult.hiddenFields.forEach((key) => delete submitData[key]);
+    // Sanitize: drop fields hidden by rules + filtered out by business config,
+    // coerce numeric empties to null, and ensure enums have a valid value.
+    const allowedKeys = new Set(fields.map((f) => f.key));
+    const submitData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(formData)) {
+      if (!allowedKeys.has(key)) continue;
+      if (ruleResult.hiddenFields.has(key)) continue;
 
-    createMutation.mutate(submitData);
+      if (NUMERIC_KEYS.has(key)) {
+        if (value === "" || value === null || value === undefined) {
+          submitData[key] = null;
+        } else {
+          const n = Number(value);
+          submitData[key] = Number.isFinite(n) ? n : null;
+        }
+        continue;
+      }
+      if (key in ENUM_DEFAULTS) {
+        submitData[key] = value === "" || value == null ? ENUM_DEFAULTS[key] : value;
+        continue;
+      }
+      // Generic text/select: empty string → null so nullable columns stay clean
+      submitData[key] = value === "" ? null : value;
+    }
+
+    // Default base_unit to the user-facing unit if not explicitly set.
+    // base_unit drives all conversion math; without it, stock ops fall back to `unit`.
+    if (!submitData.base_unit && submitData.unit) {
+      submitData.base_unit = submitData.unit;
+    }
+
+    if (editingProduct) {
+      updateMutation.mutate({ id: editingProduct.id, data: submitData });
+    } else {
+      createMutation.mutate(submitData);
+    }
   };
 
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const visibleFields = fields.filter((f) => !ruleResult.hiddenFields.has(f.key));
 
   const gridClass = layout.columns === 3
@@ -112,9 +227,13 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{uiOverrides.formTitle || "Add New Product"}</DialogTitle>
-          {uiOverrides.formDescription && (
-            <DialogDescription>{uiOverrides.formDescription}</DialogDescription>
+          <DialogTitle>
+            {uiOverrides.formTitle || (editingProduct ? "Edit Product" : "Add New Product")}
+          </DialogTitle>
+          {(uiOverrides.formDescription || editingProduct) && (
+            <DialogDescription>
+              {uiOverrides.formDescription || "Update product information"}
+            </DialogDescription>
           )}
         </DialogHeader>
 
@@ -129,7 +248,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-enter-nav>
           {sections.length > 0 ? (
             sections.map((section) => {
               const sectionFields = visibleFields.filter(
@@ -148,7 +267,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                           field={field}
                           value={formData[field.key]}
                           onChange={handleChange}
-                          disabled={createMutation.isPending}
+                          disabled={isSubmitting}
                           overrideRequired={
                             ruleResult.requiredFields.has(field.key)
                               ? true
@@ -171,20 +290,27 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess }: ProductForm
                     field={field}
                     value={formData[field.key]}
                     onChange={handleChange}
-                    disabled={createMutation.isPending}
+                    disabled={isSubmitting}
                   />
                 </div>
               ))}
             </div>
           )}
 
+          {editingProduct && companyId && (
+            <ProductConversionsEditor
+              productId={editingProduct.id}
+              companyId={companyId}
+              baseUnit={(editingProduct as any).base_unit || editingProduct.unit || "pcs"}
+            />
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={createMutation.isPending || ruleResult.blockSubmit}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {uiOverrides.submitButtonText || "Add Product"}
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit} data-enter-nav-include="true">
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {uiOverrides.submitButtonText || (editingProduct ? "Update Product" : "Add Product")}
             </Button>
           </DialogFooter>
         </form>

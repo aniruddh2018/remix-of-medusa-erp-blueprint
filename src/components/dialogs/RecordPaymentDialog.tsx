@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,6 +130,10 @@ export function RecordPaymentDialog({
     },
   });
 
+  const enterNav = useEnterNavigation(() => {
+    if (amount > 0 && !mutation.isPending) mutation.mutate();
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -139,7 +144,7 @@ export function RecordPaymentDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4" data-enter-nav onKeyDown={enterNav}>
           {/* Reference info */}
           <div className="rounded-lg bg-muted/50 p-3 text-sm space-y-1">
             <div className="flex justify-between">
@@ -308,6 +313,7 @@ export function RecordPaymentDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={!amount || amount <= 0 || mutation.isPending}
+            data-enter-nav-include="true"
           >
             <Banknote className="h-4 w-4 mr-2" />
             {mutation.isPending ? "Saving..." : "Record Payment"}

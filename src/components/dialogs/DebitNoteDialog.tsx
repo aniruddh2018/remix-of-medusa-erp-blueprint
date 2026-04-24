@@ -298,6 +298,12 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
     p.generic_name?.toLowerCase().includes(manualProductSearch.toLowerCase())
   ).slice(0, 20) ?? [];
 
+  const enterNav = useEnterNavigation({
+    onLastField: () => {
+      if (returnItems.length > 0 && reason) createDebitNoteMutation.mutate();
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -310,7 +316,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5" data-enter-nav onKeyDown={enterNav}>
           {/* Step 1: Debit note number + supplier + Order search */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
@@ -567,6 +573,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             onClick={() => createDebitNoteMutation.mutate()}
             disabled={createDebitNoteMutation.isPending || returnItems.length === 0 || !reason}
             className="gap-2"
+            data-enter-nav-include="true"
           >
             {createDebitNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Issue Debit Note (Ctrl+Enter)

@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Clock, AlertTriangle } from "lucide-react";
+import { Trash2, Clock, AlertTriangle, Undo2 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import type { FullInvoiceSettings } from "@/hooks/useInvoiceSettings";
 
@@ -22,6 +22,14 @@ interface CartItem {
   total_price: number;
   max_quantity: number;
   expiry_date: string;
+  /** When true, this line is a customer return (refund) — restores inventory and subtracts from total */
+  is_return?: boolean;
+  /** Unit the line was billed in (e.g. "strip"). If absent, falls back to base unit. */
+  sold_unit?: string;
+  /** Base-unit equivalent of `quantity + free_quantity` (e.g. 2 strips × 10 = 20 tablets) */
+  base_quantity?: number;
+  /** Product's base unit, for the "(20 tab)" hint */
+  base_unit?: string;
 }
 
 interface SalesItemsTableProps {
@@ -76,13 +84,24 @@ export function SalesItemsTable({
             return (
               <TableRow
                 key={`${item.batch_id}-${index}`}
-                className={`${isInsufficient || isNoStock ? "bg-destructive/10" : ""} group`}
+                className={`${isInsufficient || isNoStock ? "bg-destructive/10" : ""} ${item.is_return ? "bg-secondary/60 border-l-2 border-l-destructive" : ""} group`}
                 data-billing-row
               >
                 <TableCell className="font-medium py-1">
+                  {item.is_return && (
+                    <Badge variant="destructive" className="mr-1 text-[10px] py-0 gap-0.5">
+                      <Undo2 className="h-2.5 w-2.5" /> RETURN
+                    </Badge>
+                  )}
                   <span className="text-sm">{item.product_name}</span>
-                  {isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">No Stock</Badge>}
-                  {isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">{totalNeeded}/{item.max_quantity}</Badge>}
+                  {item.sold_unit && item.base_unit && item.sold_unit.toLowerCase() !== item.base_unit.toLowerCase() && (
+                    <Badge variant="outline" className="ml-1 text-[10px] py-0 capitalize">
+                      {item.sold_unit}
+                      {item.base_quantity ? ` · ${item.base_quantity} ${item.base_unit}` : ""}
+                    </Badge>
+                  )}
+                  {!item.is_return && isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">No Stock</Badge>}
+                  {!item.is_return && isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">{totalNeeded}/{item.max_quantity}</Badge>}
                 </TableCell>
                 {settings.show_batch_column && (
                   <TableCell className="py-1 text-xs text-muted-foreground">{item.batch_number}</TableCell>
@@ -147,8 +166,8 @@ export function SalesItemsTable({
                 <TableCell className="py-1 text-xs text-muted-foreground text-center">
                   {item.gst_percentage}%
                 </TableCell>
-                <TableCell className="py-1 text-right font-mono text-sm font-medium">
-                  ₹{item.total_price.toFixed(2)}
+                <TableCell className={`py-1 text-right font-mono text-sm font-medium ${item.is_return ? "text-destructive" : ""}`}>
+                  {item.is_return ? "−" : ""}₹{Math.abs(item.total_price).toFixed(2)}
                 </TableCell>
                 <TableCell className="py-1">
                   <Button

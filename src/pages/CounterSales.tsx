@@ -25,6 +25,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS } from "@/lib/platform";
 import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
@@ -34,6 +36,7 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import {
   printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF,
@@ -43,6 +46,8 @@ import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { BatchSelector } from "@/components/billing/BatchSelector";
+import { UnitSelector } from "@/components/billing/UnitSelector";
+import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -103,6 +108,7 @@ export default function CounterSales() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
   const customerButtonRef = useRef<HTMLButtonElement>(null);
+  const customerSearchRef = useRef<PartySearchHandle>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -113,6 +119,8 @@ export default function CounterSales() {
     makeSlot(1, settings.default_customer_name || "Walk-in Customer", settings.default_payment_method || "cash"),
   ]);
   const [activeSlotId, setActiveSlotId] = useState<number>(1);
+  // Global return-mode toggle (* key) — next item added becomes a customer return on the active slot
+  const [returnMode, setReturnMode] = useState(false);
 
   // Helpers to read/write the active slot
   const activeSlot = slots.find(s => s.id === activeSlotId) ?? slots[0];
@@ -175,12 +183,13 @@ export default function CounterSales() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
+  const [itemUnit, setItemUnit] = useState<string>("");
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingCustomer, setEditingCustomer] = useState<Tables<"customers"> | null>(null);
 
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -222,7 +231,7 @@ export default function CounterSales() {
     setTimeout(() => {
       const hasCustomer = !!selectedCustomerId || !!customerName.trim();
       if (!hasCustomer) {
-        customerButtonRef.current?.focus();
+        customerSearchRef.current?.focus();
       } else {
         productSearchRef.current?.focus();
       }
@@ -235,10 +244,9 @@ export default function CounterSales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, draftRestored, activeSlotId]);
 
-  // Register Counter module with global focus tracker
   useModuleFocus({
     module: "counter",
-    getEntryPoint: () => customerButtonRef.current,
+    getEntryPoint: () => (customerSearchRef.current as unknown as HTMLElement) || customerButtonRef.current,
     getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });
@@ -314,12 +322,14 @@ export default function CounterSales() {
     return allBatches.filter(b => b.product_id === selectedProduct);
   }, [allBatches, selectedProduct]);
 
-  // Reserve quantities for items already in *active* slot's cart
+  // Reserve quantities for items already in *active* slot's cart (BASE units)
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(item => {
+      if (item.is_return) return;
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
+        const baseUsed = item.base_quantity ?? (item.quantity + (item.free_quantity || 0));
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + baseUsed);
       }
     });
     return map;
@@ -338,7 +348,7 @@ export default function CounterSales() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     if (!selectedProduct) {
       toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
       productSearchRef.current?.focus();
@@ -357,18 +367,127 @@ export default function CounterSales() {
       return;
     }
 
+    const isReturn = returnMode;
+    const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
+    const soldUnit = (itemUnit || baseUnit).toLowerCase();
+    const needsConversion = soldUnit !== baseUnit;
+
+    // For RETURNS: skip stock checks (we restore stock).
+    if (isReturn) {
+      const fallbackBatch = selectedBatchId
+        ? batchesForProduct.find(b => b.id === selectedBatchId)
+        : (batchesForProduct[0] || null);
+      if (!fallbackBatch) {
+        toast({ title: "No batch found", description: "Cannot record return — no batch exists for this product. Receive inventory first.", variant: "destructive" });
+        return;
+      }
+      // Resolve conversion for return rows too (so base_quantity is correct)
+      let returnFactor = 1;
+      if (needsConversion) {
+        try {
+          const conv = await resolveConversion({
+            companyId: companyId!,
+            productId: product.id,
+            batchId: fallbackBatch.id,
+            fromUnit: soldUnit,
+            toUnit: baseUnit,
+          });
+          returnFactor = conv.toBase(1);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
+          return;
+        }
+      }
+      const gstPercentage = noGstBill ? 0 : Number(product.gst_percentage);
+      const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+      const unitPrice = itemRate > 0 ? itemRate : Number(fallbackBatch.mrp);
+      const baseQtyTotal = (itemQuantity + (itemFreeQty || 0)) * returnFactor;
+      const newRow: CartItem = {
+        product_id: product.id,
+        batch_id: fallbackBatch.id,
+        product_name: productName,
+        batch_number: fallbackBatch.batch_number,
+        hsn_code: product.hsn_code || "",
+        quantity: itemQuantity,
+        free_quantity: itemFreeQty,
+        unit_price: unitPrice,
+        gst_percentage: gstPercentage,
+        discount_percentage: itemDiscount,
+        discount_flat: itemDiscountFlat,
+        total_price: calculateItemTotal(unitPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat),
+        max_quantity: fallbackBatch.quantity,
+        expiry_date: fallbackBatch.expiry_date,
+        is_return: true,
+        sold_unit: soldUnit,
+        base_unit: baseUnit,
+        base_quantity: baseQtyTotal,
+      };
+      setCart([...cart, newRow]);
+      setSelectedProduct("");
+      setSelectedBatchId(null);
+      setItemQuantity(1);
+      setItemFreeQty(0);
+      setItemDiscount(0);
+      setItemDiscountFlat(0);
+      setItemRate(0);
+      setItemUnit("");
+      setReturnMode(false);
+      toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
+      focusProductSearch();
+      return;
+    }
+
     if (batchesForProduct.length === 0 || availableStock <= 0) {
       if (!settings.allow_negative_stock) {
         toast({ title: "Out of stock", description: "This product has 0 available stock.", variant: "destructive" });
-        productSearchRef.current?.focus();
+        setSelectedProduct("");
+        productSearchRef.current?.clear();
+        setTimeout(() => productSearchRef.current?.focus(), 50);
         return;
       }
     }
 
-    const totalNeeded = itemQuantity + itemFreeQty;
+    // Resolve conversion factor (sold → base). Non-base units REQUIRE a specific batch.
+    let factor = 1;
+    let batchForConversion = selectedBatchId;
+    if (needsConversion) {
+      if (!batchForConversion) {
+        const sorted = [...batchesForProduct].sort((a, b) => {
+          if (!a.expiry_date && !b.expiry_date) return 0;
+          if (!a.expiry_date) return 1;
+          if (!b.expiry_date) return -1;
+          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        });
+        batchForConversion = sorted[0]?.id ?? null;
+      }
+      if (!batchForConversion) {
+        toast({ title: "Select a batch", description: `To sell in ${soldUnit}, please pick a specific batch (different batches may have different pack sizes).`, variant: "destructive" });
+        return;
+      }
+      try {
+        const conv = await resolveConversion({
+          companyId: companyId!,
+          productId: product.id,
+          batchId: batchForConversion,
+          fromUnit: soldUnit,
+          toUnit: baseUnit,
+        });
+        factor = conv.toBase(1);
+        if (factor <= 0) throw new Error("Invalid factor");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
+        return;
+      }
+    }
 
-    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
-      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+    const baseQtyMain = itemQuantity * factor;
+    const baseQtyFree = (itemFreeQty || 0) * factor;
+    const totalBaseNeeded = baseQtyMain + baseQtyFree;
+
+    if (totalBaseNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} ${baseUnit} available.`, variant: "destructive" });
       const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
       qtyEl?.focus();
       qtyEl?.select();
@@ -376,17 +495,19 @@ export default function CounterSales() {
     }
 
     let allocationResult;
-    if (selectedBatchId) {
-      const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
+    if (needsConversion || selectedBatchId) {
+      const chosenId = batchForConversion || selectedBatchId;
+      const chosen = batchesForProduct.find(b => b.id === chosenId);
       if (!chosen) {
         toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
         setSelectedBatchId(null);
         return;
       }
-      const cartQty = existingCartQuantities.get(chosen.id) || 0;
-      const availInBatch = Math.max(0, chosen.quantity - cartQty);
-      if (totalNeeded > availInBatch && !settings.allow_negative_stock) {
-        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatch} in batch ${chosen.batch_number}.`, variant: "destructive" });
+      const cartBaseInBatch = existingCartQuantities.get(chosen.id) || 0;
+      const pack = chosen.pack_size && chosen.pack_size > 0 ? chosen.pack_size : 1;
+      const availInBatchBase = Math.max(0, chosen.quantity * pack + (chosen.loose_quantity || 0) - cartBaseInBatch);
+      if (totalBaseNeeded > availInBatchBase && !settings.allow_negative_stock) {
+        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatchBase} ${baseUnit} in batch ${chosen.batch_number}.`, variant: "destructive" });
         const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
         qtyEl?.focus(); qtyEl?.select();
         return;
@@ -396,17 +517,18 @@ export default function CounterSales() {
         allocations: [{
           batch_id: chosen.id,
           batch_number: chosen.batch_number,
-          quantity: totalNeeded,
-          available_quantity: chosen.quantity,
+          quantity: totalBaseNeeded,
+          available_quantity: chosen.quantity * pack + (chosen.loose_quantity || 0),
           expiry_date: chosen.expiry_date,
           mrp: Number(chosen.mrp),
           purchase_price: Number(chosen.purchase_price),
+          pack_size: chosen.pack_size,
         }],
-        totalAllocated: totalNeeded,
+        totalAllocated: totalBaseNeeded,
         shortfall: 0,
       };
     } else {
-      allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
+      allocationResult = allocateBatchesFIFO(batchesForProduct, totalBaseNeeded, existingCartQuantities);
       if (!allocationResult.success && !settings.allow_negative_stock) {
         toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
         const qtyEl = document.getElementById("counter-qty") as HTMLInputElement | null;
@@ -421,23 +543,26 @@ export default function CounterSales() {
     const hsnCode = product.hsn_code || "";
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
-    // Distribute paid vs free quantities across batch allocations.
-    // allocation.quantity = (paid + free) chunk for this batch; we split it back.
-    let mainQtyLeft = itemQuantity;
-    let freeQtyLeft = itemFreeQty;
+    // Distribute paid vs free across batch allocations (allocations are in BASE units).
+    let mainBaseLeft = baseQtyMain;
+    let freeBaseLeft = baseQtyFree;
     const newCart = [...cart];
     for (const allocation of allocationResult.allocations) {
-      const takeMain = Math.min(mainQtyLeft, allocation.quantity);
-      const takeFree = Math.min(freeQtyLeft, allocation.quantity - takeMain);
-      mainQtyLeft -= takeMain;
-      freeQtyLeft -= takeFree;
+      const takeMainBase = Math.min(mainBaseLeft, allocation.quantity);
+      const takeFreeBase = Math.min(freeBaseLeft, allocation.quantity - takeMainBase);
+      mainBaseLeft -= takeMainBase;
+      freeBaseLeft -= takeFreeBase;
+
+      const takeMain = needsConversion ? Math.round(takeMainBase / factor) : takeMainBase;
+      const takeFree = needsConversion ? Math.round(takeFreeBase / factor) : takeFreeBase;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
+      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return && (i.sold_unit || baseUnit) === soldUnit);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
         row.free_quantity = (row.free_quantity || 0) + takeFree;
+        row.base_quantity = (row.base_quantity || 0) + takeMainBase + takeFreeBase;
         row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
         row.max_quantity = allocation.available_quantity;
       } else {
@@ -456,6 +581,9 @@ export default function CounterSales() {
           total_price: calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat),
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
+          sold_unit: soldUnit,
+          base_unit: baseUnit,
+          base_quantity: takeMainBase + takeFreeBase,
         });
       }
     }
@@ -468,6 +596,7 @@ export default function CounterSales() {
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
+    setItemUnit("");
 
     if (allocationResult.allocations.length > 1) {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });
@@ -475,9 +604,26 @@ export default function CounterSales() {
 
     focusProductSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, itemUnit, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode, companyId]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
+
+  // Jump-to-cart shortcut (Alt+L)
+  const focusCart = useCallback(() => {
+    if (cart.length === 0) {
+      toast({ title: "Cart is empty", description: "Add a product first." });
+      return;
+    }
+    const firstRow = document.querySelector<HTMLElement>("[data-billing-row]");
+    if (!firstRow) return;
+    firstRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    const firstInput = firstRow.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), [role="combobox"], button:not([disabled])'
+    );
+    (firstInput || firstRow).focus();
+    if (firstInput instanceof HTMLInputElement) firstInput.select();
+  }, [cart.length, toast]);
+  usePlatformShortcut({ shortcut: SHORTCUTS.FOCUS_CART, callback: focusCart, enabled: true, allowInInput: true });
 
   const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {
     setCart(prev => {
@@ -493,13 +639,14 @@ export default function CounterSales() {
 
   const removeFromCart = useCallback((index: number) => setCart(c => c.filter((_, i) => i !== index)), []);
 
-  // ── Totals ──
-  const itemsGrossTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
-  const totalItemDiscount = cart.reduce((s, i) => s + (i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0), 0);
-  const itemsSubtotal = cart.reduce((s, i) => s + Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
+  // ── Totals ── (returns subtract from totals)
+  const sign = (i: CartItem) => (i.is_return ? -1 : 1);
+  const itemsGrossTotal = cart.reduce((s, i) => s + sign(i) * i.unit_price * i.quantity, 0);
+  const totalItemDiscount = cart.reduce((s, i) => s + sign(i) * ((i.unit_price * i.quantity * i.discount_percentage / 100) + (i.discount_flat || 0)), 0);
+  const itemsSubtotal = cart.reduce((s, i) => s + sign(i) * Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)), 0);
   const totalGst = gstInclusive
-    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after - after / (1 + i.gst_percentage / 100)); }, 0)
-    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + (after * i.gst_percentage / 100); }, 0);
+    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after - after / (1 + i.gst_percentage / 100)); }, 0)
+    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - (i.discount_flat || 0)); return s + sign(i) * (after * i.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
   const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
@@ -561,18 +708,48 @@ export default function CounterSales() {
       if (orderError) throw orderError;
 
       try {
+        // Persist returns as negative qty (so delete can re-deduct correctly)
         const orderItems = cart.map(i => ({
           sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-          total_price: i.total_price, company_id: companyId,
+          total_price: i.is_return ? -Math.abs(i.total_price) : i.total_price,
+          company_id: companyId,
+          sold_unit: i.sold_unit || null,
+          base_quantity: i.is_return
+            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
+            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-        if (deductError) throw new Error(deductError.message);
+        // Split items: returns restore stock, sales deduct stock.
+        // Pass base_quantity so the RPC can deduct mixed loose+sealed correctly.
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+          unit_price: i.unit_price,
+        }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+        }));
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
 
         // Auto-record full payment for counter sale (paid by selected method)
         const { error: payErr } = await supabase.from("payments").insert({
@@ -606,9 +783,15 @@ export default function CounterSales() {
     mutationFn: async (orderId: string) => {
       const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
-      const restoreItems = (saleItems || []).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+        if (error) throw new Error(error.message);
+      }
+      if (reDeductItems.length > 0) {
+        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
         if (error) throw new Error(error.message);
       }
       await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
@@ -751,6 +934,12 @@ export default function CounterSales() {
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("counter-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
   useKeyboardShortcut({ key: "F2", callback: () => addSlot(), enabled: activeTab === "billing", allowInInput: true });
+  // * — toggle return mode (next item added becomes a customer return)
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Ctrl+1..9 → switch to slot at that index (visible slot order)
   useEffect(() => {
@@ -854,6 +1043,8 @@ export default function CounterSales() {
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+1–9</kbd> switch counter
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
           </p>
         </div>
         <div className="flex gap-2">
@@ -938,50 +1129,45 @@ export default function CounterSales() {
             <div className="md:col-span-2 space-y-1">
               <Label className="text-[11px]">Customer</Label>
               <div className="flex gap-1">
-                <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      ref={customerButtonRef}
-                      variant="outline"
-                      className="flex-1 justify-between h-8 text-sm font-normal"
-                      data-enter-nav-include="true"
-                      onKeyDown={(e) => {
-                        if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
-                          e.preventDefault();
-                          setShowCustomerDialog(true);
-                        }
-                      }}
-                    >
-                      {selectedCustomerId ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName : customerName || "Walk-in Customer"}
-                      <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search by name or phone..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
-                      <CommandList>
-                        <CommandEmpty>No customer found.</CommandEmpty>
-                        <CommandGroup>
-                          {customers?.filter(c => c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).map(c => (
-                            <CommandItem key={c.id} value={c.name} onSelect={() => {
-                              setSelectedCustomerId(c.id);
-                              setCustomerName(c.name);
-                              setCustomerPhone(c.phone || "");
-                              setCustomerAddress(c.address || "");
-                              setCustomerGstin(c.gst_number || "");
-                              setCustomerPopoverOpen(false);
-                              setTimeout(() => productSearchRef.current?.focus(), 50);
-                            }}>
-                              <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
-                              <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
+                <PartySearchInput
+                  ref={customerSearchRef}
+                  parties={customers}
+                  selectedId={selectedCustomerId}
+                  selectedName={selectedCustomerId ? (customers?.find(c => c.id === selectedCustomerId)?.name || customerName) : customerName}
+                  entityLabel="customer"
+                  placeholder="Type name or phone…"
+                  enterNavInclude
+                  className="flex-1"
+                  onSelect={(c) => {
+                    setSelectedCustomerId(c.id);
+                    setCustomerName(c.name);
+                    setCustomerPhone(c.phone || "");
+                    setCustomerAddress(c.address || "");
+                    setCustomerGstin(c.gst_number || "");
+                    setTimeout(() => productSearchRef.current?.focus(), 50);
+                  }}
+                  onClear={() => {
+                    setSelectedCustomerId(null);
+                    setCustomerName("");
+                    setCustomerPhone("");
+                    setCustomerAddress("");
+                    setCustomerGstin("");
+                  }}
+                  onCreateNew={(seed) => {
+                    setEditingCustomer(null);
+                    setCustomerCreateSeed(seed);
+                    setShowCustomerDialog(true);
+                  }}
+                  onEditSelected={async (party) => {
+                    const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                    if (data) {
+                      setEditingCustomer(data as Tables<"customers">);
+                      setCustomerCreateSeed({});
+                      setShowCustomerDialog(true);
+                    }
+                  }}
+                />
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setCustomerCreateSeed({}); setShowCustomerDialog(true); }} title="Add new customer (Ctrl+N)"><UserPlus className="h-3 w-3" /></Button>
               </div>
               {settings.show_customer_gstin && selectedCustomerId && (
                 <div className="space-y-1 mt-1">
@@ -1025,6 +1211,14 @@ export default function CounterSales() {
             </div>
           </div>
 
+          {returnMode && (
+            <div className="rounded-md border-2 border-destructive bg-destructive/10 px-3 py-2 flex items-center justify-between animate-pulse">
+              <span className="text-xs font-semibold text-destructive flex items-center gap-2">
+                🔁 RETURN MODE — next item will be added as a customer return (stock restored, total subtracted)
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setReturnMode(false)}>Cancel (*)</Button>
+            </div>
+          )}
           {/* Product entry bar */}
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
@@ -1049,7 +1243,9 @@ export default function CounterSales() {
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                         if (stock <= 0 && !settings.allow_negative_stock) {
                           toast({ title: "Out of stock", description: "This product has 0 available stock.", variant: "destructive" });
-                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          setSelectedProduct("");
+                          productSearchRef.current?.clear();
+                          setTimeout(() => productSearchRef.current?.focus(), 50);
                           return;
                         }
                         setTimeout(() => (document.getElementById("counter-qty") as HTMLInputElement)?.focus(), 30);
@@ -1062,11 +1258,17 @@ export default function CounterSales() {
                   </Button>
                 </div>
               </div>
+              {(() => {
+                const entryDisabled = !selectedProduct || (availableStock <= 0 && !settings.allow_negative_stock && !returnMode);
+                return (
+                  <>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" id="counter-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
+                  title={entryDisabled ? "Select an in-stock product first" : ""}
                   className="h-9" placeholder="1"
                 />
               </div>
@@ -1076,6 +1278,7 @@ export default function CounterSales() {
                   <Input type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
@@ -1085,6 +1288,7 @@ export default function CounterSales() {
                 <Input type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
                   className="h-9" placeholder="0.00"
                 />
               </div>
@@ -1094,13 +1298,31 @@ export default function CounterSales() {
                   <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
               )}
+                  </>
+                );
+              })()}
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        batchId={selectedBatchId}
+                        value={itemUnit || baseUnit}
+                        onChange={setItemUnit}
+                      />
+                    );
+                  })()}
                   {selectedProduct && batchesForProduct.length > 0 && (
                     <BatchSelector
                       batches={batchesForProduct}
@@ -1302,20 +1524,29 @@ export default function CounterSales() {
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
-        queryClient.invalidateQueries({ queryKey: ["customers-for-counter"] });
-        supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
-          if (data) {
-            setSelectedCustomerId(data.id);
-            setCustomerName(data.name);
-            setCustomerPhone(data.phone || "");
-            setCustomerAddress(data.address || "");
-            setCustomerGstin(data.gst_number || "");
-            setShowCustomerDialog(false);
-            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
-          }
-        });
-      }} />
+      <CustomerFormDialog
+        open={showCustomerDialog}
+        onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) { setCustomerCreateSeed({}); setEditingCustomer(null); } }}
+        editingCustomer={editingCustomer}
+        initialData={customerCreateSeed}
+        onSuccess={(customerId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers-for-counter"] });
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+            if (data) {
+              setSelectedCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+              setShowCustomerDialog(false);
+              setCustomerCreateSeed({});
+              setEditingCustomer(null);
+              setTimeout(() => productSearchRef.current?.focus(), 100);
+            }
+          });
+        }}
+      />
     </div>
   );
 }

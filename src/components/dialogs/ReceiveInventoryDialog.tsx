@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Package } from "lucide-react";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { clearConversionCache } from "@/services/unitConversion";
 
 interface OrderItem {
   id: string;
@@ -18,6 +19,8 @@ interface OrderItem {
     name: string;
     strength: string | null;
     mrp: number;
+    unit: string | null;
+    base_unit: string | null;
   };
 }
 
@@ -30,6 +33,10 @@ interface BatchDetail {
   manufacturing_date: string;
   purchase_price: number;
   mrp: number;
+  // Per-batch packing — each batch is treated independently
+  pack_unit: string;       // e.g. "Strip"
+  base_unit: string;       // e.g. "Tablet"
+  pack_size: number;       // tablets per strip for THIS batch (e.g. 10 vs 15)
 }
 
 interface ReceiveInventoryDialogProps {
@@ -71,7 +78,7 @@ export function ReceiveInventoryDialog({
           product_id,
           quantity,
           unit_price,
-          products (name, strength, mrp)
+          products (name, strength, mrp, unit, base_unit)
         `)
         .eq("purchase_order_id", orderId);
 
@@ -80,17 +87,24 @@ export function ReceiveInventoryDialog({
       const items = (data || []) as unknown as OrderItem[];
       setOrderItems(items);
 
-      // Initialize batch details - NO default expiry, NO auto batch numbers
-      const initialBatches: BatchDetail[] = items.map((item) => ({
-        product_id: item.product_id,
-        product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
-        quantity: item.quantity,
-        batch_number: "",
-        expiry_date: "",
-        manufacturing_date: "",
-        purchase_price: Number(item.unit_price),
-        mrp: Number(item.products.mrp) || Number(item.unit_price) * 1.2,
-      }));
+      const initialBatches: BatchDetail[] = items.map((item) => {
+        const baseUnit = item.products.base_unit || item.products.unit || "pcs";
+        // Default pack unit = product unit; if same as base => no pack hierarchy.
+        const packUnit = item.products.unit || baseUnit;
+        return {
+          product_id: item.product_id,
+          product_name: `${item.products.name}${item.products.strength ? ` ${item.products.strength}` : ""}`,
+          quantity: item.quantity,
+          batch_number: "",
+          expiry_date: "",
+          manufacturing_date: "",
+          purchase_price: Number(item.unit_price),
+          mrp: Number(item.products.mrp) || Number(item.unit_price) * 1.2,
+          pack_unit: packUnit,
+          base_unit: baseUnit,
+          pack_size: 1, // user must override per batch (e.g. 10 tabs/strip vs 15)
+        };
+      });
 
       setBatchDetails(initialBatches);
     } catch (error: any) {
@@ -111,7 +125,16 @@ export function ReceiveInventoryDialog({
     setSaving(true);
 
     try {
-      // Use smart batch creation/merge RPC
+      // Fetch company_id from the order
+      const { data: orderData } = await supabase
+        .from("purchase_orders")
+        .select("company_id")
+        .eq("id", orderId!)
+        .single();
+
+      const companyId = orderData?.company_id;
+
+      // Persist batches with pack_size so each batch's packing is independent.
       const batchPayload = batchDetails.map((batch) => ({
         product_id: batch.product_id,
         batch_number: batch.batch_number,
@@ -121,27 +144,53 @@ export function ReceiveInventoryDialog({
         expiry_date: batch.expiry_date || null,
         manufacturing_date: batch.manufacturing_date || null,
         supplier_id: supplierId,
-        company_id: null,
+        company_id: companyId,
+        pack_size: batch.pack_size > 0 ? batch.pack_size : null,
       }));
 
-      // Fetch company_id from the order
-      const { data: orderData } = await supabase
-        .from("purchase_orders")
-        .select("company_id")
-        .eq("id", orderId!)
-        .single();
-
-      const companyId = orderData?.company_id;
-      const enrichedPayload = batchPayload.map(b => ({ ...b, company_id: companyId }));
-
       const { data: result, error: rpcError } = await supabase.rpc("receive_purchase_batches", {
-        _batches: enrichedPayload,
+        _batches: batchPayload,
         _purchase_order_id: orderId,
       });
 
       if (rpcError) throw rpcError;
 
       const actions = (result as any[]) || [];
+
+      // Persist per-batch conversions (Pack -> Base, e.g. 1 Strip = 10 Tablets for THIS batch).
+      // Each new batch with a meaningful pack hierarchy gets its own batch_conversion row,
+      // so Batch A (10/strip) and Batch B (15/strip) are treated independently.
+      const conversionRows: any[] = [];
+      actions.forEach((a: any, idx: number) => {
+        const batch = batchDetails[idx];
+        if (!batch) return;
+        if (a.action !== 'created') return; // only seed conversions for new batches
+        const sameUnit = batch.pack_unit.trim().toLowerCase() === batch.base_unit.trim().toLowerCase();
+        if (sameUnit || !batch.pack_size || batch.pack_size <= 1) return;
+        conversionRows.push({
+          company_id: companyId,
+          product_id: batch.product_id,
+          batch_id: a.batch_id,
+          from_unit: batch.pack_unit,
+          to_unit: batch.base_unit,
+          conversion_factor: Math.trunc(batch.pack_size),
+        });
+      });
+
+      if (conversionRows.length > 0) {
+        const { error: convErr } = await supabase.from("batch_conversions").insert(conversionRows);
+        if (convErr) {
+          // Non-fatal: batches were received; conversion seed failed. Surface a warning.
+          toast({
+            title: "Batches received, conversion seed failed",
+            description: convErr.message,
+            variant: "destructive",
+          });
+        }
+      }
+
+      clearConversionCache();
+
       const merged = actions.filter((a: any) => a.action?.includes('merged')).length;
       const created = actions.filter((a: any) => a.action?.includes('created')).length;
 
@@ -159,16 +208,18 @@ export function ReceiveInventoryDialog({
     }
   };
 
+  const enterNav = useEnterNavigation({ onLastField: handleReceive });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Receive Inventory
           </DialogTitle>
           <DialogDescription>
-            Customize batch details for each product before receiving into inventory
+            Set batch details and per-batch packing (e.g. 10 vs 15 tablets per strip). Each batch's packing is tracked independently.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +232,7 @@ export function ReceiveInventoryDialog({
             No items to receive
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4" data-enter-nav onKeyDown={enterNav}>
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Batch Details</CardTitle>
@@ -196,6 +247,9 @@ export function ReceiveInventoryDialog({
                         <TableHead>Batch Number</TableHead>
                         <TableHead>Mfg Date</TableHead>
                         <TableHead>Expiry Date</TableHead>
+                        <TableHead>Pack Unit</TableHead>
+                        <TableHead>Base Unit</TableHead>
+                        <TableHead>Pack Size</TableHead>
                         <TableHead>Purchase Price</TableHead>
                         <TableHead>MRP</TableHead>
                       </TableRow>
@@ -250,6 +304,35 @@ export function ReceiveInventoryDialog({
                           </TableCell>
                           <TableCell>
                             <Input
+                              value={batch.pack_unit}
+                              onChange={(e) => updateBatchDetail(index, "pack_unit", e.target.value)}
+                              className="w-24"
+                              placeholder="Strip"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={batch.base_unit}
+                              onChange={(e) => updateBatchDetail(index, "base_unit", e.target.value)}
+                              className="w-24"
+                              placeholder="Tablet"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={batch.pack_size}
+                              onChange={(e) =>
+                                updateBatchDetail(index, "pack_size", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)
+                              }
+                              className="w-20"
+                              title="Base units per pack — e.g. 10 tablets per strip. Set per batch."
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
                               type="number"
                               min={0}
                               step={0.01}
@@ -281,7 +364,8 @@ export function ReceiveInventoryDialog({
             </Card>
 
             <p className="text-sm text-muted-foreground">
-              * Leave batch number empty to use MRP as batch identifier (no expiry assigned). Provide batch number + expiry for explicit batch tracking.
+              * Pack Size = base units inside one pack <em>for this batch</em>. e.g. Batch A: 10 tabs/strip, Batch B: 15 tabs/strip — they stay separate.
+              Leave Pack Size = 1 for items sold loose only. Leave batch number empty to merge into MRP-based stock (no expiry).
             </p>
           </div>
         )}
@@ -293,6 +377,7 @@ export function ReceiveInventoryDialog({
           <Button
             onClick={handleReceive}
             disabled={batchDetails.length === 0 || saving}
+            data-enter-nav-include="true"
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Receive {batchDetails.length} Batch(es)

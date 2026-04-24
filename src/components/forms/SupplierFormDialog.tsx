@@ -25,6 +25,8 @@ interface SupplierFormDialogProps {
   onOpenChange: (open: boolean) => void;
   editingSupplier?: Supplier | null;
   onSuccess?: (supplierId: string) => void;
+  /** Optional seed values when creating a new supplier (e.g. typed name or phone) */
+  initialData?: Partial<Record<string, any>>;
 }
 
 export function SupplierFormDialog({
@@ -32,6 +34,7 @@ export function SupplierFormDialog({
   onOpenChange,
   editingSupplier,
   onSuccess,
+  initialData,
 }: SupplierFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,11 +53,12 @@ export function SupplierFormDialog({
     } else if (open) {
       const data: Record<string, any> = {};
       fields.forEach((f) => {
-        data[f.key] = f.defaultValue ?? (f.type === "switch" ? true : "");
+        const seeded = initialData?.[f.key];
+        data[f.key] = seeded !== undefined && seeded !== "" ? seeded : (f.defaultValue ?? (f.type === "switch" ? true : ""));
       });
       setFormData(data);
     }
-  }, [editingSupplier, open, fields]);
+  }, [editingSupplier, open, fields, initialData]);
 
   // Evaluate rules
   const ruleResult = evaluateAllRules(rules, formData);
@@ -177,7 +181,7 @@ export function SupplierFormDialog({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-enter-nav>
           {sections.length > 0 ? (
             sections.map((section) => {
               const sectionFields = visibleFields.filter((f) => f.section === section.key || (!f.section && section.order === 1));
@@ -228,7 +232,7 @@ export function SupplierFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {uiOverrides.cancelButtonText || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit}>
+            <Button type="submit" disabled={isSubmitting || ruleResult.blockSubmit} data-enter-nav-include="true">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {uiOverrides.submitButtonText || (editingSupplier ? "Update Supplier" : "Add Supplier")}
             </Button>

@@ -56,13 +56,16 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
       },
     }));
 
-    // Filter & group products
-    const { flatResults } = useMemo(() => {
-      if (!products) return { flatResults: [] };
+    // Filter results, then arrange so brand alternates (same composition/generic + strength)
+    // appear immediately below the matched product as a "🔄 Same composition" group.
+    const { flatResults, alternateIds } = useMemo(() => {
+      if (!products) return { flatResults: [], alternateIds: new Set<string>() };
       const q = query.toLowerCase().trim();
-      if (!q && selectedProductId) return { flatResults: [] };
+      if (!q && selectedProductId) return { flatResults: [], alternateIds: new Set<string>() };
 
-      const filtered = q
+      const norm = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+
+      const direct = q
         ? products.filter(
             (p) =>
               p.name.toLowerCase().includes(q) ||
@@ -72,7 +75,37 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           )
         : products;
 
-      return { flatResults: filtered.slice(0, 30) };
+      // Build ordered list: each direct match followed by its alternates (same composition or generic + same strength)
+      const out: Product[] = [];
+      const seen = new Set<string>();
+      const altIds = new Set<string>();
+
+      for (const p of direct) {
+        if (seen.has(p.id)) continue;
+        out.push(p);
+        seen.add(p.id);
+
+        const key = norm(p.composition) || norm(p.generic_name);
+        if (!key) continue;
+
+        const alts = products.filter((x) => {
+          if (x.id === p.id || seen.has(x.id)) return false;
+          const xKey = norm(x.composition) || norm(x.generic_name);
+          if (xKey !== key) return false;
+          // Same strength when both defined; ignore strength match if either is missing
+          if (p.strength && x.strength && norm(p.strength) !== norm(x.strength)) return false;
+          return true;
+        });
+
+        for (const a of alts) {
+          out.push(a);
+          seen.add(a.id);
+          altIds.add(a.id);
+        }
+        if (out.length >= 30) break;
+      }
+
+      return { flatResults: out.slice(0, 30), alternateIds: altIds };
     }, [products, query, selectedProductId]);
 
     // Reset highlight on results change
@@ -119,11 +152,48 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
         : Number(product.mrp);
     };
 
+    const shakeAndWarn = useCallback((message: string) => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.classList.add("animate-shake", "ring-2", "ring-destructive");
+      setTimeout(() => el.classList.remove("animate-shake"), 500);
+      setTimeout(() => el.classList.remove("ring-2", "ring-destructive"), 1500);
+      // Inline hint
+      const parent = el.parentElement;
+      if (parent && !parent.querySelector("[data-product-hint]")) {
+        const hint = document.createElement("div");
+        hint.setAttribute("data-product-hint", "true");
+        hint.textContent = message;
+        hint.className =
+          "absolute -bottom-5 left-0 z-50 text-[10px] font-medium text-destructive bg-background px-1.5 py-0.5 rounded shadow-sm border border-destructive/30";
+        const prev = parent.style.position;
+        if (!prev || prev === "static") parent.style.position = "relative";
+        parent.appendChild(hint);
+        setTimeout(() => {
+          hint.remove();
+          if (!prev) parent.style.position = "";
+        }, 1800);
+      }
+    }, []);
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
+      // Allow backward nav (Shift+Enter, ArrowLeft on empty) to bubble to parent
+      if (e.key === "Enter" && e.shiftKey) {
+        return; // parent enter-nav handles backward
+      }
+
       if (!open || flatResults.length === 0) {
         if (e.key === "ArrowDown" && flatResults.length > 0) {
           setOpen(true);
           e.preventDefault();
+          return;
+        }
+        // Block forward Enter when nothing selectable — must pick a product
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          shakeAndWarn(query.trim() ? "No matching product" : "Select a product");
+          return;
         }
         return;
       }
@@ -139,8 +209,11 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           break;
         case "Enter":
           e.preventDefault();
+          e.stopPropagation(); // prevent parent advancing before onSelect resolves
           if (flatResults[highlightIndex]) {
             handleSelect(flatResults[highlightIndex].id);
+          } else {
+            shakeAndWarn("Select a product");
           }
           break;
         case "Escape":
@@ -153,6 +226,18 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
           }
           setOpen(false);
           break;
+      }
+    };
+
+    // Backward nav (Shift+Enter) lands on selected-chip — re-open editor on Enter forward, or bubble Shift+Enter back.
+    const handleChipKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        // Selected product is valid — let parent enter-nav advance to next field
+        return;
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        clearSelection();
       }
     };
 
@@ -170,11 +255,20 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
     };
 
     return (
-      <div ref={containerRef} className="relative">
+      <div
+        ref={containerRef}
+        className="relative"
+        data-field-required="true"
+        data-field-value={selectedProductId ? (selectedProduct?.name || "selected") : ""}
+      >
         {/* Always-visible input */}
         {selectedProduct && !query ? (
           <div
-            className="flex items-center h-9 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group"
+            tabIndex={0}
+            role="textbox"
+            aria-label={`Selected product: ${selectedProduct.name}. Press Enter to continue, Backspace to clear.`}
+            onKeyDown={handleChipKeyDown}
+            className="flex items-center h-9 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => {
               onSelect("");
               setQuery("");
@@ -211,6 +305,8 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
               className="h-9 pl-8 pr-3"
               autoComplete="off"
               spellCheck={false}
+              required
+              aria-required="true"
             />
           </div>
         )}
@@ -221,43 +317,53 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
             ref={listRef}
             className="absolute z-50 mt-1 w-full min-w-[340px] max-h-[280px] overflow-y-auto rounded-md border bg-popover shadow-lg"
           >
-            {flatResults.map((product, idx) => (
-              <div
-                key={product.id}
-                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
-                  idx === highlightIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-                } ${selectedProductId === product.id ? "font-medium" : ""}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(product.id);
-                }}
-                onMouseEnter={() => setHighlightIndex(idx)}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    {selectedProductId === product.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
-                    <span className="truncate font-medium">{product.name}</span>
-                    {product.strength && (
-                      <span className="text-muted-foreground text-xs">{product.strength}</span>
-                    )}
+            {flatResults.map((product, idx) => {
+              const isAlt = alternateIds.has(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    idx === highlightIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                  } ${selectedProductId === product.id ? "font-medium" : ""} ${
+                    isAlt ? "border-l-2 border-l-primary/40 pl-2.5 bg-muted/30" : ""
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(product.id);
+                  }}
+                  onMouseEnter={() => setHighlightIndex(idx)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      {selectedProductId === product.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
+                      {isAlt && (
+                        <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded shrink-0">
+                          🔄 ALT
+                        </span>
+                      )}
+                      <span className="truncate font-medium">{product.name}</span>
+                      {product.strength && (
+                        <span className="text-muted-foreground text-xs">{product.strength}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {product.generic_name && (
+                        <span className="flex items-center gap-0.5">
+                          <Pill className="h-2.5 w-2.5" />
+                          {product.generic_name}
+                        </span>
+                      )}
+                      {product.manufacturer && <span>{product.manufacturer}</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {product.generic_name && (
-                      <span className="flex items-center gap-0.5">
-                        <Pill className="h-2.5 w-2.5" />
-                        {product.generic_name}
-                      </span>
-                    )}
-                    {product.manufacturer && <span>{product.manufacturer}</span>}
-                  </div>
+                  {showPrice && (
+                    <span className="text-sm font-mono text-right ml-3 shrink-0">
+                      ₹{getDisplayPrice(product)}
+                    </span>
+                  )}
                 </div>
-                {showPrice && (
-                  <span className="text-sm font-mono text-right ml-3 shrink-0">
-                    ₹{getDisplayPrice(product)}
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {open && query.trim() && flatResults.length === 0 && (

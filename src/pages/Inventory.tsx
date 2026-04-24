@@ -14,16 +14,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History } from "lucide-react";
+import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History, Layers } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
+import { BatchViewerDialog } from "@/components/dialogs/BatchViewerDialog";
 
 interface InventoryItem {
   id: string;
   product_id: string;
   batch_number: string;
   quantity: number;
+  loose_quantity: number;
+  pack_size: number | null;
   expiry_date: string;
   manufacturing_date: string | null;
   purchase_price: number;
@@ -34,6 +38,8 @@ interface InventoryItem {
     name: string;
     manufacturer: string;
     reorder_level: number;
+    base_unit: string | null;
+    unit: string;
   };
   supplier: {
     name: string;
@@ -44,8 +50,10 @@ interface AggregatedProduct {
   product_id: string;
   product_name: string;
   manufacturer: string;
-  total_quantity: number;
+  total_base_quantity: number;   // total in BASE units across all batches (intelligent aggregation)
   reorder_level: number;
+  base_unit: string;
+  pack_summary: string;          // human readable per-batch packing summary
   batches: InventoryItem[];
 }
 
@@ -57,6 +65,7 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
   const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
+  const [batchProduct, setBatchProduct] = useState<AggregatedProduct | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
@@ -68,7 +77,7 @@ export default function Inventory() {
         .from("inventory_batches")
         .select(`
           *,
-          product:products(id, name, manufacturer, reorder_level),
+          product:products(id, name, manufacturer, reorder_level, base_unit, unit),
           supplier:suppliers(name)
         `)
         .eq("company_id", companyId)
@@ -91,23 +100,41 @@ export default function Inventory() {
     fetchInventory();
   }, [companyId]);
 
+  // Aggregate intelligently: convert each batch's sealed packs (using ITS OWN pack_size)
+  // to base units, then add loose. Batches with different pack_size stay independent.
+  const baseUnitsFor = (b: InventoryItem) =>
+    b.quantity * (b.pack_size && b.pack_size > 0 ? b.pack_size : 1) + (b.loose_quantity || 0);
+
   const aggregatedProducts: AggregatedProduct[] = inventory.reduce((acc, item) => {
     const existing = acc.find((p) => p.product_id === item.product_id);
+    const baseUnit = item.product.base_unit || item.product.unit || "pcs";
     if (existing) {
-      existing.total_quantity += item.quantity;
+      existing.total_base_quantity += baseUnitsFor(item);
       existing.batches.push(item);
     } else {
       acc.push({
         product_id: item.product_id,
         product_name: item.product.name,
         manufacturer: item.product.manufacturer,
-        total_quantity: item.quantity,
+        total_base_quantity: baseUnitsFor(item),
         reorder_level: item.product.reorder_level,
+        base_unit: baseUnit,
+        pack_summary: "",
         batches: [item],
       });
     }
     return acc;
   }, [] as AggregatedProduct[]);
+
+  // Build pack summary per product, e.g. "10/pack ×3, 15/pack ×1, loose ×2"
+  aggregatedProducts.forEach((p) => {
+    const counts = new Map<string, number>();
+    p.batches.forEach((b) => {
+      const key = b.pack_size && b.pack_size > 1 ? `${b.pack_size}/pack` : "loose";
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    p.pack_summary = Array.from(counts.entries()).map(([k, v]) => `${k} ×${v}`).join(", ");
+  });
 
   const filteredProducts = aggregatedProducts.filter(
     (p) =>
@@ -128,8 +155,8 @@ export default function Inventory() {
 
   const stats = {
     totalProducts: aggregatedProducts.length,
-    lowStock: aggregatedProducts.filter((p) => p.total_quantity < p.reorder_level && p.total_quantity > 0).length,
-    outOfStock: aggregatedProducts.filter((p) => p.total_quantity === 0).length,
+    lowStock: aggregatedProducts.filter((p) => p.total_base_quantity < p.reorder_level && p.total_base_quantity > 0).length,
+    outOfStock: aggregatedProducts.filter((p) => p.total_base_quantity === 0).length,
     totalBatches: inventory.length,
   };
 
@@ -230,14 +257,16 @@ export default function Inventory() {
                     <TableHead>Product</TableHead>
                     <TableHead>Manufacturer</TableHead>
                     <TableHead className="text-right">Total Stock</TableHead>
+                    <TableHead>Packing</TableHead>
                     <TableHead className="text-right">Reorder Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Batches</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredProducts.map((product) => {
-                    const status = getStockStatus(product.total_quantity, product.reorder_level);
+                    const status = getStockStatus(product.total_base_quantity, product.reorder_level);
                     return (
                       <TableRow key={product.product_id} tabIndex={0} data-kb-row
                         className="table-hover-row focus:bg-accent cursor-pointer group"
@@ -256,7 +285,10 @@ export default function Inventory() {
                           </div>
                         </TableCell>
                         <TableCell>{product.manufacturer}</TableCell>
-                        <TableCell className="text-right font-mono">{product.total_quantity}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {product.total_base_quantity} <span className="text-xs text-muted-foreground">{product.base_unit}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{product.pack_summary || "—"}</TableCell>
                         <TableCell className="text-right font-mono">{product.reorder_level}</TableCell>
                         <TableCell>
                           <Badge className={status.color}>
@@ -264,6 +296,15 @@ export default function Inventory() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">{product.batches.length}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); setBatchProduct(product); }}
+                          >
+                            <Layers className="h-3 w-3 mr-1" /> View Batches
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -279,6 +320,15 @@ export default function Inventory() {
         onOpenChange={(open) => !open && setHistoryProduct(null)}
         productId={historyProduct?.id || null}
         productName={historyProduct?.name || ""}
+      />
+
+      <BatchViewerDialog
+        open={!!batchProduct}
+        onOpenChange={(open) => !open && setBatchProduct(null)}
+        productName={batchProduct?.product_name || ""}
+        productId={batchProduct?.product_id}
+        batches={(batchProduct?.batches || []).map((b: any) => ({ ...b, product_id: batchProduct?.product_id }))}
+        onChanged={() => fetchInventory()}
       />
     </div>
   );

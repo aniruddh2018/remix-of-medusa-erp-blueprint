@@ -16,13 +16,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown, History, Undo2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
 import { PostSalePaymentDialog } from "@/components/dialogs/PostSalePaymentDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { SHORTCUTS } from "@/lib/platform";
 import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
@@ -32,12 +34,17 @@ import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBr
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
+import { DoctorSelector } from "@/components/DoctorSelector";
+import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { BatchSelector } from "@/components/billing/BatchSelector";
+import { UnitSelector } from "@/components/billing/UnitSelector";
+import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -55,6 +62,7 @@ export default function Sales() {
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
   const customerButtonRef = useRef<HTMLButtonElement>(null);
+  const customerSearchRef = useRef<PartySearchHandle>(null);
 
   const focusProductSearch = useCallback(() => {
     setTimeout(() => productSearchRef.current?.focus(), 30);
@@ -73,7 +81,9 @@ export default function Sales() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string>(settings.default_payment_method || "cash");
+  const [doctor, setDoctor] = useState<{ id: string | null; name: string; registration_number: string }>({ id: null, name: "", registration_number: "" });
+  const [prescriptionDate, setPrescriptionDate] = useState<string>("");
+  const [prescriptionDurationDays, setPrescriptionDurationDays] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -82,6 +92,7 @@ export default function Sales() {
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
+  const [itemUnit, setItemUnit] = useState<string>("");
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -92,9 +103,9 @@ export default function Sales() {
   const [billDiscountFlat, setBillDiscountFlat] = useState<number>(0);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [customerCreateSeed, setCustomerCreateSeed] = useState<{ name?: string; phone?: string }>({});
+  const [editingCustomer, setEditingCustomer] = useState<Tables<"customers"> | null>(null);
   
   const [billLoadingId, setBillLoadingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -102,6 +113,8 @@ export default function Sales() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [paymentDialog, setPaymentDialog] = useState<null | { referenceId: string; referenceNumber: string; partyName: string; totalAmount: number; paidAmount: number }>(null);
   const [postSaleDialog, setPostSaleDialog] = useState<null | { id: string; invoice_number: string; customer_name: string; total_amount: number }>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [returnMode, setReturnMode] = useState(false);
 
   // ── Queries ──
   const { data: customers } = useQuery({
@@ -115,7 +128,7 @@ export default function Sales() {
   });
 
 
-  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, paymentMethod, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
+  const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
 
   const { clearDraft } = useDraftSave("draft_sale", saleDraft, (draft) => {
     if (draft.cart?.length > 0 || draft.customerName || draft.invoiceNumber) {
@@ -126,7 +139,9 @@ export default function Sales() {
       setCustomerAddress(draft.customerAddress || "");
       setCustomerGstin(draft.customerGstin || "");
       setPrescriptionNumber(draft.prescriptionNumber || "");
-      setPaymentMethod(draft.paymentMethod || "cash");
+      setPrescriptionDate(draft.prescriptionDate || "");
+      setPrescriptionDurationDays(draft.prescriptionDurationDays || "");
+      if (draft.doctor) setDoctor(draft.doctor);
       setNotes(draft.notes || "");
       setFreightCharges(draft.freightCharges || 0);
       setHandlingCharges(draft.handlingCharges || 0);
@@ -141,7 +156,7 @@ export default function Sales() {
     setTimeout(() => {
       const hasCustomer = !!selectedCustomerId || !!customerName.trim();
       if (!hasCustomer) {
-        customerButtonRef.current?.focus();
+        customerSearchRef.current?.focus();
       } else {
         productSearchRef.current?.focus();
       }
@@ -157,7 +172,7 @@ export default function Sales() {
   // Register Sales module with global focus tracker (intelligent recovery via `)
   useModuleFocus({
     module: "sales",
-    getEntryPoint: () => customerButtonRef.current,
+    getEntryPoint: () => (customerSearchRef.current as unknown as HTMLElement) || customerButtonRef.current,
     getFallback: () => (productSearchRef.current as unknown as HTMLElement) || null,
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });
@@ -218,8 +233,12 @@ export default function Sales() {
   const existingCartQuantities = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(item => {
+      // Return rows do NOT consume available stock — skip them
+      if (item.is_return) return;
       if (item.product_id === selectedProduct) {
-        map.set(item.batch_id, (map.get(item.batch_id) || 0) + item.quantity + (item.free_quantity || 0));
+        // Reserve in BASE units (use base_quantity if present, else fall back to qty+free)
+        const baseUsed = item.base_quantity ?? (item.quantity + (item.free_quantity || 0));
+        map.set(item.batch_id, (map.get(item.batch_id) || 0) + baseUsed);
       }
     });
     return map;
@@ -238,7 +257,7 @@ export default function Sales() {
     return discountedPrice + discountedPrice * (gst / 100);
   }, [gstInclusive]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     // Guard 1: must have a product selected
     if (!selectedProduct) {
       toast({ title: "Select a product", description: "Pick a product before adding it to the bill.", variant: "destructive" });
@@ -252,46 +271,122 @@ export default function Sales() {
       return;
     }
 
-    // Guard 2: quantity must be > 0 — refocus Product per spec
+    // Guard 2: quantity must be > 0
     if (itemQuantity <= 0) {
       toast({ title: "Quantity required", description: "Enter a quantity greater than 0.", variant: "destructive" });
       productSearchRef.current?.focus();
       return;
     }
 
-    // Block when no stock and negative stock is not allowed
-    if (batchesForProduct.length === 0 || availableStock <= 0) {
-      if (!settings.allow_negative_stock) {
-        toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
-        productSearchRef.current?.focus();
+    const isReturn = returnMode;
+    const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
+    const soldUnit = (itemUnit || baseUnit).toLowerCase();
+    const needsConversion = soldUnit !== baseUnit;
+
+    // For RETURNS: skip stock checks
+    if (!isReturn) {
+      if (batchesForProduct.length === 0 || availableStock <= 0) {
+        if (!settings.allow_negative_stock) {
+          toast({ title: "Out of stock", description: "This product has 0 available stock. Choose another or enable negative stock in Settings.", variant: "destructive" });
+          setSelectedProduct("");
+          productSearchRef.current?.clear();
+          setTimeout(() => productSearchRef.current?.focus(), 50);
+          return;
+        }
+      }
+    }
+
+    // Resolve conversion factor (sold → base). For non-base units we REQUIRE a specific batch
+    // so the conversion is unambiguous (different batches can have different pack sizes).
+    let factor = 1;
+    let batchForConversion = selectedBatchId;
+    if (needsConversion) {
+      if (!batchForConversion) {
+        // Auto-pick first batch by FEFO so a single strip→tablet conversion is unambiguous.
+        const sorted = [...batchesForProduct].sort((a, b) => {
+          if (!a.expiry_date && !b.expiry_date) return 0;
+          if (!a.expiry_date) return 1;
+          if (!b.expiry_date) return -1;
+          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        });
+        batchForConversion = sorted[0]?.id ?? null;
+      }
+      if (!batchForConversion) {
+        toast({ title: "Select a batch", description: `To sell in ${soldUnit}, please pick a specific batch (different batches may have different pack sizes).`, variant: "destructive" });
+        return;
+      }
+      try {
+        const conv = await resolveConversion({
+          companyId: companyId!,
+          productId: product.id,
+          batchId: batchForConversion,
+          fromUnit: soldUnit,
+          toUnit: baseUnit,
+        });
+        factor = conv.toBase(1); // how many base units per 1 sold unit
+        if (factor <= 0) throw new Error("Invalid factor");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast({ title: "Conversion missing", description: `Cannot convert ${soldUnit} → ${baseUnit}. ${msg}`, variant: "destructive" });
         return;
       }
     }
 
-    const totalNeeded = itemQuantity + itemFreeQty;
+    // BASE-unit totals used for stock checks and allocations
+    const baseQtyMain = itemQuantity * factor;
+    const baseQtyFree = (itemFreeQty || 0) * factor;
+    const totalBaseNeeded = baseQtyMain + baseQtyFree;
+    const totalNeeded = itemQuantity + (itemFreeQty || 0); // user-unit total (for cart UI)
 
-    // Guard 3: requested qty exceeds available — refocus Quantity field per spec
-    if (totalNeeded > availableStock && !settings.allow_negative_stock) {
-      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} units available.`, variant: "destructive" });
+    // Guard 3: stock check in base units
+    if (!isReturn && totalBaseNeeded > availableStock && !settings.allow_negative_stock) {
+      toast({ title: "Quantity exceeds stock", description: `Only ${availableStock} ${baseUnit} available.`, variant: "destructive" });
       const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
       qtyEl?.focus();
       qtyEl?.select();
       return;
     }
 
-    // Manual batch override: build a single-batch allocation if user picked one
     let allocationResult;
-    if (selectedBatchId) {
-      const chosen = batchesForProduct.find(b => b.id === selectedBatchId);
+
+    if (isReturn) {
+      const targetBatch = (selectedBatchId
+        ? batchesForProduct.find(b => b.id === selectedBatchId)
+        : batchesForProduct[0]);
+      if (!targetBatch) {
+        toast({ title: "No batch to credit", description: "This product has no existing batch to return into. Receive stock first or pick a batch.", variant: "destructive" });
+        productSearchRef.current?.focus();
+        return;
+      }
+      allocationResult = {
+        success: true,
+        allocations: [{
+          batch_id: targetBatch.id,
+          batch_number: targetBatch.batch_number,
+          quantity: totalBaseNeeded,
+          available_quantity: targetBatch.quantity,
+          expiry_date: targetBatch.expiry_date,
+          mrp: Number(targetBatch.mrp),
+          purchase_price: Number(targetBatch.purchase_price),
+          pack_size: targetBatch.pack_size,
+        }],
+        totalAllocated: totalBaseNeeded,
+        shortfall: 0,
+      };
+    } else if (needsConversion || selectedBatchId) {
+      // Forced single-batch path (manual override OR unit conversion)
+      const chosenId = batchForConversion || selectedBatchId;
+      const chosen = batchesForProduct.find(b => b.id === chosenId);
       if (!chosen) {
         toast({ title: "Batch unavailable", description: "Selected batch is no longer available.", variant: "destructive" });
         setSelectedBatchId(null);
         return;
       }
-      const cartQty = existingCartQuantities.get(chosen.id) || 0;
-      const availInBatch = Math.max(0, chosen.quantity - cartQty);
-      if (totalNeeded > availInBatch && !settings.allow_negative_stock) {
-        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatch} in batch ${chosen.batch_number}.`, variant: "destructive" });
+      const cartBaseInBatch = existingCartQuantities.get(chosen.id) || 0;
+      const pack = chosen.pack_size && chosen.pack_size > 0 ? chosen.pack_size : 1;
+      const availInBatchBase = Math.max(0, chosen.quantity * pack + (chosen.loose_quantity || 0) - cartBaseInBatch);
+      if (totalBaseNeeded > availInBatchBase && !settings.allow_negative_stock) {
+        toast({ title: "Batch quantity exceeded", description: `Only ${availInBatchBase} ${baseUnit} in batch ${chosen.batch_number}.`, variant: "destructive" });
         const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
         qtyEl?.focus(); qtyEl?.select();
         return;
@@ -301,17 +396,19 @@ export default function Sales() {
         allocations: [{
           batch_id: chosen.id,
           batch_number: chosen.batch_number,
-          quantity: totalNeeded,
-          available_quantity: chosen.quantity,
+          quantity: totalBaseNeeded,
+          available_quantity: chosen.quantity * pack + (chosen.loose_quantity || 0),
           expiry_date: chosen.expiry_date,
           mrp: Number(chosen.mrp),
           purchase_price: Number(chosen.purchase_price),
+          pack_size: chosen.pack_size,
         }],
-        totalAllocated: totalNeeded,
+        totalAllocated: totalBaseNeeded,
         shortfall: 0,
       };
     } else {
-      allocationResult = allocateBatchesFIFO(batchesForProduct, totalNeeded, existingCartQuantities);
+      // Default FEFO across batches (base-unit aware)
+      allocationResult = allocateBatchesFIFO(batchesForProduct, totalBaseNeeded, existingCartQuantities);
       if (!allocationResult.success && !settings.allow_negative_stock) {
         toast({ title: "Insufficient stock", description: allocationResult.message, variant: "destructive" });
         const qtyEl = document.getElementById("sale-qty") as HTMLInputElement | null;
@@ -326,26 +423,34 @@ export default function Sales() {
     const hsnCode = product.hsn_code || "";
     const effectiveRate = itemRate > 0 ? itemRate : 0;
 
-    // Distribute paid vs free quantities across batch allocations.
-    // allocation.quantity = (paid + free) chunk for this batch; we split it back.
-    let mainQtyLeft = itemQuantity;
-    let freeQtyLeft = itemFreeQty;
+    // Distribute paid vs free across batch allocations.
+    // allocations are in BASE units; convert back to user units (sold_unit) by dividing by factor.
+    let mainBaseLeft = baseQtyMain;
+    let freeBaseLeft = baseQtyFree;
     let newCart = [...cart];
     for (const allocation of allocationResult.allocations) {
-      const takeMain = Math.min(mainQtyLeft, allocation.quantity);
-      const takeFree = Math.min(freeQtyLeft, allocation.quantity - takeMain);
-      mainQtyLeft -= takeMain;
-      freeQtyLeft -= takeFree;
+      const takeMainBase = Math.min(mainBaseLeft, allocation.quantity);
+      const takeFreeBase = Math.min(freeBaseLeft, allocation.quantity - takeMainBase);
+      mainBaseLeft -= takeMainBase;
+      freeBaseLeft -= takeFreeBase;
+
+      // For multi-batch FEFO splits in non-base units, convert back to user-units (rounded).
+      const takeMain = needsConversion ? Math.round(takeMainBase / factor) : takeMainBase;
+      const takeFree = needsConversion ? Math.round(takeFreeBase / factor) : takeFreeBase;
 
       const unitPrice = effectiveRate > 0 ? effectiveRate : allocation.mrp;
-      const existingIndex = newCart.findIndex(i => i.batch_id === allocation.batch_id);
+      const existingIndex = isReturn
+        ? -1
+        : newCart.findIndex(i => i.batch_id === allocation.batch_id && !i.is_return && (i.sold_unit || baseUnit) === soldUnit);
       if (existingIndex >= 0) {
         const row = newCart[existingIndex];
         row.quantity += takeMain;
         row.free_quantity = (row.free_quantity || 0) + takeFree;
+        row.base_quantity = (row.base_quantity || 0) + takeMainBase + takeFreeBase;
         row.total_price = calculateItemTotal(row.unit_price, row.quantity, gstPercentage, row.discount_percentage, row.discount_flat);
         row.max_quantity = allocation.available_quantity;
       } else {
+        const baseTotal = calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat);
         newCart.push({
           product_id: product.id,
           batch_id: allocation.batch_id,
@@ -358,9 +463,13 @@ export default function Sales() {
           gst_percentage: gstPercentage,
           discount_percentage: itemDiscount,
           discount_flat: itemDiscountFlat,
-          total_price: calculateItemTotal(unitPrice, takeMain, gstPercentage, itemDiscount, itemDiscountFlat),
+          total_price: isReturn ? -baseTotal : baseTotal,
           max_quantity: allocation.available_quantity,
           expiry_date: allocation.expiry_date,
+          is_return: isReturn || undefined,
+          sold_unit: soldUnit,
+          base_unit: baseUnit,
+          base_quantity: takeMainBase + takeFreeBase,
         });
       }
     }
@@ -373,16 +482,85 @@ export default function Sales() {
     setItemDiscount(0);
     setItemDiscountFlat(0);
     setItemRate(0);
-
-    if (allocationResult.allocations.length > 1) {
+    setItemUnit("");
+    if (isReturn) {
+      setReturnMode(false);
+      toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
+    } else if (allocationResult.allocations.length > 1) {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });
     }
 
-    // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch]);
+  }, [selectedProduct, selectedBatchId, itemQuantity, itemFreeQty, itemRate, itemDiscount, itemDiscountFlat, itemUnit, products, batchesForProduct, availableStock, existingCartQuantities, cart, noGstBill, settings.allow_negative_stock, calculateItemTotal, toast, focusProductSearch, returnMode, companyId]);
+
+  // Repeat-from-history: add a single product line using FEFO batches with the historic price/discount.
+  const handleRepeatItem = useCallback((item: RepeatItem) => {
+    if (!products || !allBatches) return;
+    const product = products.find(p => p.id === item.product_id);
+    if (!product) {
+      toast({ title: "Product missing", description: "This product no longer exists in your catalog.", variant: "destructive" });
+      return;
+    }
+    const productBatches = allBatches.filter(b => b.product_id === product.id);
+    // Cart map for already-allocated quantities (across all products)
+    const cartQtyMap = new Map<string, number>();
+    cart.forEach(ci => {
+      cartQtyMap.set(ci.batch_id, (cartQtyMap.get(ci.batch_id) || 0) + ci.quantity + (ci.free_quantity || 0));
+    });
+    const totalNeeded = item.quantity + (item.free_quantity || 0);
+    const result = allocateBatchesFIFO(productBatches, totalNeeded, cartQtyMap);
+    if (!result.success) {
+      toast({ title: "Cannot repeat", description: result.message || "Insufficient stock.", variant: "destructive" });
+      return;
+    }
+    const gst = noGstBill ? 0 : Number(product.gst_percentage);
+    const productName = `${product.name}${product.strength ? ` ${product.strength}` : ""}`;
+    let mainLeft = item.quantity;
+    let freeLeft = item.free_quantity;
+    const newRows: CartItem[] = [];
+    for (const a of result.allocations) {
+      const takeMain = Math.min(mainLeft, a.quantity);
+      const takeFree = Math.min(freeLeft, a.quantity - takeMain);
+      mainLeft -= takeMain;
+      freeLeft -= takeFree;
+      newRows.push({
+        product_id: product.id,
+        batch_id: a.batch_id,
+        product_name: productName,
+        batch_number: a.batch_number,
+        hsn_code: product.hsn_code || "",
+        quantity: takeMain,
+        free_quantity: takeFree,
+        unit_price: item.unit_price > 0 ? item.unit_price : a.mrp,
+        gst_percentage: gst,
+        discount_percentage: item.discount_percentage,
+        discount_flat: 0,
+        total_price: calculateItemTotal(item.unit_price > 0 ? item.unit_price : a.mrp, takeMain, gst, item.discount_percentage, 0),
+        max_quantity: a.available_quantity,
+        expiry_date: a.expiry_date,
+      });
+    }
+    setCart(prev => [...prev, ...newRows]);
+  }, [products, allBatches, cart, noGstBill, calculateItemTotal, toast]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
+
+  // Jump-to-cart shortcut (Alt+L): focus first interactive element in first cart row
+  const focusCart = useCallback(() => {
+    if (cart.length === 0) {
+      toast({ title: "Cart is empty", description: "Add a product first." });
+      return;
+    }
+    const firstRow = document.querySelector<HTMLElement>("[data-billing-row]");
+    if (!firstRow) return;
+    firstRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    const firstInput = firstRow.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), [role="combobox"], button:not([disabled])'
+    );
+    (firstInput || firstRow).focus();
+    if (firstInput instanceof HTMLInputElement) firstInput.select();
+  }, [cart.length, toast]);
+  usePlatformShortcut({ shortcut: SHORTCUTS.FOCUS_CART, callback: focusCart, enabled: true, allowInInput: true });
 
   const updateCartItem = useCallback((index: number, field: keyof CartItem, value: string | number) => {
     const updated = [...cart];
@@ -394,13 +572,14 @@ export default function Sales() {
 
   const removeFromCart = useCallback((index: number) => setCart(c => c.filter((_, i) => i !== index)), []);
 
-  // ── Totals ──
-  const itemsGrossTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
-  const totalItemDiscount = cart.reduce((s, i) => s + (i.unit_price * i.quantity * i.discount_percentage / 100) + i.discount_flat, 0);
-  const itemsSubtotal = cart.reduce((s, i) => s + Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat), 0);
+  // ── Totals ── (returns count as negative contributions)
+  const sign = (i: CartItem) => (i.is_return ? -1 : 1);
+  const itemsGrossTotal = cart.reduce((s, i) => s + sign(i) * i.unit_price * i.quantity, 0);
+  const totalItemDiscount = cart.reduce((s, i) => s + sign(i) * ((i.unit_price * i.quantity * i.discount_percentage / 100) + i.discount_flat), 0);
+  const itemsSubtotal = cart.reduce((s, i) => s + sign(i) * Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat), 0);
   const totalGst = gstInclusive
-    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + (after - after / (1 + i.gst_percentage / 100)); }, 0)
-    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + (after * i.gst_percentage / 100); }, 0);
+    ? cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + sign(i) * (after - after / (1 + i.gst_percentage / 100)); }, 0)
+    : cart.reduce((s, i) => { const after = Math.max(0, i.unit_price * i.quantity * (1 - i.discount_percentage / 100) - i.discount_flat); return s + sign(i) * (after * i.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + deliveryCharges + otherCharges;
   const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
@@ -426,10 +605,42 @@ export default function Sales() {
       const gstAmount = totalGst;
       const totalAmount = grandTotal;
 
+      // Per-schedule prescription check (configurable per pharmacy in Settings)
+      if (config.hasDrugSchedule) {
+        const rxCheck = settings.prescription_check || {};
+        const triggeredSchedules = new Set<string>();
+        for (const i of cart) {
+          const p = products?.find(pp => pp.id === i.product_id);
+          if (p && p.drug_schedule && p.drug_schedule !== 'none' && (rxCheck as Record<string, boolean>)[p.drug_schedule]) {
+            triggeredSchedules.add(p.drug_schedule);
+          }
+        }
+        if (triggeredSchedules.size > 0) {
+          const missing: string[] = [];
+          if (!doctor.name.trim()) missing.push("Doctor");
+          if (!prescriptionDate) missing.push("Prescription Date");
+          if (!prescriptionDurationDays || parseInt(prescriptionDurationDays, 10) <= 0) missing.push("Prescription Duration");
+          if (missing.length > 0) {
+            const scheduleList = Array.from(triggeredSchedules).map(s => s.replace('schedule_', 'Schedule ').replace('Schedule h1', 'Schedule H1').replace('Schedule h', 'Schedule H').replace('Schedule x', 'Schedule X').replace('narcotic', 'Narcotic')).join(", ");
+            const msg = `${missing.join(", ")} required for ${scheduleList}.`;
+            if (isAdmin) {
+              const ok = window.confirm(`${msg}\n\nAs Admin you may override and proceed. Continue anyway?`);
+              if (!ok) throw new Error(msg);
+            } else {
+              throw new Error(`${msg} Ask an admin to override.`);
+            }
+          }
+        }
+      }
+
       const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
         invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
         customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
-        prescription_number: prescriptionNumber || null, payment_method: paymentMethod, notes: notes || null,
+        prescription_number: prescriptionNumber || null,
+        prescription_date: prescriptionDate || null,
+        prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
+        doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
+        notes: notes || null,
         total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
         freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
         other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
@@ -437,18 +648,48 @@ export default function Sales() {
       if (orderError) throw orderError;
 
       try {
+        // For return rows, persist a NEGATIVE quantity so reports/aggregations net out correctly
         const orderItems = cart.map(i => ({
           sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.quantity, free_quantity: i.free_quantity || 0, unit_price: i.unit_price,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
           gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
           total_price: i.total_price, company_id: companyId,
+          sold_unit: i.sold_unit || null,
+          base_quantity: i.is_return
+            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
+            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
         }));
         const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
         if (itemsError) throw itemsError;
 
-        const deductItems = cart.map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-        const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-        if (deductError) throw new Error(deductError.message);
+        // Split: deduct stock for sale lines, restore stock for return lines.
+        // Pass base_quantity so the RPC can deduct in the correct unit (mixed loose+sealed).
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+          unit_price: i.unit_price,
+        }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+        }));
+
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
       } catch (innerError) {
         // Rollback: delete partially created order and its items
         await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
@@ -480,9 +721,15 @@ export default function Sales() {
     mutationFn: async (orderId: string) => {
       const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
-      const restoreItems = (saleItems || []).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+        if (error) throw new Error(error.message);
+      }
+      if (reDeductItems.length > 0) {
+        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
         if (error) throw new Error(error.message);
       }
       await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
@@ -512,7 +759,9 @@ export default function Sales() {
     setCustomerAddress("");
     setCustomerGstin("");
     setPrescriptionNumber("");
-    setPaymentMethod(settings.default_payment_method || "cash");
+    setPrescriptionDate("");
+    setPrescriptionDurationDays("");
+    setDoctor({ id: null, name: "", registration_number: "" });
     setNotes("");
     setSelectedProduct("");
     setItemQuantity(1);
@@ -615,17 +864,24 @@ export default function Sales() {
     enabled: activeTab === "billing", allowInInput: true,
   });
   useKeyboardShortcut({
-    key: "c", modifiers: ["alt"],
-    callback: () => setPaymentMethod(prev => paymentMethods[(paymentMethods.indexOf(prev) + 1) % paymentMethods.length]),
-    enabled: activeTab === "billing", allowInInput: true,
-  });
-  useKeyboardShortcut({
     key: "n",
     callback: () => { handleReset(); setActiveTab("billing"); },
     enabled: activeTab === "history" && !editDialogOpen && !creditNoteOpen && !deleteDialogOpen,
   });
   useKeyboardShortcut({ key: "F6", callback: () => setShowProductDialog(true), enabled: activeTab === "billing" && !showProductDialog, allowInInput: true });
   useKeyboardShortcut({ key: "F4", callback: () => { const btn = document.getElementById("sale-submit-btn"); if (btn) btn.focus(); }, enabled: activeTab === "billing" && cart.length > 0, allowInInput: true });
+  // Ctrl+H — open customer purchase history
+  useKeyboardShortcut({
+    key: "h", modifiers: ["ctrl"],
+    callback: () => { if (selectedCustomerId || (customerName && customerName !== (settings.default_customer_name || ""))) setHistoryOpen(true); else toast({ title: "Select a customer first", description: "Pick an existing customer to view their purchase history." }); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
+  // * — toggle return mode for the next added item
+  useKeyboardShortcut({
+    key: "*",
+    callback: () => { setReturnMode(m => !m); },
+    enabled: activeTab === "billing", allowInInput: true,
+  });
 
   // Auto-focus invoice number on billing tab mount and prefetch next invoice number
   useEffect(() => {
@@ -712,6 +968,10 @@ export default function Sales() {
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Alt+C</kbd> payment
             <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+H</kbd> history
+            <span className="mx-1">·</span>
+            <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">*</kbd> return mode
+            <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
         </div>
@@ -752,51 +1012,52 @@ export default function Sales() {
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
                 <div className="flex gap-1">
-                    <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          ref={customerButtonRef}
-                          variant="outline"
-                          className="flex-1 justify-between h-8 text-sm font-normal"
-                          data-enter-nav-include="true"
-                          onKeyDown={(e) => {
-                            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
-                              e.preventDefault();
-                              setShowCustomerDialog(true);
-                            }
-                          }}
-                        >
-                          {selectedCustomerId ? customers?.find(c => c.id === selectedCustomerId)?.name || customerName : customerName || "Select customer..."}
-                          <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search by name or phone..." value={customerSearchQuery} onValueChange={setCustomerSearchQuery} />
-                          <CommandList>
-                            <CommandEmpty>No customer found.</CommandEmpty>
-                            <CommandGroup>
-                              {customers?.filter(c => c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) || (c.phone && c.phone.includes(customerSearchQuery))).map(c => (
-                                <CommandItem key={c.id} value={c.name} onSelect={() => {
-                                  setSelectedCustomerId(c.id);
-                                  setCustomerName(c.name);
-                                  setCustomerPhone(c.phone || "");
-                                  setCustomerAddress(c.address || "");
-                                  setCustomerGstin(c.gst_number || "");
-                                  setCustomerPopoverOpen(false);
-                                  // Immediately move focus to Product Search
-                                  setTimeout(() => productSearchRef.current?.focus(), 50);
-                                }}>
-                                  <Check className={`mr-2 h-3 w-3 ${selectedCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
-                                  <div><div className="text-sm">{c.name}</div><div className="text-[10px] text-muted-foreground">{c.phone || ""}{c.gst_number ? ` • ${c.gst_number}` : ""}</div></div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowCustomerDialog(true)} title="Add new customer"><UserPlus className="h-3 w-3" /></Button>
+                    <PartySearchInput
+                      ref={customerSearchRef}
+                      parties={customers}
+                      selectedId={selectedCustomerId}
+                      selectedName={selectedCustomerId ? (customers?.find(c => c.id === selectedCustomerId)?.name || customerName) : customerName}
+                      entityLabel="customer"
+                      placeholder="Type name or phone…"
+                      enterNavInclude
+                      className="flex-1"
+                      onSelect={(c) => {
+                        setSelectedCustomerId(c.id);
+                        setCustomerName(c.name);
+                        setCustomerPhone(c.phone || "");
+                        setCustomerAddress(c.address || "");
+                        setCustomerGstin(c.gst_number || "");
+                        setTimeout(() => productSearchRef.current?.focus(), 50);
+                      }}
+                      onClear={() => {
+                        setSelectedCustomerId(null);
+                        setCustomerName("");
+                        setCustomerPhone("");
+                        setCustomerAddress("");
+                        setCustomerGstin("");
+                      }}
+                      onCreateNew={(seed) => {
+                        setEditingCustomer(null);
+                        setCustomerCreateSeed(seed);
+                        setShowCustomerDialog(true);
+                      }}
+                      onEditSelected={async (party) => {
+                        // Fetch full record for the form
+                        const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                        if (data) {
+                          setEditingCustomer(data as Tables<"customers">);
+                          setCustomerCreateSeed({});
+                          setShowCustomerDialog(true);
+                        }
+                      }}
+                    />
+                   <Button
+                     variant="outline" size="icon" className="h-8 w-8"
+                     disabled={!selectedCustomerId && !customerName}
+                     onClick={() => setHistoryOpen(true)}
+                     title="Past purchases (Ctrl+H)"
+                   ><History className="h-3 w-3" /></Button>
+                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setCustomerCreateSeed({}); setShowCustomerDialog(true); }} title="Add new customer (Ctrl+N)"><UserPlus className="h-3 w-3" /></Button>
                 </div>
                  {settings.show_customer_gstin && selectedCustomerId && (
                    <div className="space-y-1 mt-1">
@@ -811,17 +1072,54 @@ export default function Sales() {
                 <Input value={prescriptionNumber} onChange={e => setPrescriptionNumber(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
-            <div className="space-y-1">
-              <Label className="text-[11px]">Payment</Label>
-              <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); focusProductSearch(); }}>
-                <SelectTrigger className="h-8 text-sm" data-enter-nav-skip="true"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash"><span className="flex items-center gap-1"><Banknote className="h-3 w-3" /> Cash</span></SelectItem>
-                  <SelectItem value="card"><span className="flex items-center gap-1"><CreditCard className="h-3 w-3" /> Card</span></SelectItem>
-                  <SelectItem value="upi"><span className="flex items-center gap-1"><Receipt className="h-3 w-3" /> UPI</span></SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {config.hasDrugSchedule && (() => {
+              const rxCheck = (settings.prescription_check || {}) as Record<string, boolean>;
+              const rxRequired = cart.some(i => {
+                const p = products?.find(pp => pp.id === i.product_id);
+                return p && p.drug_schedule && p.drug_schedule !== 'none' && rxCheck[p.drug_schedule];
+              });
+              return (
+                <>
+                  <div className="md:col-span-2 space-y-1">
+                    <DoctorSelector
+                      value={doctor}
+                      onChange={setDoctor}
+                      required={rxRequired}
+                      onSelected={focusProductSearch}
+                    />
+                  </div>
+                  {rxRequired && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">
+                          Rx Date <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="date"
+                          value={prescriptionDate}
+                          onChange={(e) => setPrescriptionDate(e.target.value)}
+                          max={new Date().toISOString().slice(0, 10)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">
+                          Duration (days) <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={prescriptionDurationDays}
+                          onChange={(e) => setPrescriptionDurationDays(e.target.value)}
+                          placeholder="e.g. 7"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             <div className="flex items-end gap-2">
               <div className="flex items-center gap-1.5">
                 <Switch id="no-gst" checked={noGstBill} onCheckedChange={(v) => {
@@ -841,6 +1139,14 @@ export default function Sales() {
           </div>
 
           {/* Product entry bar — MARG-style inline */}
+          {returnMode && (
+            <div className="rounded-md border-2 border-destructive bg-destructive/10 px-3 py-2 flex items-center justify-between animate-pulse">
+              <span className="text-xs font-semibold text-destructive flex items-center gap-2">
+                🔁 RETURN MODE — next item will be added as a customer return (stock restored, total subtracted)
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setReturnMode(false)}>Cancel (*)</Button>
+            </div>
+          )}
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
@@ -864,9 +1170,11 @@ export default function Sales() {
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                         if (stock <= 0 && !settings.allow_negative_stock) {
-                          // Out of stock — keep focus on product, show feedback
+                          // Out of stock — clear selection so input remounts, then refocus
                           toast({ title: "Out of stock", description: "This product has 0 available stock. Pick another, or enable negative stock in Settings.", variant: "destructive" });
-                          setTimeout(() => productSearchRef.current?.focus(), 30);
+                          setSelectedProduct("");
+                          productSearchRef.current?.clear();
+                          setTimeout(() => productSearchRef.current?.focus(), 50);
                           return;
                         }
                         setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
@@ -879,11 +1187,17 @@ export default function Sales() {
                   </Button>
                 </div>
               </div>
+              {(() => {
+                const entryDisabled = !selectedProduct || (availableStock <= 0 && !settings.allow_negative_stock && !returnMode);
+                return (
+                  <>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
                 <Input type="number" id="sale-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
+                  title={entryDisabled ? "Select an in-stock product first" : ""}
                   className="h-9" placeholder="1"
                 />
               </div>
@@ -893,6 +1207,7 @@ export default function Sales() {
                   <Input type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
@@ -902,6 +1217,7 @@ export default function Sales() {
                 <Input type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
+                  disabled={entryDisabled}
                   className="h-9" placeholder="0.00"
                 />
               </div>
@@ -911,13 +1227,31 @@ export default function Sales() {
                   <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
                     onKeyDown={saleEnterNav}
+                    disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
                 </div>
               )}
+                  </>
+                );
+              })()}
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        batchId={selectedBatchId}
+                        value={itemUnit || baseUnit}
+                        onChange={setItemUnit}
+                      />
+                    );
+                  })()}
                   {selectedProduct && batchesForProduct.length > 0 && (
                     <BatchSelector
                       batches={batchesForProduct}
@@ -1120,22 +1454,38 @@ export default function Sales() {
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {postSaleDialog && <PostSalePaymentDialog open={!!postSaleDialog} onOpenChange={(o) => { if (!o) setPostSaleDialog(null); }} salesOrderId={postSaleDialog.id} invoiceNumber={postSaleDialog.invoice_number} customerName={postSaleDialog.customer_name} totalAmount={postSaleDialog.total_amount} defaultPaymentMethod={(settings.default_payment_method as "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other") || "cash"} />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}
-      <CustomerFormDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSuccess={(customerId) => {
-        queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
-        // Find the customer after refetch to populate fields
-        supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
-          if (data) {
-            setSelectedCustomerId(data.id);
-            setCustomerName(data.name);
-            setCustomerPhone(data.phone || "");
-            setCustomerAddress(data.address || "");
-            setCustomerGstin(data.gst_number || "");
-            // Close dialog and advance focus to next field after customer selection
-            setShowCustomerDialog(false);
-            setTimeout(() => advanceToNextField(document.activeElement as HTMLElement), 100);
-          }
-        });
-      }} />
+      <CustomerFormDialog
+        open={showCustomerDialog}
+        onOpenChange={(o) => { setShowCustomerDialog(o); if (!o) { setCustomerCreateSeed({}); setEditingCustomer(null); } }}
+        editingCustomer={editingCustomer}
+        initialData={customerCreateSeed}
+        onSuccess={(customerId) => {
+          queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+          // Refresh the active customer's fields with the latest record
+          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+            if (data) {
+              setSelectedCustomerId(data.id);
+              setCustomerName(data.name);
+              setCustomerPhone(data.phone || "");
+              setCustomerAddress(data.address || "");
+              setCustomerGstin(data.gst_number || "");
+              setShowCustomerDialog(false);
+              setCustomerCreateSeed({});
+              setEditingCustomer(null);
+              setTimeout(() => productSearchRef.current?.focus(), 100);
+            }
+          });
+        }}
+      />
+      <CustomerHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        customerId={selectedCustomerId}
+        customerName={customerName}
+        companyId={companyId}
+        onRepeatItem={handleRepeatItem}
+      />
     </div>
   );
 }

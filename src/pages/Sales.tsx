@@ -486,6 +486,8 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemRate(0);
     setItemUnit("");
+    setItemUnitFactor(1);
+    setItemBaseRate(0);
     if (isReturn) {
       setReturnMode(false);
       toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });

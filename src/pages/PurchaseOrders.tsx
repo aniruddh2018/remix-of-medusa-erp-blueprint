@@ -443,6 +443,8 @@ export default function PurchaseOrders() {
     setItemMrp(0);
     setItemDiscount(0);
     setItemDiscountFlat(0);
+    setItemUnit("");
+    setItemUnitFactor(1);
     setItemBatchNumber("");
     setItemExpiryDate("");
     setFreightCharges(0);

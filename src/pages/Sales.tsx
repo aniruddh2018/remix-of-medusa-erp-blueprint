@@ -1257,7 +1257,14 @@ export default function Sales() {
                         baseUnit={baseUnit}
                         batchId={selectedBatchId}
                         value={itemUnit || baseUnit}
-                        onChange={setItemUnit}
+                        onChange={(unit, factor) => {
+                          setItemUnit(unit);
+                          setItemUnitFactor(factor);
+                          // Auto-recompute the displayed rate from the captured base rate.
+                          // e.g. base ₹70/tablet × 15 tablets/strip = ₹1050/strip
+                          const newRate = +(itemBaseRate * factor).toFixed(2);
+                          setItemRate(newRate);
+                        }}
                       />
                     );
                   })()}

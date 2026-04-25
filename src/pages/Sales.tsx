@@ -93,6 +93,9 @@ export default function Sales() {
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [itemUnit, setItemUnit] = useState<string>("");
+  const [itemUnitFactor, setItemUnitFactor] = useState<number>(1);
+  /** Per-base-unit rate captured when product is selected — source of truth for unit changes. */
+  const [itemBaseRate, setItemBaseRate] = useState<number>(0);
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [freightCharges, setFreightCharges] = useState<number>(0);

@@ -64,7 +64,7 @@ export const DoctorSelector = forwardRef<DoctorSelectorHandle, Props>(
     });
 
     return (
-      <div className={className}>
+      <div className={className} data-field-required={required ? "true" : undefined}>
         <Label className="text-[11px]">
           Doctor {required && <span className="text-destructive">*</span>}
         </Label>
@@ -76,10 +76,15 @@ export const DoctorSelector = forwardRef<DoctorSelectorHandle, Props>(
                 variant="outline"
                 className="flex-1 justify-between h-8 text-sm font-normal"
                 data-enter-nav-include="true"
+                data-field-value={value.name || ""}
+                aria-required={required || undefined}
                 onKeyDown={(e) => {
                   if ((e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
                     setShowCreate(true);
+                  } else if ((e.key === "Backspace" || e.key === "Delete") && value.name) {
+                    e.preventDefault();
+                    onChange({ id: null, name: "", registration_number: "" });
                   }
                 }}
               >

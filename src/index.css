@@ -406,3 +406,32 @@ input[type="number"] {
 .animate-shake {
   animation: shake 0.4s ease-in-out;
 }
+
+/* =============================================================
+ * Keyboard-first focus styles.
+ * :focus-visible only shows a ring when the user is actually
+ * keyboard-navigating (not on mouse click), keeping mouse UX clean
+ * while making keyboard UX unmistakable.
+ * =========================================================== */
+@layer base {
+  :where(
+    a, button, input, select, textarea,
+    [role="button"], [role="combobox"], [role="menuitem"],
+    [role="option"], [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background rounded-sm;
+  }
+
+  /* Tables: visualize row-level focus without disrupting cell layout. */
+  tr[data-kb-row]:focus,
+  tr[data-kb-row]:focus-visible {
+    @apply outline-none bg-accent/60;
+    box-shadow: inset 2px 0 0 hsl(var(--primary));
+  }
+
+  /* FocusZone roving container itself should never get a visible ring —
+   * we want the ring on the child items. */
+  [data-focus-zone]:focus {
+    outline: none;
+  }
+}

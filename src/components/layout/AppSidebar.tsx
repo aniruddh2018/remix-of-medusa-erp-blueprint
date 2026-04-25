@@ -35,6 +35,7 @@ import {
   ScanLine,
   Stethoscope,
   Zap,
+  Bot,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -47,6 +48,7 @@ interface MenuItem {
 
 const allMainMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard", shortcut: "Alt+1" },
+  { title: "Automation Chat", icon: Bot, path: "/chat", shortcut: null },
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+6" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },

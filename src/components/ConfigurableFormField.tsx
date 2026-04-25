@@ -35,6 +35,8 @@ export function ConfigurableFormField({
   const isRequired = overrideRequired ?? field.required;
   const handleEnterNav = useEnterNavigation();
   const selectTriggerRef = useRef<HTMLButtonElement>(null);
+  const switchRef = useRef<HTMLButtonElement>(null);
+  const checkboxRef = useRef<HTMLButtonElement>(null);
 
   const labelEl = (
     <Label htmlFor={field.key} className={error ? "text-destructive" : ""}>
@@ -56,10 +58,20 @@ export function ConfigurableFormField({
       return (
         <div className="flex items-center gap-2" data-field-required="false">
           <Switch
+            ref={switchRef}
             id={field.key}
             checked={!!value}
             onCheckedChange={(checked) => onChange(field.key, checked)}
             disabled={disabled}
+            data-enter-nav-include="true"
+            data-field-value={value ? "true" : "false"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                onChange(field.key, !value);
+                advanceToNextField(switchRef.current);
+              }
+            }}
           />
           <Label htmlFor={field.key}>{field.label}</Label>
           {helpEl}
@@ -70,10 +82,20 @@ export function ConfigurableFormField({
       return (
         <div className="flex items-center gap-2" data-field-required="false">
           <Checkbox
+            ref={checkboxRef}
             id={field.key}
             checked={!!value}
             onCheckedChange={(checked) => onChange(field.key, checked)}
             disabled={disabled}
+            data-enter-nav-include="true"
+            data-field-value={value ? "true" : "false"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                onChange(field.key, !value);
+                advanceToNextField(checkboxRef.current);
+              }
+            }}
           />
           <Label htmlFor={field.key}>{field.label}</Label>
           {helpEl}
@@ -111,7 +133,14 @@ export function ConfigurableFormField({
             }}
             disabled={disabled}
           >
-            <SelectTrigger id={field.key} ref={selectTriggerRef} onKeyDown={handleEnterNav}>
+            <SelectTrigger
+              id={field.key}
+              ref={selectTriggerRef}
+              onKeyDown={handleEnterNav}
+              data-field-value={value ?? ""}
+              data-field-invalid={error ? "true" : undefined}
+              data-field-error={error}
+            >
               <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
             </SelectTrigger>
             <SelectContent>

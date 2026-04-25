@@ -27,7 +27,10 @@ export function usePlatformShortcut({
       const isInputActive =
         document.activeElement?.tagName === "INPUT" ||
         document.activeElement?.tagName === "TEXTAREA" ||
-        document.activeElement?.getAttribute("contenteditable") === "true";
+        document.activeElement?.getAttribute("contenteditable") === "true" ||
+        document.activeElement?.getAttribute("role") === "textbox" ||
+        document.activeElement?.getAttribute("role") === "combobox" ||
+        document.activeElement?.hasAttribute("data-field-value");
 
       // Always allow modifier shortcuts; plain key shortcuts only outside inputs
       const hasModifier = shortcut.modifiers.length > 0;

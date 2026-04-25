@@ -29,6 +29,7 @@ import { format } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
@@ -38,8 +39,10 @@ import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog"
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
-import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
+import { ExpiryMMYYInput, type ExpiryMMYYHandle } from "@/components/ui/expiry-mmyy-input";
 import { BillingTotals } from "@/components/billing/BillingTotals";
+import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/UnitSelector";
+import { convertToBase } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -47,6 +50,8 @@ type PurchaseOrder = Tables<"purchase_orders">;
 type Supplier = Tables<"suppliers">;
 type Product = Tables<"products">;
 type OrderStatus = Database["public"]["Enums"]["order_status"];
+
+const purchaseFlow = ["product", "batch", "unit", "qty", "free", "rate", "mrp", "expiry", "add"] as const;
 
 export default function PurchaseOrders() {
   const { toast } = useToast();
@@ -56,6 +61,8 @@ export default function PurchaseOrders() {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
+  const unitSelectorRef = useRef<UnitSelectorHandle>(null);
+  const expiryRef = useRef<ExpiryMMYYHandle>(null);
   const challanNumberRef = useRef<HTMLInputElement>(null);
   const supplierTriggerRef = useRef<HTMLButtonElement>(null);
   const supplierSearchRef = useRef<PartySearchHandle>(null);
@@ -71,6 +78,7 @@ export default function PurchaseOrders() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
+  const [itemUnit, setItemUnit] = useState<string>("");
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemMrp, setItemMrp] = useState<number>(0);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
@@ -273,6 +281,17 @@ export default function PurchaseOrders() {
     enabled: !!selectedProduct && !!companyId,
   });
 
+  const purchaseKeyboard = useKeyboardNavigation(purchaseFlow, {
+    blockForward: (current) => {
+      if (current === "product" && !selectedProduct) {
+        productSearchRef.current?.focus();
+        toast({ title: "Select a product", description: "Pick a product before moving ahead.", variant: "destructive" });
+        return true;
+      }
+      return false;
+    },
+  });
+
   const handleProductSelect = useCallback((productId: string) => {
     setSelectedProduct(productId);
     setExistingBatchId("new");
@@ -282,29 +301,19 @@ export default function PurchaseOrders() {
     if (product) {
       setItemPrice(Number(product.purchase_price));
       setItemMrp(Number(product.mrp));
+      setItemUnit((product.base_unit || product.unit || "pcs").toLowerCase());
     }
-    // Auto-advance focus from product chip to next field (batch / expiry / qty)
     if (productId) {
-      setTimeout(() => {
-        const container = document.querySelector<HTMLElement>('[data-enter-nav]');
-        if (!container) return;
-        // Prefer the batch input if batch tracking is on, else the expiry/qty field
-        const batchInput = container.querySelector<HTMLElement>('input[placeholder*="batch" i], input[placeholder*="Batch" i]');
-        const target =
-          batchInput ||
-          container.querySelector<HTMLElement>('input[aria-label="Expiry month"]') ||
-          container.querySelector<HTMLElement>('#po-price-input');
-        target?.focus();
-        if (target instanceof HTMLInputElement) target.select();
-      }, 50);
+      setTimeout(() => purchaseKeyboard.focusField("batch"), 0);
     }
-  }, [products]);
+  }, [products, purchaseKeyboard]);
 
   const handleBatchSelect = useCallback((batchId: string) => {
     setExistingBatchId(batchId);
     setEditBatchDetails(false);
     if (batchId === "new") {
       setItemBatchNumber("");
+      setTimeout(() => purchaseKeyboard.focusField("unit"), 0);
       return;
     }
     const batch = existingBatches?.find(b => b.id === batchId);
@@ -314,12 +323,13 @@ export default function PurchaseOrders() {
       setItemMrp(Number(batch.mrp));
       setItemPrice(Number(batch.purchase_price));
     }
-  }, [existingBatches]);
+    setTimeout(() => purchaseKeyboard.focusField("unit"), 0);
+  }, [existingBatches, purchaseKeyboard]);
 
   // Locked when an existing batch is bound and user hasn't toggled edit mode
   const batchLocked = existingBatchId !== "new" && !editBatchDetails;
 
-  const handleAddItem = useCallback(() => {
+  const handleAddItem = useCallback(async () => {
     if (!selectedProduct) {
       toast({ title: "Select a product", description: "Pick a product before adding it to the purchase.", variant: "destructive" });
       productSearchRef.current?.focus();
@@ -345,6 +355,29 @@ export default function PurchaseOrders() {
     }
 
     const gstPercentage = Number(product.gst_percentage);
+    const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
+    const purchasedUnit = (itemUnit || baseUnit).toLowerCase();
+    const totalUnitsReceived = itemQuantity + (itemFreeQty || 0);
+    let baseQuantity = totalUnitsReceived;
+    try {
+      baseQuantity = await convertToBase({
+        companyId: companyId!,
+        productId: product.id,
+        batchId: existingBatchId !== "new" ? existingBatchId : null,
+        unit: purchasedUnit,
+        baseUnit,
+        qty: totalUnitsReceived,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Unit conversion missing",
+        description: error.message || `Define how ${purchasedUnit} converts to ${baseUnit} before receiving stock.`,
+        variant: "destructive",
+      });
+      unitSelectorRef.current?.focus();
+      return;
+    }
+
     const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
 
     setOrderItems(prev => [...prev, {
@@ -354,6 +387,9 @@ export default function PurchaseOrders() {
       batch_number: itemBatchNumber,
       quantity: itemQuantity,
       free_quantity: itemFreeQty,
+      purchased_unit: purchasedUnit,
+      base_unit: baseUnit,
+      base_quantity: baseQuantity,
       unit_price: itemPrice,
       mrp: itemMrp || Number(product.mrp),
       gst_percentage: gstPercentage,
@@ -365,6 +401,7 @@ export default function PurchaseOrders() {
     }]);
 
     setSelectedProduct("");
+    setItemUnit("");
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemPrice(0);
@@ -377,12 +414,19 @@ export default function PurchaseOrders() {
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, products, calculateItemTotal, focusProductSearch]);
+  }, [selectedProduct, itemQuantity, itemFreeQty, itemUnit, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, products, companyId, existingBatchId, toast, calculateItemTotal, focusProductSearch]);
 
   const updateOrderItem = useCallback((index: number, field: keyof PurchaseItem, value: string | number) => {
     const updated = [...orderItems];
+    const before = updated[index];
+    const oldTotalUnits = before.quantity + (before.free_quantity || 0);
+    const oldBaseQuantity = before.base_quantity || oldTotalUnits;
     (updated[index] as any)[field] = value;
     const item = updated[index];
+    const nextTotalUnits = item.quantity + (item.free_quantity || 0);
+    if ((field === "quantity" || field === "free_quantity") && oldTotalUnits > 0) {
+      item.base_quantity = Number(((oldBaseQuantity / oldTotalUnits) * nextTotalUnits).toFixed(6));
+    }
     item.total_price = calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage, item.discount_flat);
     setOrderItems(updated);
   }, [orderItems, calculateItemTotal]);
@@ -423,6 +467,7 @@ export default function PurchaseOrders() {
     setExpectedDeliveryDate("");
     setNotes("");
     setSelectedProduct("");
+    setItemUnit("");
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemPrice(0);
@@ -504,6 +549,8 @@ export default function PurchaseOrders() {
             product_id: item.product_id,
             quantity: item.quantity,
             free_quantity: item.free_quantity || 0,
+            purchased_unit: item.purchased_unit || item.base_unit || null,
+            base_quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
             unit_price: item.unit_price,
             gst_percentage: item.gst_percentage,
             discount_percentage: item.discount_percentage,
@@ -520,7 +567,7 @@ export default function PurchaseOrders() {
           const batchPayload = allItemsToReceive.map((item) => ({
             product_id: item.product_id,
             batch_number: item.batch_number || "",
-            quantity: item.quantity + (item.free_quantity || 0),
+            quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
             purchase_price: item.unit_price,
             mrp: item.mrp || item.unit_price * 1.2,
             expiry_date: item.expiry_date || null,
@@ -555,11 +602,11 @@ export default function PurchaseOrders() {
   // ── Delete PO ──
   const deletePOMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { data: poItems, error: fetchErr } = await supabase.from("purchase_order_items").select("id, product_id, quantity").eq("purchase_order_id", orderId);
+      const { data: poItems, error: fetchErr } = await supabase.from("purchase_order_items").select("id, product_id, quantity, free_quantity, base_quantity").eq("purchase_order_id", orderId);
       if (fetchErr) throw fetchErr;
       for (const item of (poItems || [])) {
         const { data: batches } = await supabase.from("inventory_batches").select("id, quantity").eq("product_id", item.product_id).eq("company_id", companyId!).order("created_at", { ascending: false }).limit(5);
-        let remaining = item.quantity;
+        let remaining = item.base_quantity ?? (item.quantity + (item.free_quantity || 0));
         for (const batch of (batches || [])) {
           if (remaining <= 0) break;
           const newQty = Math.max(0, batch.quantity - remaining);
@@ -632,7 +679,7 @@ export default function PurchaseOrders() {
 
   const importChallanItems = async () => {
     if (selectedChallanIds.length === 0) return;
-    const { data: items, error } = await supabase.from("purchase_order_items").select("*, products (name, strength, hsn_code, gst_percentage, mrp)").in("purchase_order_id", selectedChallanIds);
+    const { data: items, error } = await supabase.from("purchase_order_items").select("*, products (name, strength, hsn_code, gst_percentage, mrp, base_unit, unit)").in("purchase_order_id", selectedChallanIds);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     const newItems: PurchaseItem[] = (items || []).map((item: any) => ({
       product_id: item.product_id,
@@ -641,6 +688,9 @@ export default function PurchaseOrders() {
       batch_number: "",
       quantity: item.quantity,
       free_quantity: 0,
+      purchased_unit: item.purchased_unit || (item.products as any)?.base_unit || undefined,
+      base_unit: (item.products as any)?.base_unit || undefined,
+      base_quantity: item.base_quantity ?? item.quantity,
       unit_price: Number(item.unit_price),
       mrp: Number(item.products.mrp) || 0,
       gst_percentage: Number(item.gst_percentage),
@@ -702,6 +752,9 @@ export default function PurchaseOrders() {
         batch_number: "",
         quantity: item.quantity,
         free_quantity: item.free_quantity || 0,
+        purchased_unit: (product.base_unit || product.unit || "pcs").toLowerCase(),
+        base_unit: (product.base_unit || product.unit || "pcs").toLowerCase(),
+        base_quantity: item.quantity + (item.free_quantity || 0),
         unit_price: price,
         mrp: Number(product.mrp),
         gst_percentage: gst,
@@ -841,6 +894,7 @@ export default function PurchaseOrders() {
                   entityLabel="supplier"
                   placeholder="Type name or phone…"
                   enterNavInclude
+                  required
                   className="flex-1 min-w-0"
                   onSelect={(s) => {
                     setSelectedSupplier(s.id);
@@ -926,8 +980,17 @@ export default function PurchaseOrders() {
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
                 <div className="flex gap-1">
                   <div className="flex-1">
-                    <DrugBrandSearch ref={productSearchRef} products={products} selectedProductId={selectedProduct} onSelect={handleProductSelect}
-                      showPrice priceType="purchase" placeholder="Search product..." />
+                    <DrugBrandSearch
+                      ref={(node) => {
+                        productSearchRef.current = node;
+                        purchaseKeyboard.register("product")(node);
+                      }}
+                      products={products}
+                      selectedProductId={selectedProduct}
+                      onSelect={handleProductSelect}
+                      onNavigateKeyDown={(e) => purchaseKeyboard.handleKey(e, "product")}
+                      showPrice priceType="purchase" placeholder="Search product..."
+                    />
                   </div>
                   <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Product (F6)" onClick={() => { setEditingProduct(null); setShowProductDialog(true); }} data-enter-nav-skip="true" tabIndex={-1}>
                     <PlusCircle className="h-4 w-4" />
@@ -968,6 +1031,8 @@ export default function PurchaseOrders() {
                     return (
                       <>
                         <Input
+                          id="po-batch-input"
+                          ref={purchaseKeyboard.register("batch")}
                           value={itemBatchNumber}
                           onChange={e => {
                             const v = e.target.value;
@@ -1011,7 +1076,7 @@ export default function PurchaseOrders() {
                                 }
                               }
                             }
-                            poEnterNav(e);
+                            purchaseKeyboard.handleKey(e, "batch");
                           }}
                           className="h-9 text-xs"
                           placeholder={allBatches.length > 0 ? "Search or type new batch" : "Type batch number"}
@@ -1054,58 +1119,103 @@ export default function PurchaseOrders() {
                 </div>
               )}
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  Expiry (MM/YY) {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
-                </Label>
-                <ExpiryMMYYInput
-                  value={itemExpiryDate}
-                  onChange={(iso) => { if (!batchLocked) setItemExpiryDate(iso); }}
-                  onKeyDown={poEnterNav}
-                  disabled={batchLocked}
-                />
-              </div>
-              <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  MRP ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
-                </Label>
-                <Input type="number" min={0} step={0.01} value={itemMrp || ""}
-                  onChange={e => { if (!batchLocked) setItemMrp(parseFloat(e.target.value) || 0); }}
-                  onKeyDown={poEnterNav}
-                  aria-readonly={batchLocked}
-                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
-                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
-              </div>
-              <div>
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
-                  Rate ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
-                </Label>
-                <Input id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
-                  onChange={e => { if (!batchLocked) setItemPrice(parseFloat(e.target.value) || 0); }}
-                  onKeyDown={poEnterNav}
-                  aria-readonly={batchLocked}
-                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
-                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Unit</Label>
+                {selectedProduct ? (() => {
+                  const p = products?.find(product => product.id === selectedProduct);
+                  const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                  return (
+                    <UnitSelector
+                      ref={(node) => {
+                        unitSelectorRef.current = node;
+                        purchaseKeyboard.register("unit")(node);
+                      }}
+                      companyId={companyId}
+                      productId={selectedProduct}
+                      baseUnit={baseUnit}
+                      value={itemUnit || baseUnit}
+                      quantity={itemQuantity + (itemFreeQty || 0)}
+                      onChange={(unit) => {
+                        setItemUnit(unit);
+                        setTimeout(() => purchaseKeyboard.focusField("qty"), 0);
+                      }}
+                      onKeyDown={(e) => purchaseKeyboard.handleKey(e, "unit")}
+                    />
+                  );
+                })() : (
+                  <button
+                    ref={purchaseKeyboard.register("unit")}
+                    type="button"
+                    disabled
+                    className="h-9 w-full rounded-md border bg-muted/40 text-xs text-muted-foreground"
+                  >
+                    Unit
+                  </button>
+                )}
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
-                <Input type="number" min={1} value={itemQuantity}
+                <Input ref={purchaseKeyboard.register("qty")} type="number" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav}
+                  onKeyDown={(e) => purchaseKeyboard.handleKey(e, "qty")}
                   disabled={!selectedProduct}
                   title={!selectedProduct ? "Select a product first" : ""}
                   className="h-9" placeholder="1" />
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
-                <Input type="number" min={0} value={itemFreeQty || ""}
+                <Input ref={purchaseKeyboard.register("free")} type="number" min={0} value={itemFreeQty || ""}
                   onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={poEnterNav}
+                  onKeyDown={(e) => purchaseKeyboard.handleKey(e, "free")}
                   disabled={!selectedProduct}
                   className="h-9" placeholder="0" />
               </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  Rate ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
+                <Input ref={purchaseKeyboard.register("rate")} id="po-price-input" type="number" min={0} step={0.01} value={itemPrice || ""}
+                  onChange={e => { if (!batchLocked) setItemPrice(parseFloat(e.target.value) || 0); }}
+                  onKeyDown={(e) => purchaseKeyboard.handleKey(e, "rate")}
+                  aria-readonly={batchLocked}
+                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
+                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  MRP ₹ {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
+                <Input ref={purchaseKeyboard.register("mrp")} type="number" min={0} step={0.01} value={itemMrp || ""}
+                  onChange={e => { if (!batchLocked) setItemMrp(parseFloat(e.target.value) || 0); }}
+                  onKeyDown={(e) => purchaseKeyboard.handleKey(e, "mrp")}
+                  aria-readonly={batchLocked}
+                  title={batchLocked ? "Locked — click Edit on Batch field to change" : undefined}
+                  className={`h-9 ${batchLocked ? "bg-muted/50 cursor-not-allowed caret-transparent" : ""}`} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">
+                  Expiry (MM/YY) {batchLocked && <Lock className="h-2.5 w-2.5 inline text-muted-foreground" />}
+                </Label>
+                <ExpiryMMYYInput
+                  ref={(node) => {
+                    expiryRef.current = node;
+                    purchaseKeyboard.register("expiry")(node);
+                  }}
+                  value={itemExpiryDate}
+                  onChange={(iso) => { if (!batchLocked) setItemExpiryDate(iso); }}
+                  onKeyDown={(e) => purchaseKeyboard.handleKey(e, "expiry")}
+                  disabled={batchLocked}
+                />
+              </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-                <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
+                <Button ref={purchaseKeyboard.register("add")} onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                    e.preventDefault();
+                    handleAddItem();
+                    return;
+                  }
+                  purchaseKeyboard.handleKey(e, "add");
+                }} onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>
               </div>

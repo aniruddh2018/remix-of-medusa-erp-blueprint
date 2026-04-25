@@ -18,6 +18,7 @@ interface DrugBrandSearchProps {
   showPrice?: boolean;
   priceType?: "sale" | "purchase";
   placeholder?: string;
+  onNavigateKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
 }
 
 export interface DrugBrandSearchHandle {
@@ -34,6 +35,7 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
       showPrice = true,
       priceType = "sale",
       placeholder = "Search product...",
+      onNavigateKeyDown,
     },
     ref
   ) {
@@ -232,7 +234,7 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
     // Backward nav (Shift+Enter) lands on selected-chip — re-open editor on Enter forward, or bubble Shift+Enter back.
     const handleChipKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
-        // Selected product is valid — let parent enter-nav advance to next field
+        onNavigateKeyDown?.(e);
         return;
       }
       if (e.key === "Backspace" || e.key === "Delete") {

@@ -2,7 +2,7 @@
  * Product-level conversion editor.
  * Shown inside ProductFormDialog as a separate sub-section.
  *
- * Stores rows as (from_unit, to_unit, conversion_factor) — integer factor only.
+ * Stores rows as (from_unit, to_unit, conversion_factor).
  * The smallest unit the product can be split into is the "base unit" set on the
  * product itself; rows here describe how to convert FROM larger units TO it.
  *
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Loader2 } from "lucide-react";
-import { clearConversionCache } from "@/services/unitConversion";
+import { clearConversionCache, validateConversionRows } from "@/services/unitConversion";
 
 interface Conversion {
   id?: string;
@@ -99,18 +99,9 @@ export function ProductConversionsEditor({ productId, companyId, baseUnit }: Pro
   const saveAll = async () => {
     setSaving(true);
     try {
-      // Validate: integer factors > 0, no duplicates, no self-mapping
-      const seen = new Set<string>();
-      for (const r of rows) {
-        if (!r.from_unit || !r.to_unit) throw new Error("Both From and To units are required.");
-        if (r.from_unit.toLowerCase() === r.to_unit.toLowerCase()) throw new Error("From and To must differ.");
-        if (!Number.isInteger(r.conversion_factor) || r.conversion_factor <= 0) {
-          throw new Error("Conversion factor must be a positive integer.");
-        }
-        const key = `${r.from_unit.toLowerCase()}->${r.to_unit.toLowerCase()}`;
-        if (seen.has(key)) throw new Error(`Duplicate conversion: ${key}`);
-        seen.add(key);
-      }
+      const validation = validateConversionRows(rows, baseUnit);
+      if (!validation.ok) throw new Error(validation.errors[0]);
+
       // Upsert each row (idempotent on the unique constraint)
       const payload = rows.map((r) => ({
         ...(r.id ? { id: r.id } : {}),
@@ -182,10 +173,10 @@ export function ProductConversionsEditor({ productId, companyId, baseUnit }: Pro
                 <Label className="text-xs">Factor</Label>
                 <Input
                   type="number"
-                  min={1}
-                  step={1}
+                  min={0.000001}
+                  step={0.000001}
                   value={row.conversion_factor}
-                  onChange={(e) => updateRow(idx, { conversion_factor: parseInt(e.target.value, 10) || 0 })}
+                  onChange={(e) => updateRow(idx, { conversion_factor: parseFloat(e.target.value) || 0 })}
                   className="h-8"
                 />
               </div>

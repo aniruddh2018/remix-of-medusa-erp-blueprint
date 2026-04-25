@@ -32,6 +32,7 @@ import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
+import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModuleFocus } from "@/contexts/FocusContext";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { PartySearchInput, type PartySearchHandle } from "@/components/PartySearchInput";
@@ -42,8 +43,8 @@ import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConf
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
-import { BatchSelector } from "@/components/billing/BatchSelector";
-import { UnitSelector } from "@/components/billing/UnitSelector";
+import { BatchSelector, type BatchSelectorHandle } from "@/components/billing/BatchSelector";
+import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/UnitSelector";
 import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -51,6 +52,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 type SalesOrder = Tables<"sales_orders">;
 type Product = Tables<"products">;
 type InventoryBatch = Tables<"inventory_batches">;
+
+const salesFlow = ["product", "unit", "qty", "free", "rate", "discount", "fefo", "add"] as const;
 
 export default function Sales() {
   const { toast } = useToast();
@@ -60,6 +63,8 @@ export default function Sales() {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<DrugBrandSearchHandle>(null);
+  const unitSelectorRef = useRef<UnitSelectorHandle>(null);
+  const fefoSelectorRef = useRef<BatchSelectorHandle>(null);
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
   const customerButtonRef = useRef<HTMLButtonElement>(null);
   const customerSearchRef = useRef<PartySearchHandle>(null);
@@ -544,6 +549,17 @@ export default function Sales() {
   }, [products, allBatches, cart, noGstBill, calculateItemTotal, toast]);
 
   const saleEnterNav = useEnterNavigation(handleAddToCart);
+  const salesKeyboard = useKeyboardNavigation(salesFlow, {
+    onEnd: handleAddToCart,
+    blockForward: (current) => {
+      if (current === "product" && !selectedProduct) {
+        productSearchRef.current?.focus();
+        toast({ title: "Select a product", description: "Pick a product before moving ahead.", variant: "destructive" });
+        return true;
+      }
+      return false;
+    },
+  });
 
   // Jump-to-cart shortcut (Alt+L): focus first interactive element in first cart row
   const focusCart = useCallback(() => {
@@ -1020,6 +1036,7 @@ export default function Sales() {
                       entityLabel="customer"
                       placeholder="Type name or phone…"
                       enterNavInclude
+                      required
                       className="flex-1"
                       onSelect={(c) => {
                         setSelectedCustomerId(c.id);
@@ -1158,9 +1175,13 @@ export default function Sales() {
                 <div className="flex gap-1">
                   <div className="flex-1">
                     <DrugBrandSearch
-                      ref={productSearchRef}
+                      ref={(node) => {
+                        productSearchRef.current = node;
+                        salesKeyboard.register("product")(node);
+                      }}
                       products={products}
                       selectedProductId={selectedProduct}
+                      onNavigateKeyDown={(e) => salesKeyboard.handleKey(e, "product")}
                       onSelect={(v) => {
                         setSelectedProduct(v);
                         setSelectedBatchId(null); // reset manual batch when product changes
@@ -1177,7 +1198,7 @@ export default function Sales() {
                           setTimeout(() => productSearchRef.current?.focus(), 50);
                           return;
                         }
-                        setTimeout(() => (document.getElementById("sale-qty") as HTMLInputElement)?.focus(), 30);
+                        setTimeout(() => salesKeyboard.focusField("unit"), 0);
                       }}
                       showPrice priceType="sale"
                     />
@@ -1192,10 +1213,46 @@ export default function Sales() {
                 return (
                   <>
               <div>
+                <Label className="text-[10px] text-muted-foreground mb-0.5 block">Unit</Label>
+                {selectedProduct ? (() => {
+                  const p = products?.find(pp => pp.id === selectedProduct);
+                  const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                  return (
+                    <UnitSelector
+                      ref={(node) => {
+                        unitSelectorRef.current = node;
+                        salesKeyboard.register("unit")(node);
+                      }}
+                      companyId={companyId}
+                      productId={selectedProduct}
+                      baseUnit={baseUnit}
+                      batchId={selectedBatchId}
+                      value={itemUnit || baseUnit}
+                      quantity={itemQuantity + (itemFreeQty || 0)}
+                      onChange={(unit) => {
+                        setItemUnit(unit);
+                        setTimeout(() => salesKeyboard.focusField("qty"), 0);
+                      }}
+                      disabled={entryDisabled}
+                      onKeyDown={(e) => salesKeyboard.handleKey(e, "unit")}
+                    />
+                  );
+                })() : (
+                  <button
+                    ref={salesKeyboard.register("unit")}
+                    type="button"
+                    disabled
+                    className="h-9 w-full rounded-md border bg-muted/40 text-xs text-muted-foreground"
+                  >
+                    Unit
+                  </button>
+                )}
+              </div>
+              <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
-                <Input type="number" id="sale-qty" min={1} value={itemQuantity}
+                <Input ref={salesKeyboard.register("qty")} type="number" id="sale-qty" min={1} value={itemQuantity}
                   onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  onKeyDown={saleEnterNav}
+                  onKeyDown={(e) => salesKeyboard.handleKey(e, "qty")}
                   disabled={entryDisabled}
                   title={entryDisabled ? "Select an in-stock product first" : ""}
                   className="h-9" placeholder="1"
@@ -1204,9 +1261,9 @@ export default function Sales() {
               {settings.show_free_qty_column && (
                 <div>
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
-                  <Input type="number" min={0} value={itemFreeQty || ""}
+                  <Input ref={salesKeyboard.register("free")} type="number" min={0} value={itemFreeQty || ""}
                     onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                    onKeyDown={saleEnterNav}
+                    onKeyDown={(e) => salesKeyboard.handleKey(e, "free")}
                     disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
@@ -1214,9 +1271,9 @@ export default function Sales() {
               )}
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Rate ₹</Label>
-                <Input type="number" min={0} step={0.01} value={itemRate || ""}
+                <Input ref={salesKeyboard.register("rate")} type="number" min={0} step={0.01} value={itemRate || ""}
                   onChange={e => setItemRate(parseFloat(e.target.value) || 0)}
-                  onKeyDown={saleEnterNav}
+                  onKeyDown={(e) => salesKeyboard.handleKey(e, "rate")}
                   disabled={entryDisabled}
                   className="h-9" placeholder="0.00"
                 />
@@ -1224,9 +1281,9 @@ export default function Sales() {
               {(settings.discount_mode === "percentage" || settings.discount_mode === "both") && (
                 <div>
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Disc%</Label>
-                  <Input type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
+                  <Input ref={salesKeyboard.register("discount")} type="number" min={0} max={maxDiscountAllowed} step={0.1} value={itemDiscount || ""}
                     onChange={e => setItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
-                    onKeyDown={saleEnterNav}
+                    onKeyDown={(e) => salesKeyboard.handleKey(e, "discount")}
                     disabled={entryDisabled}
                     className="h-9" placeholder="0"
                   />
@@ -1238,26 +1295,20 @@ export default function Sales() {
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
                 <div className="flex gap-1">
-                  {selectedProduct && (() => {
-                    const p = products?.find(pp => pp.id === selectedProduct);
-                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
-                    return (
-                      <UnitSelector
-                        companyId={companyId}
-                        productId={selectedProduct}
-                        baseUnit={baseUnit}
-                        batchId={selectedBatchId}
-                        value={itemUnit || baseUnit}
-                        onChange={setItemUnit}
-                      />
-                    );
-                  })()}
                   {selectedProduct && batchesForProduct.length > 0 && (
                     <BatchSelector
+                      ref={(node) => {
+                        fefoSelectorRef.current = node;
+                        salesKeyboard.register("fefo")(node);
+                      }}
                       batches={batchesForProduct}
                       selectedBatchId={selectedBatchId}
                       existingCartQuantities={existingCartQuantities}
-                      onSelect={setSelectedBatchId}
+                      onSelect={(batchId) => {
+                        setSelectedBatchId(batchId);
+                        setTimeout(() => salesKeyboard.focusField("add"), 0);
+                      }}
+                      onKeyDown={(e) => salesKeyboard.handleKey(e, "fefo")}
                     />
                   )}
                   {selectedProduct && (() => {
@@ -1269,7 +1320,7 @@ export default function Sales() {
                       </Badge>
                     );
                   })()}
-                  <Button onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || itemQuantity <= 0 || (availableStock === 0 && !settings.allow_negative_stock)} size="sm" data-enter-nav-include="true">
+                <Button ref={salesKeyboard.register("add")} onKeyDown={(e) => salesKeyboard.handleKey(e, "add")} onClick={handleAddToCart} className="h-9 flex-1" disabled={!selectedProduct || itemQuantity <= 0 || (availableStock === 0 && !settings.allow_negative_stock)} size="sm" data-enter-nav-include="true">
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>

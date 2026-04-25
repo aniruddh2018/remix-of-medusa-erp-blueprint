@@ -30,6 +30,7 @@ import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
 import ScanInvoice from "./pages/ScanInvoice";
 import CounterSales from "./pages/CounterSales";
+import Chat from "./pages/Chat";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
@@ -71,6 +72,7 @@ const App = () => (
                 <Route path="/data-import" element={<DataImport />} />
                 <Route path="/scan-invoice" element={<ScanInvoice />} />
                 <Route path="/counter-sales" element={<CounterSales />} />
+                <Route path="/chat" element={<Chat />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/settings" element={<Settings />} />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -14,20 +14,27 @@ interface BatchSelectorProps {
   existingCartQuantities: Map<string, number>;
   onSelect: (batchId: string | null) => void;
   disabled?: boolean;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
+}
+
+export interface BatchSelectorHandle {
+  focus: () => void;
 }
 
 /**
  * Optional batch picker. When no batch is chosen, sale uses FEFO (default).
  * Batches sorted by earliest expiry (FEFO), expired ones flagged.
  */
-export function BatchSelector({
+export const BatchSelector = forwardRef<BatchSelectorHandle, BatchSelectorProps>(function BatchSelector({
   batches,
   selectedBatchId,
   existingCartQuantities,
   onSelect,
   disabled,
-}: BatchSelectorProps) {
+  onKeyDown,
+}, ref) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const sorted = useMemo(() => {
     return [...batches].sort((a, b) => {
@@ -41,19 +48,31 @@ export function BatchSelector({
   const selected = sorted.find(b => b.id === selectedBatchId);
   const today = new Date();
 
+  useImperativeHandle(ref, () => ({
+    focus: () => triggerRef.current?.focus(),
+  }));
+
   if (batches.length === 0) return null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant={selected ? "secondary" : "outline"}
           size="sm"
           className="h-9 gap-1 text-xs"
           disabled={disabled}
-          data-enter-nav-skip="true"
-          tabIndex={-1}
+          data-field-value={selected ? selected.batch_number : "FEFO"}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === " ") {
+              event.preventDefault();
+              setOpen(true);
+              return;
+            }
+            onKeyDown?.(event);
+          }}
           title="Pick a specific batch (default: FEFO)"
         >
           <Layers className="h-3.5 w-3.5" />
@@ -120,4 +139,6 @@ export function BatchSelector({
       </PopoverContent>
     </Popover>
   );
-}
+});
+
+BatchSelector.displayName = "BatchSelector";

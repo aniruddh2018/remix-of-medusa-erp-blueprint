@@ -12,6 +12,9 @@ interface PurchaseItem {
   batch_number: string;
   quantity: number;
   free_quantity: number;
+  purchased_unit?: string | null;
+  base_unit?: string | null;
+  base_quantity?: number | null;
   unit_price: number;
   gst_percentage: number;
   discount_percentage: number;
@@ -58,6 +61,7 @@ export function PurchaseItemsTable({
             <TableHead className="w-[90px]">Rate ₹</TableHead>
             <TableHead className="w-[70px]">Qty</TableHead>
             <TableHead className="w-[60px]">Free</TableHead>
+            <TableHead className="w-[105px]">Base Qty</TableHead>
             {showDisc && <TableHead className="w-[65px]">Disc%</TableHead>}
             {showFlatDisc && <TableHead className="w-[75px]">Disc₹</TableHead>}
             <TableHead className="w-[60px]">GST%</TableHead>
@@ -129,14 +133,17 @@ export function PurchaseItemsTable({
               </TableCell>
               <TableCell className="py-1">
                 {item.fromChallan ? (
-                  <span className="text-xs">{item.quantity}</span>
+                  <span className="text-xs">{item.quantity} {item.purchased_unit || ""}</span>
                 ) : (
-                  <Input
-                    type="number" min={1}
-                    value={item.quantity}
-                    onChange={(e) => onUpdateItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                    className="w-14 h-7 text-center text-sm"
-                  />
+                  <div className="space-y-0.5">
+                    <Input
+                      type="number" min={1}
+                      value={item.quantity}
+                      onChange={(e) => onUpdateItem(index, "quantity", e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                      className="w-14 h-7 text-center text-sm"
+                    />
+                    {item.purchased_unit && <div className="text-[10px] text-muted-foreground text-center">{item.purchased_unit}</div>}
+                  </div>
                 )}
               </TableCell>
               <TableCell className="py-1">
@@ -146,9 +153,16 @@ export function PurchaseItemsTable({
                   <Input
                     type="number" min={0}
                     value={item.free_quantity || ""}
-                    onChange={(e) => onUpdateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                    onChange={(e) => onUpdateItem(index, "free_quantity", e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     className="w-12 h-7 text-center text-sm"
                   />
+                )}
+              </TableCell>
+              <TableCell className="py-1 text-xs text-muted-foreground">
+                {item.base_quantity != null ? (
+                  <span>{item.base_quantity} {item.base_unit || ""}</span>
+                ) : (
+                  <span>-</span>
                 )}
               </TableCell>
               {showDisc && (

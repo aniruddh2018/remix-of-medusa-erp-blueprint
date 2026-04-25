@@ -31,13 +31,15 @@ interface Props {
   entityLabel?: string;
   /** Adds the data attribute used by Enter-navigation */
   enterNavInclude?: boolean;
+  /** Marks this selector as required for Enter-navigation validation. */
+  required?: boolean;
   className?: string;
 }
 
 const isProbablyPhone = (s: string) => /^[\d+\-\s]{4,}$/.test(s.trim());
 
 export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function PartySearchInput(
-  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, onEditSelected, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, className },
+  { parties, selectedId, selectedName, onSelect, onClear, onCreateNew, onEditSelected, placeholder = "Type name or phone…", entityLabel = "customer", enterNavInclude = false, required = false, className },
   ref
 ) {
   const [query, setQuery] = useState("");
@@ -148,12 +150,16 @@ export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function Pa
   };
 
   return (
-    <div ref={containerRef} className={`relative ${className || ""}`}>
+    <div ref={containerRef} className={`relative ${className || ""}`} data-field-required={required ? "true" : undefined}>
       {selectedId && !query ? (
         <div
           className="flex items-center h-8 w-full rounded-md border border-input bg-background px-3 text-sm cursor-text group"
           onClick={() => { onClear(); setTimeout(() => inputRef.current?.focus(), 10); }}
           tabIndex={0}
+          role="textbox"
+          aria-label={`Selected ${entityLabel}: ${selectedName}. Press Enter to continue, Backspace to clear.`}
+          aria-required={required || undefined}
+          data-field-value={selectedName || selectedId || ""}
           {...(enterNavInclude ? { "data-enter-nav-include": "true" } : {})}
           onKeyDown={(e) => {
             if ((e.key === "n" || e.key === "N") && (e.ctrlKey || e.metaKey)) {
@@ -163,6 +169,9 @@ export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function Pa
               e.preventDefault();
               const sel = parties?.find(p => p.id === selectedId);
               if (sel && onEditSelected) onEditSelected(sel);
+            } else if (e.key === "Backspace" || e.key === "Delete") {
+              e.preventDefault();
+              clearSelection();
             }
           }}
         >
@@ -196,6 +205,9 @@ export const PartySearchInput = forwardRef<PartySearchHandle, Props>(function Pa
             className="h-8 pl-8 pr-3 text-sm"
             autoComplete="off"
             spellCheck={false}
+            required={required}
+            aria-required={required || undefined}
+            data-field-value={query || ""}
             {...(enterNavInclude ? { "data-enter-nav-include": "true" } : {})}
           />
         </div>

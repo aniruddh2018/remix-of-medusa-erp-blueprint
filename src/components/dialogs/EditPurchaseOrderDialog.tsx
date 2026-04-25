@@ -23,24 +23,35 @@ import { Loader2, Save, Trash2, AlertTriangle, Package, Plus, ChevronsUpDown } f
 import { format } from "date-fns";
 import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
+import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
+import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
+import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";
 
 type PurchaseOrder = Tables<"purchase_orders">;
 type Supplier = Tables<"suppliers">;
 type PurchaseOrderItem = Tables<"purchase_order_items"> & {
-  products?: { name: string; strength?: string | null; hsn_code?: string | null };
+  products?: { name: string; strength?: string | null; hsn_code?: string | null; mrp?: number | null; base_unit?: string | null; unit?: string | null };
 };
 
 interface EditableItem {
   id: string;
   product_id: string;
   product_name: string;
+  hsn_code: string;
+  batch_number: string;
   quantity: number;
   free_quantity: number;
+  purchased_unit?: string | null;
+  base_unit?: string | null;
+  base_quantity?: number | null;
   unit_price: number;
+  mrp: number;
   gst_percentage: number;
   discount_percentage: number;
+  discount_flat: number;
   total_price: number;
+  expiry_date: string;
   isNew?: boolean;
 }
 
@@ -53,13 +64,16 @@ interface EditPurchaseOrderDialogProps {
 export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPurchaseOrderDialogProps) {
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, config, gstInclusive } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
   const [notes, setNotes] = useState("");
   const [challanNumber, setChallanNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
+  const [status, setStatus] = useState<string>("pending");
+  const [documentIsChallan, setDocumentIsChallan] = useState(true);
   const [freightCharges, setFreightCharges] = useState(0);
   const [handlingCharges, setHandlingCharges] = useState(0);
   const [otherCharges, setOtherCharges] = useState(0);
@@ -95,6 +109,10 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [newItemMrp, setNewItemMrp] = useState(0);
   const [newItemBatch, setNewItemBatch] = useState("");
   const [newItemExpiry, setNewItemExpiry] = useState("");
+  const [newItemDiscount, setNewItemDiscount] = useState(0);
+  const [newItemDiscountFlat, setNewItemDiscountFlat] = useState(0);
+  const [productFormOpen, setProductFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Tables<"products"> | null>(null);
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ["purchase-order-for-edit", orderId],
@@ -117,7 +135,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       if (!orderId) return [];
       const { data, error } = await supabase
         .from("purchase_order_items")
-        .select(`*, products(name, strength, hsn_code)`)
+        .select(`*, products(name, strength, hsn_code, mrp, base_unit, unit)`)
         .eq("purchase_order_id", orderId);
       if (error) throw error;
       return data as PurchaseOrderItem[];
@@ -137,12 +155,13 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, generic_name, manufacturer, purchase_price, gst_percentage")
+        .select("*")
+        .eq("company_id", companyId!)
         .eq("is_active", true)
         .order("name");
       return data || [];
     },
-    enabled: open,
+    enabled: !!companyId && open,
   });
 
   // Suppliers list for the inline search
@@ -166,6 +185,9 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setNotes(order.notes || "");
       setChallanNumber(order.challan_number || "");
       setInvoiceNumber(order.invoice_number || "");
+      setExpectedDeliveryDate(order.expected_delivery_date || "");
+      setStatus(order.status || "pending");
+      setDocumentIsChallan(order.is_challan ?? true);
       setFreightCharges(Number(order.freight_charges) || 0);
       setHandlingCharges(Number(order.handling_charges) || 0);
       setOtherCharges(Number(order.other_charges) || 0);
@@ -176,27 +198,38 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   }, [order]);
 
   // Store original quantities for inventory delta calculations
-  const [originalQuantities, setOriginalQuantities] = useState<Record<string, { quantity: number; free_quantity: number; product_id: string }>>({});
+  const [originalQuantities, setOriginalQuantities] = useState<Record<string, { quantity: number; free_quantity: number; base_quantity: number; product_id: string }>>({});
 
   useEffect(() => {
     if (orderItems) {
-      const origMap: Record<string, { quantity: number; free_quantity: number; product_id: string }> = {};
+      const origMap: Record<string, { quantity: number; free_quantity: number; base_quantity: number; product_id: string }> = {};
       const items = orderItems.map(item => {
+        const baseUnit = item.products?.base_unit || item.products?.unit || "pcs";
+        const baseQuantity = Number(item.base_quantity ?? (item.quantity + (item.free_quantity ?? 0)));
         origMap[item.id] = {
           quantity: item.quantity,
           free_quantity: item.free_quantity ?? 0,
+          base_quantity: baseQuantity,
           product_id: item.product_id,
         };
         return {
           id: item.id,
           product_id: item.product_id,
           product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
+          hsn_code: item.products?.hsn_code || "",
+          batch_number: "",
           quantity: item.quantity,
           free_quantity: item.free_quantity ?? 0,
+          purchased_unit: item.purchased_unit || baseUnit,
+          base_unit: baseUnit,
+          base_quantity: baseQuantity,
           unit_price: Number(item.unit_price),
+          mrp: Number((item.products as any)?.mrp) || Number(item.unit_price) * 1.2,
           gst_percentage: Number(item.gst_percentage),
           discount_percentage: Number(item.discount_percentage),
+          discount_flat: 0,
           total_price: Number(item.total_price),
+          expiry_date: "",
         };
       });
       setEditableItems(items);
@@ -215,15 +248,25 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   }, [orderItems, order]);
 
   const recalcItem = (item: EditableItem): EditableItem => {
-    const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-    const gst = base * item.gst_percentage / 100;
-    return { ...item, total_price: base + gst };
+    const base = item.unit_price * item.quantity;
+    const discounted = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+    if (gstInclusive) return { ...item, total_price: discounted };
+    const gst = discounted * item.gst_percentage / 100;
+    return { ...item, total_price: discounted + gst };
   };
 
   const updateItem = (index: number, field: string, value: number) => {
     setEditableItems(prev => {
       const updated = [...prev];
-      updated[index] = recalcItem({ ...updated[index], [field]: value });
+      const current = updated[index];
+      const oldTotal = current.quantity + (current.free_quantity || 0);
+      const oldBase = current.base_quantity ?? oldTotal;
+      const next = { ...current, [field]: value };
+      const newTotal = next.quantity + (next.free_quantity || 0);
+      if ((field === "quantity" || field === "free_quantity") && oldTotal > 0) {
+        next.base_quantity = Number(((oldBase / oldTotal) * newTotal).toFixed(6));
+      }
+      updated[index] = recalcItem(next);
       return updated;
     });
   };
@@ -240,12 +283,20 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       id: crypto.randomUUID(),
       product_id: selectedNewProduct.id,
       product_name: selectedNewProduct.name,
+      hsn_code: selectedNewProduct.hsn_code || "",
+      batch_number: newItemBatch,
       quantity: newItemQty,
       free_quantity: newItemFreeQty,
+      purchased_unit: (selectedNewProduct.base_unit || selectedNewProduct.unit || "pcs").toLowerCase(),
+      base_unit: (selectedNewProduct.base_unit || selectedNewProduct.unit || "pcs").toLowerCase(),
+      base_quantity: newItemQty + (newItemFreeQty || 0),
       unit_price: newItemPrice || Number(selectedNewProduct.purchase_price),
+      mrp: newItemMrp || Number(selectedNewProduct.mrp) || Number(selectedNewProduct.purchase_price) * 1.2,
       gst_percentage: Number(selectedNewProduct.gst_percentage),
-      discount_percentage: 0,
+      discount_percentage: newItemDiscount,
+      discount_flat: newItemDiscountFlat,
       total_price: 0,
+      expiry_date: newItemExpiry,
       isNew: true,
     };
     setEditableItems(prev => [...prev, recalcItem(newItem)]);
@@ -256,24 +307,79 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     setNewItemMrp(0);
     setNewItemBatch("");
     setNewItemExpiry("");
+    setNewItemDiscount(0);
+    setNewItemDiscountFlat(0);
     setAddProductSearch("");
   };
 
   const itemsSubtotal = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      return sum + item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
+      const base = item.unit_price * item.quantity;
+      return sum + Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
     }, 0);
   }, [editableItems]);
 
   const gstAmount = useMemo(() => {
     return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity * (1 - item.discount_percentage / 100);
-      return sum + (base * item.gst_percentage / 100);
+      const base = item.unit_price * item.quantity;
+      const discounted = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+      if (gstInclusive) return sum + (discounted - discounted / (1 + item.gst_percentage / 100));
+      return sum + (discounted * item.gst_percentage / 100);
     }, 0);
-  }, [editableItems]);
+  }, [editableItems, gstInclusive]);
 
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const grandTotal = itemsSubtotal + gstAmount + totalCharges - discountAmount;
+  const grossTotal = editableItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  const totalItemDiscount = editableItems.reduce((sum, item) => {
+    const base = item.unit_price * item.quantity;
+    return sum + (base * item.discount_percentage / 100) + item.discount_flat;
+  }, 0);
+  const grossSubtotal = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
+  const syncedBillDiscountAmount = discountAmount;
+  const grandTotal = Math.max(0, grossSubtotal - syncedBillDiscountAmount);
+
+  useEffect(() => {
+    if (billDiscountPercent > 0) {
+      setDiscountAmount(Math.round(grossSubtotal * (billDiscountPercent / 100) * 100) / 100);
+    } else if (billDiscountFlat > 0) {
+      setDiscountAmount(billDiscountFlat);
+    }
+  }, [billDiscountPercent, billDiscountFlat, grossSubtotal]);
+
+  const purchaseItems: PurchaseItem[] = useMemo(() => editableItems.map((item) => ({
+    product_id: item.product_id,
+    product_name: item.product_name,
+    hsn_code: item.hsn_code,
+    batch_number: item.batch_number,
+    quantity: item.quantity,
+    free_quantity: item.free_quantity,
+    purchased_unit: item.purchased_unit,
+    base_unit: item.base_unit,
+    base_quantity: item.base_quantity,
+    unit_price: item.unit_price,
+    gst_percentage: item.gst_percentage,
+    discount_percentage: item.discount_percentage,
+    discount_flat: item.discount_flat,
+    total_price: item.total_price,
+    expiry_date: item.expiry_date,
+    mrp: item.mrp,
+  })), [editableItems]);
+
+  const handlePurchaseItemUpdate = (index: number, field: keyof PurchaseItem, value: string | number) => {
+    setEditableItems((prev) => {
+      const updated = [...prev];
+      const current = updated[index];
+      const oldTotal = current.quantity + (current.free_quantity || 0);
+      const oldBase = current.base_quantity ?? oldTotal;
+      const next = { ...current, [field]: value };
+      const newTotal = next.quantity + (next.free_quantity || 0);
+      if ((field === "quantity" || field === "free_quantity") && oldTotal > 0) {
+        next.base_quantity = Number(((oldBase / oldTotal) * newTotal).toFixed(6));
+      }
+      updated[index] = recalcItem(next);
+      return updated;
+    });
+  };
 
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
@@ -287,7 +393,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       for (const itemId of deletedItemIds) {
         const orig = originalQuantities[itemId];
         if (orig) {
-          const totalOrigQty = orig.quantity + orig.free_quantity;
+          const totalOrigQty = orig.base_quantity ?? (orig.quantity + orig.free_quantity);
           if (totalOrigQty > 0) {
             // Find matching batch by product_id + supplier_id
             const { data: batch } = await supabase
@@ -312,15 +418,18 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       // --- 2. Handle EXISTING items: apply quantity delta to inventory ---
       for (const item of editableItems.filter(i => !i.isNew)) {
         const orig = originalQuantities[item.id];
-        const oldTotal = orig ? orig.quantity + orig.free_quantity : 0;
-        const newTotal = item.quantity + item.free_quantity;
+        const oldTotal = orig ? orig.base_quantity : 0;
+        const newTotal = item.base_quantity ?? (item.quantity + item.free_quantity);
         const delta = newTotal - oldTotal;
 
         // Update PO item
         await supabase.from("purchase_order_items").update({
           quantity: item.quantity,
           free_quantity: item.free_quantity,
+          purchased_unit: item.purchased_unit || item.base_unit || null,
+          base_quantity: item.base_quantity ?? (item.quantity + item.free_quantity),
           unit_price: item.unit_price,
+          gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
         }).eq("id", item.id);
@@ -351,6 +460,8 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
           product_id: item.product_id,
           quantity: item.quantity,
           free_quantity: item.free_quantity,
+          purchased_unit: item.purchased_unit || item.base_unit || null,
+          base_quantity: item.base_quantity ?? (item.quantity + item.free_quantity),
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
           discount_percentage: item.discount_percentage,
@@ -359,7 +470,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
         });
 
         // Create inventory batch for new item
-        const totalQty = item.quantity + item.free_quantity;
+        const totalQty = item.base_quantity ?? (item.quantity + item.free_quantity);
         if (totalQty > 0) {
           const today = new Date().toISOString().split("T")[0];
           const defaultExpiry = new Date();
@@ -367,11 +478,11 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
 
           await supabase.from("inventory_batches").insert({
             product_id: item.product_id,
-            batch_number: `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            batch_number: item.batch_number || `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             quantity: totalQty,
             purchase_price: item.unit_price,
-            mrp: item.unit_price * 1.2,
-            expiry_date: defaultExpiry.toISOString().split("T")[0],
+            mrp: item.mrp || item.unit_price * 1.2,
+            expiry_date: item.expiry_date || defaultExpiry.toISOString().split("T")[0],
             received_date: today,
             supplier_id: effectiveSupplierId,
             company_id: companyId,
@@ -384,13 +495,16 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
         .from("purchase_orders")
         .update({
           notes: notes || null,
-          challan_number: challanNumber || null,
-          invoice_number: invoiceNumber || null,
+          challan_number: documentIsChallan ? (challanNumber || null) : null,
+          invoice_number: documentIsChallan ? null : (invoiceNumber || challanNumber || null),
+          is_challan: documentIsChallan,
+          expected_delivery_date: expectedDeliveryDate || null,
+          status: status as PurchaseOrder["status"],
           supplier_id: effectiveSupplierId,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,
-          discount_amount: discountAmount,
+          discount_amount: totalItemDiscount + discountAmount,
           gst_amount: gstAmount,
           total_amount: grandTotal,
           updated_at: new Date().toISOString(),
@@ -428,7 +542,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   }
 
   const isLoading = orderLoading || itemsLoading;
-  const isChallan = order?.is_challan;
+  const isChallan = documentIsChallan;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -511,7 +625,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                 <CardTitle className="text-base">Order Information</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Supplier *</Label>
                     <PartySearchInput
@@ -520,6 +634,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                       selectedName={supplierName}
                       entityLabel="supplier"
                       enterNavInclude
+                      required
                       placeholder="Type supplier name or phone…"
                       onSelect={(p) => { setSupplierId(p.id); setSupplierName(p.name); }}
                       onClear={() => { setSupplierId(null); setSupplierName(""); }}
@@ -539,8 +654,14 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Order Date</Label>
-                    <p className="font-medium">{order?.order_date ? format(new Date(order.order_date), "dd/MM/yyyy") : "-"}</p>
+                    <Label className="text-xs text-muted-foreground">Doc Type</Label>
+                    <Select value={documentIsChallan ? "challan" : "invoice"} onValueChange={(value) => setDocumentIsChallan(value === "challan")}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="challan">Challan</SelectItem>
+                        <SelectItem value="invoice">Invoice</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">{isChallan ? "Challan Number" : "Invoice Number"}</Label>
@@ -549,195 +670,163 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                       onChange={(e) => isChallan ? setChallanNumber(e.target.value) : setInvoiceNumber(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-1 flex items-center gap-2 pt-4">
-                    <Badge variant={isChallan ? "secondary" : "default"}>{isChallan ? "Challan" : "Invoice"}</Badge>
-                    <Badge variant={order?.status === "delivered" ? "default" : "outline"}>{order?.status}</Badge>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Invoice Date</Label>
+                    <Input type="date" value={expectedDeliveryDate} onChange={(e) => setExpectedDeliveryDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Order Date</Label>
+                    <p className="font-medium">{order?.order_date ? format(new Date(order.order_date), "dd/MM/yyyy") : "-"}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Editable Items */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Order Items</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right w-20">Qty</TableHead>
-                      <TableHead className="text-right w-16">Free</TableHead>
-                      <TableHead className="text-right w-24">Price</TableHead>
-                      <TableHead className="text-right w-16">Disc%</TableHead>
-                      <TableHead className="text-right w-16">GST%</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {editableItems.map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium text-sm">
-                          {item.product_name}
-                          {item.isNew && <Badge variant="outline" className="ml-1 text-xs">New</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input type="number" min={1} value={item.quantity}
-                            onChange={(e) => updateItem(index, "quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="w-16 h-7 text-center" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input type="number" min={0} value={item.free_quantity}
-                            onChange={(e) => updateItem(index, "free_quantity", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="w-14 h-7 text-center" placeholder="0" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input type="number" step="0.01" min={0} value={item.unit_price}
-                            onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                            className="w-20 h-7 text-right" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input type="number" step="0.1" min={0} max={100} value={item.discount_percentage}
-                            onChange={(e) => updateItem(index, "discount_percentage", parseFloat(e.target.value) || 0)}
-                            className="w-14 h-7 text-center" />
-                        </TableCell>
-                        <TableCell className="text-right text-sm">{item.gst_percentage}%</TableCell>
-                        <TableCell className="text-right font-mono text-sm">₹{item.total_price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(index)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Add New Product */}
-                <div className="p-3 border-t">
-                  <p className="text-sm font-medium mb-2">Add Product</p>
-                  <div className="flex gap-2 items-end flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
-                      <Popover open={addProductOpen} onOpenChange={setAddProductOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full justify-between text-sm">
-                            {selectedNewProduct ? selectedNewProduct.name : "Select product..."}
-                            <ChevronsUpDown className="h-3 w-3 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search..." value={addProductSearch} onValueChange={setAddProductSearch} />
-                            <CommandList>
-                              <CommandEmpty>No products found</CommandEmpty>
-                              <CommandGroup>
-                                {allProducts?.filter(p =>
-                                  p.name.toLowerCase().includes(addProductSearch.toLowerCase()) ||
-                                  p.generic_name?.toLowerCase().includes(addProductSearch.toLowerCase())
-                                ).slice(0, 20).map(p => (
-                                  <CommandItem key={p.id} value={p.name} onSelect={() => {
-                                    setSelectedNewProduct(p);
-                                    setNewItemPrice(Number(p.purchase_price));
-                                    setAddProductOpen(false);
-                                  }}>
-                                    {p.name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+            <div className="rounded-lg border bg-card p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add Products</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1"
+                  onClick={() => { setEditingProduct(null); setProductFormOpen(true); }}
+                >
+                  <Plus className="h-3 w-3" /> New Product
+                </Button>
+              </div>
+              <div className="flex gap-2 items-end flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                  <Popover open={addProductOpen} onOpenChange={setAddProductOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full justify-between text-sm">
+                        {selectedNewProduct ? selectedNewProduct.name : "Select product..."}
+                        <ChevronsUpDown className="h-3 w-3 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search..." value={addProductSearch} onValueChange={setAddProductSearch} />
+                        <CommandList>
+                          <CommandEmpty>No products found</CommandEmpty>
+                          <CommandGroup>
+                            {allProducts?.filter(p =>
+                              p.name.toLowerCase().includes(addProductSearch.toLowerCase()) ||
+                              p.generic_name?.toLowerCase().includes(addProductSearch.toLowerCase())
+                            ).slice(0, 20).map(p => (
+                              <CommandItem key={p.id} value={p.name} onSelect={() => {
+                                setSelectedNewProduct(p);
+                                setNewItemPrice(Number(p.purchase_price));
+                                setNewItemMrp(Number(p.mrp));
+                                setAddProductOpen(false);
+                              }}>
+                                {p.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {selectedNewProduct && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => { setEditingProduct(selectedNewProduct); setProductFormOpen(true); }}
+                  >
+                    Edit Product
+                  </Button>
+                )}
+                {selectedNewProduct && (
+                  <div className="w-full grid grid-cols-2 md:grid-cols-8 gap-2 mt-2">
+                    <Input type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                      className="h-8" placeholder="Qty" />
+                    <Input type="number" min={0} value={newItemFreeQty || ""}
+                      onChange={(e) => setNewItemFreeQty(parseInt(e.target.value) || 0)}
+                      className="h-8" placeholder="Free" />
+                    <Input type="number" step="0.01" value={newItemPrice || ""}
+                      onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
+                      className="h-8" placeholder="Rate" />
+                    <Input type="number" step="0.01" value={newItemMrp || ""}
+                      onChange={(e) => setNewItemMrp(parseFloat(e.target.value) || 0)}
+                      className="h-8" placeholder="MRP" />
+                    <Input type="number" step="0.1" max={maxDiscountAllowed} value={newItemDiscount || ""}
+                      onChange={(e) => setNewItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
+                      className="h-8" placeholder="Disc%" />
+                    <Input type="number" step="0.5" value={newItemDiscountFlat || ""}
+                      onChange={(e) => setNewItemDiscountFlat(parseFloat(e.target.value) || 0)}
+                      className="h-8" placeholder="Disc Rs" />
+                    <Input value={newItemBatch}
+                      onChange={(e) => setNewItemBatch(e.target.value)}
+                      className="h-8" placeholder="Batch" />
+                    <div className="flex gap-2">
+                      <Input type="date" value={newItemExpiry}
+                        onChange={(e) => setNewItemExpiry(e.target.value)}
+                        className="h-8 text-xs" />
+                      <Button size="sm" onClick={addNewItem} className="gap-1 h-8">
+                        <Plus className="h-3 w-3" /> Add
+                      </Button>
                     </div>
-                    {selectedNewProduct && (
-                      <div className="w-full grid grid-cols-6 gap-2 mt-2">
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Qty *</Label>
-                          <Input type="number" min={0} value={newItemQty === 0 ? '' : newItemQty}
-                            onChange={(e) => setNewItemQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                            className="h-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Free</Label>
-                          <Input type="number" min={0} value={newItemFreeQty || ""}
-                            onChange={(e) => setNewItemFreeQty(parseInt(e.target.value) || 0)}
-                            className="h-8" placeholder="0" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Price ₹</Label>
-                          <Input type="number" step="0.01" value={newItemPrice}
-                            onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
-                            className="h-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Batch</Label>
-                          <Input value={newItemBatch}
-                            onChange={(e) => setNewItemBatch(e.target.value)}
-                            className="h-8" placeholder="Optional" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Expiry</Label>
-                          <Input type="date" value={newItemExpiry}
-                            onChange={(e) => setNewItemExpiry(e.target.value)}
-                            className="h-8 text-xs" />
-                        </div>
-                        <div className="flex items-end">
-                          <Button size="sm" onClick={addNewItem} className="gap-1 w-full h-8">
-                            <Plus className="h-3 w-3" /> Add
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Charges */}
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">Charges & Discounts</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Freight (₹)</Label>
-                    <Input type="number" min={0} value={freightCharges || ""} onChange={(e) => setFreightCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Handling (₹)</Label>
-                    <Input type="number" min={0} value={handlingCharges || ""} onChange={(e) => setHandlingCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Other (₹)</Label>
-                    <Input type="number" min={0} value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value) || 0)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Discount (₹)</Label>
-                    <Input type="number" min={0} value={discountAmount || ""} onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" rows={2} />
+                )}
+              </div>
             </div>
 
-            {/* Totals */}
-            <Card className="bg-muted/50">
-              <CardContent className="pt-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Subtotal:</span><span>₹{itemsSubtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>GST:</span><span>₹{gstAmount.toFixed(2)}</span></div>
-                  {totalCharges > 0 && <div className="flex justify-between"><span>Charges:</span><span>₹{totalCharges.toFixed(2)}</span></div>}
-                  {discountAmount > 0 && <div className="flex justify-between text-primary"><span>Discount:</span><span>-₹{discountAmount.toFixed(2)}</span></div>}
-                  <Separator />
-                  <div className="flex justify-between font-bold text-lg"><span>Grand Total:</span><span>₹{grandTotal.toFixed(2)}</span></div>
+            <PurchaseItemsTable
+              items={purchaseItems}
+              discountMode={settings.discount_mode}
+              maxDiscountAllowed={maxDiscountAllowed}
+              hasBatchTracking={config.hasBatchTracking || settings.enable_batch_tracking}
+              onUpdateItem={handlePurchaseItemUpdate}
+              onRemoveItem={removeItem}
+              onDiscountExceeded={(max) => toast({ title: "Limit exceeded", description: `Max discount: ${max}%`, variant: "destructive" })}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" rows={2} />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input type="number" min={0} value={freightCharges || ""} onChange={(e) => setFreightCharges(Number(e.target.value) || 0)} className="h-8 text-xs" placeholder="Freight Rs" />
+                  <Input type="number" min={0} value={handlingCharges || ""} onChange={(e) => setHandlingCharges(Number(e.target.value) || 0)} className="h-8 text-xs" placeholder="Handling Rs" />
+                  <Input type="number" min={0} value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value) || 0)} className="h-8 text-xs" placeholder="Other Rs" />
+                </div>
+              </div>
+              <BillingTotals
+                grossTotal={grossTotal}
+                itemDiscount={totalItemDiscount}
+                subtotal={itemsSubtotal}
+                gstAmount={gstAmount}
+                totalCharges={totalCharges}
+                billDiscountAmount={discountAmount}
+                grandTotal={grandTotal}
+                gstInclusive={gstInclusive}
+                settings={settings}
+                maxDiscountAllowed={maxDiscountAllowed}
+                billDiscountPercent={billDiscountPercent}
+                billDiscountFlat={billDiscountFlat}
+                onBillDiscountPercentChange={(v) => { setBillDiscountPercent(v); setBillDiscountFlat(0); }}
+                onBillDiscountFlatChange={(v) => { setBillDiscountFlat(v); setBillDiscountPercent(0); }}
+              />
+            </div>
           </div>
         )}
 
@@ -830,6 +919,21 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             if (data) {
               setSupplierId(data.id);
               setSupplierName(data.name);
+            }
+          });
+        }}
+      />
+      <ProductFormDialog
+        open={productFormOpen}
+        onOpenChange={(open) => { setProductFormOpen(open); if (!open) setEditingProduct(null); }}
+        editingProduct={editingProduct}
+        onSuccess={(productId) => {
+          queryClient.invalidateQueries({ queryKey: ["products-for-edit-po"] }).then(async () => {
+            const { data } = await supabase.from("products").select("*").eq("id", productId).single();
+            if (data) {
+              setSelectedNewProduct(data);
+              setNewItemPrice(Number(data.purchase_price));
+              setNewItemMrp(Number(data.mrp));
             }
           });
         }}

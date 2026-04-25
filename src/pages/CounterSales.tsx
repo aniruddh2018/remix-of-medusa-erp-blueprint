@@ -1319,6 +1319,7 @@ export default function CounterSales() {
                         baseUnit={baseUnit}
                         batchId={selectedBatchId}
                         value={itemUnit || baseUnit}
+                        quantity={itemQuantity + (itemFreeQty || 0)}
                         onChange={setItemUnit}
                       />
                     );

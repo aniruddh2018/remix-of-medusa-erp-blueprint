@@ -8,9 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Loader2, Zap, Keyboard } from "lucide-react";
 import { usePlatformShortcut } from "@/hooks/usePlatformShortcut";
+import { useShortcut } from "@/hooks/useShortcut";
 import { SHORTCUTS, formatShortcut } from "@/lib/platform";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CommandPalette } from "@/components/CommandPalette";
+import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
+import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";
 import { useFocus } from "@/contexts/FocusContext";
 import { useOverdueLoginToast } from "@/hooks/useOverdueLoginToast";
@@ -26,6 +29,7 @@ export function AppLayout() {
   const { config, needsOnboarding, isLoading: bizLoading } = useBusiness();
   const navigate = useNavigate();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
 
   // Intelligent focus recovery (flow-aware)
   const { recoverFocus } = useFocus();
@@ -49,6 +53,14 @@ export function AppLayout() {
     callback: () => recoverFocus(),
     enabled: !!user,
     allowInInput: true,
+  });
+
+  // Shift+? opens the full keyboard shortcut reference (via central manager).
+  useShortcut({
+    id: "help",
+    callback: () => setShortcutsDialogOpen(true),
+    enabled: !!user,
+    inputBehavior: "never",
   });
 
   useEffect(() => {
@@ -78,6 +90,7 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
+      <SkipToContent targetId="main-content" />
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <SidebarInset className="flex-1 flex flex-col">
@@ -127,17 +140,29 @@ export function AppLayout() {
 
             <div className="flex-1" />
 
-            {/* Keyboard shortcuts cheatsheet */}
+            {/* Keyboard shortcuts — click for full searchable dialog, hover for quick hints */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShortcutsDialogOpen(true)}
+                    aria-label="Open keyboard shortcuts"
+                    className="text-muted-foreground hover:text-foreground hidden sm:flex"
+                  >
                     <Keyboard className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   <div className="text-xs space-y-1.5 py-1">
-                    <p className="font-semibold text-foreground mb-2">Keyboard Shortcuts</p>
+                    <p className="font-semibold text-foreground mb-1">
+                      Keyboard Shortcuts
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      Press <kbd className="px-1 py-0.5 bg-muted rounded border">?</kbd>{" "}
+                      for the full list
+                    </p>
                     <p className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider mt-1">Global</p>
                     <p><ShortcutHint shortcut={SHORTCUTS.COMMAND_PALETTE} /> Command palette</p>
                     <p><ShortcutHint shortcut={SHORTCUTS.QUICK_SALE} /> Quick Counter Sale</p>
@@ -165,7 +190,11 @@ export function AppLayout() {
             </TooltipProvider>
           </header>
 
-          <main className="flex-1 overflow-auto p-3 sm:p-6 bg-muted/30 safe-bottom">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 overflow-auto p-3 sm:p-6 bg-muted/30 safe-bottom focus:outline-none"
+          >
             <div className="max-w-7xl mx-auto">
               <Outlet />
             </div>
@@ -177,6 +206,11 @@ export function AppLayout() {
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         onQuickSale={() => navigate("/counter-sales")}
+      />
+
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
       />
     </SidebarProvider>
   );

@@ -28,10 +28,10 @@ export function useKeyboardShortcut({
       if (!enabled) return;
 
       const modifiersMatch =
-        (!modifiers.includes("ctrl") || event.ctrlKey) &&
-        (!modifiers.includes("alt") || event.altKey) &&
-        (!modifiers.includes("shift") || event.shiftKey) &&
-        (!modifiers.includes("meta") || event.metaKey);
+        modifiers.includes("ctrl") === event.ctrlKey &&
+        modifiers.includes("alt") === event.altKey &&
+        modifiers.includes("shift") === event.shiftKey &&
+        modifiers.includes("meta") === event.metaKey;
 
       // On macOS, Alt+key produces special characters (e.g. Alt+1 → ¡)
       // so we also match against event.code (e.g. "Digit1", "KeyA") as a fallback
@@ -48,7 +48,10 @@ export function useKeyboardShortcut({
       const isInputActive =
         document.activeElement?.tagName === "INPUT" ||
         document.activeElement?.tagName === "TEXTAREA" ||
-        document.activeElement?.getAttribute("contenteditable") === "true";
+        document.activeElement?.getAttribute("contenteditable") === "true" ||
+        document.activeElement?.getAttribute("role") === "textbox" ||
+        document.activeElement?.getAttribute("role") === "combobox" ||
+        document.activeElement?.hasAttribute("data-field-value");
 
       // Always allow shortcuts with Alt or Ctrl modifiers (navigation shortcuts), 
       // and explicitly allowed shortcuts

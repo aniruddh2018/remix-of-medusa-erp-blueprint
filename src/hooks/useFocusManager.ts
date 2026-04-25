@@ -1,4 +1,7 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef } from "react";
+// NOTE: A dedicated useFocusTrap hook lives in ./useFocusTrap.ts.
+// This file used to export a second version; it was removed to avoid
+// import ambiguity. Use `import { useFocusTrap } from "@/hooks/useFocusTrap"`.
 
 const FOCUSABLE_SELECTOR =
   'input:not([type="hidden"]):not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [role="combobox"]:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
@@ -85,47 +88,4 @@ export function useFocusManager(containerRef?: React.RefObject<HTMLElement>) {
     autoFocusFirst,
     getFocusableElements,
   };
-}
-
-/**
- * Hook that traps Tab focus within a container (for modals/dialogs).
- * Prevents keyboard traps by allowing Escape to exit.
- */
-export function useFocusTrap(containerRef: React.RefObject<HTMLElement>, active = true) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return;
-
-    const container = containerRef.current;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-
-      const focusable = Array.from(
-        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      ).filter((el) => {
-        const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-      });
-
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    container.addEventListener("keydown", handleKeyDown);
-    return () => container.removeEventListener("keydown", handleKeyDown);
-  }, [containerRef, active]);
 }

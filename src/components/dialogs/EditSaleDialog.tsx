@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -23,6 +25,7 @@ import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsT
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { PartySearchInput, type PartyRecord } from "@/components/PartySearchInput";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { DoctorSelector } from "@/components/DoctorSelector";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Customer = Tables<"customers">;
@@ -58,7 +61,7 @@ interface EditSaleDialogProps {
 export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogProps) {
   const { toast } = useToast();
   const { isAdmin, isPharmacist } = useAuth();
-  const { companyId, gstInclusive } = useBusiness();
+  const { companyId, gstInclusive, config } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
 
@@ -68,8 +71,12 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
+  const [prescriptionDate, setPrescriptionDate] = useState("");
+  const [prescriptionDurationDays, setPrescriptionDurationDays] = useState("");
+  const [doctor, setDoctor] = useState<{ id: string | null; name: string; registration_number: string }>({ id: null, name: "", registration_number: "" });
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+  const [noGstBill, setNoGstBill] = useState(false);
 
   // Customer create/edit form
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -93,6 +100,9 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const [selectedNewProduct, setSelectedNewProduct] = useState<any>(null);
   const [selectedNewBatch, setSelectedNewBatch] = useState<any>(null);
   const [newItemQty, setNewItemQty] = useState(1);
+  const [newItemFreeQty, setNewItemFreeQty] = useState(0);
+  const [newItemRate, setNewItemRate] = useState(0);
+  const [newItemDiscount, setNewItemDiscount] = useState(0);
 
   // Invoice number confirmation dialog
   const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
@@ -161,12 +171,13 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, generic_name, manufacturer, mrp, sale_price, gst_percentage")
+        .select("id, name, generic_name, manufacturer, mrp, sale_price, gst_percentage, hsn_code, drug_schedule, unit, base_unit")
+        .eq("company_id", companyId!)
         .eq("is_active", true)
         .order("name");
       return data || [];
     },
-    enabled: open,
+    enabled: !!companyId && open,
   });
 
   // Customers list for the inline search
@@ -211,13 +222,15 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       setCustomerAddress(sale.customer_address || "");
       setCustomerGstin(sale.customer_gstin || "");
       setPrescriptionNumber(sale.prescription_number || "");
+      setPrescriptionDate(sale.prescription_date || "");
+      setPrescriptionDurationDays(sale.prescription_duration_days ? String(sale.prescription_duration_days) : "");
+      setDoctor({
+        id: sale.doctor_id || null,
+        name: sale.doctor_name || "",
+        registration_number: sale.doctor_registration_number || "",
+      });
       setPaymentMethod(sale.payment_method || "cash");
       setNotes(sale.notes || "");
-      setStatus(sale.status);
-      setFreightCharges(Number(sale.freight_charges) || 0);
-      setHandlingCharges(Number(sale.handling_charges) || 0);
-      setDeliveryCharges(Number(sale.delivery_charges) || 0);
-      setOtherCharges(Number(sale.other_charges) || 0);
       setStatus(sale.status);
       setFreightCharges(Number(sale.freight_charges) || 0);
       setHandlingCharges(Number(sale.handling_charges) || 0);
@@ -302,11 +315,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       batch_id: selectedNewBatch.id,
       batch_label: selectedNewBatch.batch_number,
       quantity: newItemQty,
-      free_quantity: 0,
+      free_quantity: newItemFreeQty,
       max_quantity: selectedNewBatch.quantity,
-      unit_price: price,
-      gst_percentage: Number(selectedNewProduct.gst_percentage),
-      discount_percentage: 0,
+      unit_price: newItemRate || price,
+      gst_percentage: noGstBill ? 0 : Number(selectedNewProduct.gst_percentage),
+      discount_percentage: newItemDiscount,
       total_price: 0,
       isNew: true,
     };
@@ -314,6 +327,9 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
     setSelectedNewProduct(null);
     setSelectedNewBatch(null);
     setNewItemQty(1);
+    setNewItemFreeQty(0);
+    setNewItemRate(0);
+    setNewItemDiscount(0);
     setAddProductSearch("");
   };
 
@@ -342,6 +358,13 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const updateSaleMutation = useMutation({
     mutationFn: async () => {
       if (!saleId) throw new Error("No sale ID");
+      if (rxRequired) {
+        const missing: string[] = [];
+        if (!doctor.name.trim()) missing.push("Doctor");
+        if (!prescriptionDate) missing.push("Prescription Date");
+        if (!prescriptionDurationDays || parseInt(prescriptionDurationDays, 10) <= 0) missing.push("Prescription Duration");
+        if (missing.length > 0) throw new Error(`${missing.join(", ")} required for scheduled drug sale.`);
+      }
 
       // Delete removed items and restore inventory
       for (const itemId of deletedItemIds) {
@@ -354,7 +377,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
             .single();
           if (currentBatch) {
             const { error: batchErr } = await supabase.from("inventory_batches")
-              .update({ quantity: currentBatch.quantity + orig.quantity })
+              .update({ quantity: currentBatch.quantity + orig.quantity + (orig.free_quantity || 0) })
               .eq("id", orig.batch_id)
               .select();
             if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
@@ -374,7 +397,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (item.isNew) continue;
         const orig = saleItems?.find((i: any) => i.id === item.id);
         if (orig) {
-          const origTotal = orig.quantity;
+          const origTotal = orig.quantity + (orig.free_quantity || 0);
           const newTotal = item.quantity + item.free_quantity;
           const qtyDiff = origTotal - newTotal;
           if (qtyDiff !== 0) {
@@ -450,6 +473,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           customer_address: customerAddress || null,
           customer_gstin: customerGstin || null,
           prescription_number: prescriptionNumber || null,
+          prescription_date: prescriptionDate || null,
+          prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
+          doctor_id: doctor.id,
+          doctor_name: doctor.name || null,
+          doctor_registration_number: doctor.registration_number || null,
           payment_method: paymentMethod,
           notes: notes || null,
           status: status as SalesOrder["status"],
@@ -482,24 +510,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   // Map editableItems → CartItem[] shape for SalesItemsTable (must be before any early return)
   const cartItems: CartItem[] = useMemo(() => editableItems.map((it) => {
-    const flat = it.unit_price * it.quantity * (it.discount_percentage / 100);
     return {
       product_id: it.product_id,
       batch_id: it.batch_id,
       product_name: it.product_name,
       batch_number: it.batch_label,
-      hsn_code: "",
+      hsn_code: allProducts?.find((p) => p.id === it.product_id)?.hsn_code || "",
       quantity: it.quantity,
       free_quantity: it.free_quantity,
       unit_price: it.unit_price,
       gst_percentage: it.gst_percentage,
       discount_percentage: it.discount_percentage,
-      discount_flat: flat,
+      discount_flat: 0,
       total_price: it.total_price,
       max_quantity: it.max_quantity,
       expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      base_unit: allProducts?.find((p) => p.id === it.product_id)?.base_unit || allProducts?.find((p) => p.id === it.product_id)?.unit || undefined,
     };
-  }), [editableItems]);
+  }), [editableItems, allProducts]);
 
   // Sync bill discount inputs → discountAmount
   const grossSubtotal = itemsSubtotal + (gstInclusive ? 0 : gstAmount) + totalCharges;
@@ -541,6 +569,11 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   };
 
   const itemDiscountTotal = editableItems.reduce((s, it) => s + it.unit_price * it.quantity * (it.discount_percentage / 100), 0);
+  const rxCheck = (settings.prescription_check || {}) as Record<string, boolean>;
+  const rxRequired = config.hasDrugSchedule && editableItems.some((item) => {
+    const product = allProducts?.find((p) => p.id === item.product_id);
+    return product?.drug_schedule && product.drug_schedule !== "none" && rxCheck[product.drug_schedule];
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -603,6 +636,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                   selectedName={customerName}
                   entityLabel="customer"
                   enterNavInclude
+                  required
                   placeholder="Type customer name or phone…"
                   onSelect={(p) => {
                     const c = customers?.find((x) => x.id === p.id);
@@ -661,8 +695,63 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                 <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="h-10" />
               </div>
               <div className="space-y-1 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Address</Label>
+                <Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">GSTIN</Label>
+                <Input value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1 md:col-span-2">
                 <Label className="text-xs text-muted-foreground">Prescription #</Label>
                 <Input value={prescriptionNumber} onChange={(e) => setPrescriptionNumber(e.target.value)} className="h-10" />
+              </div>
+              {config.hasDrugSchedule && (
+                <>
+                  <div className="space-y-1 md:col-span-2">
+                    <DoctorSelector value={doctor} onChange={setDoctor} required={rxRequired} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Rx Date {rxRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    <Input
+                      type="date"
+                      value={prescriptionDate}
+                      onChange={(e) => setPrescriptionDate(e.target.value)}
+                      max={new Date().toISOString().slice(0, 10)}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Duration Days {rxRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={prescriptionDurationDays}
+                      onChange={(e) => setPrescriptionDurationDays(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex items-end gap-2">
+                <div className="flex h-10 items-center gap-2">
+                  <Switch
+                    id="edit-sale-no-gst"
+                    checked={noGstBill}
+                    onCheckedChange={(checked) => {
+                      setNoGstBill(checked);
+                      setEditableItems((items) => items.map((item) => {
+                        const product = allProducts?.find((p) => p.id === item.product_id);
+                        return recalcItem({ ...item, gst_percentage: checked ? 0 : Number(product?.gst_percentage ?? item.gst_percentage) });
+                      }));
+                    }}
+                  />
+                  <Label htmlFor="edit-sale-no-gst" className="text-xs text-muted-foreground">No GST</Label>
+                </div>
               </div>
             </div>
 
@@ -726,6 +815,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                       onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
                       className="w-20 h-9" placeholder="Qty"
                     />
+                    <Input
+                      type="number" min={0}
+                      value={newItemFreeQty || ""}
+                      onChange={(e) => setNewItemFreeQty(parseInt(e.target.value) || 0)}
+                      className="w-20 h-9" placeholder="Free"
+                    />
+                    <Input
+                      type="number" min={0} step={0.01}
+                      value={newItemRate || ""}
+                      onChange={(e) => setNewItemRate(parseFloat(e.target.value) || 0)}
+                      className="w-24 h-9" placeholder="Rate"
+                    />
+                    <Input
+                      type="number" min={0} max={maxDiscountAllowed} step={0.1}
+                      value={newItemDiscount || ""}
+                      onChange={(e) => setNewItemDiscount(Math.min(parseFloat(e.target.value) || 0, maxDiscountAllowed))}
+                      className="w-24 h-9" placeholder="Disc%"
+                    />
                     <Button size="sm" onClick={addNewItem} className="gap-1 h-9">
                       <Plus className="h-3 w-3" /> Add
                     </Button>
@@ -749,7 +856,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
               <div className="lg:col-span-2 space-y-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Notes</Label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="h-9" />
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" rows={2} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <div>

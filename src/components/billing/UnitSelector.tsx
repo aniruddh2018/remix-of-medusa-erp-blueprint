@@ -76,10 +76,32 @@ export function UnitSelector({
 
   const options = useMemo(() => units ?? [fallbackBase], [units, fallbackBase]);
 
+  // Resolve a conversion factor and call onChange. Identity → 1.
+  const emit = async (unit: string) => {
+    const u = unit.toLowerCase();
+    if (!productId || !companyId || u === fallbackBase) {
+      onChange(u, 1);
+      return;
+    }
+    try {
+      const conv = await resolveConversion({
+        companyId,
+        productId,
+        batchId: batchId ?? null,
+        fromUnit: u,
+        toUnit: fallbackBase,
+      });
+      onChange(u, conv.toBase(1));
+    } catch {
+      // Conversion missing — keep selection but factor 1 (caller will warn).
+      onChange(u, 1);
+    }
+  };
+
   // If the selected value is no longer in the list (product changed), snap to base.
   useEffect(() => {
     if (!options.includes(value.toLowerCase())) {
-      onChange(fallbackBase);
+      onChange(fallbackBase, 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
@@ -98,12 +120,12 @@ export function UnitSelector({
   }
 
   return (
-    <Select value={value.toLowerCase()} onValueChange={(v) => onChange(v)} disabled={disabled}>
+    <Select value={value.toLowerCase()} onValueChange={emit} disabled={disabled}>
       <SelectTrigger
         className="h-9 w-24 text-xs border-primary/40 bg-primary/5"
         data-enter-nav-skip="true"
         tabIndex={-1}
-        title="Choose the unit you're selling in (e.g. Strip, Box). Stock auto-converts to base units."
+        title="Choose the unit you're selling in (e.g. Strip, Box). Stock & rate auto-convert."
       >
         <SelectValue />
       </SelectTrigger>

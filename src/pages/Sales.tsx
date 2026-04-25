@@ -774,6 +774,9 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemFreeQty(0);
     setItemRate(0);
+    setItemUnit("");
+    setItemUnitFactor(1);
+    setItemBaseRate(0);
     setNoGstBill(false);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);

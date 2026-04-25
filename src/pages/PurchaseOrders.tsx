@@ -38,6 +38,7 @@ import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog"
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
+import { UnitSelector } from "@/components/billing/UnitSelector";
 import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";
@@ -73,6 +74,10 @@ export default function PurchaseOrders() {
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemMrp, setItemMrp] = useState<number>(0);
+  /** Unit the buyer is recording (e.g. "strip"). Empty = base unit. */
+  const [itemUnit, setItemUnit] = useState<string>("");
+  /** Conversion factor (base units per 1 sold unit). 1 = no conversion. */
+  const [itemUnitFactor, setItemUnitFactor] = useState<number>(1);
   const [itemDiscount, setItemDiscount] = useState<number>(0);
   const [itemDiscountFlat, setItemDiscountFlat] = useState<number>(0);
   const [itemBatchNumber, setItemBatchNumber] = useState<string>("");
@@ -345,16 +350,23 @@ export default function PurchaseOrders() {
     }
 
     const gstPercentage = Number(product.gst_percentage);
-    const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
+
+    // Convert qty/free/rate to BASE units when buyer entered a non-base unit
+    // (e.g. "10 strips × 15 tabs/strip" → quantity 150, unit_price = rate / 15).
+    const factor = itemUnitFactor > 0 ? itemUnitFactor : 1;
+    const baseQty = Math.round(itemQuantity * factor);
+    const baseFree = Math.round(itemFreeQty * factor);
+    const basePrice = factor > 1 ? +(itemPrice / factor).toFixed(4) : itemPrice;
+    const totalPrice = calculateItemTotal(basePrice, baseQty, gstPercentage, itemDiscount, itemDiscountFlat);
 
     setOrderItems(prev => [...prev, {
       product_id: product.id,
       product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
       hsn_code: product.hsn_code || "",
       batch_number: itemBatchNumber,
-      quantity: itemQuantity,
-      free_quantity: itemFreeQty,
-      unit_price: itemPrice,
+      quantity: baseQty,
+      free_quantity: baseFree,
+      unit_price: basePrice,
       mrp: itemMrp || Number(product.mrp),
       gst_percentage: gstPercentage,
       discount_percentage: itemDiscount,
@@ -373,11 +385,13 @@ export default function PurchaseOrders() {
     setItemDiscountFlat(0);
     setItemBatchNumber("");
     setItemExpiryDate("");
+    setItemUnit("");
+    setItemUnitFactor(1);
     setExistingBatchId("new");
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, products, calculateItemTotal, focusProductSearch]);
+  }, [selectedProduct, itemQuantity, itemFreeQty, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, itemUnitFactor, products, calculateItemTotal, focusProductSearch]);
 
   const updateOrderItem = useCallback((index: number, field: keyof PurchaseItem, value: string | number) => {
     const updated = [...orderItems];
@@ -429,6 +443,8 @@ export default function PurchaseOrders() {
     setItemMrp(0);
     setItemDiscount(0);
     setItemDiscountFlat(0);
+    setItemUnit("");
+    setItemUnitFactor(1);
     setItemBatchNumber("");
     setItemExpiryDate("");
     setFreightCharges(0);
@@ -1105,9 +1121,27 @@ export default function PurchaseOrders() {
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-                <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
-                  <Plus className="h-3 w-3 mr-1" /> Add
-                </Button>
+                <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        value={itemUnit || baseUnit}
+                        onChange={(unit, factor) => {
+                          setItemUnit(unit);
+                          setItemUnitFactor(factor);
+                        }}
+                      />
+                    );
+                  })()}
+                  <Button onClick={handleAddItem} className="h-9 flex-1" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

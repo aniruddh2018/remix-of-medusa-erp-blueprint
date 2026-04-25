@@ -724,11 +724,24 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
+      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity, base_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
       // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
-      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
+      // CRITICAL: pass base_quantity so multi-unit sales (e.g. 2 strips = 30 pcs) are restored/deducted in BASE units, not billed units.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: i.quantity,
+        free_quantity: i.free_quantity || 0,
+        base_quantity: (i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+        reference_id: orderId,
+      }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: Math.abs(i.quantity),
+        free_quantity: Math.abs(i.free_quantity || 0),
+        base_quantity: Math.abs((i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0))),
+        reference_id: orderId,
+      }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
         if (error) throw new Error(error.message);

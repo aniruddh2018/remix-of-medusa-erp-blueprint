@@ -184,6 +184,8 @@ export default function CounterSales() {
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [itemUnit, setItemUnit] = useState<string>("");
+  const [itemUnitFactor, setItemUnitFactor] = useState<number>(1);
+  const [itemBaseRate, setItemBaseRate] = useState<number>(0);
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);
@@ -1237,8 +1239,14 @@ export default function CounterSales() {
                       onSelect={(v) => {
                         setSelectedProduct(v);
                         setSelectedBatchId(null);
+                        setItemUnit("");
+                        setItemUnitFactor(1);
                         const p = products?.find(pp => pp.id === v);
-                        if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        if (p) {
+                          const baseRate = p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp);
+                          setItemBaseRate(baseRate);
+                          setItemRate(baseRate);
+                        }
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                         if (stock <= 0 && !settings.allow_negative_stock) {

@@ -1279,11 +1279,18 @@ export default function Sales() {
                     />
                   )}
                   {selectedProduct && (() => {
-                    const projected = availableStock - (itemQuantity || 0) - (itemFreeQty || 0);
+                    // availableStock is in BASE units. Convert to display unit using factor.
+                    const factor = itemUnitFactor > 0 ? itemUnitFactor : 1;
+                    const availInUnit = Math.floor(availableStock / factor);
+                    const usingNow = (itemQuantity || 0) + (itemFreeQty || 0);
+                    const projected = availInUnit - usingNow;
                     const isNeg = projected < 0;
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    const displayUnit = (itemUnit || baseUnit).toLowerCase();
                     return (
-                      <Badge variant={availableStock > 0 && !isNeg ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
-                        {availableStock <= 0 ? (settings.allow_negative_stock ? "0 (override)" : "Out of stock") : `${projected}/${availableStock}`}
+                      <Badge variant={availInUnit > 0 && !isNeg ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5 capitalize" title={`${availableStock} ${baseUnit} in stock`}>
+                        {availInUnit <= 0 ? (settings.allow_negative_stock ? "0 (override)" : "Out of stock") : `${projected}/${availInUnit} ${displayUnit}`}
                       </Badge>
                     );
                   })()}

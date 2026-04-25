@@ -1167,8 +1167,14 @@ export default function Sales() {
                       onSelect={(v) => {
                         setSelectedProduct(v);
                         setSelectedBatchId(null); // reset manual batch when product changes
+                        setItemUnit("");          // reset to base unit
+                        setItemUnitFactor(1);
                         const p = products?.find(pp => pp.id === v);
-                        if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        if (p) {
+                          const baseRate = p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp);
+                          setItemBaseRate(baseRate);
+                          setItemRate(baseRate); // base unit on first select → 1:1
+                        }
                         // Compute available stock for this product right now
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);

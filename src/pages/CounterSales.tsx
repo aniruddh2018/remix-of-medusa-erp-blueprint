@@ -599,6 +599,8 @@ export default function CounterSales() {
     setItemDiscountFlat(0);
     setItemRate(0);
     setItemUnit("");
+    setItemUnitFactor(1);
+    setItemBaseRate(0);
 
     if (allocationResult.allocations.length > 1) {
       toast({ title: "FIFO Applied", description: `Split across ${allocationResult.allocations.length} batches` });

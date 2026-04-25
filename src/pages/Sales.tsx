@@ -98,6 +98,9 @@ export default function Sales() {
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
   const [itemRate, setItemRate] = useState<number>(0);
   const [itemUnit, setItemUnit] = useState<string>("");
+  const [itemUnitFactor, setItemUnitFactor] = useState<number>(1);
+  /** Per-base-unit rate captured when product is selected — source of truth for unit changes. */
+  const [itemBaseRate, setItemBaseRate] = useState<number>(0);
   const [noGstBill, setNoGstBill] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -488,6 +491,8 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemRate(0);
     setItemUnit("");
+    setItemUnitFactor(1);
+    setItemBaseRate(0);
     if (isReturn) {
       setReturnMode(false);
       toast({ title: "Return added", description: `${productName} marked as return. Stock will be restored on save.` });
@@ -735,11 +740,24 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity").eq("sales_order_id", orderId);
+      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity, base_quantity").eq("sales_order_id", orderId);
       if (fetchErr) throw fetchErr;
       // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
-      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({ batch_id: i.batch_id, quantity: i.quantity, free_quantity: i.free_quantity || 0 }));
-      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({ batch_id: i.batch_id, quantity: Math.abs(i.quantity), free_quantity: Math.abs(i.free_quantity || 0) }));
+      // CRITICAL: pass base_quantity so multi-unit sales (e.g. 2 strips = 30 pcs) are restored/deducted in BASE units, not billed units.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: i.quantity,
+        free_quantity: i.free_quantity || 0,
+        base_quantity: (i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+        reference_id: orderId,
+      }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: Math.abs(i.quantity),
+        free_quantity: Math.abs(i.free_quantity || 0),
+        base_quantity: Math.abs((i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0))),
+        reference_id: orderId,
+      }));
       if (restoreItems.length > 0) {
         const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
         if (error) throw new Error(error.message);
@@ -785,6 +803,9 @@ export default function Sales() {
     setItemDiscountFlat(0);
     setItemFreeQty(0);
     setItemRate(0);
+    setItemUnit("");
+    setItemUnitFactor(1);
+    setItemBaseRate(0);
     setNoGstBill(false);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);
@@ -1185,8 +1206,14 @@ export default function Sales() {
                       onSelect={(v) => {
                         setSelectedProduct(v);
                         setSelectedBatchId(null); // reset manual batch when product changes
+                        setItemUnit("");          // reset to base unit
+                        setItemUnitFactor(1);
                         const p = products?.find(pp => pp.id === v);
-                        if (p) setItemRate(p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp));
+                        if (p) {
+                          const baseRate = p.sale_price && Number(p.sale_price) > 0 ? Number(p.sale_price) : Number(p.mrp);
+                          setItemBaseRate(baseRate);
+                          setItemRate(baseRate); // base unit on first select → 1:1
+                        }
                         // Compute available stock for this product right now
                         const productBatches = (allBatches || []).filter(b => b.product_id === v);
                         const stock = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
@@ -1292,10 +1319,31 @@ export default function Sales() {
                   </>
                 );
               })()}
-              <div className="flex flex-col justify-end">
-                <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-                <div className="flex gap-1">
-                  {selectedProduct && batchesForProduct.length > 0 && (
+                <div className="flex flex-col justify-end">
+                  <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
+                  <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        batchId={selectedBatchId}
+                        value={itemUnit || baseUnit}
+                        onChange={(unit, factor) => {
+                          setItemUnit(unit);
+                          setItemUnitFactor(factor);
+                          // Auto-recompute the displayed rate from the captured base rate.
+                          // e.g. base ₹70/tablet × 15 tablets/strip = ₹1050/strip
+                          const newRate = +(itemBaseRate * factor).toFixed(2);
+                          setItemRate(newRate);
+                        }}
+                      />
+                    );
+                  })()}
+                    {selectedProduct && batchesForProduct.length > 0 && (
                     <BatchSelector
                       ref={(node) => {
                         fefoSelectorRef.current = node;
@@ -1312,11 +1360,18 @@ export default function Sales() {
                     />
                   )}
                   {selectedProduct && (() => {
-                    const projected = availableStock - (itemQuantity || 0) - (itemFreeQty || 0);
+                    // availableStock is in BASE units. Convert to display unit using factor.
+                    const factor = itemUnitFactor > 0 ? itemUnitFactor : 1;
+                    const availInUnit = Math.floor(availableStock / factor);
+                    const usingNow = (itemQuantity || 0) + (itemFreeQty || 0);
+                    const projected = availInUnit - usingNow;
                     const isNeg = projected < 0;
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    const displayUnit = (itemUnit || baseUnit).toLowerCase();
                     return (
-                      <Badge variant={availableStock > 0 && !isNeg ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5">
-                        {availableStock <= 0 ? (settings.allow_negative_stock ? "0 (override)" : "Out of stock") : `${projected}/${availableStock}`}
+                      <Badge variant={availInUnit > 0 && !isNeg ? "outline" : "destructive"} className="self-center text-[10px] whitespace-nowrap px-1.5 capitalize" title={`${availableStock} ${baseUnit} in stock`}>
+                        {availInUnit <= 0 ? (settings.allow_negative_stock ? "0 (override)" : "Out of stock") : `${projected}/${availInUnit} ${displayUnit}`}
                       </Badge>
                     );
                   })()}

@@ -366,10 +366,12 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (missing.length > 0) throw new Error(`${missing.join(", ")} required for scheduled drug sale.`);
       }
 
-      // Delete removed items and restore inventory
+      // Delete removed items and restore inventory (in BASE units via RPC, preserves sold-unit conversion)
+      const restoreOnDelete: any[] = [];
       for (const itemId of deletedItemIds) {
         const orig = saleItems?.find((i: any) => i.id === itemId);
         if (orig) {
+<<<<<<< HEAD
           const { data: currentBatch } = await supabase
             .from("inventory_batches")
             .select("quantity")
@@ -381,6 +383,18 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
               .eq("id", orig.batch_id)
               .select();
             if (batchErr) throw new Error(`Failed to restore inventory: ${batchErr.message}`);
+=======
+          const origTotal = (orig.quantity || 0) + (orig.free_quantity || 0);
+          const baseQty = orig.base_quantity ?? origTotal;
+          if (baseQty > 0) {
+            restoreOnDelete.push({
+              batch_id: orig.batch_id,
+              quantity: orig.quantity || 0,
+              free_quantity: orig.free_quantity || 0,
+              base_quantity: baseQty,
+              reference_id: saleId,
+            });
+>>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
           }
         }
         const { data: delResult, error: delErr } = await supabase
@@ -391,12 +405,20 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         if (delErr) throw new Error(`Failed to remove item: ${delErr.message}`);
         if (!delResult || delResult.length === 0) throw new Error("Failed to remove item. Check permissions.");
       }
+      if (restoreOnDelete.length > 0) {
+        const { error: restErr } = await supabase.rpc("restore_sale_inventory", { _items: restoreOnDelete });
+        if (restErr) throw new Error(`Failed to restore inventory: ${restErr.message}`);
+      }
 
-      // Update existing items
+      // Update existing items — adjust inventory by BASE-unit delta via RPC
+      const restoreFromUpdate: any[] = [];
+      const deductFromUpdate: any[] = [];
       for (const item of editableItems) {
         if (item.isNew) continue;
         const orig = saleItems?.find((i: any) => i.id === item.id);
+        let newBaseQty = item.quantity + item.free_quantity;
         if (orig) {
+<<<<<<< HEAD
           const origTotal = orig.quantity + (orig.free_quantity || 0);
           const newTotal = item.quantity + item.free_quantity;
           const qtyDiff = origTotal - newTotal;
@@ -413,6 +435,31 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                 .select();
               if (batchErr) throw new Error(`Failed to update inventory: ${batchErr.message}`);
             }
+=======
+          const origTotal = (orig.quantity || 0) + (orig.free_quantity || 0);
+          const origBase = orig.base_quantity ?? origTotal;
+          // Preserve the sold-unit conversion factor (e.g., 1 strip = 15 pcs)
+          const factor = origTotal > 0 ? origBase / origTotal : 1;
+          newBaseQty = Math.round((item.quantity + item.free_quantity) * factor);
+          const baseDiff = origBase - newBaseQty;
+          if (baseDiff > 0) {
+            restoreFromUpdate.push({
+              batch_id: item.batch_id,
+              quantity: 0,
+              free_quantity: 0,
+              base_quantity: baseDiff,
+              reference_id: saleId,
+            });
+          } else if (baseDiff < 0) {
+            deductFromUpdate.push({
+              batch_id: item.batch_id,
+              quantity: 0,
+              free_quantity: 0,
+              base_quantity: Math.abs(baseDiff),
+              reference_id: saleId,
+              unit_price: item.unit_price,
+            });
+>>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
           }
         }
         const { data: updResult, error: updateErr } = await supabase.from("sales_order_items").update({
@@ -422,13 +469,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
           gst_percentage: item.gst_percentage,
+          base_quantity: newBaseQty,
         }).eq("id", item.id).select();
         if (updateErr) throw new Error(`Failed to update item: ${updateErr.message}`);
         if (!updResult || updResult.length === 0) throw new Error("Failed to update item. Check permissions.");
       }
+      if (restoreFromUpdate.length > 0) {
+        const { error: rErr } = await supabase.rpc("restore_sale_inventory", { _items: restoreFromUpdate });
+        if (rErr) throw new Error(`Failed to restore inventory: ${rErr.message}`);
+      }
+      if (deductFromUpdate.length > 0) {
+        const { error: dErr } = await supabase.rpc("deduct_sale_inventory", { _items: deductFromUpdate });
+        if (dErr) throw new Error(`Failed to deduct inventory: ${dErr.message}`);
+      }
 
-      // Insert new items
+      // Insert new items (added in product's base unit) and deduct via RPC
+      const newDeducts: any[] = [];
       for (const item of editableItems.filter(i => i.isNew)) {
+        const baseQty = item.quantity + item.free_quantity;
         const { error: insertErr } = await supabase.from("sales_order_items").insert({
           sales_order_id: saleId,
           product_id: item.product_id,
@@ -440,20 +498,24 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
           discount_percentage: item.discount_percentage,
           total_price: item.total_price,
           company_id: companyId,
+          base_quantity: baseQty,
         });
         if (insertErr) throw new Error(`Failed to add item: ${insertErr.message}`);
 
-        // Deduct inventory (quantity + free)
-        const totalDeduct = item.quantity + item.free_quantity;
-        const { data: batch } = await supabase.from("inventory_batches")
-          .select("quantity").eq("id", item.batch_id).single();
-        if (batch) {
-          const { error: batchErr } = await supabase.from("inventory_batches")
-            .update({ quantity: batch.quantity - totalDeduct })
-            .eq("id", item.batch_id)
-            .select();
-          if (batchErr) throw new Error(`Failed to deduct inventory: ${batchErr.message}`);
+        if (baseQty > 0) {
+          newDeducts.push({
+            batch_id: item.batch_id,
+            quantity: item.quantity,
+            free_quantity: item.free_quantity,
+            base_quantity: baseQty,
+            reference_id: saleId,
+            unit_price: item.unit_price,
+          });
         }
+      }
+      if (newDeducts.length > 0) {
+        const { error: ndErr } = await supabase.rpc("deduct_sale_inventory", { _items: newDeducts });
+        if (ndErr) throw new Error(`Failed to deduct inventory: ${ndErr.message}`);
       }
 
       // Calculate combined discount (item-level + bill-level) to match creation format

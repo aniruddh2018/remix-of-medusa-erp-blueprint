@@ -1119,9 +1119,27 @@ export default function PurchaseOrders() {
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-                <Button onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
-                  <Plus className="h-3 w-3 mr-1" /> Add
-                </Button>
+                <div className="flex gap-1">
+                  {selectedProduct && (() => {
+                    const p = products?.find(pp => pp.id === selectedProduct);
+                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
+                    return (
+                      <UnitSelector
+                        companyId={companyId}
+                        productId={selectedProduct}
+                        baseUnit={baseUnit}
+                        value={itemUnit || baseUnit}
+                        onChange={(unit, factor) => {
+                          setItemUnit(unit);
+                          setItemUnitFactor(factor);
+                        }}
+                      />
+                    );
+                  })()}
+                  <Button onClick={handleAddItem} className="h-9 flex-1" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

@@ -38,6 +38,7 @@ import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog"
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
+import { UnitSelector } from "@/components/billing/UnitSelector";
 import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import type { Tables } from "@/integrations/supabase/types";

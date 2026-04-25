@@ -1327,7 +1327,12 @@ export default function CounterSales() {
                         baseUnit={baseUnit}
                         batchId={selectedBatchId}
                         value={itemUnit || baseUnit}
-                        onChange={setItemUnit}
+                        onChange={(unit, factor) => {
+                          setItemUnit(unit);
+                          setItemUnitFactor(factor);
+                          const newRate = +(itemBaseRate * factor).toFixed(2);
+                          setItemRate(newRate);
+                        }}
                       />
                     );
                   })()}

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveConversion } from "@/services/unitConversion";
 
 interface UnitSelectorProps {
   companyId: string | null | undefined;
@@ -12,7 +13,12 @@ interface UnitSelectorProps {
   batchId?: string | null;
   /** Currently selected unit. */
   value: string;
-  onChange: (unit: string) => void;
+  /**
+   * Called when unit changes. Receives both the new unit AND the conversion
+   * factor (base units per 1 sold unit). Caller can use the factor to
+   * recompute rate, projected stock, etc.
+   */
+  onChange: (unit: string, factor: number) => void;
   disabled?: boolean;
 }
 

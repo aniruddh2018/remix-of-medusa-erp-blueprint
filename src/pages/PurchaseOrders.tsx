@@ -1140,8 +1140,9 @@ export default function PurchaseOrders() {
                       baseUnit={baseUnit}
                       value={itemUnit || baseUnit}
                       quantity={itemQuantity + (itemFreeQty || 0)}
-                      onChange={(unit) => {
+                      onChange={(unit, factor) => {
                         setItemUnit(unit);
+                        setItemUnitFactor(factor);
                         setTimeout(() => purchaseKeyboard.focusField("qty"), 0);
                       }}
                       onKeyDown={(e) => purchaseKeyboard.handleKey(e, "unit")}

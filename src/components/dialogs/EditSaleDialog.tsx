@@ -404,24 +404,6 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         const orig = saleItems?.find((i: any) => i.id === item.id);
         let newBaseQty = item.quantity + item.free_quantity;
         if (orig) {
-<<<<<<< HEAD
-          const origTotal = orig.quantity + (orig.free_quantity || 0);
-          const newTotal = item.quantity + item.free_quantity;
-          const qtyDiff = origTotal - newTotal;
-          if (qtyDiff !== 0) {
-            const { data: currentBatch } = await supabase
-              .from("inventory_batches")
-              .select("quantity")
-              .eq("id", item.batch_id)
-              .single();
-            if (currentBatch) {
-              const { error: batchErr } = await supabase.from("inventory_batches")
-                .update({ quantity: currentBatch.quantity + qtyDiff })
-                .eq("id", item.batch_id)
-                .select();
-              if (batchErr) throw new Error(`Failed to update inventory: ${batchErr.message}`);
-            }
-=======
           const origTotal = (orig.quantity || 0) + (orig.free_quantity || 0);
           const origBase = orig.base_quantity ?? origTotal;
           // Preserve the sold-unit conversion factor (e.g., 1 strip = 15 pcs)
@@ -445,7 +427,6 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
               reference_id: saleId,
               unit_price: item.unit_price,
             });
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
           }
         }
         const { data: updResult, error: updateErr } = await supabase.from("sales_order_items").update({

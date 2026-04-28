@@ -1288,19 +1288,19 @@ export default function CounterSales() {
                   <>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
-                <Input type="number" id="counter-qty" min={1} value={itemQuantity}
-                  onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                <Input type="number" id="counter-qty" min={0} step="any" value={itemQuantity}
+                  onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   onKeyDown={saleEnterNav}
                   disabled={entryDisabled}
-                  title={entryDisabled ? "Select an in-stock product first" : ""}
+                  title={entryDisabled ? "Select an in-stock product first" : "Decimals allowed for measurable units (ml, g)."}
                   className="h-9" placeholder="1"
                 />
               </div>
               {settings.show_free_qty_column && (
                 <div>
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
-                  <Input type="number" min={0} value={itemFreeQty || ""}
-                    onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                  <Input type="number" min={0} step="any" value={itemFreeQty || ""}
+                    onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     onKeyDown={saleEnterNav}
                     disabled={entryDisabled}
                     className="h-9" placeholder="0"

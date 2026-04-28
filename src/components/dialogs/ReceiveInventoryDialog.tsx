@@ -173,7 +173,9 @@ export function ReceiveInventoryDialog({
           batch_id: a.batch_id,
           from_unit: batch.pack_unit,
           to_unit: batch.base_unit,
-          conversion_factor: Math.trunc(batch.pack_size),
+          // Factors are stored numeric(18,6) so fractional conversions
+          // (e.g. 1 bottle = 99.5 ml of usable liquid) are preserved.
+          conversion_factor: Number(batch.pack_size),
         });
       });
 
@@ -321,14 +323,14 @@ export function ReceiveInventoryDialog({
                           <TableCell>
                             <Input
                               type="number"
-                              min={1}
-                              step={1}
+                              min={0.000001}
+                              step="any"
                               value={batch.pack_size}
                               onChange={(e) =>
-                                updateBatchDetail(index, "pack_size", e.target.value === '' ? 0 : parseInt(e.target.value) || 0)
+                                updateBatchDetail(index, "pack_size", e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)
                               }
                               className="w-20"
-                              title="Base units per pack — e.g. 10 tablets per strip. Set per batch."
+                              title="Base units per pack — e.g. 10 tablets per strip. Set per batch. Decimals allowed for measurable units (ml, g)."
                             />
                           </TableCell>
                           <TableCell>

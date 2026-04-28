@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
@@ -11,17 +10,11 @@ import {
   clearConversionCache,
   describeBaseConversion,
   listSellableUnits,
+  resolveConversion,
   validateConversionRows,
   type ConversionRow,
 } from "@/services/unitConversion";
 import { useToast } from "@/hooks/use-toast";
-=======
-import { useEffect, useMemo } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { resolveConversion } from "@/services/unitConversion";
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
 
 interface UnitSelectorProps {
   companyId: string | null | undefined;
@@ -32,17 +25,14 @@ interface UnitSelectorProps {
   batchId?: string | null;
   /** Currently selected unit. */
   value: string;
-<<<<<<< HEAD
-  onChange: (unit: string) => void;
-  quantity?: number;
-=======
   /**
-   * Called when unit changes. Receives both the new unit AND the conversion
-   * factor (base units per 1 sold unit). Caller can use the factor to
-   * recompute rate, projected stock, etc.
+   * Called when the unit changes. Receives both the new unit AND the conversion
+   * factor (base units per 1 sold unit). Callers can use the factor to
+   * recompute rate, projected stock, etc. Identity conversions pass 1.
    */
   onChange: (unit: string, factor: number) => void;
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
+  /** Live quantity (in the selected unit) used for the "= X base units" helper. */
+  quantity?: number;
   disabled?: boolean;
   onKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
 }
@@ -56,7 +46,11 @@ export interface UnitSelectorHandle {
  *   base unit  +  product_conversions.from/to  +  batch_conversions.from/to
  *
  * The dropdown is ALWAYS rendered for a selected product; if no extra units
- * exist it just shows the base unit (no conversion happens).
+ * exist it shows just the base unit (factor = 1, no conversion happens).
+ *
+ * Batch-specific conversions take priority over product-level ones, so the
+ * same product can have different pack sizes per batch (e.g. 1 Strip = 10 tabs
+ * for batch A, 1 Strip = 15 tabs for batch B).
  */
 export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(function UnitSelector({
   companyId,
@@ -91,7 +85,6 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
 
   const options = useMemo(() => units ?? [fallbackBase], [units, fallbackBase]);
 
-<<<<<<< HEAD
   const { data: helperText } = useQuery({
     queryKey: ["unit-helper", companyId, productId, batchId, value, fallbackBase, quantity],
     queryFn: () => describeBaseConversion({
@@ -111,8 +104,8 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
       (triggerRef.current || singleRef.current)?.focus();
     },
   }));
-=======
-  // Resolve a conversion factor and call onChange. Identity → 1.
+
+  // Resolve conversion to BASE units and emit (unit, factor).
   const emit = async (unit: string) => {
     const u = unit.toLowerCase();
     if (!productId || !companyId || u === fallbackBase) {
@@ -128,12 +121,15 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
         toUnit: fallbackBase,
       });
       onChange(u, conv.toBase(1));
-    } catch {
-      // Conversion missing — keep selection but factor 1 (caller will warn).
+    } catch (error: any) {
       onChange(u, 1);
+      toast({
+        title: "Unit conversion missing",
+        description: error?.message || `Define how ${u} converts to ${fallbackBase} first.`,
+        variant: "destructive",
+      });
     }
   };
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
 
   // If the selected value is no longer in the list (product changed), snap to base.
   useEffect(() => {
@@ -192,7 +188,7 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
       if (conversionError) throw conversionError;
 
       clearConversionCache();
-      onChange(unitCode);
+      await emit(unitCode);
       setCreateOpen(false);
       setNewUnitName("");
       setNewUnitFactor(1);
@@ -205,7 +201,6 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
   };
 
   return (
-<<<<<<< HEAD
     <div className="space-y-1">
       <Select
         value={value.toLowerCase()}
@@ -214,21 +209,15 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
             setCreateOpen(true);
             return;
           }
-          onChange(v);
+          void emit(v);
         }}
         disabled={disabled}
-=======
-    <Select value={value.toLowerCase()} onValueChange={emit} disabled={disabled}>
-      <SelectTrigger
-        className="h-9 w-24 text-xs border-primary/40 bg-primary/5"
-        data-enter-nav-skip="true"
-        tabIndex={-1}
-        title="Choose the unit you're selling in (e.g. Strip, Box). Stock & rate auto-convert."
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
       >
         <SelectTrigger
           ref={triggerRef}
           className={`h-9 w-24 text-xs ${options.length > 1 ? "border-primary/40 bg-primary/5" : "bg-muted/40 text-muted-foreground"}`}
+          data-enter-nav-skip="true"
+          tabIndex={-1}
           data-field-value={value.toLowerCase()}
           onKeyDown={onKeyDown}
           title="Choose the transaction unit. Stock is always converted and stored in the base unit."
@@ -243,7 +232,7 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
           ))}
           {productId && companyId && (
             <SelectItem value="__add_unit__" className="text-xs text-primary">
-              Add New Unit
+              + Add New Unit
             </SelectItem>
           )}
         </SelectContent>
@@ -273,7 +262,7 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
                 <Input
                   type="number"
                   min={0.000001}
-                  step={1}
+                  step="any"
                   value={newUnitFactor}
                   onChange={(e) => setNewUnitFactor(parseFloat(e.target.value) || 0)}
                 />

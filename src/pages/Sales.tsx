@@ -1256,8 +1256,13 @@ export default function Sales() {
                       batchId={selectedBatchId}
                       value={itemUnit || baseUnit}
                       quantity={itemQuantity + (itemFreeQty || 0)}
-                      onChange={(unit) => {
+                      onChange={(unit, factor) => {
+                        const prevFactor = itemUnitFactor > 0 ? itemUnitFactor : 1;
+                        const factorRatio = factor / prevFactor;
+                        // Auto-adjust rate proportionally when unit changes
+                        setItemRate(itemRate > 0 ? +(itemRate * factorRatio).toFixed(2) : itemRate);
                         setItemUnit(unit);
+                        setItemUnitFactor(factor);
                         setTimeout(() => salesKeyboard.focusField("qty"), 0);
                       }}
                       disabled={entryDisabled}
@@ -1277,19 +1282,19 @@ export default function Sales() {
               </div>
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Qty</Label>
-                <Input ref={salesKeyboard.register("qty")} type="number" id="sale-qty" min={1} value={itemQuantity}
-                  onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                <Input ref={salesKeyboard.register("qty")} type="number" id="sale-qty" min={0} step="any" value={itemQuantity}
+                  onChange={e => setItemQuantity(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   onKeyDown={(e) => salesKeyboard.handleKey(e, "qty")}
                   disabled={entryDisabled}
-                  title={entryDisabled ? "Select an in-stock product first" : ""}
+                  title={entryDisabled ? "Select an in-stock product first" : "Decimals allowed for measurable units (ml, g)."}
                   className="h-9" placeholder="1"
                 />
               </div>
               {settings.show_free_qty_column && (
                 <div>
                   <Label className="text-[10px] text-muted-foreground mb-0.5 block">Free</Label>
-                  <Input ref={salesKeyboard.register("free")} type="number" min={0} value={itemFreeQty || ""}
-                    onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                  <Input ref={salesKeyboard.register("free")} type="number" min={0} step="any" value={itemFreeQty || ""}
+                    onChange={e => setItemFreeQty(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     onKeyDown={(e) => salesKeyboard.handleKey(e, "free")}
                     disabled={entryDisabled}
                     className="h-9" placeholder="0"

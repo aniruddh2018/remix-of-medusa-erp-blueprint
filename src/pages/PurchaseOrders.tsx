@@ -39,12 +39,7 @@ import { LinkedChallansDialog } from "@/components/dialogs/LinkedChallansDialog"
 import { EditPurchaseOrderDialog } from "@/components/dialogs/EditPurchaseOrderDialog";
 import { DebitNoteDialog } from "@/components/dialogs/DebitNoteDialog";
 import { PurchaseItemsTable, type PurchaseItem } from "@/components/billing/PurchaseItemsTable";
-<<<<<<< HEAD
 import { ExpiryMMYYInput, type ExpiryMMYYHandle } from "@/components/ui/expiry-mmyy-input";
-=======
-import { UnitSelector } from "@/components/billing/UnitSelector";
-import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/UnitSelector";
 import { convertToBase } from "@/services/unitConversion";

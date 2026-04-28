@@ -78,7 +78,6 @@ export default function PurchaseOrders() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemFreeQty, setItemFreeQty] = useState<number>(0);
-  const [itemUnit, setItemUnit] = useState<string>("");
   const [itemPrice, setItemPrice] = useState<number>(0);
   const [itemMrp, setItemMrp] = useState<number>(0);
   /** Unit the buyer is recording (e.g. "strip"). Empty = base unit. */

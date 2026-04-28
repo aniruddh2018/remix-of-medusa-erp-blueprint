@@ -383,34 +383,18 @@ export default function PurchaseOrders() {
     }
 
     const totalPrice = calculateItemTotal(itemPrice, itemQuantity, gstPercentage, itemDiscount, itemDiscountFlat);
-=======
-
-    // Convert qty/free/rate to BASE units when buyer entered a non-base unit
-    // (e.g. "10 strips × 15 tabs/strip" → quantity 150, unit_price = rate / 15).
-    const factor = itemUnitFactor > 0 ? itemUnitFactor : 1;
-    const baseQty = Math.round(itemQuantity * factor);
-    const baseFree = Math.round(itemFreeQty * factor);
-    const basePrice = factor > 1 ? +(itemPrice / factor).toFixed(4) : itemPrice;
-    const totalPrice = calculateItemTotal(basePrice, baseQty, gstPercentage, itemDiscount, itemDiscountFlat);
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
 
     setOrderItems(prev => [...prev, {
       product_id: product.id,
       product_name: `${product.name}${product.strength ? ` ${product.strength}` : ""}`,
       hsn_code: product.hsn_code || "",
       batch_number: itemBatchNumber,
-<<<<<<< HEAD
       quantity: itemQuantity,
       free_quantity: itemFreeQty,
       purchased_unit: purchasedUnit,
       base_unit: baseUnit,
       base_quantity: baseQuantity,
       unit_price: itemPrice,
-=======
-      quantity: baseQty,
-      free_quantity: baseFree,
-      unit_price: basePrice,
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
       mrp: itemMrp || Number(product.mrp),
       gst_percentage: gstPercentage,
       discount_percentage: itemDiscount,
@@ -421,7 +405,6 @@ export default function PurchaseOrders() {
     }]);
 
     setSelectedProduct("");
-    setItemUnit("");
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemPrice(0);
@@ -436,11 +419,7 @@ export default function PurchaseOrders() {
 
     // Auto-focus back to product search (MARG-style)
     focusProductSearch();
-<<<<<<< HEAD
   }, [selectedProduct, itemQuantity, itemFreeQty, itemUnit, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, products, companyId, existingBatchId, toast, calculateItemTotal, focusProductSearch]);
-=======
-  }, [selectedProduct, itemQuantity, itemFreeQty, itemPrice, itemMrp, itemDiscount, itemDiscountFlat, itemBatchNumber, itemExpiryDate, itemUnitFactor, products, calculateItemTotal, focusProductSearch]);
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
 
   const updateOrderItem = useCallback((index: number, field: keyof PurchaseItem, value: string | number) => {
     const updated = [...orderItems];

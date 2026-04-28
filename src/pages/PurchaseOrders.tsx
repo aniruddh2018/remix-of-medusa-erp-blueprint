@@ -358,7 +358,6 @@ export default function PurchaseOrders() {
     }
 
     const gstPercentage = Number(product.gst_percentage);
-<<<<<<< HEAD
     const baseUnit = (product.base_unit || product.unit || "pcs").toLowerCase();
     const purchasedUnit = (itemUnit || baseUnit).toLowerCase();
     const totalUnitsReceived = itemQuantity + (itemFreeQty || 0);

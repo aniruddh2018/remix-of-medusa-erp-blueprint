@@ -1214,7 +1214,6 @@ export default function PurchaseOrders() {
               </div>
               <div className="flex flex-col justify-end">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block invisible">Action</Label>
-<<<<<<< HEAD
                 <Button ref={purchaseKeyboard.register("add")} onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
                     e.preventDefault();
@@ -1225,29 +1224,6 @@ export default function PurchaseOrders() {
                 }} onClick={handleAddItem} className="h-9 w-full" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>
-=======
-                <div className="flex gap-1">
-                  {selectedProduct && (() => {
-                    const p = products?.find(pp => pp.id === selectedProduct);
-                    const baseUnit = (p?.base_unit || p?.unit || "pcs").toLowerCase();
-                    return (
-                      <UnitSelector
-                        companyId={companyId}
-                        productId={selectedProduct}
-                        baseUnit={baseUnit}
-                        value={itemUnit || baseUnit}
-                        onChange={(unit, factor) => {
-                          setItemUnit(unit);
-                          setItemUnitFactor(factor);
-                        }}
-                      />
-                    );
-                  })()}
-                  <Button onClick={handleAddItem} className="h-9 flex-1" disabled={!selectedProduct || itemPrice <= 0} size="sm" data-enter-nav-include="true">
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
->>>>>>> 62f7c19f396244affe7b80016d72c085d3c88c13
               </div>
             </div>
           </div>

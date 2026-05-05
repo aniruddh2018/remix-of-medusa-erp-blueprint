@@ -15,9 +15,13 @@ import {
   buildDraft,
   describeIntent,
   executeAutomationDraft,
+  applySmartSalesSelection,
   parseAutomationText,
+  resolveSalesDraftSmart,
   type AutomationAttachment,
   type AutomationDraft,
+  type CustomerChoice,
+  type SmartSalesResolution,
 } from "@/services/chatAutomation";
 
 type ChatMessage = {
@@ -27,11 +31,17 @@ type ChatMessage = {
   meta?: string;
 };
 
+type ChatFlow =
+  | { kind: "idle" }
+  | { kind: "await_mobile"; orderText: string; attachments: AutomationAttachment[] }
+  | { kind: "await_customer_details"; orderText: string; mobile: string; attachments: AutomationAttachment[] };
+
 const examples = [
   "Add customer Raj Traders phone 9876543210 gst 27ABCDE1234F1Z5 address Pune",
   "Add product Crocin 650 manufacturer GSK mrp 35 purchase 25 gst 12 unit strip",
   "Record payment from Raj Traders amount 2500 via UPI",
   "Create sale for Raj Traders item 10 Crocin 650 rate 35 gst 12",
+  "Add a paracetamol 2 strip",
 ];
 
 function makeMessage(role: ChatMessage["role"], text: string, meta?: string): ChatMessage {
@@ -51,6 +61,10 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [prescriptionAttachment, setPrescriptionAttachment] = useState<AutomationAttachment | null>(null);
   const [pendingDraft, setPendingDraft] = useState<AutomationDraft | null>(null);
+  const [smartResolution, setSmartResolution] = useState<SmartSalesResolution | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<Record<number, string>>({});
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerChoice | null>(null);
+  const [chatFlow, setChatFlow] = useState<ChatFlow>({ kind: "idle" });
   const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +118,142 @@ export default function Chat() {
     }
   };
 
+  const resetSmartReview = () => {
+    setSmartResolution(null);
+    setSelectedProductIds({});
+    setSelectedCustomer(null);
+    setChatFlow({ kind: "idle" });
+  };
+
+  const findCustomerByMobile = async (mobile: string) => {
+    if (!companyId) return null;
+    const { data } = await supabase
+      .from("customers")
+      .select("id, name, phone, address, gst_number")
+      .eq("company_id", companyId)
+      .ilike("phone", `%${mobile}%`)
+      .limit(1)
+      .maybeSingle();
+    return data as CustomerChoice | null;
+  };
+
+  const extractMobile = (text: string) => text.match(/\+?[0-9][0-9\s-]{7,15}/)?.[0]?.replace(/\D/g, "") || "";
+
+  const parseCustomerDetails = (text: string, mobile: string) => {
+    const name =
+      text.match(/\b(?:name|customer)\b[:\s-]*([^,;\n]+)/i)?.[1]?.trim() ||
+      text.split(/,|;/)[0]?.replace(/\b(name|customer)\b[:\s-]*/i, "").trim();
+    const address = text.match(/\b(?:address|addr)\b[:\s-]*([^;\n]+)/i)?.[1]?.trim();
+    const gst = text.match(/\b(?:gst|gstin)\b[:\s-]*([0-9a-z]{10,20})/i)?.[1]?.toUpperCase();
+    const email = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0];
+    return { name, phone: mobile, address: address || null, gst_number: gst || null, email: email || null };
+  };
+
+  const createCustomerFromChat = async (text: string, mobile: string) => {
+    if (!companyId) return null;
+    const details = parseCustomerDetails(text, mobile);
+    if (!details.name) return null;
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({
+        name: details.name,
+        phone: details.phone,
+        address: details.address,
+        gst_number: details.gst_number,
+        email: details.email,
+        notes: "Created from automation chat",
+        company_id: companyId,
+      })
+      .select("id, name, phone, address, gst_number")
+      .single();
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    return data as CustomerChoice;
+  };
+
+  const presentSalesResolution = async (orderText: string, customer: CustomerChoice, attachments: AutomationAttachment[]) => {
+    if (!companyId) return;
+    const resolution = await resolveSalesDraftSmart(supabase, orderText, companyId);
+    if (resolution.intent.data.items.length === 0) {
+      pushMessages(makeMessage("assistant", "I could not find a drug/order item in that message. Please type like: add paracetamol 2 strip.", "No item"));
+      return;
+    }
+    const hasAnyChoice = resolution.productChoices.some((group) => group.choices.length > 0);
+    if (!hasAnyChoice) {
+      pushMessages(makeMessage("assistant", resolution.messages.join("\n") || "We do not have that drug in stock.", "Rejected"));
+      return;
+    }
+    const initialProducts: Record<number, string> = {};
+    resolution.productChoices.forEach((group) => {
+      if (group.choices.length === 1) {
+        initialProducts[group.itemIndex] = group.choices[0].id;
+      }
+    });
+    setSmartResolution(resolution);
+    setSelectedProductIds(initialProducts);
+    setSelectedCustomer(customer);
+    setPendingDraft(null);
+    setPrescriptionAttachment(attachments[0] || null);
+    setChatFlow({ kind: "idle" });
+    pushMessages(
+      makeMessage(
+        "assistant",
+        [
+          `Customer found: ${customer.name}${customer.phone ? ` (${customer.phone})` : ""}`,
+          "Available drug matches are listed below. Choose the exact product/alternate, then create a pending draft for approval.",
+          ...resolution.messages,
+        ].join("\n"),
+        "Stock checked"
+      )
+    );
+  };
+
+  const beginSalesConversation = async (orderText: string) => {
+    const attachments = prescriptionAttachment ? [prescriptionAttachment] : [];
+    const mobile = extractMobile(orderText);
+    if (!mobile) {
+      setChatFlow({ kind: "await_mobile", orderText, attachments });
+      setPendingDraft(null);
+      setSmartResolution(null);
+      pushMessages(makeMessage("assistant", "Please send the customer's mobile number first.", "Customer lookup"));
+      return;
+    }
+    const customer = await findCustomerByMobile(mobile);
+    if (customer) {
+      await presentSalesResolution(orderText, customer, attachments);
+      return;
+    }
+    setChatFlow({ kind: "await_customer_details", orderText, mobile, attachments });
+    pushMessages(
+      makeMessage(
+        "assistant",
+        `No customer found for ${mobile}. Please send customer details: name, address, GSTIN if any, email if any.`,
+        "New customer"
+      )
+    );
+  };
+
+  const publishSmartReview = () => {
+    if (!smartResolution) return;
+    const intent = applySmartSalesSelection(smartResolution, selectedProductIds, selectedCustomer);
+    if (intent.missing.length > 0) {
+      pushMessages(makeMessage("assistant", `Please choose ${intent.missing.join(", ")} before publishing.`, "Review incomplete"));
+      return;
+    }
+    const attachments = prescriptionAttachment ? [prescriptionAttachment] : [];
+    const draft = buildDraft("chat", smartResolution.originalText, intent, attachments);
+    setPendingDraft(draft);
+    resetSmartReview();
+    setPrescriptionAttachment(null);
+    pushMessages(
+      makeMessage(
+        "assistant",
+        `Sales order draft ready. Reply YES or press Publish Draft.\n\n${describeIntent(intent)}`,
+        "Resolved product + customer"
+      )
+    );
+  };
+
   const handleSubmit = async () => {
     const text = input.trim();
     if (!text || isSaving) return;
@@ -121,12 +271,52 @@ export default function Chat() {
 
     if (/^(cancel|discard|no)$/i.test(text)) {
       setPendingDraft(null);
+      resetSmartReview();
       clearPrescriptionAttachment();
       pushMessages(makeMessage("assistant", "Draft discarded.", "Cancelled"));
       return;
     }
 
+    if (chatFlow.kind === "await_mobile") {
+      const mobile = extractMobile(text);
+      if (!mobile) {
+        pushMessages(makeMessage("assistant", "Please send a valid mobile number.", "Customer lookup"));
+        return;
+      }
+      const customer = await findCustomerByMobile(mobile);
+      if (customer) {
+        await presentSalesResolution(chatFlow.orderText, customer, chatFlow.attachments);
+        return;
+      }
+      setChatFlow({ kind: "await_customer_details", orderText: chatFlow.orderText, mobile, attachments: chatFlow.attachments });
+      pushMessages(makeMessage("assistant", `No customer found for ${mobile}. Please send name, address, GSTIN if any, email if any.`, "New customer"));
+      return;
+    }
+
+    if (chatFlow.kind === "await_customer_details") {
+      try {
+        const customer = await createCustomerFromChat(text, chatFlow.mobile);
+        if (!customer) {
+          pushMessages(makeMessage("assistant", "Please include at least customer name. Example: name Rahul Sharma, address Pune", "Need customer name"));
+          return;
+        }
+        await presentSalesResolution(chatFlow.orderText, customer, chatFlow.attachments);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Could not create customer.";
+        pushMessages(makeMessage("assistant", message, "Customer save failed"));
+      }
+      return;
+    }
+
     const intent = parseAutomationText(text);
+    if ((intent.type === "create_sale_draft" || intent.type === "unknown") && companyId) {
+      const resolution = await resolveSalesDraftSmart(supabase, text, companyId);
+      if (resolution.intent.data.items.length > 0) {
+        await beginSalesConversation(text);
+        return;
+      }
+    }
+
     if (intent.type === "unknown") {
       pushMessages(
         makeMessage(
@@ -151,6 +341,7 @@ export default function Chat() {
 
     const attachments = prescriptionAttachment ? [prescriptionAttachment] : [];
     const draft = buildDraft("chat", text, intent, attachments);
+    resetSmartReview();
     setPendingDraft(draft);
     setPrescriptionAttachment(null);
     pushMessages(
@@ -249,6 +440,82 @@ export default function Chat() {
                     <Button size="sm" onClick={confirmDraft} disabled={!canSave}>
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       Publish Draft
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {smartResolution && (
+              <div className="border-t bg-accent/40 p-3">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Review sales order intent</p>
+                    <p className="text-xs text-muted-foreground">
+                      Pick the exact drug/brand and customer. Publishing creates a pending Sales order for approval.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {smartResolution.productChoices.map((group) => (
+                      <div key={group.itemIndex} className="rounded-md border bg-background p-2">
+                        <p className="mb-2 text-xs font-medium">
+                          {smartResolution.intent.data.items[group.itemIndex]?.quantity} {smartResolution.intent.data.items[group.itemIndex]?.unit || "unit"} of "{group.originalName}"
+                        </p>
+                        <div className="grid gap-1">
+                          {group.choices.length === 0 ? (
+                            <p className="text-xs text-destructive">No catalog match. Add the product first or type a clearer brand/generic name.</p>
+                          ) : group.choices.map((choice) => (
+                            <button
+                              key={choice.id}
+                              type="button"
+                              onClick={() => setSelectedProductIds((current) => ({ ...current, [group.itemIndex]: choice.id }))}
+                              className={`rounded border px-2 py-1.5 text-left text-xs transition-colors ${
+                                selectedProductIds[group.itemIndex] === choice.id
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "bg-card hover:bg-accent"
+                              }`}
+                            >
+                              <span className="font-medium">{choice.label}</span>
+                              <span className="ml-2 text-muted-foreground">Rs {choice.sale_price || choice.mrp} · GST {choice.gst_percentage}% · Stock {choice.stock_quantity}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-md border bg-background p-2">
+                    <p className="mb-2 text-xs font-medium">Customer</p>
+                    <div className="grid gap-1">
+                      {smartResolution.customerChoices.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No customer selected. Add customer details first or create a customer record.</p>
+                      ) : smartResolution.customerChoices.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => setSelectedCustomer(customer)}
+                          className={`rounded border px-2 py-1.5 text-left text-xs transition-colors ${
+                            selectedCustomer?.id === customer.id
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "bg-card hover:bg-accent"
+                          }`}
+                        >
+                          <span className="font-medium">{customer.name}</span>
+                          {customer.phone && <span className="ml-2 text-muted-foreground">{customer.phone}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={resetSmartReview} disabled={isSaving}>
+                      <X className="h-4 w-4" />
+                      Discard
+                    </Button>
+                    <Button size="sm" onClick={publishSmartReview} disabled={isSaving}>
+                      <Check className="h-4 w-4" />
+                      Create Pending Draft
                     </Button>
                   </div>
                 </div>

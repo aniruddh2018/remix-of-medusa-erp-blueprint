@@ -1678,6 +1678,8 @@ export type Database = {
       sales_orders: {
         Row: {
           amount_paid: number
+          automation_payload: Json
+          automation_source: string | null
           company_id: string | null
           created_at: string
           created_by: string | null
@@ -1704,6 +1706,7 @@ export type Database = {
           payment_status: string
           prescription_date: string | null
           prescription_duration_days: number | null
+          prescription_image_url: string | null
           prescription_number: string | null
           reminder_enabled: boolean
           sale_date: string
@@ -1713,6 +1716,8 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number
+          automation_payload?: Json
+          automation_source?: string | null
           company_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1739,6 +1744,7 @@ export type Database = {
           payment_status?: string
           prescription_date?: string | null
           prescription_duration_days?: number | null
+          prescription_image_url?: string | null
           prescription_number?: string | null
           reminder_enabled?: boolean
           sale_date?: string
@@ -1748,6 +1754,8 @@ export type Database = {
         }
         Update: {
           amount_paid?: number
+          automation_payload?: Json
+          automation_source?: string | null
           company_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1774,6 +1782,7 @@ export type Database = {
           payment_status?: string
           prescription_date?: string | null
           prescription_duration_days?: number | null
+          prescription_image_url?: string | null
           prescription_number?: string | null
           reminder_enabled?: boolean
           sale_date?: string
@@ -2081,27 +2090,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      allocate_batches_fifo: {
-        Args: {
-          _company_id: string
-          _exclude_batch_quantities?: Json
-          _product_id: string
-          _requested_quantity: number
-        }
-        Returns: Json
-      }
+      allocate_batches_fifo:
+        | {
+            Args: {
+              _company_id: string
+              _exclude_batch_quantities?: Json
+              _product_id: string
+              _requested_quantity: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _company_id: string
+              _exclude_batch_quantities?: Json
+              _product_id: string
+              _requested_quantity: number
+            }
+            Returns: Json
+          }
       complete_onboarding: {
         Args: { _business_type: string; _company_name: string }
         Returns: string
       }
-      deduct_batch_quantity: {
-        Args: { _batch_id: string; _quantity: number }
-        Returns: number
-      }
-      deduct_mixed_stock: {
-        Args: { _base_quantity: number; _batch_id: string }
-        Returns: Json
-      }
+      deduct_batch_quantity:
+        | { Args: { _batch_id: string; _quantity: number }; Returns: number }
+        | { Args: { _batch_id: string; _quantity: number }; Returns: number }
+      deduct_mixed_stock:
+        | { Args: { _base_quantity: number; _batch_id: string }; Returns: Json }
+        | { Args: { _base_quantity: number; _batch_id: string }; Returns: Json }
       deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
       dispose_expired_batch: {
         Args: { _batch_id: string; _notes?: string; _quantity: number }

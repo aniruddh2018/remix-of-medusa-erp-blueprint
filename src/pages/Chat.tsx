@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Check, Loader2, MessageSquare, Send, Sparkles, X } from "lucide-react";
+import { Bot, Check, ImagePlus, Loader2, MessageSquare, Send, Sparkles, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
   describeIntent,
   executeAutomationDraft,
   parseAutomationText,
+  type AutomationAttachment,
   type AutomationDraft,
 } from "@/services/chatAutomation";
 
@@ -48,9 +49,11 @@ export default function Chat() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
+  const [prescriptionAttachment, setPrescriptionAttachment] = useState<AutomationAttachment | null>(null);
   const [pendingDraft, setPendingDraft] = useState<AutomationDraft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     makeMessage(
       "assistant",
@@ -64,6 +67,11 @@ export default function Chat() {
   const pendingSummary = useMemo(() => {
     return pendingDraft ? describeIntent(pendingDraft.intent) : "";
   }, [pendingDraft]);
+
+  const clearPrescriptionAttachment = () => {
+    if (prescriptionAttachment?.previewUrl) URL.revokeObjectURL(prescriptionAttachment.previewUrl);
+    setPrescriptionAttachment(null);
+  };
 
   const pushMessages = (...items: ChatMessage[]) => {
     setMessages((current) => [...current, ...items]);
@@ -113,6 +121,7 @@ export default function Chat() {
 
     if (/^(cancel|discard|no)$/i.test(text)) {
       setPendingDraft(null);
+      clearPrescriptionAttachment();
       pushMessages(makeMessage("assistant", "Draft discarded.", "Cancelled"));
       return;
     }
@@ -140,15 +149,34 @@ export default function Chat() {
       return;
     }
 
-    const draft = buildDraft("chat", text, intent);
+    const attachments = prescriptionAttachment ? [prescriptionAttachment] : [];
+    const draft = buildDraft("chat", text, intent, attachments);
     setPendingDraft(draft);
+    setPrescriptionAttachment(null);
     pushMessages(
       makeMessage(
         "assistant",
-        `Draft ready. Reply YES or press Confirm to save.\n\n${describeIntent(intent)}`,
-        `${Math.round(intent.confidence * 100)}% parser confidence`
+        `Draft ready for review. Reply YES or press Publish Draft to create a pending sales order.\n\n${describeIntent(intent)}`,
+        `${Math.round(intent.confidence * 100)}% parser confidence${attachments.length ? " · prescription attached" : ""}`
       )
     );
+  };
+
+  const handlePrescriptionPick = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Image required", description: "Attach a prescription photo or image file.", variant: "destructive" });
+      return;
+    }
+    clearPrescriptionAttachment();
+    setPrescriptionAttachment({
+      kind: "prescription",
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
   };
 
   const useExample = (example: string) => {
@@ -205,8 +233,13 @@ export default function Chat() {
               <div className="border-t bg-accent/40 p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">Pending ERP draft</p>
+                    <p className="text-sm font-medium">Pending sales order review draft</p>
                     <p className="line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">{pendingSummary}</p>
+                    {pendingDraft.attachments?.length ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Prescription image attached: {pendingDraft.attachments[0].name}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setPendingDraft(null)} disabled={isSaving}>
@@ -215,7 +248,7 @@ export default function Chat() {
                     </Button>
                     <Button size="sm" onClick={confirmDraft} disabled={!canSave}>
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                      Confirm
+                      Publish Draft
                     </Button>
                   </div>
                 </div>
@@ -223,7 +256,35 @@ export default function Chat() {
             )}
 
             <div className="border-t p-3">
+              {prescriptionAttachment && (
+                <div className="mb-2 flex items-center gap-3 rounded-md border bg-muted/30 p-2">
+                  {prescriptionAttachment.previewUrl && (
+                    <img
+                      src={prescriptionAttachment.previewUrl}
+                      alt="Prescription preview"
+                      className="h-12 w-12 rounded border object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{prescriptionAttachment.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Will be uploaded when draft is published</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" onClick={clearPrescriptionAttachment}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
               <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => handlePrescriptionPick(event.target.files?.[0])}
+                />
+                <Button type="button" variant="outline" className="h-auto px-3" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
+                  <ImagePlus className="h-4 w-4" />
+                </Button>
                 <Textarea
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -233,7 +294,7 @@ export default function Chat() {
                       handleSubmit();
                     }
                   }}
-                  placeholder="Type an ERP instruction..."
+                  placeholder="Type WhatsApp-style order text, attach Rx image if needed..."
                   className="min-h-[48px] resize-none"
                 />
                 <Button className="h-auto px-3" onClick={handleSubmit} disabled={!input.trim() || isSaving}>
@@ -256,7 +317,8 @@ export default function Chat() {
                 <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Create customer</div>
                 <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Create product</div>
                 <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Record payment</div>
-                <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Create sales-order draft</div>
+                <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Text + prescription to sales draft</div>
+                <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Publish pending order for review</div>
               </div>
             </CardContent>
           </Card>

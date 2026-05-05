@@ -50,6 +50,9 @@ export type AutomationIntent =
         customer_name: string;
         customer_phone?: string;
         items: ParsedSaleItem[];
+        doctor_name?: string;
+        prescription_number?: string;
+        prescription_date?: string;
         notes?: string;
       };
       missing: string[];
@@ -66,6 +69,7 @@ export interface ParsedSaleItem {
   quantity: number;
   rate: number;
   gst_percentage: number;
+  unit?: string;
 }
 
 export interface AutomationDraft {
@@ -73,7 +77,19 @@ export interface AutomationDraft {
   channel: AutomationChannel;
   originalText: string;
   intent: Exclude<AutomationIntent, { type: "unknown" }>;
+  attachments?: AutomationAttachment[];
   createdAt: string;
+}
+
+export interface AutomationAttachment {
+  kind: "prescription";
+  name: string;
+  type: string;
+  size: number;
+  file?: File;
+  previewUrl?: string;
+  storagePath?: string;
+  publicUrl?: string;
 }
 
 export interface AutomationResult {
@@ -137,6 +153,18 @@ function extractPaymentMethod(text: string) {
   return match.toLowerCase() === "check" ? "cheque" : match.toLowerCase();
 }
 
+function extractPrescriptionNumber(text: string) {
+  return compact(text.match(/\b(?:rx|prescription|presc|script)\s*(?:no|number|#)?\b[:\s-]*([a-z0-9/-]+)/i)?.[1]).toUpperCase();
+}
+
+function extractIsoDate(text: string) {
+  const iso = text.match(/\b(20[0-9]{2}-[01]?[0-9]-[0-3]?[0-9])\b/)?.[1];
+  if (iso) return iso;
+  const dmy = text.match(/\b([0-3]?[0-9])[/-]([01]?[0-9])[/-](20[0-9]{2})\b/);
+  if (!dmy) return undefined;
+  return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+}
+
 function extractCustomerName(text: string) {
   const direct = text.match(/\b(?:customer|client|party)\b[:\s-]*([^,;\n]+)/i)?.[1];
   if (direct) return stripKnownFields(direct);
@@ -155,13 +183,15 @@ function parseSaleItems(text: string): ParsedSaleItem[] {
       const quantity = Number(part.match(/\b(?:qty|quantity)\b[:\s-]*([0-9]+(?:\.[0-9]+)?)/i)?.[1] || part.match(/^([0-9]+(?:\.[0-9]+)?)\s+/)?.[1] || 1);
       const rate = Number(part.match(/\b(?:rate|price|@)\b[:\s-]*([0-9]+(?:\.[0-9]+)?)/i)?.[1] || part.match(/@\s*([0-9]+(?:\.[0-9]+)?)/)?.[1] || 0);
       const gst = Number(part.match(/\b(?:gst|tax)\b[:\s-]*([0-9]+(?:\.[0-9]+)?)/i)?.[1] || 0);
+      const unit = compact(part.match(/\b(?:unit|uom)\b[:\s-]*([a-z]+)/i)?.[1]) || undefined;
       const name = stripKnownFields(
         part
           .replace(/^([0-9]+(?:\.[0-9]+)?)\s+/, "")
           .replace(/\b(?:qty|quantity|rate|price|gst|tax)\b[:\s-]*[0-9]+(?:\.[0-9]+)?/gi, "")
+          .replace(/\b(?:unit|uom)\b[:\s-]*[a-z]+/gi, "")
           .replace(/@\s*[0-9]+(?:\.[0-9]+)?/g, "")
       );
-      return { name, quantity, rate, gst_percentage: gst };
+      return { name, quantity, rate, gst_percentage: gst, unit };
     })
     .filter((item) => item.name);
 }
@@ -251,6 +281,9 @@ export function parseAutomationText(text: string): AutomationIntent {
         customer_name: customerName,
         customer_phone: extractPhone(source) || undefined,
         items,
+        doctor_name: extractAfterLabel(source, ["doctor", "dr"]) || undefined,
+        prescription_number: extractPrescriptionNumber(source) || undefined,
+        prescription_date: extractIsoDate(source) || undefined,
         notes: "Sales draft created from automation chat. Verify stock and batches before dispatch.",
       },
       missing: [
@@ -269,12 +302,18 @@ export function parseAutomationText(text: string): AutomationIntent {
   };
 }
 
-export function buildDraft(channel: AutomationChannel, text: string, intent: Exclude<AutomationIntent, { type: "unknown" }>): AutomationDraft {
+export function buildDraft(
+  channel: AutomationChannel,
+  text: string,
+  intent: Exclude<AutomationIntent, { type: "unknown" }>,
+  attachments: AutomationAttachment[] = []
+): AutomationDraft {
   return {
     id: crypto.randomUUID(),
     channel,
     originalText: text,
     intent,
+    attachments,
     createdAt: new Date().toISOString(),
   };
 }
@@ -310,9 +349,16 @@ export function describeIntent(intent: Exclude<AutomationIntent, { type: "unknow
   }
 
   const items = intent.data.items
-    .map((item) => `${item.quantity} x ${item.name} @ Rs ${item.rate} GST ${item.gst_percentage}%`)
+    .map((item) => `${item.quantity} ${item.unit || "unit"} x ${item.name} @ Rs ${item.rate} GST ${item.gst_percentage}%`)
     .join("\n");
-  return [`Create sales draft for: ${intent.data.customer_name}`, items].join("\n");
+  return [
+    `Create sales draft for: ${intent.data.customer_name}`,
+    intent.data.customer_phone && `Phone: ${intent.data.customer_phone}`,
+    intent.data.doctor_name && `Doctor: ${intent.data.doctor_name}`,
+    intent.data.prescription_number && `Rx: ${intent.data.prescription_number}`,
+    intent.data.prescription_date && `Rx date: ${intent.data.prescription_date}`,
+    items,
+  ].filter(Boolean).join("\n");
 }
 
 async function getNextInvoiceNumber(supabase: SupabaseClient<Database>, companyId: string) {
@@ -405,6 +451,24 @@ export async function executeAutomationDraft(
     return { title: "Payment recorded", body: `Rs ${intent.data.amount} received from ${partyName}.`, recordType: "payments", recordId: data.id };
   }
 
+  const prescriptionAttachment = draft.attachments?.find((attachment) => attachment.kind === "prescription");
+  let prescriptionImageUrl: string | null = null;
+  let prescriptionImagePath: string | null = null;
+
+  if (prescriptionAttachment?.file) {
+    const extension = prescriptionAttachment.name.split(".").pop() || "jpg";
+    prescriptionImagePath = `${companyId}/${draft.id}/prescription.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from("prescriptions")
+      .upload(prescriptionImagePath, prescriptionAttachment.file, {
+        contentType: prescriptionAttachment.type || "image/jpeg",
+        upsert: true,
+      });
+    if (uploadError) throw uploadError;
+    const { data: publicData } = supabase.storage.from("prescriptions").getPublicUrl(prescriptionImagePath);
+    prescriptionImageUrl = publicData.publicUrl;
+  }
+
   const subtotal = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate, 0);
   const gstAmount = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate * (item.gst_percentage / 100), 0);
   const totalAmount = subtotal + gstAmount;
@@ -418,8 +482,15 @@ export async function executeAutomationDraft(
     .maybeSingle();
 
   const lineNotes = intent.data.items
-    .map((item) => `${item.quantity} x ${item.name} @ Rs ${item.rate}, GST ${item.gst_percentage}%`)
+    .map((item) => `${item.quantity} ${item.unit || "unit"} x ${item.name} @ Rs ${item.rate}, GST ${item.gst_percentage}%`)
     .join("; ");
+  const automationNotes = [
+    intent.data.notes,
+    `Source: ${draft.channel}`,
+    `Original message: ${draft.originalText}`,
+    `Items: ${lineNotes}`,
+    prescriptionImageUrl && `Prescription image: ${prescriptionImageUrl}`,
+  ].filter(Boolean).join("\n");
 
   const { data, error } = await supabase
     .from("sales_orders")
@@ -430,7 +501,19 @@ export async function executeAutomationDraft(
       customer_address: customer?.address || null,
       customer_id: customer?.id || null,
       customer_gstin: customer?.gst_number || null,
-      notes: `${intent.data.notes || ""}\nItems: ${lineNotes}`.trim(),
+      prescription_number: intent.data.prescription_number || null,
+      prescription_date: intent.data.prescription_date || null,
+      doctor_name: intent.data.doctor_name || null,
+      prescription_image_url: prescriptionImageUrl,
+      automation_source: draft.channel,
+      automation_payload: {
+        draft_id: draft.id,
+        original_text: draft.originalText,
+        parser_confidence: intent.confidence,
+        items: intent.data.items,
+        prescription_image_path: prescriptionImagePath,
+      },
+      notes: automationNotes,
       total_amount: totalAmount,
       gst_amount: gstAmount,
       discount_amount: 0,
@@ -443,5 +526,10 @@ export async function executeAutomationDraft(
     .single();
 
   if (error) throw error;
-  return { title: "Sales draft created", body: `${invoiceNumber} is saved as a pending sales order.`, recordType: "sales_orders", recordId: data.id };
+  return {
+    title: "Sales order draft published",
+    body: `${invoiceNumber} is saved as a pending sales order for review. Confirm it from Sales after stock, batch, and prescription checks.`,
+    recordType: "sales_orders",
+    recordId: data.id,
+  };
 }

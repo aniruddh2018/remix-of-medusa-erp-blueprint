@@ -27,8 +27,7 @@ interface UnitSelectorProps {
   value: string;
   /**
    * Called when the unit changes. Receives both the new unit AND the conversion
-   * factor (base units per 1 sold unit). Callers can use the factor to
-   * recompute rate, projected stock, etc. Identity conversions pass 1.
+   * factor (base units per 1 sold/purchased unit). Identity → 1.
    */
   onChange: (unit: string, factor: number) => void;
   /** Live quantity (in the selected unit) used for the "= X base units" helper. */
@@ -42,15 +41,10 @@ export interface UnitSelectorHandle {
 }
 
 /**
- * Lists every unit the user can sell this product in:
- *   base unit  +  product_conversions.from/to  +  batch_conversions.from/to
- *
- * The dropdown is ALWAYS rendered for a selected product; if no extra units
- * exist it shows just the base unit (factor = 1, no conversion happens).
- *
- * Batch-specific conversions take priority over product-level ones, so the
- * same product can have different pack sizes per batch (e.g. 1 Strip = 10 tabs
- * for batch A, 1 Strip = 15 tabs for batch B).
+ * Unified unit selector used in Sales, Counter Sales, and Purchase flows.
+ * Lists every unit the user can transact this product in (base + product +
+ * batch conversions), exposes an "Add New Unit" inline dialog, and emits the
+ * resolved conversion factor so callers can recompute rate / projected stock.
  */
 export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(function UnitSelector({
   companyId,
@@ -65,7 +59,6 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
 }, ref) {
   const { toast } = useToast();
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const singleRef = useRef<HTMLDivElement>(null);
   const fallbackBase = (baseUnit || "pcs").toLowerCase();
   const [createOpen, setCreateOpen] = useState(false);
   const [newUnitName, setNewUnitName] = useState("");
@@ -101,7 +94,7 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
 
   useImperativeHandle(ref, () => ({
     focus: () => {
-      (triggerRef.current || singleRef.current)?.focus();
+      triggerRef.current?.focus();
     },
   }));
 
@@ -216,8 +209,6 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
         <SelectTrigger
           ref={triggerRef}
           className={`h-9 w-24 text-xs ${options.length > 1 ? "border-primary/40 bg-primary/5" : "bg-muted/40 text-muted-foreground"}`}
-          data-enter-nav-skip="true"
-          tabIndex={-1}
           data-field-value={value.toLowerCase()}
           onKeyDown={onKeyDown}
           title="Choose the transaction unit. Stock is always converted and stored in the base unit."
@@ -240,12 +231,6 @@ export const UnitSelector = forwardRef<UnitSelectorHandle, UnitSelectorProps>(fu
       {helperText && (
         <p className="text-[10px] text-muted-foreground leading-none whitespace-nowrap">{helperText}</p>
       )}
-      <div
-        ref={singleRef}
-        tabIndex={-1}
-        aria-hidden="true"
-        className="sr-only"
-      />
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

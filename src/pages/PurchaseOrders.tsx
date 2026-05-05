@@ -407,7 +407,6 @@ export default function PurchaseOrders() {
     }]);
 
     setSelectedProduct("");
-    setItemUnit("");
     setItemQuantity(1);
     setItemFreeQty(0);
     setItemPrice(0);

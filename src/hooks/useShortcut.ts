@@ -58,7 +58,7 @@ export function useShortcut(options: UseShortcutOptions) {
     const catalog = getCatalogEntry(id);
     const shortcut = shortcutOverride ?? catalog?.shortcut;
     if (!shortcut) {
-      if (process.env.NODE_ENV !== "production") {
+      if (import.meta.env.DEV) {
         console.error(
           `[useShortcut] id "${id}" is not in SHORTCUT_CATALOG and no shortcut was provided.`,
         );

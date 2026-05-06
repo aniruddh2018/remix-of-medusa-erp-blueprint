@@ -806,7 +806,7 @@ export async function executeAutomationDraft(
 
   let { data, error } = await supabase
     .from("sales_orders")
-    .insert(enhancedOrder)
+    .insert(enhancedOrder as any)
     .select("id")
     .single();
 

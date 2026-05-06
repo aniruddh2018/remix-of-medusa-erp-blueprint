@@ -2067,6 +2067,38 @@ export type Database = {
           },
         ]
       }
+      user_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -2090,6 +2122,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_user_to_company: {
+        Args: {
+          _company_id: string
+          _role?: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       allocate_batches_fifo:
         | {
             Args: {
@@ -2167,6 +2207,14 @@ export type Database = {
         Returns: Json
       }
       restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }
+      switch_active_company: {
+        Args: { _company_id: string }
+        Returns: undefined
+      }
+      user_has_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "pharmacist" | "staff" | "super_admin"

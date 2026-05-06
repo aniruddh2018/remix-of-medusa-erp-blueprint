@@ -1,5 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Lock } from "lucide-react";
@@ -111,10 +112,10 @@ export function PurchaseItemsTable({
                 {item.fromChallan ? (
                   <span className="text-xs">₹{Number(item.mrp).toFixed(2)}</span>
                 ) : (
-                  <Input
-                    type="number" min={0} step={0.01}
+                  <DecimalInput
+                    min={0}
                     value={item.mrp || ""}
-                    onChange={(e) => onUpdateItem(index, "mrp", parseFloat(e.target.value) || 0)}
+                    onChange={(v) => onUpdateItem(index, "mrp", v)}
                     className="w-20 h-7 text-right text-sm"
                   />
                 )}
@@ -123,10 +124,10 @@ export function PurchaseItemsTable({
                 {item.fromChallan ? (
                   <span className="text-xs">₹{item.unit_price.toFixed(2)}</span>
                 ) : (
-                  <Input
-                    type="number" min={0} step={0.01}
+                  <DecimalInput
+                    min={0}
                     value={item.unit_price}
-                    onChange={(e) => onUpdateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                    onChange={(v) => onUpdateItem(index, "unit_price", v)}
                     className="w-20 h-7 text-right text-sm"
                   />
                 )}

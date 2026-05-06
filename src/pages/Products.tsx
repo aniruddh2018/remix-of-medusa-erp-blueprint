@@ -631,6 +631,15 @@ export default function Products() {
                         else if (e.key === "Enter") { e.preventDefault(); setHistoryProduct(product); }
                         else if ((e.key === "e" || e.key === "E") && isPharmacist) { e.preventDefault(); handleEdit(product); }
                       }}>
+                      {isPharmacist && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(product.id)}
+                            onCheckedChange={() => toggleSelect(product.id)}
+                            aria-label={`Select ${product.name}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div>
                           <p className="font-medium">{product.name}</p>

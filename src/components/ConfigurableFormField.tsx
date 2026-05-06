@@ -162,13 +162,23 @@ export function ConfigurableFormField({
           {labelEl}
           <Input
             id={field.key}
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={value ?? ""}
-            onChange={(e) => onChange(field.key, e.target.value ? Number(e.target.value) : "")}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") return onChange(field.key, "");
+              if (!/^\d*\.?\d*$/.test(raw)) return;
+              onChange(field.key, raw);
+            }}
+            onBlur={(e) => {
+              const raw = e.target.value;
+              if (raw === "" || raw === ".") return onChange(field.key, "");
+              const n = parseFloat(raw);
+              if (!Number.isNaN(n)) onChange(field.key, n);
+            }}
             placeholder={field.placeholder}
             disabled={disabled}
-            min={field.min}
-            max={field.max}
             onKeyDown={handleEnterNav}
             required={isRequired}
           />

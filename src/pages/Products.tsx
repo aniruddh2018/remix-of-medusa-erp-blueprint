@@ -10,6 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Table,
@@ -71,6 +82,9 @@ export default function Products() {
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
@@ -259,6 +273,42 @@ export default function Products() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (ids: string[], checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) ids.forEach((id) => next.add(id));
+      else ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("products").delete().in("id", ids);
+      if (error) throw error;
+      toast({ title: `${ids.length} product(s) deleted` });
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+      fetchProducts();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -275,6 +325,12 @@ export default function Products() {
         actions={
           isPharmacist && (
             <div className="flex gap-2">
+              {selectedIds.size > 0 && (
+                <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected ({selectedIds.size})
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setMergeOpen(true)}>
                 <Merge className="h-4 w-4 mr-2" />
                 Merge Duplicates
@@ -537,6 +593,20 @@ export default function Products() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isPharmacist && (
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={
+                            filteredProducts.length > 0 &&
+                            filteredProducts.every((p) => selectedIds.has(p.id))
+                          }
+                          onCheckedChange={(checked) =>
+                            toggleSelectAll(filteredProducts.map((p) => p.id), !!checked)
+                          }
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Name</TableHead>
                     {config.hasStrength && <TableHead>Strength</TableHead>}
                     <TableHead>{config.terms.manufacturer}</TableHead>
@@ -561,6 +631,15 @@ export default function Products() {
                         else if (e.key === "Enter") { e.preventDefault(); setHistoryProduct(product); }
                         else if ((e.key === "e" || e.key === "E") && isPharmacist) { e.preventDefault(); handleEdit(product); }
                       }}>
+                      {isPharmacist && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(product.id)}
+                            onCheckedChange={() => toggleSelect(product.id)}
+                            aria-label={`Select ${product.name}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div>
                           <p className="font-medium">{product.name}</p>
@@ -721,6 +800,41 @@ export default function Products() {
         products={products}
         onMergeComplete={fetchProducts}
       />
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} product(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the products below. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto border rounded-md p-3 text-sm space-y-1">
+            {products
+              .filter((p) => selectedIds.has(p.id))
+              .map((p) => (
+                <div key={p.id} className="flex justify-between gap-2">
+                  <span className="font-medium truncate">{p.name}</span>
+                  <span className="text-muted-foreground text-xs truncate">{p.manufacturer}</span>
+                </div>
+              ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleBulkDelete();
+              }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

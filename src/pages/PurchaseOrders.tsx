@@ -1468,7 +1468,13 @@ export default function PurchaseOrders() {
         open={showProductDialog}
         onOpenChange={(o) => { setShowProductDialog(o); if (!o) setEditingProduct(null); }}
         editingProduct={editingProduct}
-        onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); setEditingProduct(null); }}
+        onSuccess={async (id) => {
+          setShowProductDialog(false);
+          setEditingProduct(null);
+          await queryClient.invalidateQueries({ queryKey: ["products-active"] });
+          await refetchProducts();
+          if (id) setSelectedProduct(id);
+        }}
       />
       <SupplierFormDialog
         open={showSupplierDialog}

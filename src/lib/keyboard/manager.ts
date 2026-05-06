@@ -99,7 +99,7 @@ class KeyboardManagerImpl {
       ...reg,
     };
 
-    if (process.env.NODE_ENV !== "production") {
+    if (import.meta.env.DEV) {
       const existing = this.registrations.get(reg.id);
       if (existing && existing.scope === record.scope) {
         console.warn(

@@ -325,6 +325,12 @@ export default function Products() {
         actions={
           isPharmacist && (
             <div className="flex gap-2">
+              {selectedIds.size > 0 && (
+                <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected ({selectedIds.size})
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setMergeOpen(true)}>
                 <Merge className="h-4 w-4 mr-2" />
                 Merge Duplicates

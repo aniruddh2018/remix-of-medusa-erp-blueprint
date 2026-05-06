@@ -800,6 +800,41 @@ export default function Products() {
         products={products}
         onMergeComplete={fetchProducts}
       />
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} product(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the products below. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto border rounded-md p-3 text-sm space-y-1">
+            {products
+              .filter((p) => selectedIds.has(p.id))
+              .map((p) => (
+                <div key={p.id} className="flex justify-between gap-2">
+                  <span className="font-medium truncate">{p.name}</span>
+                  <span className="text-muted-foreground text-xs truncate">{p.manufacturer}</span>
+                </div>
+              ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleBulkDelete();
+              }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

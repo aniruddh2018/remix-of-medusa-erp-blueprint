@@ -82,6 +82,9 @@ export default function Products() {
   const [submitting, setSubmitting] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });

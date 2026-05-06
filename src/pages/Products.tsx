@@ -593,6 +593,20 @@ export default function Products() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isPharmacist && (
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={
+                            filteredProducts.length > 0 &&
+                            filteredProducts.every((p) => selectedIds.has(p.id))
+                          }
+                          onCheckedChange={(checked) =>
+                            toggleSelectAll(filteredProducts.map((p) => p.id), !!checked)
+                          }
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Name</TableHead>
                     {config.hasStrength && <TableHead>Strength</TableHead>}
                     <TableHead>{config.terms.manufacturer}</TableHead>

@@ -118,10 +118,10 @@ export function SalesItemsTable({
                   </TableCell>
                 )}
                 <TableCell className="py-1">
-                  <Input
-                    type="number" min={0} step={0.01}
+                  <DecimalInput
+                    min={0}
                     value={item.unit_price}
-                    onChange={(e) => onUpdateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                    onChange={(v) => onUpdateItem(index, "unit_price", v)}
                     className="w-20 h-7 text-right text-sm"
                   />
                 </TableCell>

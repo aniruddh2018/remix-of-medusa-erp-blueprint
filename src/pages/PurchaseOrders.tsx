@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, Package, PlusCircle, FileText, ArrowRight, Lock, Link2, Printer, FileSpreadsheet, Download, ChevronDown, Loader2, Pencil, RotateCcw, Banknote, AlertTriangle, Receipt } from "lucide-react";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
@@ -93,6 +94,7 @@ export default function PurchaseOrders() {
   const [batchHighlightIdx, setBatchHighlightIdx] = useState(0);
   const [editBatchDetails, setEditBatchDetails] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [purchaseRateGstInclusive, setPurchaseRateGstInclusive] = useState(gstInclusive);
 
   // Other charges state
   const [freightCharges, setFreightCharges] = useState<number>(0);
@@ -154,9 +156,9 @@ export default function PurchaseOrders() {
   const poDraft = useMemo(() => ({
     orderItems, selectedSupplier, expectedDeliveryDate, notes,
     freightCharges, handlingCharges, otherCharges,
-    challanNumber, isChallan,
+    challanNumber, isChallan, purchaseRateGstInclusive,
   }), [orderItems, selectedSupplier, expectedDeliveryDate, notes,
-      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan]);
+      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan, purchaseRateGstInclusive]);
 
   const { clearDraft: clearPODraft } = useDraftSave("draft_purchase_order", poDraft, (draft) => {
     if (draft.orderItems?.length > 0 || draft.selectedSupplier || draft.challanNumber) {
@@ -169,6 +171,7 @@ export default function PurchaseOrders() {
       setOtherCharges(draft.otherCharges || 0);
       setChallanNumber(draft.challanNumber || "");
       setIsChallan(draft.isChallan ?? true);
+      setPurchaseRateGstInclusive(draft.purchaseRateGstInclusive ?? gstInclusive);
       setDraftRestored(true);
     }
   });
@@ -263,9 +266,16 @@ export default function PurchaseOrders() {
     const basePrice = price * qty;
     const afterPctDiscount = basePrice * (1 - discount / 100);
     const discountedPrice = Math.max(0, afterPctDiscount - discountFlat);
-    if (gstInclusive) return discountedPrice;
+    if (purchaseRateGstInclusive) return discountedPrice;
     return discountedPrice + discountedPrice * (gst / 100);
-  }, [gstInclusive]);
+  }, [purchaseRateGstInclusive]);
+
+  useEffect(() => {
+    setOrderItems(prev => prev.map(item => ({
+      ...item,
+      total_price: calculateItemTotal(item.unit_price, item.quantity, item.gst_percentage, item.discount_percentage, item.discount_flat),
+    })));
+  }, [calculateItemTotal]);
 
   // Fetch existing batches for selected product
   const { data: existingBatches } = useQuery({
@@ -457,11 +467,11 @@ export default function PurchaseOrders() {
     const base = item.unit_price * item.quantity;
     return sum + Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
   }, 0);
-  const totalGst = gstInclusive
+  const totalGst = purchaseRateGstInclusive
     ? orderItems.reduce((sum, item) => { const base = item.unit_price * item.quantity; const after = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat); return sum + (after - after / (1 + item.gst_percentage / 100)); }, 0)
     : orderItems.reduce((sum, item) => { const base = item.unit_price * item.quantity; const after = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat); return sum + (after * item.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const subtotalBeforeBillDiscount = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
+  const subtotalBeforeBillDiscount = purchaseRateGstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
   const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
   const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
   const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
@@ -495,9 +505,10 @@ export default function PurchaseOrders() {
     setShowChallanSelector(false);
     setBillDiscountPercent(0);
     setBillDiscountFlat(0);
+    setPurchaseRateGstInclusive(gstInclusive);
     setDraftRestored(false);
     focusProductSearch();
-  }, [clearPODraft, focusProductSearch]);
+  }, [clearPODraft, focusProductSearch, gstInclusive]);
 
   // ── Create order mutation ──
   const createOrderMutation = useMutation({
@@ -751,7 +762,7 @@ export default function PurchaseOrders() {
       if (!product) return null;
       const price = item.rate || Number(product.purchase_price);
       const gst = Number(product.gst_percentage);
-      const total = gstInclusive ? price * item.quantity : price * item.quantity * (1 + gst / 100);
+      const total = purchaseRateGstInclusive ? price * item.quantity : price * item.quantity * (1 + gst / 100);
       const defaultExpiry = new Date();
       defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 2);
       return {
@@ -777,7 +788,7 @@ export default function PurchaseOrders() {
     setOrderItems(prev => [...prev, ...newItems]);
     if (newItems.length > 0) toast({ title: "Items added", description: `${newItems.length} items from text entry.` });
     focusProductSearch();
-  }, [products, gstInclusive, toast, focusProductSearch]);
+  }, [products, purchaseRateGstInclusive, toast, focusProductSearch]);
 
   // Auto-focus document number on billing tab mount
   useEffect(() => {
@@ -982,7 +993,20 @@ export default function PurchaseOrders() {
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
-              <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="po-gst-inclusive-rate"
+                    checked={purchaseRateGstInclusive}
+                    onCheckedChange={setPurchaseRateGstInclusive}
+                    className="h-4 w-7"
+                  />
+                  <Label htmlFor="po-gst-inclusive-rate" className="text-[11px] cursor-pointer whitespace-nowrap">
+                    GST incl. rate
+                  </Label>
+                </div>
+                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
@@ -1276,7 +1300,7 @@ export default function PurchaseOrders() {
                   totalCharges={totalCharges}
                   billDiscountAmount={billDiscountAmount}
                   grandTotal={grandTotal}
-                  gstInclusive={gstInclusive}
+                  gstInclusive={purchaseRateGstInclusive}
                   settings={settings}
                   maxDiscountAllowed={maxDiscountAllowed}
                   billDiscountPercent={billDiscountPercent}

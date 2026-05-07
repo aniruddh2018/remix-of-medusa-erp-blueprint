@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [discountAmount, setDiscountAmount] = useState(0);
   const [billDiscountPercent, setBillDiscountPercent] = useState(0);
   const [billDiscountFlat, setBillDiscountFlat] = useState(0);
+  const [purchaseRateGstInclusive, setPurchaseRateGstInclusive] = useState(gstInclusive);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
@@ -193,9 +195,10 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       setOtherCharges(Number(order.other_charges) || 0);
       setSupplierId(order.supplier_id || null);
       setSupplierName(((order as any).suppliers?.name) || "");
+      setPurchaseRateGstInclusive(gstInclusive);
       // Don't set discountAmount here - calculate after items load
     }
-  }, [order]);
+  }, [order, gstInclusive]);
 
   // Store original quantities for inventory delta calculations
   const [originalQuantities, setOriginalQuantities] = useState<Record<string, { quantity: number; free_quantity: number; base_quantity: number; product_id: string }>>({});
@@ -250,10 +253,16 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const recalcItem = (item: EditableItem): EditableItem => {
     const base = item.unit_price * item.quantity;
     const discounted = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
-    if (gstInclusive) return { ...item, total_price: discounted };
+    if (purchaseRateGstInclusive) return { ...item, total_price: discounted };
     const gst = discounted * item.gst_percentage / 100;
     return { ...item, total_price: discounted + gst };
   };
+
+  useEffect(() => {
+    setEditableItems(prev => prev.map(item => recalcItem(item)));
+    // recalcItem is intentionally inline so it always uses the latest local toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseRateGstInclusive]);
 
   const updateItem = (index: number, field: string, value: number) => {
     setEditableItems(prev => {
@@ -323,10 +332,10 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     return editableItems.reduce((sum, item) => {
       const base = item.unit_price * item.quantity;
       const discounted = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
-      if (gstInclusive) return sum + (discounted - discounted / (1 + item.gst_percentage / 100));
+      if (purchaseRateGstInclusive) return sum + (discounted - discounted / (1 + item.gst_percentage / 100));
       return sum + (discounted * item.gst_percentage / 100);
     }, 0);
-  }, [editableItems, gstInclusive]);
+  }, [editableItems, purchaseRateGstInclusive]);
 
   const totalCharges = freightCharges + handlingCharges + otherCharges;
   const grossTotal = editableItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
@@ -334,7 +343,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
     const base = item.unit_price * item.quantity;
     return sum + (base * item.discount_percentage / 100) + item.discount_flat;
   }, 0);
-  const grossSubtotal = gstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
+  const grossSubtotal = purchaseRateGstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
   const syncedBillDiscountAmount = discountAmount;
   const grandTotal = Math.max(0, grossSubtotal - syncedBillDiscountAmount);
 
@@ -697,15 +706,28 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             <div className="rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add Products</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1"
-                  onClick={() => { setEditingProduct(null); setProductFormOpen(true); }}
-                >
-                  <Plus className="h-3 w-3" /> New Product
-                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <Switch
+                      id="edit-po-gst-inclusive-rate"
+                      checked={purchaseRateGstInclusive}
+                      onCheckedChange={setPurchaseRateGstInclusive}
+                      className="h-4 w-7"
+                    />
+                    <Label htmlFor="edit-po-gst-inclusive-rate" className="text-[11px] cursor-pointer whitespace-nowrap">
+                      GST incl. rate
+                    </Label>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1"
+                    onClick={() => { setEditingProduct(null); setProductFormOpen(true); }}
+                  >
+                    <Plus className="h-3 w-3" /> New Product
+                  </Button>
+                </div>
               </div>
               <div className="flex gap-2 items-end flex-wrap">
                 <div className="flex-1 min-w-[220px]">
@@ -818,7 +840,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                 totalCharges={totalCharges}
                 billDiscountAmount={discountAmount}
                 grandTotal={grandTotal}
-                gstInclusive={gstInclusive}
+                gstInclusive={purchaseRateGstInclusive}
                 settings={settings}
                 maxDiscountAllowed={maxDiscountAllowed}
                 billDiscountPercent={billDiscountPercent}

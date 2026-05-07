@@ -12,6 +12,7 @@ import { useShortcut } from "@/hooks/useShortcut";
 import { SHORTCUTS, formatShortcut } from "@/lib/platform";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CommandPalette } from "@/components/CommandPalette";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";

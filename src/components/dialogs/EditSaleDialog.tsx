@@ -610,7 +610,12 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent ref={focusTrapRef} className="max-w-6xl max-h-[92vh] overflow-y-auto" data-enter-nav onKeyDown={handleEnterNav}>
+      <DialogContent
+        ref={focusTrapRef}
+        className="w-screen h-[100dvh] max-w-none max-h-none overflow-y-auto rounded-none p-4 sm:p-6"
+        data-enter-nav
+        onKeyDown={handleEnterNav}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />

@@ -54,8 +54,11 @@ function isVisible(el: HTMLElement): boolean {
 function isDisabled(el: HTMLElement): boolean {
   if (el.getAttribute("aria-disabled") === "true") return true;
   if (el.hasAttribute("disabled")) return true;
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || el instanceof HTMLButtonElement) {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return el.disabled || el.readOnly;
+  }
+  if (el instanceof HTMLSelectElement || el instanceof HTMLButtonElement) {
+    return el.disabled;
   }
   return false;
 }

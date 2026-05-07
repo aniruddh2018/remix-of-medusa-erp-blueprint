@@ -661,6 +661,53 @@ export type Database = {
           },
         ]
       }
+      erp_audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_audit_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_years: {
         Row: {
           closed_at: string | null

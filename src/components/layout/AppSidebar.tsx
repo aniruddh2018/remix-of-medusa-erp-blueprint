@@ -29,6 +29,7 @@ import {
   Settings,
   Shield,
   BarChart3,
+  History,
   RotateCcw,
   Wallet,
   Upload,
@@ -75,6 +76,7 @@ const allManagementMenuItems: MenuItem[] = [
 
 const allAdminMenuItems: MenuItem[] = [
   { title: "Reports", icon: BarChart3, path: "/reports" },
+  { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Settings", icon: Settings, path: "/settings" },
 ];

@@ -25,6 +25,7 @@ import Admin from "./pages/Admin";
 import SuperAdmin from "./pages/SuperAdmin";
 import Notes from "./pages/Notes";
 import Accounts from "./pages/Accounts";
+import AuditLogs from "./pages/AuditLogs";
 import Install from "./pages/Install";
 import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
@@ -75,6 +76,7 @@ const App = () => (
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />
+                <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               <Route path="*" element={<NotFound />} />

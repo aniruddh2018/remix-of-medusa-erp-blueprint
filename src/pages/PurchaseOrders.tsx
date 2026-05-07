@@ -564,6 +564,16 @@ export default function PurchaseOrders() {
         // Insert items
         const newItems = orderItems.filter(item => !item.fromChallan);
         if (newItems.length > 0) {
+          // Validate product_ids still exist (avoid FK violation if a product was deleted/merged)
+          const ids = Array.from(new Set(newItems.map(i => i.product_id).filter(Boolean)));
+          const { data: existingProducts, error: prodErr } = await supabase
+            .from("products").select("id").in("id", ids);
+          if (prodErr) throw prodErr;
+          const existingSet = new Set((existingProducts || []).map(p => p.id));
+          const missing = newItems.filter(i => !existingSet.has(i.product_id));
+          if (missing.length > 0) {
+            throw new Error(`These products no longer exist (deleted/merged). Remove them from the cart and re-add: ${missing.map(m => m.product_name).join(", ")}`);
+          }
           const items = newItems.map((item) => ({
             purchase_order_id: order.id,
             product_id: item.product_id,

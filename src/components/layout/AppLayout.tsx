@@ -142,6 +142,9 @@ export function AppLayout() {
 
             <div className="flex-1" />
 
+            <CompanySwitcher />
+
+
             {/* Keyboard shortcuts — click for full searchable dialog, hover for quick hints */}
             <TooltipProvider>
               <Tooltip>

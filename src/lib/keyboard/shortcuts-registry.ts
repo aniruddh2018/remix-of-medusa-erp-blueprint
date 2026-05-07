@@ -45,6 +45,12 @@ export const SHORTCUT_CATALOG: ShortcutCatalogEntry[] = [
     category: "Global",
   },
   {
+    id: "command-palette-search",
+    shortcut: SHORTCUTS.COMMAND_PALETTE_SEARCH,
+    description: "Open command palette (search key)",
+    category: "Global",
+  },
+  {
     id: "quick-sale",
     shortcut: SHORTCUTS.QUICK_SALE,
     description: "Jump to Quick Counter Sale",

@@ -18,6 +18,7 @@ interface BillingTotalsProps {
   billDiscountFlat: number;
   onBillDiscountPercentChange: (v: number) => void;
   onBillDiscountFlatChange: (v: number) => void;
+  gstSlabs?: Array<{ rate: number; taxable: number; gst: number }>;
 }
 
 export function BillingTotals({
@@ -35,6 +36,7 @@ export function BillingTotals({
   billDiscountFlat,
   onBillDiscountPercentChange,
   onBillDiscountFlatChange,
+  gstSlabs,
 }: BillingTotalsProps) {
   const totalDiscount = itemDiscount + billDiscountAmount;
 
@@ -60,6 +62,16 @@ export function BillingTotals({
         <span>{gstInclusive ? "Incl. GST" : "GST"}{settings.show_gst_split ? " (CGST + SGST)" : ""}</span>
         <span>₹{gstAmount.toFixed(2)}</span>
       </div>
+      {!!gstSlabs?.length && (
+        <div className="space-y-1 text-[11px]">
+          {gstSlabs.map((slab) => (
+            <div key={slab.rate} className="flex justify-between text-muted-foreground">
+              <span>{slab.rate}% on ₹{slab.taxable.toFixed(2)}</span>
+              <span>₹{slab.gst.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {totalCharges > 0 && (
         <div className="flex justify-between text-muted-foreground">
           <span>Other Charges</span>

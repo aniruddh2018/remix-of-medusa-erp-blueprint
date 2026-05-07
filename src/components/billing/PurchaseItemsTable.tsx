@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Lock } from "lucide-react";
 import { ExpiryMMYYInput } from "@/components/ui/expiry-mmyy-input";
+import { useGridKeyboardNavigation } from "@/hooks/useGridKeyboardNavigation";
 
 interface PurchaseItem {
   product_id: string;
@@ -45,13 +46,15 @@ export function PurchaseItemsTable({
   onRemoveItem,
   onDiscountExceeded,
 }: PurchaseItemsTableProps) {
+  const { gridRef } = useGridKeyboardNavigation();
+
   if (items.length === 0) return null;
 
   const showDisc = discountMode === "percentage" || discountMode === "both";
   const showFlatDisc = discountMode === "flat" || discountMode === "both";
 
   return (
-    <div className="rounded-md border overflow-x-auto">
+    <div className="rounded-md border overflow-x-auto" data-kb-grid ref={gridRef}>
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30">
@@ -76,8 +79,9 @@ export function PurchaseItemsTable({
               key={`${item.product_id}-${index}`}
               className={`${item.fromChallan ? "bg-muted/30" : ""} group`}
               data-billing-row
+              data-kb-row
             >
-              <TableCell className="font-medium py-1">
+              <TableCell className="font-medium py-1" data-kb-cell>
                 <div className="flex items-center gap-1">
                   {item.fromChallan && <Lock className="h-3 w-3 text-muted-foreground" />}
                   <span className="text-sm">{item.product_name}</span>
@@ -85,7 +89,7 @@ export function PurchaseItemsTable({
                 </div>
               </TableCell>
               {hasBatchTracking && (
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   {item.fromChallan ? (
                     <span className="text-xs text-muted-foreground">{item.batch_number || "-"}</span>
                   ) : (
@@ -98,7 +102,7 @@ export function PurchaseItemsTable({
                   )}
                 </TableCell>
               )}
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {item.fromChallan ? (
                   <span className="text-xs text-muted-foreground">{item.expiry_date ? item.expiry_date.slice(0, 7) : "-"}</span>
                 ) : (
@@ -108,7 +112,7 @@ export function PurchaseItemsTable({
                   />
                 )}
               </TableCell>
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {item.fromChallan ? (
                   <span className="text-xs">₹{Number(item.mrp).toFixed(2)}</span>
                 ) : (
@@ -120,7 +124,7 @@ export function PurchaseItemsTable({
                   />
                 )}
               </TableCell>
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {item.fromChallan ? (
                   <span className="text-xs">₹{item.unit_price.toFixed(2)}</span>
                 ) : (
@@ -132,7 +136,7 @@ export function PurchaseItemsTable({
                   />
                 )}
               </TableCell>
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {item.fromChallan ? (
                   <span className="text-xs">{item.quantity} {item.purchased_unit || ""}</span>
                 ) : (
@@ -147,7 +151,7 @@ export function PurchaseItemsTable({
                   </div>
                 )}
               </TableCell>
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {item.fromChallan ? (
                   <span className="text-xs">{item.free_quantity || 0}</span>
                 ) : (
@@ -159,7 +163,7 @@ export function PurchaseItemsTable({
                   />
                 )}
               </TableCell>
-              <TableCell className="py-1 text-xs text-muted-foreground">
+              <TableCell className="py-1 text-xs text-muted-foreground" data-kb-cell>
                 {item.base_quantity != null ? (
                   <span>{item.base_quantity} {item.base_unit || ""}</span>
                 ) : (
@@ -167,7 +171,7 @@ export function PurchaseItemsTable({
                 )}
               </TableCell>
               {showDisc && (
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   {item.fromChallan ? (
                     <span className="text-xs">{item.discount_percentage}%</span>
                   ) : (
@@ -185,7 +189,7 @@ export function PurchaseItemsTable({
                 </TableCell>
               )}
               {showFlatDisc && (
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   {item.fromChallan ? (
                     <span className="text-xs">₹{item.discount_flat}</span>
                   ) : (
@@ -198,13 +202,13 @@ export function PurchaseItemsTable({
                   )}
                 </TableCell>
               )}
-              <TableCell className="py-1 text-xs text-muted-foreground text-center">
+              <TableCell className="py-1 text-xs text-muted-foreground text-center" data-kb-cell>
                 {item.gst_percentage}%
               </TableCell>
-              <TableCell className="py-1 text-right font-mono text-sm font-medium">
+              <TableCell className="py-1 text-right font-mono text-sm font-medium" data-kb-cell>
                 ₹{item.total_price.toFixed(2)}
               </TableCell>
-              <TableCell className="py-1">
+              <TableCell className="py-1" data-kb-cell>
                 {!item.fromChallan && (
                   <Button
                     variant="ghost" size="icon"

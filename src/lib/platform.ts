@@ -74,6 +74,8 @@ export function matchesShortcut(e: KeyboardEvent | React.KeyboardEvent, def: Sho
   const codeFromKey =
     def.key.length === 1 && def.key >= "0" && def.key <= "9"
       ? `Digit${def.key}`
+      : def.key === "/"
+      ? "Slash"
       : def.key.length === 1
       ? `Key${def.key.toUpperCase()}`
       : null;
@@ -93,6 +95,7 @@ export function matchesShortcut(e: KeyboardEvent | React.KeyboardEvent, def: Sho
 export const SHORTCUTS = {
   // Global
   COMMAND_PALETTE: { key: "k", modifiers: ["primary"] as ModifierAbstract[], label: "PRIMARY+K" },
+  COMMAND_PALETTE_SEARCH: { key: "/", modifiers: ["primary"] as ModifierAbstract[], label: "PRIMARY+/" },
   QUICK_SALE: { key: "a", modifiers: ["secondary"] as ModifierAbstract[], label: "SECONDARY+A" },
   SAVE: { key: "s", modifiers: ["primary"] as ModifierAbstract[], label: "PRIMARY+S" },
   NEW: { key: "n", modifiers: ["primary"] as ModifierAbstract[], label: "PRIMARY+N" },

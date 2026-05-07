@@ -82,6 +82,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
   const [billDiscountPercent, setBillDiscountPercent] = useState(0);
   const [billDiscountFlat, setBillDiscountFlat] = useState(0);
   const [purchaseRateGstInclusive, setPurchaseRateGstInclusive] = useState(gstInclusive);
+  const [recalcGstOnDiscountedBase, setRecalcGstOnDiscountedBase] = useState(false);
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
@@ -327,23 +328,37 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
       return sum + Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
     }, 0);
   }, [editableItems]);
-
-  const gstAmount = useMemo(() => {
-    return editableItems.reduce((sum, item) => {
-      const base = item.unit_price * item.quantity;
-      const discounted = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
-      if (purchaseRateGstInclusive) return sum + (discounted - discounted / (1 + item.gst_percentage / 100));
-      return sum + (discounted * item.gst_percentage / 100);
-    }, 0);
-  }, [editableItems, purchaseRateGstInclusive]);
-
   const totalCharges = freightCharges + handlingCharges + otherCharges;
   const grossTotal = editableItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
   const totalItemDiscount = editableItems.reduce((sum, item) => {
     const base = item.unit_price * item.quantity;
     return sum + (base * item.discount_percentage / 100) + item.discount_flat;
   }, 0);
-  const grossSubtotal = purchaseRateGstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + gstAmount + totalCharges;
+  const discountableBase = itemsSubtotal + totalCharges;
+  const effectiveBillDiscountAmount = Math.min(Math.max(0, discountAmount), discountableBase);
+  const billDiscountFactor = recalcGstOnDiscountedBase && discountableBase > 0
+    ? Math.max(0, (discountableBase - effectiveBillDiscountAmount) / discountableBase)
+    : 1;
+  const gstSlabs = useMemo(() => {
+    const byRate = new Map<number, { taxable: number; gst: number }>();
+    editableItems.forEach((item) => {
+      const rate = Number(item.gst_percentage) || 0;
+      const base = item.unit_price * item.quantity;
+      const lineAfterItemDiscount = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+      const lineAfterBillDiscount = lineAfterItemDiscount * billDiscountFactor;
+      const taxable = purchaseRateGstInclusive ? lineAfterBillDiscount / (1 + rate / 100) : lineAfterBillDiscount;
+      const gst = purchaseRateGstInclusive ? lineAfterBillDiscount - taxable : taxable * rate / 100;
+      const prev = byRate.get(rate) || { taxable: 0, gst: 0 };
+      byRate.set(rate, { taxable: prev.taxable + taxable, gst: prev.gst + gst });
+    });
+    return Array.from(byRate.entries())
+      .map(([rate, v]) => ({ rate, taxable: v.taxable, gst: v.gst }))
+      .sort((a, b) => a.rate - b.rate);
+  }, [editableItems, purchaseRateGstInclusive, billDiscountFactor]);
+  const gstAmount = useMemo(() => gstSlabs.reduce((sum, slab) => sum + slab.gst, 0), [gstSlabs]);
+  const grossSubtotal = purchaseRateGstInclusive
+    ? itemsSubtotal + totalCharges
+    : itemsSubtotal + gstAmount + totalCharges;
   const syncedBillDiscountAmount = discountAmount;
   const grandTotal = Math.max(0, grossSubtotal - syncedBillDiscountAmount);
 
@@ -832,24 +847,36 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
                   <Input type="number" min={0} value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value) || 0)} className="h-8 text-xs" placeholder="Other Rs" />
                 </div>
               </div>
-              <BillingTotals
-                grossTotal={grossTotal}
-                itemDiscount={totalItemDiscount}
-                subtotal={itemsSubtotal}
-                gstAmount={gstAmount}
-                totalCharges={totalCharges}
-                billDiscountAmount={discountAmount}
-                grandTotal={grandTotal}
-                gstInclusive={purchaseRateGstInclusive}
-                settings={settings}
-                maxDiscountAllowed={maxDiscountAllowed}
-                billDiscountPercent={billDiscountPercent}
-                billDiscountFlat={billDiscountFlat}
-                onBillDiscountPercentChange={(v) => { setBillDiscountPercent(v); setBillDiscountFlat(0); }}
-                onBillDiscountFlatChange={(v) => { setBillDiscountFlat(v); setBillDiscountPercent(0); }}
-              />
+                <BillingTotals
+                  grossTotal={grossTotal}
+                  itemDiscount={totalItemDiscount}
+                  subtotal={itemsSubtotal}
+                  gstAmount={gstAmount}
+                  totalCharges={totalCharges}
+                  billDiscountAmount={discountAmount}
+                  grandTotal={grandTotal}
+                  gstInclusive={purchaseRateGstInclusive}
+                  gstSlabs={gstSlabs}
+                  settings={settings}
+                  maxDiscountAllowed={maxDiscountAllowed}
+                  billDiscountPercent={billDiscountPercent}
+                  billDiscountFlat={billDiscountFlat}
+                  onBillDiscountPercentChange={(v) => { setBillDiscountPercent(v); setBillDiscountFlat(0); }}
+                  onBillDiscountFlatChange={(v) => { setBillDiscountFlat(v); setBillDiscountPercent(0); }}
+                />
+                <div className="flex items-center justify-between rounded-md border p-2">
+                  <Label htmlFor="edit-po-recalc-gst" className="text-xs text-muted-foreground">
+                    Recalculate tax on discounted value (GST Act)
+                  </Label>
+                  <Switch
+                    id="edit-po-recalc-gst"
+                    checked={recalcGstOnDiscountedBase}
+                    onCheckedChange={setRecalcGstOnDiscountedBase}
+                    className="h-4 w-7"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
         )}
 
         <DialogFooter>

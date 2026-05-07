@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Clock, AlertTriangle, Undo2 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import type { FullInvoiceSettings } from "@/hooks/useInvoiceSettings";
+import { useGridKeyboardNavigation } from "@/hooks/useGridKeyboardNavigation";
 
 interface CartItem {
   product_id: string;
@@ -50,13 +51,15 @@ export function SalesItemsTable({
   onUpdateItem,
   onRemoveItem,
 }: SalesItemsTableProps) {
+  const { gridRef } = useGridKeyboardNavigation();
+
   if (cart.length === 0) return null;
 
   const showDisc = settings.discount_mode === "percentage" || settings.discount_mode === "both";
   const showFlatDisc = settings.discount_mode === "flat" || settings.discount_mode === "both";
 
   return (
-    <div className="rounded-md border overflow-x-auto">
+    <div className="rounded-md border overflow-x-auto" data-kb-grid ref={gridRef}>
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30">
@@ -87,8 +90,9 @@ export function SalesItemsTable({
                 key={`${item.batch_id}-${index}`}
                 className={`${isInsufficient || isNoStock ? "bg-destructive/10" : ""} ${item.is_return ? "bg-secondary/60 border-l-2 border-l-destructive" : ""} group`}
                 data-billing-row
+                data-kb-row
               >
-                <TableCell className="font-medium py-1">
+                <TableCell className="font-medium py-1" data-kb-cell>
                   {item.is_return && (
                     <Badge variant="destructive" className="mr-1 text-[10px] py-0 gap-0.5">
                       <Undo2 className="h-2.5 w-2.5" /> RETURN
@@ -105,10 +109,10 @@ export function SalesItemsTable({
                   {!item.is_return && isInsufficient && !isNoStock && <Badge variant="destructive" className="ml-1 text-[10px] py-0">{totalNeeded}/{item.max_quantity}</Badge>}
                 </TableCell>
                 {settings.show_batch_column && (
-                  <TableCell className="py-1 text-xs text-muted-foreground">{item.batch_number}</TableCell>
+                  <TableCell className="py-1 text-xs text-muted-foreground" data-kb-cell>{item.batch_number}</TableCell>
                 )}
                 {settings.show_expiry_column && (
-                  <TableCell className="py-1">
+                  <TableCell className="py-1" data-kb-cell>
                     <Badge
                       variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"}
                       className={`text-[10px] py-0 gap-0.5 ${isNearExpiry ? "animate-pulse" : ""}`}
@@ -118,7 +122,7 @@ export function SalesItemsTable({
                     </Badge>
                   </TableCell>
                 )}
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   <DecimalInput
                     min={0}
                     value={item.unit_price}
@@ -126,7 +130,7 @@ export function SalesItemsTable({
                     className="w-20 h-7 text-right text-sm"
                   />
                 </TableCell>
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   <Input
                     type="number" min={1} max={item.max_quantity}
                     value={item.quantity}
@@ -135,7 +139,7 @@ export function SalesItemsTable({
                   />
                 </TableCell>
                 {settings.show_free_qty_column && (
-                  <TableCell className="py-1">
+                  <TableCell className="py-1" data-kb-cell>
                     <Input
                       type="number" min={0}
                       value={item.free_quantity || 0}
@@ -145,7 +149,7 @@ export function SalesItemsTable({
                   </TableCell>
                 )}
                 {showDisc && (
-                  <TableCell className="py-1">
+                  <TableCell className="py-1" data-kb-cell>
                     <Input
                       type="number" min={0} max={maxDiscountAllowed} step={0.1}
                       value={item.discount_percentage}
@@ -155,7 +159,7 @@ export function SalesItemsTable({
                   </TableCell>
                 )}
                 {showFlatDisc && (
-                  <TableCell className="py-1">
+                  <TableCell className="py-1" data-kb-cell>
                     <Input
                       type="number" min={0} step={0.5}
                       value={item.discount_flat || ""}
@@ -164,13 +168,13 @@ export function SalesItemsTable({
                     />
                   </TableCell>
                 )}
-                <TableCell className="py-1 text-xs text-muted-foreground text-center">
+                <TableCell className="py-1 text-xs text-muted-foreground text-center" data-kb-cell>
                   {item.gst_percentage}%
                 </TableCell>
-                <TableCell className={`py-1 text-right font-mono text-sm font-medium ${item.is_return ? "text-destructive" : ""}`}>
+                <TableCell className={`py-1 text-right font-mono text-sm font-medium ${item.is_return ? "text-destructive" : ""}`} data-kb-cell>
                   {item.is_return ? "−" : ""}₹{Math.abs(item.total_price).toFixed(2)}
                 </TableCell>
-                <TableCell className="py-1">
+                <TableCell className="py-1" data-kb-cell>
                   <Button
                     variant="ghost" size="icon"
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"

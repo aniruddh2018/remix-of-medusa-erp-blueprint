@@ -42,6 +42,19 @@ function focusTarget(target: FocusableTarget) {
   return true;
 }
 
+function canLeaveInputWithHorizontalArrow(
+  event: React.KeyboardEvent<HTMLElement>,
+  direction: 1 | -1,
+) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return true;
+  const start = target.selectionStart ?? 0;
+  const end = target.selectionEnd ?? 0;
+  const len = target.value.length;
+  if (direction === -1) return start === 0 && end === 0;
+  return start === len && end === len;
+}
+
 export function useKeyboardNavigation(
   flow: readonly string[],
   options: KeyboardNavigationOptions = {}
@@ -88,12 +101,25 @@ export function useKeyboardNavigation(
 
   const handleKey = useCallback(
     (event: React.KeyboardEvent<HTMLElement>, current: string) => {
-      if (event.key !== "Enter" || event.ctrlKey || event.altKey || event.metaKey) return;
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+      const isForward =
+        (event.key === "Enter" && !event.shiftKey) ||
+        event.key === "ArrowRight" ||
+        event.key === "ArrowDown";
+      const isBackward =
+        (event.key === "Enter" && event.shiftKey) ||
+        event.key === "ArrowLeft" ||
+        event.key === "ArrowUp";
+      if (!isForward && !isBackward) return;
+
+      if (event.key === "ArrowRight" && !canLeaveInputWithHorizontalArrow(event, 1)) return;
+      if (event.key === "ArrowLeft" && !canLeaveInputWithHorizontalArrow(event, -1)) return;
 
       event.preventDefault();
       event.stopPropagation();
 
-      if (event.shiftKey) {
+      if (isBackward) {
         focusAdjacent(current, -1);
         return;
       }

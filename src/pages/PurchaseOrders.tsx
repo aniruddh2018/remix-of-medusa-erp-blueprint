@@ -295,6 +295,7 @@ export default function PurchaseOrders() {
   });
 
   const purchaseKeyboard = useKeyboardNavigation(purchaseFlow, {
+    onEnd: () => focusProductSearch(),
     blockForward: (current) => {
       if (current === "product" && !selectedProduct) {
         productSearchRef.current?.focus();
@@ -467,12 +468,31 @@ export default function PurchaseOrders() {
     const base = item.unit_price * item.quantity;
     return sum + Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
   }, 0);
-  const totalGst = purchaseRateGstInclusive
-    ? orderItems.reduce((sum, item) => { const base = item.unit_price * item.quantity; const after = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat); return sum + (after - after / (1 + item.gst_percentage / 100)); }, 0)
-    : orderItems.reduce((sum, item) => { const base = item.unit_price * item.quantity; const after = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat); return sum + (after * item.gst_percentage / 100); }, 0);
   const totalCharges = freightCharges + handlingCharges + otherCharges;
-  const subtotalBeforeBillDiscount = purchaseRateGstInclusive ? itemsSubtotal + totalCharges : itemsSubtotal + totalGst + totalCharges;
-  const billDiscountAmount = (subtotalBeforeBillDiscount * billDiscountPercent / 100) + billDiscountFlat;
+  const discountableBase = itemsSubtotal + totalCharges;
+  const rawBillDiscountAmount = (discountableBase * billDiscountPercent / 100) + billDiscountFlat;
+  const billDiscountAmount = Math.min(Math.max(0, rawBillDiscountAmount), discountableBase);
+  const billDiscountFactor = discountableBase > 0 ? Math.max(0, (discountableBase - billDiscountAmount) / discountableBase) : 1;
+  const gstSlabs = useMemo(() => {
+    const byRate = new Map<number, { taxable: number; gst: number }>();
+    orderItems.forEach((item) => {
+      const rate = Number(item.gst_percentage) || 0;
+      const base = item.unit_price * item.quantity;
+      const lineAfterItemDiscount = Math.max(0, base * (1 - item.discount_percentage / 100) - item.discount_flat);
+      const lineAfterBillDiscount = lineAfterItemDiscount * billDiscountFactor;
+      const taxable = purchaseRateGstInclusive ? lineAfterBillDiscount / (1 + rate / 100) : lineAfterBillDiscount;
+      const gst = purchaseRateGstInclusive ? lineAfterBillDiscount - taxable : taxable * rate / 100;
+      const prev = byRate.get(rate) || { taxable: 0, gst: 0 };
+      byRate.set(rate, { taxable: prev.taxable + taxable, gst: prev.gst + gst });
+    });
+    return Array.from(byRate.entries())
+      .map(([rate, v]) => ({ rate, taxable: v.taxable, gst: v.gst }))
+      .sort((a, b) => a.rate - b.rate);
+  }, [orderItems, purchaseRateGstInclusive, billDiscountFactor]);
+  const totalGst = gstSlabs.reduce((sum, slab) => sum + slab.gst, 0);
+  const subtotalBeforeBillDiscount = purchaseRateGstInclusive
+    ? itemsSubtotal + totalCharges
+    : itemsSubtotal + totalGst + totalCharges;
   const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
   const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
 
@@ -820,6 +840,18 @@ export default function PurchaseOrders() {
     enabled: activeTab === "history" && !editOrderDialogOpen && !receiveDialogOpen && !convertDialogOpen && !debitNoteOpen && !deleteDialogOpen,
   });
   useKeyboardShortcut({ key: "F6", callback: () => { setEditingProduct(null); setShowProductDialog(true); }, enabled: activeTab === "billing" && !showProductDialog && !showSupplierDialog, allowInInput: true });
+  useKeyboardShortcut({
+    key: "e",
+    modifiers: ["alt"],
+    callback: () => {
+      if (activeTab !== "billing" || existingBatchId === "new") return;
+      const activeEl = document.activeElement as HTMLElement | null;
+      setEditBatchDetails(prev => !prev);
+      setTimeout(() => activeEl?.focus(), 0);
+    },
+    enabled: activeTab === "billing",
+    allowInInput: true,
+  });
   // Ctrl+E → quick edit the currently-selected product (or focus product search)
   useKeyboardShortcut({
     key: "e", modifiers: ["ctrl"],
@@ -1311,6 +1343,7 @@ export default function PurchaseOrders() {
                   billDiscountAmount={billDiscountAmount}
                   grandTotal={grandTotal}
                   gstInclusive={purchaseRateGstInclusive}
+                  gstSlabs={gstSlabs}
                   settings={settings}
                   maxDiscountAllowed={maxDiscountAllowed}
                   billDiscountPercent={billDiscountPercent}

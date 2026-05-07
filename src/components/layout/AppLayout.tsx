@@ -40,6 +40,7 @@ export function AppLayout() {
   // Platform-aware shortcuts
   usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => navigate("/counter-sales"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.COMMAND_PALETTE, callback: () => setCommandPaletteOpen(true), enabled: !!user });
+  usePlatformShortcut({ shortcut: SHORTCUTS.COMMAND_PALETTE_SEARCH, callback: () => setCommandPaletteOpen(true), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_DASHBOARD, callback: () => navigate("/dashboard"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_SALES, callback: () => navigate("/sales"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.NAV_PURCHASE, callback: () => navigate("/purchase-orders"), enabled: !!user });

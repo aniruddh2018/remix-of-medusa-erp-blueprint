@@ -121,7 +121,41 @@ export default function SuperAdmin() {
     enabled: isSuperAdmin,
   });
 
-  const createCompanyMutation = useMutation({
+  const { data: userCompanies } = useQuery({
+    queryKey: ["super-admin-user-companies"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_companies")
+        .select("user_id, company_id, role");
+      if (error) throw error;
+      return data as { user_id: string; company_id: string; role: string }[];
+    },
+    enabled: isSuperAdmin,
+  });
+
+  const handleAssignUserToCompany = async () => {
+    if (!assignUserId || !assignCompanyId) {
+      toast({ title: "Select user and company", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.rpc("add_user_to_company", {
+        _user_id: assignUserId,
+        _company_id: assignCompanyId,
+        _role: assignRole,
+      });
+      if (error) throw error;
+      toast({ title: "User assigned", description: `Role: ${assignRole}. They can now switch to this company.` });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-user-companies"] });
+      setAssignDialogOpen(false);
+      setAssignUserId(""); setAssignCompanyId(""); setAssignRole("staff");
+    } catch (err: any) {
+      toast({ title: "Failed to assign", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
     mutationFn: async () => {
       const { data, error } = await supabase.from("companies").insert({
         name: companyName,

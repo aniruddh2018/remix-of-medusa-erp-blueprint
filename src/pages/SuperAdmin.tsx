@@ -549,7 +549,8 @@ export default function SuperAdmin() {
                       <TableRow>
                         <TableHead>ID</TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Company</TableHead>
+                        <TableHead>Active Company</TableHead>
+                        <TableHead>Member Of</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead className="text-right">Actions</TableHead>

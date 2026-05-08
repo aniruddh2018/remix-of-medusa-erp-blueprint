@@ -353,7 +353,11 @@ export default function SuperAdmin() {
           <h1 className="text-responsive-xl font-bold">Super Admin</h1>
           <p className="text-muted-foreground text-responsive-sm">Manage companies, users, and administrators</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setAssignDialogOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Assign User to Company</span>
+          </Button>
           <Button variant="outline" onClick={() => setAdminDialogOpen(true)} className="gap-2">
             <ShieldCheck className="h-4 w-4" />
             <span className="hidden sm:inline">Create User</span>

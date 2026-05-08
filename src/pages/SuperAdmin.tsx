@@ -749,6 +749,65 @@ export default function SuperAdmin() {
         </DialogContent>
       </Dialog>
 
+      {/* Assign Existing User to Company Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign User to Company</DialogTitle>
+            <DialogDescription>Add an existing user to another company with a role. They can switch between companies from the header.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>User *</Label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
+                <SelectContent>
+                  {profiles?.map(p => (
+                    <SelectItem key={p.user_id} value={p.user_id}>
+                      {p.full_name} ({shortId(p.user_id)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Company *</Label>
+              <Select value={assignCompanyId} onValueChange={setAssignCompanyId}>
+                <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                <SelectContent>
+                  {companies?.filter(c => c.is_active).map(c => {
+                    const already = userCompanies?.some(uc => uc.user_id === assignUserId && uc.company_id === c.id);
+                    return (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} {already ? "— already member (will update role)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={assignRole} onValueChange={(v) => setAssignRole(v as "staff" | "pharmacist" | "admin")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAssignUserToCompany} disabled={isSubmitting || !assignUserId || !assignCompanyId}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Reset Password Dialog */}
       <Dialog open={resetPwDialogOpen} onOpenChange={setResetPwDialogOpen}>
         <DialogContent>

@@ -23,8 +23,3 @@ dist-ssr
 *.sln
 *.sw?
 
-# Graphify related files and folders
-.graphify*
-graphify/
-graphify-out/
-graphify.json

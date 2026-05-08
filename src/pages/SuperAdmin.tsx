@@ -422,7 +422,19 @@ export default function SuperAdmin() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex justify-end">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedCompanyId(company.id);
+                                    setAdminRole(admins.length === 0 ? "admin" : "staff");
+                                    setAdminDialogOpen(true);
+                                  }}
+                                  title={admins.length === 0 ? "Add admin to this company" : "Add user to this company"}
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"

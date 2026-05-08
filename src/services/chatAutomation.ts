@@ -58,6 +58,18 @@ export type AutomationIntent =
       missing: string[];
     }
   | {
+      type: "query_data";
+      confidence: number;
+      data: {
+        query: string;
+        options?: {
+          include_analysis?: boolean;
+          format?: "table" | "chart";
+        };
+      };
+      missing: string[];
+    }
+  | {
       type: "unknown";
       confidence: number;
       data: { text: string };
@@ -428,21 +440,31 @@ export function describeIntent(intent: Exclude<AutomationIntent, { type: "unknow
     ].join("\n");
   }
 
-  const items = intent.data.items
-    .map((item) => {
-      const product = item.product_label || item.name;
-      const rate = item.rate ? ` @ Rs ${item.rate}` : "";
-      return `${item.quantity} ${item.unit || "unit"} x ${product}${rate} GST ${item.gst_percentage}%`;
-    })
-    .join("\n");
-  return [
-    `Create sales draft for: ${intent.data.customer_name}`,
-    intent.data.customer_phone && `Phone: ${intent.data.customer_phone}`,
-    intent.data.doctor_name && `Doctor: ${intent.data.doctor_name}`,
-    intent.data.prescription_number && `Rx: ${intent.data.prescription_number}`,
-    intent.data.prescription_date && `Rx date: ${intent.data.prescription_date}`,
-    items,
-  ].filter(Boolean).join("\n");
+  if (intent.type === "query_data") {
+    return [
+      `Query data: ${intent.data.query}`,
+      intent.data.options?.include_analysis && "Include analysis",
+      intent.data.options?.format && `Format: ${intent.data.options.format}`,
+    ].filter(Boolean).join("\n");
+  }
+
+  if (intent.type === "create_sale_draft") {
+    const items = intent.data.items
+      .map((item) => {
+        const product = item.product_label || item.name;
+        const rate = item.rate ? ` @ Rs ${item.rate}` : "";
+        return `${item.quantity} ${item.unit || "unit"} x ${product}${rate} GST ${item.gst_percentage}%`;
+      })
+      .join("\n");
+    return [
+      `Create sales draft for: ${intent.data.customer_name}`,
+      intent.data.customer_phone && `Phone: ${intent.data.customer_phone}`,
+      intent.data.doctor_name && `Doctor: ${intent.data.doctor_name}`,
+      intent.data.prescription_number && `Rx: ${intent.data.prescription_number}`,
+      intent.data.prescription_date && `Rx date: ${intent.data.prescription_date}`,
+      items,
+    ].filter(Boolean).join("\n");
+  }
 }
 
 function norm(value: string | null | undefined) {
@@ -748,43 +770,44 @@ export async function executeAutomationDraft(
     }
   }
 
-  const subtotal = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate, 0);
-  const gstAmount = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate * (item.gst_percentage / 100), 0);
-  const totalAmount = subtotal + gstAmount;
-  const invoiceNumber = await getNextInvoiceNumber(supabase, companyId);
-  const { data: customer } = await supabase
-    .from("customers")
-    .select("id, name, phone, address, gst_number")
-    .eq("company_id", companyId)
-    .ilike("name", `%${intent.data.customer_name}%`)
-    .limit(1)
-    .maybeSingle();
+  if (intent.type === "create_sale_draft") {
+    const subtotal = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate, 0);
+    const gstAmount = intent.data.items.reduce((sum, item) => sum + item.quantity * item.rate * (item.gst_percentage / 100), 0);
+    const totalAmount = subtotal + gstAmount;
+    const invoiceNumber = await getNextInvoiceNumber(supabase, companyId);
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id, name, phone, address, gst_number")
+      .eq("company_id", companyId)
+      .ilike("name", `%${intent.data.customer_name}%`)
+      .limit(1)
+      .maybeSingle();
 
-  const lineNotes = intent.data.items
-    .map((item) => `${item.quantity} ${item.unit || "unit"} x ${item.name} @ Rs ${item.rate}, GST ${item.gst_percentage}%`)
-    .join("; ");
-  const automationNotes = [
-    intent.data.notes,
-    `Source: ${draft.channel}`,
-    `Original message: ${draft.originalText}`,
-    `Items: ${lineNotes}`,
-    prescriptionImageUrl && `Prescription image: ${prescriptionImageUrl}`,
-  ].filter(Boolean).join("\n");
+    const lineNotes = intent.data.items
+      .map((item) => `${item.quantity} ${item.unit || "unit"} x ${item.name} @ Rs ${item.rate}, GST ${item.gst_percentage}%`)
+      .join("; ");
+    const automationNotes = [
+      intent.data.notes,
+      `Source: ${draft.channel}`,
+      `Original message: ${draft.originalText}`,
+      `Items: ${lineNotes}`,
+      prescriptionImageUrl && `Prescription image: ${prescriptionImageUrl}`,
+    ].filter(Boolean).join("\n");
 
-  const baseOrder = {
-    invoice_number: invoiceNumber,
-    customer_name: customer?.name || intent.data.customer_name,
-    customer_phone: customer?.phone || intent.data.customer_phone || null,
-    customer_address: customer?.address || null,
-    customer_id: customer?.id || null,
-    customer_gstin: customer?.gst_number || null,
-    prescription_number: intent.data.prescription_number || null,
-    prescription_date: intent.data.prescription_date || null,
-    doctor_name: intent.data.doctor_name || null,
-    notes: automationNotes,
-    total_amount: totalAmount,
-    gst_amount: gstAmount,
-    discount_amount: 0,
+    const baseOrder = {
+      invoice_number: invoiceNumber,
+      customer_name: customer?.name || intent.data.customer_name,
+      customer_phone: customer?.phone || intent.data.customer_phone || null,
+      customer_address: customer?.address || null,
+      customer_id: customer?.id || null,
+      customer_gstin: customer?.gst_number || null,
+      prescription_number: intent.data.prescription_number || null,
+      prescription_date: intent.data.prescription_date || null,
+      doctor_name: intent.data.doctor_name || null,
+      notes: automationNotes,
+      total_amount: totalAmount,
+      gst_amount: gstAmount,
+      discount_amount: 0,
     status: "pending" as const,
     payment_status: "unpaid",
     created_by: userId || null,
@@ -832,5 +855,62 @@ export async function executeAutomationDraft(
     body: `${invoiceNumber} is saved as a pending sales order for review. Confirm it from Sales after stock, batch, and prescription checks.`,
     recordType: "sales_orders",
     recordId: data.id,
+  };
+  }
+
+  // Handle query_data intent
+  if (intent.type === "query_data") {
+    // Import executeNLQuery to avoid circular dependency
+    const { executeNLQuery } = await import("./queryEngine");
+    
+    const response = await executeNLQuery(supabase, {
+      query: intent.data.query,
+      company_id: companyId,
+      options: {
+        include_analysis: intent.data.options?.include_analysis,
+        format: intent.data.options?.format,
+      },
+    });
+
+    if (response.success && response.data) {
+      // Format results for chat display
+      const resultSummary = [
+        `Query: ${intent.data.query}`,
+        `Found ${response.row_count} rows`,
+        response.execution_time_ms && `Execution time: ${response.execution_time_ms}ms`,
+        response.sql && `SQL: ${response.sql}`,
+      ].filter(Boolean).join("\n");
+
+      // Show first few rows as preview
+      const preview = response.data.slice(0, 3).map((row) => 
+        Object.entries(row).map(([key, value]) => `${key}: ${value}`).join(", ")
+      ).join("\n");
+
+      return {
+        title: "Query Results",
+        body: [
+          resultSummary,
+          response.data.length > 0 ? `Preview:\n${preview}` : "No data found",
+          response.data.length > 3 ? `... and ${response.data.length - 3} more rows` : "",
+        ].filter(Boolean).join("\n\n"),
+        recordType: "query_result",
+        recordId: null,
+      };
+    } else {
+      return {
+        title: "Query Failed",
+        body: response.error?.message || "Failed to execute query",
+        recordType: "query_error",
+        recordId: null,
+      };
+    }
+  }
+
+  // Fallback for unknown intents
+  return {
+    title: "Unknown Intent",
+    body: `I couldn't understand what you want to do. Please try rephrasing your request.`,
+    recordType: "error",
+    recordId: null,
   };
 }

@@ -32,6 +32,7 @@ import DataImport from "./pages/DataImport";
 import ScanInvoice from "./pages/ScanInvoice";
 import CounterSales from "./pages/CounterSales";
 import Chat from "./pages/Chat";
+import QueryEngine from "./pages/QueryEngine";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
@@ -74,6 +75,7 @@ const App = () => (
                 <Route path="/scan-invoice" element={<ScanInvoice />} />
                 <Route path="/counter-sales" element={<CounterSales />} />
                 <Route path="/chat" element={<Chat />} />
+                <Route path="/query" element={<QueryEngine />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />

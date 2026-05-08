@@ -583,6 +583,21 @@ export default function SuperAdmin() {
                             </TableCell>
                             <TableCell>{getCompanyName(profile.company_id)}</TableCell>
                             <TableCell>
+                              {(() => {
+                                const memberships = getUserCompanies(profile.user_id);
+                                if (memberships.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                                return (
+                                  <div className="space-y-0.5 max-w-[200px]">
+                                    {memberships.map(m => (
+                                      <div key={m.company_id} className="text-[11px] truncate">
+                                        {m.name} <span className="text-muted-foreground">· {m.role}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>
                               <Badge variant={getRoleBadgeVariant(role)}>{role.replace("_", " ")}</Badge>
                             </TableCell>
                             <TableCell>{profile.phone || "—"}</TableCell>

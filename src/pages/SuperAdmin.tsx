@@ -329,16 +329,29 @@ export default function SuperAdmin() {
     }
   };
 
-  const getCompanyAdmins = (companyId: string) => {
-    const companyProfiles = profiles?.filter(p => p.company_id === companyId) || [];
-    return companyProfiles.filter(p => {
-      const role = roles?.find(r => r.user_id === p.user_id);
-      return role?.role === "admin";
+  const getCompanyMembers = (companyId: string) => {
+    const memberIds = (userCompanies || []).filter(uc => uc.company_id === companyId);
+    return memberIds.map(uc => {
+      const profile = profiles?.find(p => p.user_id === uc.user_id);
+      return { user_id: uc.user_id, full_name: profile?.full_name || "Unknown", role: uc.role };
     });
   };
 
+  const getCompanyAdmins = (companyId: string) => {
+    return getCompanyMembers(companyId).filter(m => m.role === "admin");
+  };
+
   const getCompanyUserCount = (companyId: string) => {
-    return profiles?.filter(p => p.company_id === companyId).length || 0;
+    return getCompanyMembers(companyId).length;
+  };
+
+  const getUserCompanies = (userId: string) => {
+    return (userCompanies || [])
+      .filter(uc => uc.user_id === userId)
+      .map(uc => {
+        const c = companies?.find(co => co.id === uc.company_id);
+        return { company_id: uc.company_id, name: c?.name || "Unknown", role: uc.role };
+      });
   };
 
   const copyId = (id: string) => {

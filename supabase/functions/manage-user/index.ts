@@ -55,6 +55,65 @@ serve(async (req) => {
 
     const { action, userId, updates, companyId } = await req.json();
 
+    // ── List Users ──
+    if (action === "list_users") {
+      console.log("[manage-user] list_users called by", callingUser.id);
+      const { data: profiles, error: profilesError } = await adminClient
+        .from("profiles")
+        .select("user_id, full_name, company_id, phone")
+        .order("full_name", { ascending: true });
+
+      console.log("[manage-user] profiles query:", { count: profiles?.length ?? 0, error: profilesError?.message ?? null });
+
+      if (profilesError) {
+        return new Response(
+          JSON.stringify({ error: "Failed to load profiles: " + profilesError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const authUsers: Array<{ id: string; email?: string | null }> = [];
+      const perPage = 1000;
+      for (let page = 1; ; page += 1) {
+        const { data: usersPage, error: usersError } = await adminClient.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+
+        if (usersError) {
+          return new Response(
+            JSON.stringify({ error: "Failed to load auth users: " + usersError.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const users = usersPage.users || [];
+        authUsers.push(...users);
+        if (users.length < perPage) break;
+      }
+
+      console.log("[manage-user] auth users fetched:", authUsers.length);
+
+      const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+      const users = authUsers.map((authUser) => {
+        const profile = profileMap.get(authUser.id);
+        return {
+          user_id: authUser.id,
+          full_name: profile?.full_name || authUser.user_metadata?.full_name || "Unknown",
+          email: authUser.email || null,
+          company_id: profile?.company_id || null,
+          phone: profile?.phone || null,
+        };
+      });
+
+      console.log("[manage-user] returning users:", users.length);
+
+      return new Response(
+        JSON.stringify({ success: true, users }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ── Delete Company ──
     if (action === "delete_company") {
       if (!companyId) {

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy, UserPlus } from "lucide-react";
+import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy, UserPlus, AlertTriangle } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -22,6 +22,7 @@ type Company = Tables<"companies">;
 interface UserProfile {
   user_id: string;
   full_name: string;
+  email: string | null;
   company_id: string | null;
   phone: string | null;
 }
@@ -101,12 +102,26 @@ export default function SuperAdmin() {
     enabled: isSuperAdmin,
   });
 
-  const { data: profiles } = useQuery({
+  const { data: profiles, isLoading: profilesLoading, error: profilesError, refetch: refetchProfiles } = useQuery({
     queryKey: ["super-admin-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("user_id, full_name, company_id, phone");
-      if (error) throw error;
-      return data as UserProfile[];
+      try {
+        const { data, error } = await supabase.functions.invoke("manage-user", {
+          body: { action: "list_users" },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return (data?.users || []) as UserProfile[];
+      } catch (err: any) {
+        console.warn("[SuperAdmin] manage-user edge function failed, falling back to direct profiles query:", err?.message || err);
+        // Fallback: query profiles directly if edge function is unavailable or errors
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, company_id, phone")
+          .order("full_name", { ascending: true });
+        if (error) throw error;
+        return (data || []) as UserProfile[];
+      }
     },
     enabled: isSuperAdmin,
   });
@@ -333,12 +348,13 @@ export default function SuperAdmin() {
     const memberIds = (userCompanies || []).filter(uc => uc.company_id === companyId);
     return memberIds.map(uc => {
       const profile = profiles?.find(p => p.user_id === uc.user_id);
-      return { user_id: uc.user_id, full_name: profile?.full_name || "Unknown", role: uc.role };
+      const globalRole = getUserRole(uc.user_id);
+      return { user_id: uc.user_id, full_name: profile?.full_name || "Unknown", role: globalRole, companyRole: uc.role };
     });
   };
 
   const getCompanyAdmins = (companyId: string) => {
-    return getCompanyMembers(companyId).filter(m => m.role === "admin");
+    return getCompanyMembers(companyId).filter(m => m.role === "admin" || m.role === "super_admin");
   };
 
   const getCompanyUserCount = (companyId: string) => {
@@ -394,7 +410,15 @@ export default function SuperAdmin() {
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{profiles?.length || 0}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {profilesLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                profiles?.length || 0
+              )}
+            </div>
+          </CardContent>
         </Card>
       </div>
 
@@ -437,11 +461,11 @@ export default function SuperAdmin() {
                     <TableBody>
                       {companies?.map((company) => {
                         const members = getCompanyMembers(company.id);
-                        const admins = members.filter(m => m.role === "admin");
+                        const admins = members.filter(m => m.role === "admin" || m.role === "super_admin");
                         const userCount = members.length;
                         const currentUserProfile = profiles?.find(p => p.user_id === currentUser?.id);
                         const isOwnCompany = currentUserProfile?.company_id === company.id;
-                        const hasSuperAdmins = profiles?.some(p => p.company_id === company.id && getUserRole(p.user_id) === "super_admin");
+                        const hasSuperAdmins = members.some(m => m.role === "super_admin");
                         const canDeleteCompany = !isOwnCompany && !hasSuperAdmins;
                         const companyDeleteTitle = isOwnCompany ? "Cannot delete your own company" : hasSuperAdmins ? "Company has super admin users" : "Delete company";
                         return (
@@ -472,7 +496,7 @@ export default function SuperAdmin() {
                                 <div className="mt-1 space-y-0.5 max-w-[180px]">
                                   {members.slice(0, 4).map(m => (
                                     <div key={m.user_id} className="text-[10px] text-muted-foreground truncate">
-                                      {m.full_name} <span className="opacity-60">· {m.role}</span>
+                                      {m.full_name} <span className="opacity-60">· {m.companyRole}</span>
                                     </div>
                                   ))}
                                   {members.length > 4 && <div className="text-[10px] text-muted-foreground">+{members.length - 4} more</div>}
@@ -540,8 +564,28 @@ export default function SuperAdmin() {
               <CardDescription>Manage all platform users — edit roles, reassign companies, reset passwords, or delete</CardDescription>
             </CardHeader>
             <CardContent>
-              {!profiles?.length ? (
-                <div className="text-center py-8 text-muted-foreground">No users found.</div>
+              {profilesLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading users…</p>
+                </div>
+              ) : profilesError ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <AlertTriangle className="h-8 w-8 text-destructive" />
+                  <p className="text-sm text-destructive font-medium">Failed to load users</p>
+                  <p className="text-xs text-muted-foreground max-w-sm text-center">
+                    {(profilesError as Error)?.message || "Unknown error"}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => refetchProfiles()} className="gap-2 mt-1">
+                    <Loader2 className="h-3 w-3" /> Retry
+                  </Button>
+                </div>
+              ) : !profiles?.length ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No users found.</p>
+                  <p className="text-xs mt-1 opacity-70">Create a user or check the database connection.</p>
+                </div>
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -549,6 +593,7 @@ export default function SuperAdmin() {
                       <TableRow>
                         <TableHead>ID</TableHead>
                         <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
                         <TableHead>Active Company</TableHead>
                         <TableHead>Member Of</TableHead>
                         <TableHead>Role</TableHead>
@@ -580,6 +625,13 @@ export default function SuperAdmin() {
                                 {profile.full_name}
                                 {isSelf && <span className="text-xs text-muted-foreground ml-1">(you)</span>}
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              {profile.email ? (
+                                <span className="text-sm">{profile.email}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </TableCell>
                             <TableCell>{getCompanyName(profile.company_id)}</TableCell>
                             <TableCell>

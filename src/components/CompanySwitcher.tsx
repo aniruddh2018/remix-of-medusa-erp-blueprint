@@ -71,12 +71,25 @@ export function CompanySwitcher() {
         .eq("user_id", user.id);
       if (pErr) throw pErr;
 
-      // Replace user_roles with the role for the new company so RLS works
-      await supabase.from("user_roles").delete().eq("user_id", user.id);
-      await supabase.from("user_roles").insert({
-        user_id: user.id,
-        role: role as "admin" | "pharmacist" | "staff" | "super_admin",
-      });
+      // Check if user is super_admin — if so, NEVER touch user_roles
+      const { data: existingRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      const isSuperAdmin = (existingRoles || []).some((r) => r.role === "super_admin");
+
+      if (!isSuperAdmin) {
+        // Replace only non-super_admin roles with the role for the new company
+        await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", user.id)
+          .neq("role", "super_admin");
+        await supabase.from("user_roles").insert({
+          user_id: user.id,
+          role: role as "admin" | "pharmacist" | "staff" | "super_admin",
+        });
+      }
 
       toast({ title: "Company switched", description: "Reloading..." });
       window.location.reload();

@@ -139,6 +139,17 @@ serve(async (req) => {
           console.log("Failed to update role:", updateRoleError.message);
         }
       }
+
+      // Also register the user in user_companies so they appear in the company switcher
+      if (targetCompanyId) {
+        const { error: ucError } = await adminClient
+          .from("user_companies")
+          .upsert(
+            { user_id: newUser.user.id, company_id: targetCompanyId, role: role || "staff" },
+            { onConflict: "user_id,company_id" }
+          );
+        if (ucError) console.log("user_companies upsert error:", ucError.message);
+      }
     }
 
     return new Response(

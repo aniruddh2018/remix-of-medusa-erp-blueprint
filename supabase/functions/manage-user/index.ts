@@ -236,6 +236,17 @@ serve(async (req) => {
         }
       }
 
+      // Sync user_companies so the user appears in the company switcher
+      if (updates.companyId) {
+        const { error: ucError } = await adminClient
+          .from("user_companies")
+          .upsert(
+            { user_id: userId, company_id: updates.companyId, role: updates.role || "staff" },
+            { onConflict: "user_id,company_id" }
+          );
+        if (ucError) console.log("user_companies upsert error:", ucError.message);
+      }
+
       if (updates.email) {
         const { error: emailError } = await adminClient.auth.admin.updateUserById(userId, {
           email: updates.email,

@@ -65,31 +65,12 @@ export function CompanySwitcher() {
     }
     setSwitching(true);
     try {
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ company_id: companyId })
-        .eq("user_id", user.id);
-      if (pErr) throw pErr;
-
-      // Check if user is super_admin — if so, NEVER touch user_roles
-      const { data: existingRoles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-      const isSuperAdmin = (existingRoles || []).some((r) => r.role === "super_admin");
-
-      if (!isSuperAdmin) {
-        // Replace only non-super_admin roles with the role for the new company
-        await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", user.id)
-          .neq("role", "super_admin");
-        await supabase.from("user_roles").insert({
-          user_id: user.id,
-          role: role as "admin" | "pharmacist" | "staff" | "super_admin",
-        });
-      }
+      // Use the server RPC: it validates membership, updates profile,
+      // syncs user_roles for the new company, and preserves super_admin.
+      const { error } = await supabase.rpc("switch_active_company", {
+        _company_id: companyId,
+      });
+      if (error) throw error;
 
       toast({ title: "Company switched", description: "Reloading..." });
       window.location.reload();

@@ -329,16 +329,29 @@ export default function SuperAdmin() {
     }
   };
 
-  const getCompanyAdmins = (companyId: string) => {
-    const companyProfiles = profiles?.filter(p => p.company_id === companyId) || [];
-    return companyProfiles.filter(p => {
-      const role = roles?.find(r => r.user_id === p.user_id);
-      return role?.role === "admin";
+  const getCompanyMembers = (companyId: string) => {
+    const memberIds = (userCompanies || []).filter(uc => uc.company_id === companyId);
+    return memberIds.map(uc => {
+      const profile = profiles?.find(p => p.user_id === uc.user_id);
+      return { user_id: uc.user_id, full_name: profile?.full_name || "Unknown", role: uc.role };
     });
   };
 
+  const getCompanyAdmins = (companyId: string) => {
+    return getCompanyMembers(companyId).filter(m => m.role === "admin");
+  };
+
   const getCompanyUserCount = (companyId: string) => {
-    return profiles?.filter(p => p.company_id === companyId).length || 0;
+    return getCompanyMembers(companyId).length;
+  };
+
+  const getUserCompanies = (userId: string) => {
+    return (userCompanies || [])
+      .filter(uc => uc.user_id === userId)
+      .map(uc => {
+        const c = companies?.find(co => co.id === uc.company_id);
+        return { company_id: uc.company_id, name: c?.name || "Unknown", role: uc.role };
+      });
   };
 
   const copyId = (id: string) => {
@@ -423,8 +436,9 @@ export default function SuperAdmin() {
                     </TableHeader>
                     <TableBody>
                       {companies?.map((company) => {
-                        const admins = getCompanyAdmins(company.id);
-                        const userCount = getCompanyUserCount(company.id);
+                        const members = getCompanyMembers(company.id);
+                        const admins = members.filter(m => m.role === "admin");
+                        const userCount = members.length;
                         const currentUserProfile = profiles?.find(p => p.user_id === currentUser?.id);
                         const isOwnCompany = currentUserProfile?.company_id === company.id;
                         const hasSuperAdmins = profiles?.some(p => p.company_id === company.id && getUserRole(p.user_id) === "super_admin");
@@ -453,7 +467,17 @@ export default function SuperAdmin() {
                               {company.gst_number ? <span className="font-mono text-xs">{company.gst_number}</span> : <span className="text-muted-foreground">—</span>}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1"><Users className="h-3 w-3" />{userCount}</div>
+                              <div className="flex items-center gap-1 text-xs"><Users className="h-3 w-3" />{userCount}</div>
+                              {members.length > 0 && (
+                                <div className="mt-1 space-y-0.5 max-w-[180px]">
+                                  {members.slice(0, 4).map(m => (
+                                    <div key={m.user_id} className="text-[10px] text-muted-foreground truncate">
+                                      {m.full_name} <span className="opacity-60">· {m.role}</span>
+                                    </div>
+                                  ))}
+                                  {members.length > 4 && <div className="text-[10px] text-muted-foreground">+{members.length - 4} more</div>}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               {admins.length > 0 ? (
@@ -525,7 +549,8 @@ export default function SuperAdmin() {
                       <TableRow>
                         <TableHead>ID</TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Company</TableHead>
+                        <TableHead>Active Company</TableHead>
+                        <TableHead>Member Of</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -557,6 +582,21 @@ export default function SuperAdmin() {
                               </div>
                             </TableCell>
                             <TableCell>{getCompanyName(profile.company_id)}</TableCell>
+                            <TableCell>
+                              {(() => {
+                                const memberships = getUserCompanies(profile.user_id);
+                                if (memberships.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                                return (
+                                  <div className="space-y-0.5 max-w-[200px]">
+                                    {memberships.map(m => (
+                                      <div key={m.company_id} className="text-[11px] truncate">
+                                        {m.name} <span className="text-muted-foreground">· {m.role}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
                             <TableCell>
                               <Badge variant={getRoleBadgeVariant(role)}>{role.replace("_", " ")}</Badge>
                             </TableCell>

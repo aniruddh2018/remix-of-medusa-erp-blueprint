@@ -467,7 +467,17 @@ export default function SuperAdmin() {
                               {company.gst_number ? <span className="font-mono text-xs">{company.gst_number}</span> : <span className="text-muted-foreground">—</span>}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1"><Users className="h-3 w-3" />{userCount}</div>
+                              <div className="flex items-center gap-1 text-xs"><Users className="h-3 w-3" />{userCount}</div>
+                              {members.length > 0 && (
+                                <div className="mt-1 space-y-0.5 max-w-[180px]">
+                                  {members.slice(0, 4).map(m => (
+                                    <div key={m.user_id} className="text-[10px] text-muted-foreground truncate">
+                                      {m.full_name} <span className="opacity-60">· {m.role}</span>
+                                    </div>
+                                  ))}
+                                  {members.length > 4 && <div className="text-[10px] text-muted-foreground">+{members.length - 4} more</div>}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               {admins.length > 0 ? (

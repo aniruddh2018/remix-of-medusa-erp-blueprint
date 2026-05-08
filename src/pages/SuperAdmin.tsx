@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy } from "lucide-react";
+import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy, UserPlus } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -422,7 +422,19 @@ export default function SuperAdmin() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex justify-end">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedCompanyId(company.id);
+                                    setAdminRole(admins.length === 0 ? "admin" : "staff");
+                                    setAdminDialogOpen(true);
+                                  }}
+                                  title={admins.length === 0 ? "Add admin to this company" : "Add user to this company"}
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"

@@ -81,6 +81,12 @@ export default function SuperAdmin() {
   const [deletingCompanyId, setDeletingCompanyId] = useState("");
   const [deletingCompanyName, setDeletingCompanyName] = useState("");
 
+  // Assign existing user to company dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignUserId, setAssignUserId] = useState("");
+  const [assignCompanyId, setAssignCompanyId] = useState("");
+  const [assignRole, setAssignRole] = useState<"staff" | "pharmacist" | "admin">("staff");
+
   if (!isSuperAdmin) {
     return <Navigate to="/" replace />;
   }
@@ -114,6 +120,42 @@ export default function SuperAdmin() {
     },
     enabled: isSuperAdmin,
   });
+
+  const { data: userCompanies } = useQuery({
+    queryKey: ["super-admin-user-companies"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_companies")
+        .select("user_id, company_id, role");
+      if (error) throw error;
+      return data as { user_id: string; company_id: string; role: string }[];
+    },
+    enabled: isSuperAdmin,
+  });
+
+  const handleAssignUserToCompany = async () => {
+    if (!assignUserId || !assignCompanyId) {
+      toast({ title: "Select user and company", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.rpc("add_user_to_company", {
+        _user_id: assignUserId,
+        _company_id: assignCompanyId,
+        _role: assignRole,
+      });
+      if (error) throw error;
+      toast({ title: "User assigned", description: `Role: ${assignRole}. They can now switch to this company.` });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-user-companies"] });
+      setAssignDialogOpen(false);
+      setAssignUserId(""); setAssignCompanyId(""); setAssignRole("staff");
+    } catch (err: any) {
+      toast({ title: "Failed to assign", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const createCompanyMutation = useMutation({
     mutationFn: async () => {
@@ -311,7 +353,11 @@ export default function SuperAdmin() {
           <h1 className="text-responsive-xl font-bold">Super Admin</h1>
           <p className="text-muted-foreground text-responsive-sm">Manage companies, users, and administrators</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setAssignDialogOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Assign User to Company</span>
+          </Button>
           <Button variant="outline" onClick={() => setAdminDialogOpen(true)} className="gap-2">
             <ShieldCheck className="h-4 w-4" />
             <span className="hidden sm:inline">Create User</span>
@@ -698,6 +744,65 @@ export default function SuperAdmin() {
             <Button onClick={handleUpdateUser} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Existing User to Company Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign User to Company</DialogTitle>
+            <DialogDescription>Add an existing user to another company with a role. They can switch between companies from the header.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>User *</Label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
+                <SelectContent>
+                  {profiles?.map(p => (
+                    <SelectItem key={p.user_id} value={p.user_id}>
+                      {p.full_name} ({shortId(p.user_id)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Company *</Label>
+              <Select value={assignCompanyId} onValueChange={setAssignCompanyId}>
+                <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                <SelectContent>
+                  {companies?.filter(c => c.is_active).map(c => {
+                    const already = userCompanies?.some(uc => uc.user_id === assignUserId && uc.company_id === c.id);
+                    return (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} {already ? "— already member (will update role)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={assignRole} onValueChange={(v) => setAssignRole(v as "staff" | "pharmacist" | "admin")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAssignUserToCompany} disabled={isSubmitting || !assignUserId || !assignCompanyId}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Assign
             </Button>
           </DialogFooter>
         </DialogContent>

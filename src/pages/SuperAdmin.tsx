@@ -156,6 +156,8 @@ export default function SuperAdmin() {
       setIsSubmitting(false);
     }
   };
+
+  const createCompanyMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from("companies").insert({
         name: companyName,

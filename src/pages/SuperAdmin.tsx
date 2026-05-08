@@ -436,8 +436,9 @@ export default function SuperAdmin() {
                     </TableHeader>
                     <TableBody>
                       {companies?.map((company) => {
-                        const admins = getCompanyAdmins(company.id);
-                        const userCount = getCompanyUserCount(company.id);
+                        const members = getCompanyMembers(company.id);
+                        const admins = members.filter(m => m.role === "admin");
+                        const userCount = members.length;
                         const currentUserProfile = profiles?.find(p => p.user_id === currentUser?.id);
                         const isOwnCompany = currentUserProfile?.company_id === company.id;
                         const hasSuperAdmins = profiles?.some(p => p.company_id === company.id && getUserRole(p.user_id) === "super_admin");

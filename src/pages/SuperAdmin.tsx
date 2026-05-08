@@ -81,6 +81,12 @@ export default function SuperAdmin() {
   const [deletingCompanyId, setDeletingCompanyId] = useState("");
   const [deletingCompanyName, setDeletingCompanyName] = useState("");
 
+  // Assign existing user to company dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignUserId, setAssignUserId] = useState("");
+  const [assignCompanyId, setAssignCompanyId] = useState("");
+  const [assignRole, setAssignRole] = useState<"staff" | "pharmacist" | "admin">("staff");
+
   if (!isSuperAdmin) {
     return <Navigate to="/" replace />;
   }

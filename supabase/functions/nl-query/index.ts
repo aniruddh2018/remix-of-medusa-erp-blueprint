@@ -302,7 +302,13 @@ serve(async (req) => {
       );
     }
 
-    const userRole = (profile?.role as string) || "default";
+    const { data: roleRow } = await supabase
+      .from("user_companies")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("company_id", company_id)
+      .maybeSingle();
+    const userRole = (roleRow?.role as string) || (isSuperAdmin ? "super_admin" : "default");
     const maxRows = getMaxRows(userRole, options?.max_rows);
 
     // Get database schema for context

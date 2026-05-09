@@ -253,7 +253,7 @@ export async function getQueryTemplates(
 
     const { data, error } = await query.order("created_at", { ascending: false });
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getQueryTemplates error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch query templates" };
@@ -277,7 +277,7 @@ export async function getQueryTemplate(
       .eq("id", templateId)
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getQueryTemplate error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch query template" };
@@ -308,11 +308,11 @@ export async function saveQueryTemplate(
         query_type: input.query_type || "natural_language",
         default_format: input.default_format || "table",
         is_public: input.is_public || false,
-      })
+      } as any)
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("saveQueryTemplate error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to save query template" };
@@ -337,12 +337,12 @@ export async function updateQueryTemplate(
       .update({
         ...input,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", templateId)
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("updateQueryTemplate error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to update query template" };
@@ -396,7 +396,7 @@ export async function getCustomCalculations(
 
     const { data, error } = await query.order("created_at", { ascending: false });
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getCustomCalculations error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch custom calculations" };
@@ -420,7 +420,7 @@ export async function getCustomCalculation(
       .eq("id", calculationId)
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getCustomCalculation error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch custom calculation" };
@@ -451,11 +451,11 @@ export async function saveCustomCalculation(
         aggregation: input.aggregation || null,
         result_format: input.result_format || "number",
         is_public: input.is_public || false,
-      })
+      } as any)
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("saveCustomCalculation error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to save custom calculation" };
@@ -480,12 +480,12 @@ export async function updateCustomCalculation(
       .update({
         ...input,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", calculationId)
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("updateCustomCalculation error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to update custom calculation" };
@@ -533,7 +533,7 @@ export async function getDataFavorites(
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getDataFavorites error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch data favorites" };
@@ -563,7 +563,7 @@ export async function saveDataFavorite(
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("saveDataFavorite error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to save data favorite" };
@@ -590,7 +590,7 @@ export async function updateDataFavorite(
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("updateDataFavorite error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to update data favorite" };

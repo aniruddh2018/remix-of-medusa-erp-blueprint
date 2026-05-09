@@ -28,13 +28,16 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user: callingUser }, error: userError } = await userClient.auth.getUser();
-    if (userError || !callingUser) {
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error("[manage-user] getClaims failed:", claimsError?.message);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized: " + (claimsError?.message || "invalid token") }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const callingUser = { id: claimsData.claims.sub as string };
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 

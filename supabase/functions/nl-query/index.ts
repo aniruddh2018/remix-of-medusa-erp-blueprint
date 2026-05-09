@@ -269,11 +269,12 @@ serve(async (req) => {
     // Verify company membership and get role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("company_id, role")
+      .select("company_id")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (profileError) {
+      console.error("Profile lookup error:", profileError);
       return new Response(
         JSON.stringify({
           success: false,

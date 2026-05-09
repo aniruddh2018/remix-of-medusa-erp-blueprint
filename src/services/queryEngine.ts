@@ -153,7 +153,7 @@ export async function getQueryHistory(
 
     const { data, error } = await query;
 
-    return { data, error };
+    return { data: data as any, error };
   } catch (e) {
     console.error("getQueryHistory error:", e);
     return { data: null, error: e instanceof Error ? e.message : "Failed to fetch query history" };

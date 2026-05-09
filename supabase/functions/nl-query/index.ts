@@ -269,11 +269,12 @@ serve(async (req) => {
     // Verify company membership and get role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("company_id, role")
+      .select("company_id")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (profileError) {
+      console.error("Profile lookup error:", profileError);
       return new Response(
         JSON.stringify({
           success: false,
@@ -301,7 +302,13 @@ serve(async (req) => {
       );
     }
 
-    const userRole = (profile?.role as string) || "default";
+    const { data: roleRow } = await supabase
+      .from("user_companies")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("company_id", company_id)
+      .maybeSingle();
+    const userRole = (roleRow?.role as string) || (isSuperAdmin ? "super_admin" : "default");
     const maxRows = getMaxRows(userRole, options?.max_rows);
 
     // Get database schema for context

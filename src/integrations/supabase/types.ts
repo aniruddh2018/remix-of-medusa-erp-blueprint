@@ -405,6 +405,59 @@ export type Database = {
           },
         ]
       }
+      custom_calculations: {
+        Row: {
+          aggregation: string | null
+          company_id: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          formula: string
+          id: string
+          is_public: boolean | null
+          name: string
+          result_format: string | null
+          updated_at: string | null
+          variables: Json
+        }
+        Insert: {
+          aggregation?: string | null
+          company_id: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          formula: string
+          id?: string
+          is_public?: boolean | null
+          name: string
+          result_format?: string | null
+          updated_at?: string | null
+          variables?: Json
+        }
+        Update: {
+          aggregation?: string | null
+          company_id?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          formula?: string
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          result_format?: string | null
+          updated_at?: string | null
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_calculations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -451,6 +504,44 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_favorites: {
+        Row: {
+          created_at: string | null
+          filters: Json | null
+          id: string
+          name: string
+          query_template_id: string | null
+          saved_query_text: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          name: string
+          query_template_id?: string | null
+          saved_query_text?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          name?: string
+          query_template_id?: string | null
+          saved_query_text?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_favorites_query_template_id_fkey"
+            columns: ["query_template_id"]
+            isOneToOne: false
+            referencedRelation: "query_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1642,6 +1733,106 @@ export type Database = {
           },
         ]
       }
+      query_history: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          execution_time_ms: number | null
+          generated_sql: string | null
+          id: string
+          ip_address: unknown
+          query_text: string
+          query_type: string
+          row_count: number | null
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          execution_time_ms?: number | null
+          generated_sql?: string | null
+          id?: string
+          ip_address?: unknown
+          query_text: string
+          query_type?: string
+          row_count?: number | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          execution_time_ms?: number | null
+          generated_sql?: string | null
+          id?: string
+          ip_address?: unknown
+          query_text?: string
+          query_type?: string
+          row_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "query_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      query_templates: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          created_by: string
+          default_format: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          parameters: Json | null
+          query_text: string
+          query_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          created_by: string
+          default_format?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          parameters?: Json | null
+          query_text: string
+          query_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          created_by?: string
+          default_format?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          parameters?: Json | null
+          query_text?: string
+          query_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "query_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_order_items: {
         Row: {
           base_quantity: number | null
@@ -2211,6 +2402,10 @@ export type Database = {
         Args: { _batch_id: string; _notes?: string; _quantity: number }
         Returns: Json
       }
+      execute_readonly_query: {
+        Args: { max_rows?: number; query_sql: string }
+        Returns: Json
+      }
       get_current_financial_year: {
         Args: { _company_id: string }
         Returns: string
@@ -2220,7 +2415,9 @@ export type Database = {
         Args: { _company_id: string; _prefix?: string }
         Returns: string
       }
-      get_user_company_id: { Args: { _user_id: string }; Returns: string }
+      get_user_company_id:
+        | { Args: never; Returns: string }
+        | { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -3,9 +3,8 @@ import type { AutomationDraft, AutomationIntent } from "@/services/chatAutomatio
 
 export type AssistantIntentType =
   | "crud_action"
-  | "data_query"
-  | "insight_request"
   | "navigation_help"
+  | "redirect_to_query"
   | "clarification"
   | "unknown";
 
@@ -30,40 +29,33 @@ export interface ConversationMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
-  cards?: AssistantCard[];
+  meta?: {
+    intent?: string;
+    confidence?: number;
+  };
   draft?: AutomationDraft;
-  meta?: AssistantMeta;
   timestamp: string;
 }
-
-export type AssistantCard =
-  | { type: "table"; columns: string[]; rows: Record<string, unknown>[]; total_rows: number }
-  | { type: "chart"; chart_type: "bar" | "line" | "pie"; config: Record<string, unknown> }
-  | { type: "insight"; title: string; body: string; severity: "info" | "warning" | "critical" }
-  | { type: "link"; label: string; path: string; description: string }
-  | { type: "choice"; prompt: string; options: Array<{ label: string; value: string }> };
 
 export interface AssistantMeta {
   intent: AssistantIntentType;
   confidence: number;
-  sql?: string;
-  execution_time_ms?: number;
-  row_count?: number;
   crud_action?: CrudActionType;
 }
 
 export interface AssistantReply {
   text: string;
-  cards?: AssistantCard[];
-  draft?: AutomationDraft;
-  suggestions?: string[];
-  navigation?: { path: string; label: string };
+  draft?: {
+    intent: AutomationDraft["intent"];
+    channel: "chat";
+    originalText: string;
+  };
 }
 
 export interface AIAssistantRequest {
   message: string;
   conversation_id: string;
-  history: ConversationMessage[];
+  history: Pick<ConversationMessage, "id" | "role" | "text" | "meta">[];
   company_id: string;
   user_role: AppRole;
   business_type: string;
@@ -75,46 +67,3 @@ export interface AIAssistantResponse {
   meta: AssistantMeta;
   fallback_used?: boolean;
 }
-
-export interface ProactiveInsight {
-  id: string;
-  title: string;
-  body: string;
-  severity: "info" | "warning" | "critical";
-  category: "low_stock" | "overdue_payments" | "expiry_warning" | "sales_trend";
-  action?: { label: string; path: string };
-}
-
-export interface ProactiveInsightsResponse {
-  insights: ProactiveInsight[];
-  generated_at: string;
-}
-
-export const MAX_CONVERSATION_HISTORY = 20;
-
-export const HINT_CHIP_PRESETS: Record<string, string[]> = {
-  pharmacy: [
-    "Low stock items?",
-    "Expiring batches this month?",
-    "Overdue payments?",
-    "Top sellers this week",
-  ],
-  pharmacy_b2b: [
-    "Overdue payments?",
-    "Sales this month",
-    "Low stock items?",
-    "Top customers by revenue",
-  ],
-  b2b_electronics: [
-    "Sales this month",
-    "Overdue invoices?",
-    "Top products by revenue",
-    "Inventory value",
-  ],
-  general_trading: [
-    "Sales summary",
-    "Overdue payments?",
-    "Low stock items?",
-    "Revenue this quarter",
-  ],
-};

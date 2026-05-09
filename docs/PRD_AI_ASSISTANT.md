@@ -1,4 +1,4 @@
-# PRD: ERP AI Assistant
+# PRD: ERP Automation Chat — LLM Enhancement
 
 ## Document Metadata
 
@@ -14,319 +14,213 @@
 
 ## 1. Problem Statement
 
-The ERP has two disconnected AI surfaces:
+The ERP has two separate AI surfaces with fundamentally different scopes:
 
-1. **Automation Chat** (`/chat`) — regex-only intent parser that handles CRUD operations (create customer, product, payment, sale draft). Cannot answer questions, reason about data, or maintain conversation context.
-2. **Query Engine** (`/query`) — LLM-powered NL-to-SQL system that answers data questions but has no action capability and lives on a separate page.
+| | Automation Chat (`/chat`) | Query Engine (`/query`) |
+|-|---------------------------|-------------------------|
+| **Scope** | Write operations (CRUD) | Read-only queries |
+| **Access** | Full write access with guardrails | Read-only with RBAC |
+| **Current intelligence** | Regex-only parsing | LLM-powered (Gemini) |
+| **Confirmation** | Draft preview before save | N/A (read-only) |
+| **Page** | `/chat` | `/query` |
 
-Users must switch pages depending on whether they want to _do_ something or _ask_ something. Neither surface is conversational — the chat has no memory across turns, and the query engine is fire-and-forget.
+These are **two different products** and should never be merged. The Automation Chat is for doing things (creating records, recording payments, creating sales drafts). The Query Engine is for asking questions (read-only NL-to-SQL).
 
 ---
 
 ## 2. Vision
 
-Unify both surfaces into a single **AI Assistant** — a conversational copilot embedded in the existing Chat page that can:
+Enhance the **Automation Chat** page only — replacing the regex-only intent parser with an LLM-powered classifier that:
 
-- **Understand** free-text in natural language (LLM-powered, not regex)
-- **Act** — create customers, products, payments, sales drafts (existing automation)
-- **Answer** — query any ERP data (existing Query Engine)
-- **Reason** — chain actions and answers across turns ("Create a customer, then show me their outstanding balance")
-- **Guide** — help users navigate the app, understand features, and discover insights
-- **Remember** — maintain context within a session (prior messages, prior results, prior drafts)
+- **Understands** free-text natural language commands better than regex
+- **Extracts** structured entity data from messy input
+- **Shows** a confirmation draft before executing any write operation
+- **Falls back** to the existing regex parser when LLM is unavailable
+- **Remembers** the last N conversation turns for context
+
+The Query Engine page (`/query`) remains unchanged — it is the read-only NL query surface and should NOT be merged into the chat page.
 
 ---
 
-## 3. User Personas
+## 3. Scope Boundaries
+
+| Feature | Automation Chat (`/chat`) | Query Engine (`/query`) |
+|---------|---------------------------|-------------------------|
+| Create customer | ✅ | ❌ |
+| Create product | ✅ | ❌ |
+| Record payment | ✅ | ❌ |
+| Create sales draft | ✅ | ❌ |
+| Update records | ✅ (Phase 2) | ❌ |
+| Cancel order | ✅ (Phase 2) | ❌ |
+| Query sales data | ❌ → redirect to `/query` | ✅ |
+| Generate reports | ❌ → redirect to `/query` | ✅ |
+| Business insights | ❌ → redirect to `/query` | ✅ |
+| Navigation help | ✅ | ❌ |
+| Prescription attachment | ✅ | ❌ |
+
+---
+
+## 4. User Personas
 
 | Persona | Role | Primary Needs |
 |---------|------|---------------|
-| **Ravi** (Pharmacist) | `pharmacist` | Quick sale entry via text, stock lookups, expiry alerts, prescription handling |
-| **Meera** (Admin/Owner) | `admin` | Business insights, payment tracking, overdue monitoring, report generation |
-| **Arjun** (Staff) | `staff` | Simple CRUD (add customer, record payment), guided workflows |
-| **Vikram** (Super Admin) | `super_admin` | Cross-company queries, user management, audit investigation |
+| **Ravi** (Pharmacist) | `pharmacist` | Quick sale entry via text, prescription handling |
+| **Meera** (Admin/Owner) | `admin` | Quick customer/product creation without forms |
+| **Arjun** (Staff) | `staff` | Simple CRUD — add customer, record payment |
+| **Vikram** (Super Admin) | `super_admin` | Bulk record creation via text |
 
 ---
 
-## 4. Functional Requirements
+## 5. Functional Requirements
 
-### 4.1 Unified Chat Interface (Enhance `/chat`)
+### 5.1 LLM Intent Classification (Replace Regex)
 
-The existing Chat page becomes the AI Assistant. It gains:
+**FR-1.1**: Replace `parseAutomationText()` with an LLM call via `ai-assistant` edge function. Classify into: `crud_action`, `redirect_to_query`, `navigation_help`, `clarification`, `unknown`.
 
-- **LLM-backed intent resolution** instead of regex-only parsing
-- **Multi-turn conversation** with session memory
-- **Inline data results** (tables, charts) within chat bubbles
-- **Action confirmations** with rich previews (draft cards)
-- **Streaming responses** for perceived latency reduction
+**FR-1.2**: For `crud_action` intents, extract structured entity data (name, phone, GST, etc.) from free-text input.
 
-**FR-1.1**: Replace `parseAutomationText()` with an LLM call that classifies intent into: `crud_action`, `data_query`, `navigation_help`, `insight_request`, `clarification`, `unknown`.
+**FR-1.3**: If required fields are missing, return a response asking for them. Do NOT auto-create partial records.
 
-**FR-1.2**: Maintain a conversation session (server-side or client-side) with a sliding window of the last N messages for context.
+**FR-1.4**: If intent is `redirect_to_query` (user asks about data/reports), respond with: "For data queries, please use the Query Engine at /query. I handle automation commands like creating records and payments."
 
-**FR-1.3**: Render structured responses inline:
-- Table results → collapsible table card (max 20 rows preview, "View all" link)
-- Chart results → inline Recharts mini-chart (bar/line/pie)
-- Draft previews → existing draft card pattern (enhanced)
-- Navigation suggestions → clickable deep-links to ERP pages
+**FR-1.5**: Fall back to `parseAutomationText()` when:
+- LLM call fails (network error, 429, 402)
+- `fallback_used: true` is returned by edge function
+- Regex parser catches the intent (parallel execution for comparison)
 
-**FR-1.4**: Support streaming: show partial assistant responses token-by-token while LLM generates.
+### 5.2 Guardrails — Draft Before Write
 
-### 4.2 Action Capabilities (CRUD)
+**FR-2.1**: Never execute a write operation without explicit user confirmation.
 
-Preserve all existing automation capabilities, enhanced with LLM understanding:
+**FR-2.2**: Show a draft card with the parsed entity fields before saving.
 
-**FR-2.1**: All 4 existing CRUD intents remain: `create_customer`, `create_product`, `record_payment`, `create_sale_draft`.
+**FR-2.3**: User must reply "YES" or press "Publish Draft" to confirm.
 
-**FR-2.2**: Add new CRUD intents:
-- `update_customer` — "Change Raj Traders' phone to 9876543211"
-- `update_product` — "Update Crocin MRP to 40"
-- `cancel_order` — "Cancel invoice INV-1234"
+**FR-2.4**: User can reply "CANCEL" to discard at any time.
 
-**FR-2.3**: LLM extracts structured data from free-text, falling back to clarifying questions for missing required fields (instead of the current `missing[]` array approach which just lists them).
+**FR-2.5**: Smart sales resolution (`resolveSalesDraftSmart`) is preserved — product fuzzy-match and customer lookup before draft.
 
-**FR-2.4**: Smart sales resolution (`resolveSalesDraftSmart`) is triggered when the intent is `create_sale_draft`, preserving the existing product-fuzzy-match and customer-lookup flow.
+### 5.3 Supported CRUD Intents
 
-**FR-2.5**: Before executing any write action, show a confirmation draft card (existing pattern) with diff preview for updates.
+**Phase 1 (Current)**:
+- `create_customer` — name, phone, email, gst_number, address
+- `create_product` — name, manufacturer, mrp, purchase_price, sale_price, gst_percentage, unit, category
+- `record_payment` — party_name, amount, payment_method, notes
+- `create_sale_draft` — customer, items with product matching, doctor, prescription
 
-### 4.3 Query Capabilities (Data Questions)
+**Phase 2 (Next)**:
+- `update_customer` — find customer, update fields
+- `update_product` — find product, update fields
+- `cancel_order` — find and cancel invoice
 
-Integrate the Query Engine into the chat flow:
+### 5.4 Conversation Memory
 
-**FR-3.1**: When the intent is `data_query`, invoke the `nl-query` edge function with the user's question + company context.
+**FR-4.1**: Maintain conversation history (last 20 messages) for LLM context.
 
-**FR-3.2**: Render query results as inline table/charts within the chat, not on a separate page.
+**FR-4.2**: "New Conversation" button clears history.
 
-**FR-3.3**: Support follow-up refinement: "Now show me the same for last month" — the assistant re-executes with modified parameters using prior query context.
+**FR-4.3**: History is client-side only — never stored on server.
 
-**FR-3.4**: Apply the same RBAC rules as the Query Engine (role-based table/field/row access).
+### 5.5 Prescription Attachment
 
-**FR-3.5**: Support query result actions: export as CSV, save as template, bookmark result.
+**FR-5.1**: Preserve existing prescription image attachment flow.
 
-### 4.4 Insight & Proactive Capabilities
-
-**FR-4.1**: Support `insight_request` intent: "How's business doing?", "Any anomalies?", "What should I restock?"
-
-**FR-4.2**: The assistant can proactively suggest insights based on:
-- Low stock alerts ("3 products below reorder level")
-- Overdue payments ("2 customers have invoices overdue by 30+ days")
-- Expiry warnings ("5 batches expire within 30 days")
-- Sales trends ("Sales are down 12% this week vs last week")
-
-**FR-4.3**: Proactive suggestions appear as subtle hint chips above the input box, refreshed on page load and after each action.
-
-**FR-4.4**: Insights are scoped by RBAC: staff sees only their data; admin sees company-wide.
-
-### 4.5 Navigation & Help
-
-**FR-5.1**: Support `navigation_help` intent: "Where do I manage batches?", "How to create a credit note?", "Show me purchase return workflow."
-
-**FR-5.2**: Assistant responds with a step-by-step guide + deep link to the relevant page.
-
-**FR-5.3**: Surface keyboard shortcuts contextually: "You can press Ctrl+K anytime to search."
-
-### 4.6 Conversation Memory
-
-**FR-6.1**: Each chat session maintains a context window of the last 20 messages (user + assistant).
-
-**FR-6.2**: Context includes structured data: if a query returned results, the column names and summary stats are remembered (not the full row data).
-
-**FR-6.3**: Users can clear context: "Forget everything" or "Start a new conversation."
-
-**FR-6.4**: Session persists across page navigations within the same tab (stored in state, not localStorage for privacy).
+**FR-5.2**: Prescription is attached to the sales draft and uploaded when draft is published.
 
 ---
 
-## 5. Architecture
+---
 
-### 5.1 System Flow
+## 6. Architecture
+
+### 6.1 System Flow
 
 ```
-User types message
+User types "Add customer Raj Traders phone 9876543210"
        │
        ▼
 ┌─────────────────────────────────────┐
 │  Client: Chat.tsx                   │
-│  • Append to messages[]             │
-│  • Show streaming placeholder       │
-│  • POST to /ai-assistant edge fn    │
+│  • Push user message to UI          │
+│  • Call ai-assistant edge function  │
+│  • Show "Parsing..." loading state  │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────┐
 │  Edge Function: ai-assistant        │
 │                                     │
-│  1. Auth + Company verification     │
-│  2. Build system prompt with:       │
-│     - ERP schema (table/column map) │
-│     - Business type & config        │
-│     - User role & RBAC rules        │
-│     - Conversation history          │
-│  3. LLM call (Gemini) with tools:   │
-│     - classify_intent()             │
-│     - generate_sql()                │
-│     - extract_entities()            │
-│     - generate_response()           │
-│  4. Route by classified intent:     │
-│     ┌──────────┬─────────────┐      │
-│     │ crud     │ query       │      │
-│     │ → draft  │ → SQL exec  │      │
-│     │ → confirm│ → analysis  │      │
-│     └──────────┴─────────────┘      │
-│  5. Return structured response      │
+│  1. Auth + company verification     │
+│  2. Build system prompt             │
+│     (supported actions + history)   │
+│  3. LLM classify_intent() tool      │
+│  4. Route by intent:                │
+│     crud_action  → build draft      │
+│     redirect_to_query → suggest     │
+│     /query page                     │
+│     other      → respond + clarify  │
+│  5. Return reply + optional draft   │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────┐
-│  Client: Render response            │
-│  • Text bubble (narrative)          │
-│  • Table card (query results)       │
-│  • Chart card (analysis results)    │
-│  • Draft card (CRUD confirm)        │
-│  • Deep-link card (navigation)      │
-│  • Hint chips (proactive insights)  │
+│  Client: Chat.tsx                   │
+│                                     │
+│  If CRUD draft returned (≥0.7 conf):│
+│    → Show draft card with fields    │
+│    → User replies YES or presses    │
+│      Publish Draft                  │
+│    → executeAutomationDraft()       │
+│    → Invalidate React Query cache   │
+│    → Show success toast             │
+│                                     │
+│  If regex fallback triggered:       │
+│    → Same flow with parseAuto...()  │
 └─────────────────────────────────────┘
 ```
 
-### 5.2 Edge Function: `ai-assistant`
+### 6.2 Edge Function: `ai-assistant`
 
-A single unified edge function replaces the separate `nl-query` and `parse-order-text` functions for chat-originated requests. The existing functions remain for their dedicated pages (Query Engine, Scan Invoice).
+CRUD-only intent classifier. Replaces `parseAutomationText()` regex. Redirects queries to `/query`.
 
 **Input:**
-
 ```typescript
 interface AIAssistantRequest {
   message: string;
   conversation_id: string;
-  history: ConversationMessage[];  // last N messages, client-sent
+  history: { id, role, text, meta }[];
   company_id: string;
   user_role: AppRole;
-  business_type: BusinessType;
+  business_type: string;
 }
 ```
 
 **Output:**
-
 ```typescript
 interface AIAssistantResponse {
   conversation_id: string;
   reply: {
-    text: string;                          // Narrative text
-    cards?: AssistantCard[];               // Structured inline cards
-    draft?: AutomationDraft;               // Pending action draft
-    suggestions?: string[];               // Follow-up hint chips
-    navigation?: { path: string; label: string };
+    text: string;
+    draft?: { intent: AutomationIntent; channel: "chat"; originalText: string };
   };
   meta: {
-    intent: string;
+    intent: AssistantIntentType;
     confidence: number;
-    sql?: string;                          // If query was executed
-    execution_time_ms?: number;
-    row_count?: number;
+    crud_action?: CrudActionType;
   };
+  fallback_used?: boolean;
 }
-
-type AssistantCard =
-  | { type: "table"; columns: string[]; rows: Record<string, unknown>[]; total_rows: number }
-  | { type: "chart"; chart_type: "bar" | "line" | "pie"; config: Record<string, unknown> }
-  | { type: "insight"; title: string; body: string; severity: "info" | "warning" | "critical" }
-  | { type: "link"; label: string; path: string; description: string };
 ```
 
-### 5.3 LLM Tool Calling Strategy
-
-The edge function uses Gemini's function calling with these tools:
-
-| Tool | When Called | Returns |
-|------|------------|---------|
-| `classify_intent` | Always (first call) | Intent classification + extracted entities |
-| `generate_sql` | When intent = `data_query` or `insight_request` | Parameterized SQL |
-| `execute_write` | When intent = `crud_action` and confirmed | Draft object for preview |
-| `get_proactive_insights` | On session start or explicitly requested | List of insight objects |
-
-Two-call pattern for queries:
-1. **Call 1**: Classify intent + extract entities
-2. **Call 2**: Generate SQL (if query intent) or draft (if CRUD intent)
-
-### 5.4 Reuse Map
+### 6.3 Reuse Map
 
 | Existing Code | Reuse In |
 |---------------|----------|
-| `parseAutomationText()` | Fallback when LLM is unavailable or for latency-critical paths |
-| `resolveSalesDraftSmart()` | Product fuzzy-match + customer lookup when intent = `create_sale_draft` |
+| `parseAutomationText()` | Fallback when LLM unavailable |
+| `resolveSalesDraftSmart()` | Product fuzzy-match for `create_sale_draft` |
 | `executeAutomationDraft()` | Execute confirmed drafts |
-| `nl-query/index.ts` | SQL generation + validation + execution pattern (refactored into shared module) |
-| `src/lib/query/analysis.ts` | Trend/anomaly detection for insight responses |
-| `AuthContext` roles | RBAC enforcement |
-| `BusinessContext` config | Business-type-aware prompts |
-
----
-
-## 6. UI Design
-
-### 6.1 Enhanced Chat Layout
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  AI Assistant                                         [New Chat]│
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  🤖 Hi Meera! 3 things to look at today:                       │
-│     • 2 overdue payments (Rs 45,000)                            │
-│     • 5 batches expiring within 30 days                        │
-│     • Sales up 8% this week                                     │
-│                                                                 │
-│  👤 Show me the overdue payments                                │
-│                                                                 │
-│  🤖 Here are your overdue payments:                            │
-│  ┌──────────────────────────────────────────────┐              │
-│  │ Customer    │ Amount    │ Overdue By │ Invoice│              │
-│  │ Raj Traders │ Rs 25,000 │ 45 days    │ INV-89│              │
-│  │ MedPlus     │ Rs 20,000 │ 32 days    │ INV-92│              │
-│  └──────────────────────────────────────────────┘              │
-│  [Export CSV] [View All]                                        │
-│                                                                 │
-│  👤 Send a reminder to Raj Traders                              │
-│                                                                 │
-│  🤖 I can record a payment or add a note to their profile.     │
-│     What would you like to do?                                  │
-│     [Record Payment] [Add Note] [View Customer]                 │
-│                                                                 │
-│  👤 Add product Dolo 650 manufacturer Micro Labs mrp 32        │
-│                                                                 │
-│  🤖 Here's the product I'll create:                            │
-│  ┌────────────────────────────────────────┐                    │
-│  │ Create Product: Dolo 650               │                    │
-│  │ Manufacturer: Micro Labs               │                    │
-│  │ MRP: Rs 32  |  GST: 12%  |  Unit: pcs│                    │
-│  │ [Confirm] [Edit] [Cancel]              │                    │
-│  └────────────────────────────────────────┘                    │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Hint: "How's inventory?" "Top sellers this month" "Expiring?" │
-├─────────────────────────────────────────────────────────────────┤
-│  [📎] [Type a message...                              ] [Send]  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Response Card Components
-
-| Card Type | When Used | Component |
-|-----------|-----------|-----------|
-| **Table Card** | Query results | `AssistantTableCard` — collapsible table with max 20 row preview, export button |
-| **Chart Card** | Trend/comparison results | `AssistantChartCard` — inline Recharts mini-chart |
-| **Draft Card** | CRUD action preview | Enhanced existing draft card with Confirm/Edit/Cancel |
-| **Insight Card** | Proactive alerts | `AssistantInsightCard` — severity-colored card with icon |
-| **Link Card** | Navigation suggestions | `AssistantLinkCard` — clickable deep-link with description |
-| **Choice Card** | Clarification needed | `AssistantChoiceCard` — button group for disambiguation |
-
-### 6.3 Hint Chips
-
-Dynamic suggestion chips above the input box, updated after each exchange:
-
-- **On page load**: Business-health summary (overdue, low stock, expiry)
-- **After query**: "Refine this", "Export results", "Compare with last period"
-- **After CRUD**: "View record", "Create another", "Related actions"
-- **Idle (30s)**: "Ask me anything about your ERP data"
+| `buildDraft()` | Build draft from LLM-parsed intent |
+| `describeIntent()` | Render draft summary in chat |
 
 ---
 
@@ -336,220 +230,120 @@ Dynamic suggestion chips above the input box, updated after each exchange:
 
 | Metric | Target |
 |--------|--------|
-| First token latency (streaming) | < 2 seconds |
-| CRUD intent resolution (non-LLM fallback) | < 500ms |
-| Query execution + rendering | < 5 seconds (P95) |
-| Proactive insight generation | < 3 seconds (background) |
+| LLM intent classification | < 2 seconds (P95) |
+| Regex fallback | < 100ms |
+| Draft rendering after response | < 500ms |
 
 ### 7.2 Reliability
 
-- **LLM unavailable**: Fall back to existing `parseAutomationText()` regex parser for CRUD intents. Query intents get a graceful error with suggestion to use the Query Engine page directly.
-- **Edge function timeout**: 60 seconds (vs 30s for nl-query — higher limit for multi-step reasoning)
-- **Rate limiting**: 30 requests/minute per user (higher than Query Engine's 100/min because chat messages are smaller)
+- **LLM unavailable**: Fall back to `parseAutomationText()` regex parser for CRUD intents.
+- **Edge function timeout**: 30 seconds.
+- **Rate limiting**: 30 requests/minute per user.
 
 ### 7.3 Security
 
-- All existing security rules from `nl-query` apply: SELECT-only SQL, company_id enforcement, forbidden keywords, RLS
-- CRUD actions require explicit user confirmation (draft card) before execution
-- Conversation history is client-side only, never stored on server (privacy)
-- Proactive insights are scoped by RBAC
-- No PII in LLM prompts — customer names/phones are referenced by ID when possible, only included when necessary for the action
+- CRUD actions require explicit confirmation (draft card) — never auto-execute.
+- Conversation history is client-side only (never stored server-side).
+- Company isolation enforced via auth + profile verification.
+- No PII transmitted to LLM unnecessarily.
 
 ### 7.4 Cost
 
 | Component | Est. Cost/Month (1000 users) |
 |-----------|-------------------------------|
-| Gemini 2.5 Flash (classify + generate) | ~$15 |
-| Gemini 2.5 Flash (query SQL generation) | ~$10 |
-| Supabase Edge Function compute | ~$5 |
-| **Total** | **~$30/month** |
+| Gemini 2.5 Flash (intent classification) | ~$5 |
+| Supabase Edge Function compute | ~$2 |
+| **Total** | **~$7/month** |
 
 ---
 
 ## 8. Implementation Phases
 
-### Phase 1: LLM Intent Router (Week 1)
+### Phase 1: LLM Intent Router (COMPLETE)
 
-| # | Task | Depends On |
-|---|------|------------|
-| 1.1 | Create `supabase/functions/ai-assistant/index.ts` edge function | - |
-| 1.2 | Implement intent classification via Gemini function calling | 1.1 |
-| 1.3 | Route CRUD intents to existing `parseAutomationText()` + `executeAutomationDraft()` | 1.2 |
-| 1.4 | Route query intents to existing `nl-query` logic (refactored as shared module) | 1.2 |
-| 1.5 | Update `Chat.tsx` to call `ai-assistant` instead of local `parseAutomationText()` | 1.3, 1.4 |
-| 1.6 | Add conversation history management (client-side sliding window) | 1.5 |
+| # | Task | Status |
+|---|------|--------|
+| 1.1 | Type definitions `src/types/aiAssistant.ts` | ✅ Complete |
+| 1.2 | Edge function `supabase/functions/ai-assistant/index.ts` | ✅ Complete |
+| 1.3 | Service layer `src/services/aiAssistant.ts` | ✅ Complete |
+| 1.4 | Chat.tsx integration (LLM first, regex fallback) | ✅ Complete |
+| 1.5 | Conversation history (client-side, 20 message window) | ✅ Complete |
 
-**Deliverable**: Chat page uses LLM for understanding, but behavior is identical to current (CRUD + query).
+**Deliverable**: Automation Chat now uses LLM for intent classification with regex fallback. Behavior is identical to original for CRUD operations.
 
-### Phase 2: Rich Response Cards (Week 2)
+### Phase 2: Extended CRUD (Next)
 
-| # | Task | Depends On |
-|---|------|------------|
-| 2.1 | Build `AssistantTableCard` component | - |
-| 2.2 | Build `AssistantChartCard` component (Recharts) | - |
-| 2.3 | Build `AssistantInsightCard` component | - |
-| 2.4 | Build `AssistantLinkCard` component | - |
-| 2.5 | Build `AssistantChoiceCard` component | - |
-| 2.6 | Update `Chat.tsx` message rendering to support card types | 2.1–2.5 |
-| 2.7 | Add export buttons to table cards (CSV via existing `export.ts`) | 2.1 |
+| # | Task |
+|---|------|
+| 2.1 | Add `update_customer` intent — find customer by name/phone, update fields |
+| 2.2 | Add `update_product` intent — find product, update MRP/price/etc |
+| 2.3 | Add `cancel_order` intent — find invoice, cancel with confirmation |
 
-**Deliverable**: Query results and insights render as rich cards inside chat.
+### Phase 3: UX Improvements (Future)
 
-### Phase 3: Proactive Insights (Week 3)
-
-| # | Task | Depends On |
-|---|------|------------|
-| 3.1 | Create `get_proactive_insights()` in edge function | Phase 1 |
-| 3.2 | Implement insight queries: low stock, overdue payments, expiry warnings, sales trends | 3.1 |
-| 3.3 | Add hint chip component above chat input | - |
-| 3.4 | Load insights on page mount (background fetch) | 3.2, 3.3 |
-| 3.5 | Refresh insights after CRUD actions | 3.4 |
-| 3.5 | RBAC-scope insights by user role | 3.2 |
-
-**Deliverable**: Assistant proactively surfaces relevant business alerts.
-
-### Phase 4: Multi-Turn Reasoning (Week 4)
-
-| # | Task | Depends On |
-|---|------|------------|
-| 4.1 | Implement conversation context in LLM prompt (last 20 messages) | Phase 1 |
-| 4.2 | Support follow-up query refinement ("same for last month") | 4.1 |
-| 4.3 | Support chained actions ("create customer, then show their balance") | 4.1 |
-| 4.4 | Add "New Conversation" button to clear context | 4.1 |
-| 4.5 | Streaming responses (SSE from edge function) | Phase 1 |
-
-**Deliverable**: Conversational AI that maintains context and chains actions.
-
-### Phase 5: Extended CRUD + Navigation (Week 5)
-
-| # | Task | Depends On |
-|---|------|------------|
-| 5.1 | Add `update_customer`, `update_product` intents | Phase 1 |
-| 5.2 | Add `cancel_order` intent | Phase 1 |
-| 5.3 | Add `navigation_help` intent with page deep-links | Phase 1 |
-| 5.4 | Build step-by-step guide rendering for help responses | 5.3 |
-| 5.5 | Add keyboard shortcut hints contextually | 5.3 |
-
-**Deliverable**: Full CRUD coverage + in-app navigation help.
+| # | Task |
+|---|------|
+| 3.1 | Show parsed field values in draft card (not just summary text) |
+| 3.2 | Better clarification messages when missing fields |
+| 3.3 | Quick-add shortcuts for common actions |
 
 ---
 
 ## 9. Success Metrics
 
-| Metric | Baseline (Current) | Target (3 months) |
-|--------|--------------------|--------------------|
-| Chat DAU | ~5% of active users | 25% of active users |
-| Avg. messages per session | 1.8 (fire-and-forget) | 5+ (conversational) |
+| Metric | Baseline | Target |
+|--------|----------|--------|
 | Intent resolution accuracy | ~70% (regex) | 92%+ (LLM) |
-| CRUD via chat | 4 intent types | 7+ intent types |
-| Query via chat | 0% (separate page) | 60% of queries originate from chat |
-| Proactive insight click-through | N/A | 15%+ |
+| Chat sessions per day | ~10 | 50+ |
+| CRUD actions via chat | 4 intent types | 7 intent types |
+| Regex fallback usage | N/A | < 5% of sessions |
 
 ---
 
 ## 10. Risks & Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| LLM latency frustrates users | Medium | High | Streaming responses + non-LLM fallback for simple CRUD |
-| LLM hallucinates SQL or actions | Medium | Critical | SQL validation layer (existing), confirmation drafts before writes, never auto-execute |
-| Cost overrun from heavy usage | Low | Medium | Rate limiting, cache common queries, sliding context window |
-| Regex fallback divergence from LLM | Low | Low | Shared test suite; LLM is primary, regex is backup |
-| PII leakage to LLM | Medium | Critical | Strip PII from prompts where possible, use IDs over names in SQL generation prompts |
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| LLM misclassifies intent | Medium | Regex fallback always available; confirmation draft before any write |
+| LLM returns malformed entities | Low | Validate crud_action against VALID_CRUD_ACTIONS list; check missing fields |
+| Cost overrun | Low | Rate limiting (30 req/min); simple single-call classification |
 
 ---
 
 ## 11. Open Questions
 
-1. **Should conversation history persist across sessions?** Current proposal: no (client-side only, lost on refresh). Alternative: store in `query_history`-like table with RLS. Trade-off is privacy vs. continuity.
-2. **Streaming protocol**: SSE vs. WebSocket? SSE is simpler and works with Supabase Edge Functions. WebSocket enables true bi-directional but adds complexity.
-3. **Model selection**: Gemini 2.5 Flash for all calls, or use Flash for classification and Pro for SQL generation? Cost vs. accuracy trade-off.
-4. **Mobile responsiveness**: The current chat layout uses `lg:grid-cols-[minmax(0,1fr)_320px]`. The assistant should work well on mobile with the sidebar collapsed.
+1. **Should update operations show a before/after diff in the draft card?** (e.g., "MRP will change from 35 to 40")
+2. **How should cancel_order handle partially shipped invoices?** Require admin role confirmation.
 
 ---
 
-## Appendix A: Current vs. Proposed Intent Matrix
+## Appendix A: Intent Matrix
 
-| Intent | Current (Regex) | Proposed (LLM) | Example |
-|--------|-----------------|-----------------|---------|
-| create_customer | ✅ | ✅ Enhanced | "Add customer Raj Traders phone 9876543210" |
-| create_product | ✅ | ✅ Enhanced | "Add product Crocin 650 mrp 35" |
-| record_payment | ✅ | ✅ Enhanced | "Record Rs 2500 from Raj Traders via UPI" |
-| create_sale_draft | ✅ | ✅ Enhanced | "Sale for Raj Traders: 10 Crocin @ 35" |
-| query_data | ✅ (basic) | ✅ Enhanced | "Show me total sales this month" |
-| update_customer | ❌ | ✅ New | "Change Raj Traders' phone to 9876543211" |
-| update_product | ❌ | ✅ New | "Update Crocin MRP to 40" |
-| cancel_order | ❌ | ✅ New | "Cancel invoice INV-1234" |
-| insight_request | ❌ | ✅ New | "How's business doing?" |
-| navigation_help | ❌ | ✅ New | "Where do I manage batches?" |
-| clarification | ❌ | ✅ New | (LLM-triggered when ambiguous) |
-| unknown | ✅ (generic) | ✅ (guided) | "I didn't understand. Did you mean..." |
+| Intent | Current (Regex) | LLM-Enhanced | Example |
+|--------|-----------------|--------------|---------|
+| create_customer | ✅ | ✅ | "Add customer Raj Traders phone 9876543210" |
+| create_product | ✅ | ✅ | "Add product Crocin 650 mrp 35" |
+| record_payment | ✅ | ✅ | "Record Rs 2500 from Raj Traders via UPI" |
+| create_sale_draft | ✅ | ✅ | "Sale for Raj Traders: 10 Crocin @ 35" |
+| update_customer | ❌ | ✅ (Phase 2) | "Change Raj Traders' phone to 9876543211" |
+| update_product | ❌ | ✅ (Phase 2) | "Update Crocin MRP to 40" |
+| cancel_order | ❌ | ✅ (Phase 2) | "Cancel invoice INV-1234" |
+| query_data | ✅ (separate page) | ❌ → `/query` | Redirects to Query Engine |
+| insight_request | ❌ | ❌ → `/query` | Redirects to Query Engine |
+| unknown | ✅ | ✅ (regex fallback) | "I couldn't understand..." |
 
 ---
 
-## Appendix B: Database Changes
+## Appendix B: Scope Boundaries
 
-No new tables required for Phase 1-3. Conversation history is client-side.
-
-**Phase 4+** (optional, if server-side persistence is chosen):
-
-```sql
-CREATE TABLE assistant_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) NOT NULL,
-  company_id UUID REFERENCES companies(id) NOT NULL,
-  title VARCHAR(255),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE assistant_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID REFERENCES assistant_conversations(id) ON DELETE CASCADE NOT NULL,
-  role VARCHAR(20) NOT NULL, -- 'user' | 'assistant'
-  content JSONB NOT NULL,    -- { text, cards?, draft?, meta? }
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE assistant_conversations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY conv_user_isolation ON assistant_conversations
-  FOR ALL USING (user_id = auth.uid());
-
-ALTER TABLE assistant_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY msg_user_isolation ON assistant_messages
-  FOR ALL USING (
-    conversation_id IN (
-      SELECT id FROM assistant_conversations WHERE user_id = auth.uid()
-    )
-  );
 ```
-
----
-
-## Appendix C: Edge Function Skeleton
-
-```typescript
-// supabase/functions/ai-assistant/index.ts
-// High-level structure
-
-Deno.serve(async (req) => {
-  // 1. Auth + company verification
-  // 2. Parse request body (message, history, company_id, role, business_type)
-  // 3. Build system prompt:
-  //    - ERP schema (tables, columns, relationships)
-  //    - Business type features (pharmacy vs electronics)
-  //    - Role permissions (what tables/fields they can access)
-  //    - Available tools and their schemas
-  // 4. Call Gemini with tools:
-  //    - classify_intent(message, history) -> { intent, entities, confidence }
-  // 5. Route by intent:
-  //    - crud_action -> extract_entities + build draft -> return draft card
-  //    - data_query  -> generate_sql + validate + execute -> return table/chart card
-  //    - insight_request -> build insight queries + execute -> return insight cards
-  //    - navigation_help -> match to page -> return link card
-  //    - clarification -> return choice card
-  // 6. Return structured AIAssistantResponse
-});
+AUTOMATION CHAT (/chat)          QUERY ENGINE (/query)
+─────────────────────────        ─────────────────────
+Create records (write)           Ask questions (read-only)
+Draft → confirm → execute        NL query → SQL → table/chart
+Prescription attachments         No write operations
+Smart sales resolution           RBAC-scoped results
+LLM + regex parser               LLM SQL generator only
 ```
 
 ---

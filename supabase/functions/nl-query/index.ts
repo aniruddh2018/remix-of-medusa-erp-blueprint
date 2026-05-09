@@ -473,42 +473,32 @@ Remember: Always filter by company_id = '${company_id}' and add LIMIT ${maxRows}
     let error: any = null;
 
     try {
-      // Execute with a timeout using Promise.race
-      const queryPromise = supabase.rpc("execute_query", { sql: validation.sanitized });
+      const queryPromise = supabase.rpc("execute_readonly_query", {
+        query_sql: validation.sanitized,
+        max_rows: maxRows,
+      });
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Query timeout")), 30000);
       });
-
       const result = await Promise.race([queryPromise, timeoutPromise]) as any;
       data = result.data;
       error = result.error;
     } catch (execError) {
-      // Fallback: Try direct query execution with limited permissions
-      try {
-        // Use a raw query with the supabase client
-        const { data: rawData, error: rawError } = await supabase.rpc("execute_readonly_query", {
-          query_sql: validation.sanitized,
-          max_rows: maxRows,
-        });
-        data = rawData;
-        error = rawError;
-      } catch (fallbackError) {
-        console.error("Query execution failed:", fallbackError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            execution_time_ms: Date.now() - startTime,
-            row_count: 0,
-            sql: generatedSQL,
-            error: {
-              type: "EXECUTION_FAILED",
-              message: execError instanceof Error ? execError.message : "Query execution failed",
-              suggestion: "Try simplifying your query or contact support",
-            },
-          } as NLQueryResponse),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      console.error("Query execution failed:", execError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          execution_time_ms: Date.now() - startTime,
+          row_count: 0,
+          sql: generatedSQL,
+          error: {
+            type: "EXECUTION_FAILED",
+            message: execError instanceof Error ? execError.message : "Query execution failed",
+            suggestion: "Try simplifying your query or contact support",
+          },
+        } as NLQueryResponse),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (error) {

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Navigate } from "react-router-dom";
@@ -13,9 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
-  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus,
+  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus, Search, Check,
 } from "lucide-react";
+
+interface ProductOption {
+  id: string;
+  name: string;
+  mrp: number | null;
+}
 
 interface LineItem {
   product_name: string;
@@ -72,6 +80,18 @@ export default function ScanInvoice() {
   const [saving, setSaving] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedInvoice | null>(null);
   const [saved, setSaved] = useState(false);
+  const [allProducts, setAllProducts] = useState<ProductOption[]>([]);
+  const [productPickerOpen, setProductPickerOpen] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase
+      .from("products")
+      .select("id, name, mrp")
+      .eq("company_id", companyId)
+      .order("name")
+      .then(({ data }) => setAllProducts((data as ProductOption[]) || []));
+  }, [companyId]);
 
   if (authLoading) return null;
   if (!user) return <Navigate to="/auth" replace />;
@@ -302,19 +322,19 @@ export default function ScanInvoice() {
               <ScanLine className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Upload Invoice Images</CardTitle>
-              <CardDescription>Upload one or more images (JPEG, PNG, WebP) of the same invoice. Multi-page invoices? Add each page as a separate image.</CardDescription>
+              <CardTitle className="text-lg">Upload Invoice Files</CardTitle>
+              <CardDescription>Upload images (JPEG, PNG, WebP) or PDF files. Multi-page invoices? Add each page as a separate file.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-3">
             <div className="flex-1">
-              <Label>Select Image(s)</Label>
+              <Label>Select File(s)</Label>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 multiple
                 onChange={handleFilesSelect}
                 className="mt-1"
@@ -529,7 +549,62 @@ export default function ScanInvoice() {
                     {extracted.line_items.map((item, i) => (
                       <TableRow key={i}>
                         <TableCell>
-                          <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
+                          <div className="flex items-center gap-1">
+                            <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
+                            <Popover open={productPickerOpen === i} onOpenChange={(o) => setProductPickerOpen(o ? i : null)}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Pick existing product">
+                                  <Search className="h-3.5 w-3.5" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="p-0 w-80" align="end">
+                                <Command>
+                                  <CommandInput placeholder="Search products..." />
+                                  <CommandList>
+                                    <CommandEmpty>No products found.</CommandEmpty>
+                                    <CommandGroup>
+                                      <CommandItem
+                                        onSelect={() => {
+                                          if (!extracted) return;
+                                          const items = [...extracted.line_items];
+                                          items[i] = { ...items[i], matched_product_id: null, matched_product_name: null };
+                                          setExtracted({ ...extracted, line_items: items });
+                                          setProductPickerOpen(null);
+                                        }}
+                                      >
+                                        <span className="text-muted-foreground">— Create as new product —</span>
+                                      </CommandItem>
+                                      {allProducts.map((p) => (
+                                        <CommandItem
+                                          key={p.id}
+                                          value={p.name}
+                                          onSelect={() => {
+                                            if (!extracted) return;
+                                            const items = [...extracted.line_items];
+                                            items[i] = {
+                                              ...items[i],
+                                              matched_product_id: p.id,
+                                              matched_product_name: p.name,
+                                              product_name: p.name,
+                                            };
+                                            setExtracted({ ...extracted, line_items: items });
+                                            setProductPickerOpen(null);
+                                          }}
+                                        >
+                                          {item.matched_product_id === p.id && <Check className="h-3 w-3 mr-2" />}
+                                          <span className="truncate">{p.name}</span>
+                                          {p.mrp != null && <span className="ml-auto text-xs text-muted-foreground">₹{p.mrp}</span>}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          {item.matched_product_name && item.matched_product_name !== item.product_name && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5 truncate">→ {item.matched_product_name}</div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input value={item.batch_number || ""} onChange={(e) => updateLineItem(i, "batch_number", e.target.value)} className="text-xs h-8" />

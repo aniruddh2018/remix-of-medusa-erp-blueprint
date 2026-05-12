@@ -534,7 +534,7 @@ export default function ScanInvoice() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[180px]">Product</TableHead>
+                      <TableHead className="min-w-[320px]">Product</TableHead>
                       <TableHead className="min-w-[100px]">Batch</TableHead>
                       <TableHead className="min-w-[120px]">Expiry</TableHead>
                       <TableHead className="w-20">Qty</TableHead>

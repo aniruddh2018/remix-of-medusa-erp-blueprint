@@ -82,6 +82,7 @@ export default function ScanInvoice() {
   const [saved, setSaved] = useState(false);
   const [allProducts, setAllProducts] = useState<ProductOption[]>([]);
   const [productPickerOpen, setProductPickerOpen] = useState<number | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
 
   useEffect(() => {
     if (!companyId) return;
@@ -533,7 +534,7 @@ export default function ScanInvoice() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[180px]">Product</TableHead>
+                      <TableHead className="min-w-[320px]">Product</TableHead>
                       <TableHead className="min-w-[100px]">Batch</TableHead>
                       <TableHead className="min-w-[120px]">Expiry</TableHead>
                       <TableHead className="w-20">Qty</TableHead>
@@ -550,20 +551,46 @@ export default function ScanInvoice() {
                       <TableRow key={i}>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
-                            <Popover open={productPickerOpen === i} onOpenChange={(o) => setProductPickerOpen(o ? i : null)}>
+                            <Input
+                              value={item.product_name}
+                              onChange={(e) => updateLineItem(i, "product_name", e.target.value)}
+                              className="text-sm h-9 flex-1 min-w-0"
+                              title={item.product_name}
+                            />
+                            <Popover
+                              open={productPickerOpen === i}
+                              onOpenChange={(o) => {
+                                setProductPickerOpen(o ? i : null);
+                                if (o) setPickerQuery(item.product_name || "");
+                              }}
+                            >
                               <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Pick existing product">
-                                  <Search className="h-3.5 w-3.5" />
+                                <Button
+                                  variant={item.matched_product_id ? "outline" : "default"}
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0"
+                                  title="Search & link existing product"
+                                >
+                                  <Search className="h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="p-0 w-80" align="end">
-                                <Command>
-                                  <CommandInput placeholder="Search products..." />
-                                  <CommandList>
-                                    <CommandEmpty>No products found.</CommandEmpty>
-                                    <CommandGroup>
+                              <PopoverContent className="p-0 w-[420px]" align="end">
+                                <Command shouldFilter={true}>
+                                  <CommandInput
+                                    placeholder="Search products by name…"
+                                    value={pickerQuery}
+                                    onValueChange={setPickerQuery}
+                                    autoFocus
+                                  />
+                                  <CommandList className="max-h-[320px]">
+                                    <CommandEmpty>
+                                      <div className="py-2 text-center text-xs text-muted-foreground">
+                                        No matching product. It will be created as new.
+                                      </div>
+                                    </CommandEmpty>
+                                    <CommandGroup heading="Actions">
                                       <CommandItem
+                                        value="__create_new__"
                                         onSelect={() => {
                                           if (!extracted) return;
                                           const items = [...extracted.line_items];
@@ -572,12 +599,14 @@ export default function ScanInvoice() {
                                           setProductPickerOpen(null);
                                         }}
                                       >
-                                        <span className="text-muted-foreground">— Create as new product —</span>
+                                        <span className="text-primary font-medium">+ Create as new product</span>
                                       </CommandItem>
+                                    </CommandGroup>
+                                    <CommandGroup heading={`Existing products (${allProducts.length})`}>
                                       {allProducts.map((p) => (
                                         <CommandItem
                                           key={p.id}
-                                          value={p.name}
+                                          value={`${p.name} ${p.id}`}
                                           onSelect={() => {
                                             if (!extracted) return;
                                             const items = [...extracted.line_items];
@@ -586,14 +615,21 @@ export default function ScanInvoice() {
                                               matched_product_id: p.id,
                                               matched_product_name: p.name,
                                               product_name: p.name,
+                                              mrp: p.mrp ?? items[i].mrp,
                                             };
                                             setExtracted({ ...extracted, line_items: items });
                                             setProductPickerOpen(null);
                                           }}
                                         >
-                                          {item.matched_product_id === p.id && <Check className="h-3 w-3 mr-2" />}
-                                          <span className="truncate">{p.name}</span>
-                                          {p.mrp != null && <span className="ml-auto text-xs text-muted-foreground">₹{p.mrp}</span>}
+                                          {item.matched_product_id === p.id ? (
+                                            <Check className="h-3.5 w-3.5 mr-2 text-primary shrink-0" />
+                                          ) : (
+                                            <span className="w-3.5 mr-2 shrink-0" />
+                                          )}
+                                          <span className="flex-1 truncate">{p.name}</span>
+                                          {p.mrp != null && (
+                                            <span className="ml-2 text-xs text-muted-foreground shrink-0">₹{p.mrp}</span>
+                                          )}
                                         </CommandItem>
                                       ))}
                                     </CommandGroup>

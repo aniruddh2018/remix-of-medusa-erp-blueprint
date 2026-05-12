@@ -327,7 +327,7 @@ export default function Chat() {
           }
         }
 
-        if (response.reply?.draft?.intent && intentData?.missing?.length > 0) {
+        if (response.reply?.draft?.intent && (response.reply.draft.intent as any)?.missing?.length > 0) {
           pushMessages(buildConversationMessage("assistant", response.reply.text));
           setIsLoading(false);
           return;

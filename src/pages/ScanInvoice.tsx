@@ -330,11 +330,11 @@ export default function ScanInvoice() {
         <CardContent className="space-y-4">
           <div className="flex gap-3">
             <div className="flex-1">
-              <Label>Select Image(s)</Label>
+              <Label>Select File(s)</Label>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 multiple
                 onChange={handleFilesSelect}
                 className="mt-1"

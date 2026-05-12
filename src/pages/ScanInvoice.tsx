@@ -322,8 +322,8 @@ export default function ScanInvoice() {
               <ScanLine className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Upload Invoice Images</CardTitle>
-              <CardDescription>Upload one or more images (JPEG, PNG, WebP) of the same invoice. Multi-page invoices? Add each page as a separate image.</CardDescription>
+              <CardTitle className="text-lg">Upload Invoice Files</CardTitle>
+              <CardDescription>Upload images (JPEG, PNG, WebP) or PDF files. Multi-page invoices? Add each page as a separate file.</CardDescription>
             </div>
           </div>
         </CardHeader>

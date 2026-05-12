@@ -80,6 +80,18 @@ export default function ScanInvoice() {
   const [saving, setSaving] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedInvoice | null>(null);
   const [saved, setSaved] = useState(false);
+  const [allProducts, setAllProducts] = useState<ProductOption[]>([]);
+  const [productPickerOpen, setProductPickerOpen] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase
+      .from("products")
+      .select("id, name, mrp")
+      .eq("company_id", companyId)
+      .order("name")
+      .then(({ data }) => setAllProducts((data as ProductOption[]) || []));
+  }, [companyId]);
 
   if (authLoading) return null;
   if (!user) return <Navigate to="/auth" replace />;

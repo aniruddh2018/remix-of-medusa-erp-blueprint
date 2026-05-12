@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Navigate } from "react-router-dom";
@@ -13,9 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
-  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus,
+  Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus, Search, Check,
 } from "lucide-react";
+
+interface ProductOption {
+  id: string;
+  name: string;
+  mrp: number | null;
+}
 
 interface LineItem {
   product_name: string;

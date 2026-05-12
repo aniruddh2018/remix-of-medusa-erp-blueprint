@@ -27,7 +27,7 @@ import {
   callAIAssistant,
   buildConversationMessage,
 } from "@/services/aiAssistant";
-import type { ConversationMessage, AutomationDraft as AssistantDraft } from "@/types/aiAssistant";
+import type { ConversationMessage } from "@/types/aiAssistant";
 
 const KNOWN_CRUD_INTENTS = new Set([
   "create_customer", "create_product", "record_payment",

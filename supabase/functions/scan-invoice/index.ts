@@ -69,22 +69,17 @@ serve(async (req) => {
       }
     }
 
-    // Download all files and convert to base64 safely (no spread operator)
+    // Generate signed URLs (avoid loading files into memory to prevent WORKER_RESOURCE_LIMIT)
     const imageContents: { type: string; image_url: { url: string } }[] = [];
     for (const filePath of file_paths) {
-      const { data: fileData, error: downloadError } = await supabase.storage
+      const { data: signed, error: signErr } = await supabase.storage
         .from("invoices")
-        .download(filePath);
-      if (downloadError || !fileData) throw new Error(`Failed to download: ${filePath}`);
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-      const base64 = base64Encode(uint8);
-      const mimeType = getMimeType(filePath);
+        .createSignedUrl(filePath, 600);
+      if (signErr || !signed?.signedUrl) throw new Error(`Failed to sign: ${filePath}`);
 
       imageContents.push({
         type: "image_url",
-        image_url: { url: `data:${mimeType};base64,${base64}` },
+        image_url: { url: signed.signedUrl },
       });
     }
 

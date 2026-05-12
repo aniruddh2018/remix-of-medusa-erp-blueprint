@@ -82,6 +82,7 @@ export default function ScanInvoice() {
   const [saved, setSaved] = useState(false);
   const [allProducts, setAllProducts] = useState<ProductOption[]>([]);
   const [productPickerOpen, setProductPickerOpen] = useState<number | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
 
   useEffect(() => {
     if (!companyId) return;

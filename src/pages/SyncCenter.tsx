@@ -53,7 +53,10 @@ export default function SyncCenter() {
     [] as SyncQueueRow[],
   );
   const conflicts = useLiveQuery(
-    () => offlineDb.conflict_log.where("resolved").equals(0 as never).reverse().sortBy("created_at"),
+    async () => {
+      const all = await offlineDb.conflict_log.orderBy("created_at").reverse().toArray();
+      return all.filter((c) => !c.resolved);
+    },
     [],
     [] as ConflictLogRow[],
   );

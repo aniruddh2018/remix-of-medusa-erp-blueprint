@@ -2,7 +2,7 @@
  * Tiny header badge showing live sync status + a "Sync now" button.
  * Hidden when the user is logged out.
  */
-import { useSync } from "@/contexts/SyncContext";
+import { useSyncSafe } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 
 export function SyncStatusBadge() {
   const { user } = useAuth();
-  const { status, online, lastSync, queueSize, lastError, forceSync } = useSync();
+  const sync = useSyncSafe();
 
-  if (!user) return null;
+  if (!user || !sync) return null;
+  const { status, online, lastSync, queueSize, lastError, forceSync } = sync;
 
   const icon = !online ? (
     <CloudOff className="h-3.5 w-3.5" />

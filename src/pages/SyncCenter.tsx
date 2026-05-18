@@ -11,7 +11,7 @@
  */
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { offlineDb, type SyncQueueRow, type ConflictLogRow, type AttachmentQueueRow } from "@/offline/db";
+import { offlineDb, SYNCED_TABLES, type SyncedTableName, type SyncQueueRow, type ConflictLogRow, type AttachmentQueueRow, type SyncMetaRow } from "@/offline/db";
 import { SyncManager } from "@/offline/sync/SyncManager";
 import { useSync } from "@/contexts/SyncContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

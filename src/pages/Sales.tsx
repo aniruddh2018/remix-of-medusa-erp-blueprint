@@ -606,7 +606,7 @@ export default function Sales() {
       const result = await createSalesOrderLocal({
         companyId: companyId!,
         userId: user?.id ?? null,
-        blockExpired: !!settings.block_expired_sales,
+        blockExpired: !!(settings as any).block_expired_sales,
         header: {
           invoice_number: invoiceNumber.trim() || undefined,
           prefix: rawPrefix,

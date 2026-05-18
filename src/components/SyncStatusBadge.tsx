@@ -2,7 +2,7 @@
  * Tiny header badge showing live sync status + a "Sync now" button.
  * Hidden when the user is logged out.
  */
-import { useSync } from "@/contexts/SyncContext";
+import { useSyncSafe } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

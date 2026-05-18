@@ -685,95 +685,76 @@ export default function CounterSales() {
   // ── Save mutation ──
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      let finalInvoiceNumber = invoiceNumber.trim();
-      if (!finalInvoiceNumber) {
-        const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
-        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: rawPrefix });
-        if (seqErr) throw seqErr;
-        finalInvoiceNumber = seqNum as string;
-      }
       const invalidItems = cart.filter(i => !i.batch_id);
       if (invalidItems.length > 0) throw new Error(`${invalidItems.length} item(s) have no batch assigned.`);
 
-      const { data: existing } = await supabase.from("sales_orders").select("id").eq("invoice_number", finalInvoiceNumber).eq("company_id", companyId!).limit(1);
-      if (existing && existing.length > 0) throw new Error(`Invoice "${finalInvoiceNumber}" already exists.`);
+      const { createSalesOrderLocal } = await import("@/offline/sales/createSalesOrderLocal");
+      const { paymentRepo, salesOrderRepo } = await import("@/offline/repo");
+      const { offlineDb } = await import("@/offline/db");
+      const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
 
-      const gstAmount = totalGst;
-      const totalAmount = grandTotal;
-
-      const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
-        invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
-        customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
-        prescription_number: prescriptionNumber || null, payment_method: paymentMethod, notes: notes || null,
-        total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
-        freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
-        other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
-        // Counter sales are paid in full by default with the chosen method
-        payment_status: "paid", amount_paid: totalAmount, credit_period_days: null, due_date: null, reminder_enabled: false,
-      }).select().single();
-      if (orderError) throw orderError;
-
-      try {
-        // Persist returns as negative qty (so delete can re-deduct correctly)
-        const orderItems = cart.map(i => ({
-          sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.is_return ? -i.quantity : i.quantity,
-          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+      const result = await createSalesOrderLocal({
+        companyId: companyId!,
+        userId: user?.id || null,
+        blockExpired: settings.block_expired_sales ?? true,
+        header: {
+          prefix: rawPrefix,
+          invoice_number: invoiceNumber.trim() || undefined,
+          customer_id: selectedCustomerId || null,
+          customer_name: customerName,
+          customer_phone: customerPhone || null,
+          customer_address: customerAddress || null,
+          customer_gstin: customerGstin || null,
+          prescription_number: prescriptionNumber || null,
+          notes: notes || null,
+          total_amount: grandTotal,
+          gst_amount: totalGst,
+          discount_amount: totalDiscountAmount,
+          freight_charges: freightCharges,
+          handling_charges: handlingCharges,
+          delivery_charges: deliveryCharges,
+          other_charges: otherCharges,
+          status: "confirmed",
+        },
+        items: cart.map(i => ({
+          product_id: i.product_id,
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
           unit_price: i.unit_price,
-          gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-          total_price: i.is_return ? -Math.abs(i.total_price) : i.total_price,
-          company_id: companyId,
+          gst_percentage: i.gst_percentage,
+          discount_percentage: i.discount_percentage,
+          total_price: Math.abs(i.total_price),
           sold_unit: i.sold_unit || null,
-          base_quantity: i.is_return
-            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
-            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
-        }));
-        const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
-        if (itemsError) throw itemsError;
-
-        // Split items: returns restore stock, sales deduct stock.
-        // Pass base_quantity so the RPC can deduct mixed loose+sealed correctly.
-        const deductItems = cart.filter(i => !i.is_return).map(i => ({
-          batch_id: i.batch_id,
-          quantity: i.quantity,
-          free_quantity: i.free_quantity || 0,
           base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-          reference_id: order.id,
-          unit_price: i.unit_price,
-        }));
-        const restoreItems = cart.filter(i => i.is_return).map(i => ({
-          batch_id: i.batch_id,
-          quantity: i.quantity,
-          free_quantity: i.free_quantity || 0,
-          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-          reference_id: order.id,
-        }));
-        if (deductItems.length > 0) {
-          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-          if (deductError) throw new Error(deductError.message);
-        }
-        if (restoreItems.length > 0) {
-          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
-          if (restoreError) throw new Error(restoreError.message);
-        }
+          is_return: !!i.is_return,
+        })),
+      });
 
-        // Auto-record full payment for counter sale (paid by selected method)
-        const { error: payErr } = await supabase.from("payments").insert({
-          payment_type: "received", reference_type: "sales_order", reference_id: order.id,
-          reference_number: finalInvoiceNumber, party_name: customerName, party_type: "customer",
-          amount: totalAmount, payment_method: paymentMethod,
-          payment_date: new Date().toISOString().split("T")[0],
-          created_by: user?.id, company_id: companyId,
+      await paymentRepo.upsert({
+        payment_type: "received",
+        reference_type: "sales_order",
+        reference_id: result.id,
+        reference_number: result.invoice_number,
+        party_name: customerName,
+        party_type: "customer",
+        amount: grandTotal,
+        payment_method: paymentMethod,
+        payment_date: new Date().toISOString().split("T")[0],
+        created_by: user?.id || null,
+        company_id: companyId,
+      } as any);
+
+      const existing = await offlineDb.sales_orders.get(result.id);
+      if (existing) {
+        await salesOrderRepo.upsert({
+          ...(existing as any),
+          payment_method: paymentMethod,
+          payment_status: "paid",
+          amount_paid: grandTotal,
         });
-        if (payErr) throw payErr;
-      } catch (innerError) {
-        await supabase.from("payments").delete().eq("reference_id", order.id).eq("reference_type", "sales_order");
-        await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
-        await supabase.from("sales_orders").delete().eq("id", order.id);
-        throw innerError;
       }
-
-      return order;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
@@ -787,37 +768,8 @@ export default function CounterSales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity, base_quantity").eq("sales_order_id", orderId);
-      if (fetchErr) throw fetchErr;
-      // CRITICAL: pass base_quantity so multi-unit sales restore/deduct in BASE units (e.g. 2 strips = 30 pcs).
-      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({
-        batch_id: i.batch_id,
-        quantity: i.quantity,
-        free_quantity: i.free_quantity || 0,
-        base_quantity: (i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-        reference_id: orderId,
-      }));
-      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({
-        batch_id: i.batch_id,
-        quantity: Math.abs(i.quantity),
-        free_quantity: Math.abs(i.free_quantity || 0),
-        base_quantity: Math.abs((i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0))),
-        reference_id: orderId,
-      }));
-      if (restoreItems.length > 0) {
-        const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
-        if (error) throw new Error(error.message);
-      }
-      if (reDeductItems.length > 0) {
-        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
-        if (error) throw new Error(error.message);
-      }
-      await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
-      for (const item of (saleItems || [])) { await supabase.from("sales_order_items").delete().eq("id", item.id); }
-      await supabase.from("payments").delete().eq("reference_id", orderId).eq("reference_type", "sales_order");
-      const { data: deleted, error: orderErr } = await supabase.from("sales_orders").delete().eq("id", orderId).select();
-      if (orderErr) throw new Error(orderErr.message);
-      if (!deleted || deleted.length === 0) throw new Error("Could not delete invoice.");
+      const { deleteSalesOrderLocal } = await import("@/offline/sales/deleteSalesOrderLocal");
+      await deleteSalesOrderLocal(orderId, { companyId: companyId!, userId: user?.id || null });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });

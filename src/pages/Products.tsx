@@ -242,10 +242,9 @@ export default function Products() {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      await productRepo.softDelete(id);
       toast({ title: "Product deleted successfully" });
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -278,12 +277,13 @@ export default function Products() {
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase.from("products").delete().in("id", ids);
-      if (error) throw error;
+      for (const id of ids) {
+        await productRepo.softDelete(id);
+      }
       toast({ title: `${ids.length} product(s) deleted` });
       setSelectedIds(new Set());
       setBulkDeleteOpen(false);
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {

@@ -29,6 +29,9 @@ interface Customer {
   created_at: string;
   updated_at: string;
   company_id: string | null;
+  version: number;
+  device_id: string | null;
+  deleted: boolean;
 }
 
 export default function Customers() {

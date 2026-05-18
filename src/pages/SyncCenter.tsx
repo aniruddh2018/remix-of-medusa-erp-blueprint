@@ -419,3 +419,94 @@ function AttachmentTable({ rows }: { rows: AttachmentQueueRow[] }) {
     </Card>
   );
 }
+
+function TablesPanel({ onForce }: { onForce: () => void }) {
+  const metas = useLiveQuery(
+    () => offlineDb.sync_meta.toArray(),
+    [],
+    [] as SyncMetaRow[],
+  );
+  const metaMap = new Map((metas ?? []).map((m) => [m.table, m]));
+  const anyError = (metas ?? []).some((m) => m.last_error);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardTitle className="text-sm">Per-table pull state</CardTitle>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              void SyncManager.resetTableCursor("all").then(() => toast.success("Re-pulling all tables…"));
+            }}
+          >
+            Re-pull all
+          </Button>
+          <Button size="sm" onClick={onForce} className="gap-2">
+            <RefreshCw className="h-3.5 w-3.5" /> Sync now
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {anyError && (
+          <div className="px-4 py-2 text-xs text-destructive bg-destructive/5 border-b">
+            One or more tables failed to pull. Check the details below — usually a permissions or network issue.
+          </div>
+        )}
+        <div className="divide-y">
+          {SYNCED_TABLES.map((t) => {
+            const m = metaMap.get(t);
+            const status = m?.last_error
+              ? "error"
+              : m?.initial_pulled
+              ? "synced"
+              : "pending";
+            return (
+              <div key={t} className="flex items-center gap-3 p-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{t}</div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 mt-0.5">
+                    <span>{m?.row_count ?? 0} rows</span>
+                    <span>
+                      Cursor:{" "}
+                      {m?.last_sync
+                        ? formatDistanceToNow(new Date(m.last_sync), { addSuffix: true })
+                        : "never"}
+                    </span>
+                    {m?.last_attempt_at && (
+                      <span>
+                        Tried {formatDistanceToNow(m.last_attempt_at, { addSuffix: true })}
+                      </span>
+                    )}
+                    {m?.last_error && (
+                      <span className="text-destructive truncate" title={m.last_error}>
+                        · {m.last_error}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  variant={status === "error" ? "destructive" : status === "synced" ? "secondary" : "outline"}
+                  className="text-[10px]"
+                >
+                  {status}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Reset cursor and re-pull from start"
+                  onClick={() =>
+                    void SyncManager.resetTableCursor(t).then(() => toast.success(`Re-pulling ${t}…`))
+                  }
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

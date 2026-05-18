@@ -201,6 +201,14 @@ class SyncManagerImpl {
         await offlineDb.sync_queue.update(item.id!, { status: "synced" });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        const isConflict = await this.detectAndLogConflict(item, msg);
+        if (isConflict) {
+          await offlineDb.sync_queue.update(item.id!, {
+            status: "conflict",
+            last_error: msg,
+          });
+          continue;
+        }
         console.warn(`[Sync] push failed for ${item.table}/${item.record_id}:`, msg);
         await offlineDb.sync_queue.update(item.id!, {
           status: item.retries >= 5 ? "failed" : "pending",

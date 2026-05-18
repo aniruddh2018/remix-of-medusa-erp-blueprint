@@ -450,6 +450,13 @@ function TablesPanel({ onForce }: { onForce: () => void }) {
           <Button
             size="sm"
             variant="outline"
+            onClick={() => void exportOfflineDiagnostics().then(() => toast.success("Offline export downloaded"))}
+          >
+            <Download className="h-3.5 w-3.5" /> Export
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => {
               void SyncManager.resetTableCursor("all").then(() => toast.success("Re-pulling all tables…"));
             }}

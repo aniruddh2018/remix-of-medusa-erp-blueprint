@@ -63,6 +63,8 @@ const allOrderMenuItems: MenuItem[] = [
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
   { title: "Counter Sales", icon: Zap, path: "/counter-sales", shortcut: "Alt+3" },
   { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
+  { title: "Generate Sale (AI)", icon: Bot, path: "/sales?quick=1", shortcut: null },
+  { title: "Generate Purchase (AI)", icon: Bot, path: "/purchase-orders?quick=1", shortcut: null },
 ];
 
 const allComplianceMenuItems: MenuItem[] = [
@@ -91,7 +93,7 @@ const superAdminMenuItems: MenuItem[] = [
 ];
 
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {
-  return items.filter((item) => visiblePages.includes(item.path));
+  return items.filter((item) => visiblePages.includes(item.path.split("?")[0]));
 }
 
 function MenuSection({ items, label }: { items: MenuItem[]; label: string }) {

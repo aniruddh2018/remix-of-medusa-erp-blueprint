@@ -35,9 +35,11 @@ interface QuickTextEntryProps {
   onItemsConfirmed: (items: ParsedItem[]) => void;
   triggerLabel?: string;
   availableStock?: Map<string, number>; // product_id -> total available qty
+  autoOpen?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
-export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry", availableStock }: QuickTextEntryProps) {
+export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel = "Quick Text Entry", availableStock, autoOpen, onAutoOpenHandled }: QuickTextEntryProps) {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -47,6 +49,13 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [step, setStep] = useState<"input" | "review">("input");
   const [parseError, setParseError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (autoOpen && !open) {
+      setOpen(true);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpen]);
 
   // Prevent body scroll when open
   useEffect(() => {

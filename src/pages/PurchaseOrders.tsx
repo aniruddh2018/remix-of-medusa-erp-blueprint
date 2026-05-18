@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { usePurchaseOrdersWithSupplier, usePaymentsByRefType, useActiveSuppliers, useActiveProducts } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +58,7 @@ const purchaseFlow = ["product", "batch", "unit", "qty", "free", "rate", "mrp", 
 
 export default function PurchaseOrders() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAdmin, isPharmacist } = useAuth();
   const { companyId, config, gstInclusive } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
@@ -947,7 +949,7 @@ export default function PurchaseOrders() {
                     GST incl. rate
                   </Label>
                 </div>
-                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
+                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} autoOpen={searchParams.get("quick") === "1"} onAutoOpenHandled={() => { const sp = new URLSearchParams(searchParams); sp.delete("quick"); setSearchParams(sp, { replace: true }); }} />
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">

@@ -78,6 +78,73 @@ class SyncManagerImpl {
     await this.runOnce();
   }
 
+  // ── manual queue actions (used by Sync Center UI) ─────────────
+  /** Reset a failed/conflict queue row back to pending and kick a sync. */
+  async retryQueueItem(id: number) {
+    await offlineDb.sync_queue.update(id, {
+      status: "pending",
+      retries: 0,
+      last_error: undefined,
+    });
+    void this.runOnce();
+  }
+
+  /** Drop a queue row entirely (gives up — local change stays, won't be pushed). */
+  async discardQueueItem(id: number) {
+    await offlineDb.sync_queue.delete(id);
+    const queueSize = await offlineDb.sync_queue.where("status").equals("pending").count();
+    this.setState({ queueSize });
+  }
+
+  /**
+   * Resolve a conflict.
+   *   - "server": discard local payload, keep what the server has (already in Dexie from the next pull).
+   *   - "local":  re-queue our payload as an update, bump version above server's so it wins next push.
+   */
+  async resolveConflict(conflictId: number, choice: "server" | "local") {
+    const conflict = await offlineDb.conflict_log.get(conflictId);
+    if (!conflict) return;
+
+    if (choice === "local") {
+      const serverVersion = Number(
+        (conflict.server_payload as { version?: number } | null)?.version ?? 0,
+      );
+      const payload = {
+        ...conflict.local_payload,
+        version: serverVersion + 1,
+        updated_at: new Date().toISOString(),
+      };
+      const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[
+        conflict.table
+      ];
+      await tbl.put({ ...payload, _sync_state: "local_only", _local_updated_at: Date.now() } as never);
+      await offlineDb.sync_queue.add({
+        table: conflict.table,
+        op: "update",
+        record_id: conflict.record_id,
+        payload,
+        status: "pending",
+        retries: 0,
+        created_at: Date.now(),
+      });
+    } else {
+      // Server wins — overwrite local with server payload so the UI reflects it.
+      const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[
+        conflict.table
+      ];
+      if (conflict.server_payload && (conflict.server_payload as { id?: string }).id) {
+        await tbl.put({
+          ...conflict.server_payload,
+          _sync_state: "synced",
+          _local_updated_at: Date.now(),
+        } as never);
+      }
+    }
+
+    await offlineDb.conflict_log.update(conflictId, { resolved: true });
+    void this.runOnce();
+  }
+
   // ── core loop ────────────────────────────────────────────────
   private handleOnline = () => {
     this.setState({ online: true });

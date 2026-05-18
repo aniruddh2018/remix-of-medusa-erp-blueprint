@@ -79,6 +79,16 @@ class SyncManagerImpl {
   }
 
   // ── manual queue actions (used by Sync Center UI) ─────────────
+  /** Wipe the pull cursor for a table so the next sync re-pulls it from scratch. */
+  async resetTableCursor(table: SyncedTableName | "all") {
+    if (table === "all") {
+      await offlineDb.sync_meta.clear();
+    } else {
+      await offlineDb.sync_meta.delete(table);
+    }
+    void this.runOnce();
+  }
+
   /** Reset a failed/conflict queue row back to pending and kick a sync. */
   async retryQueueItem(id: number) {
     await offlineDb.sync_queue.update(id, {
@@ -165,15 +175,20 @@ class SyncManagerImpl {
 
     try {
       await this.pushChanges();
+      const pullErrors: string[] = [];
       for (const t of SYNCED_TABLES) {
-        await this.pullChanges(t);
+        try {
+          await this.pullChanges(t);
+        } catch (e) {
+          pullErrors.push(e instanceof Error ? e.message : String(e));
+        }
       }
       const queueSize = await offlineDb.sync_queue.where("status").equals("pending").count();
       this.setState({
-        status: "idle",
+        status: pullErrors.length > 0 ? "error" : "idle",
         lastSync: new Date().toISOString(),
         queueSize,
-        lastError: undefined,
+        lastError: pullErrors[0],
       });
     } catch (err) {
       console.error("[Sync] runOnce failed:", err);
@@ -251,33 +266,62 @@ class SyncManagerImpl {
     const meta = await offlineDb.sync_meta.get(table);
     const lastSync = meta?.last_sync ?? null;
 
-    let query = supabase.from(table as never).select("*").order("updated_at", { ascending: true }).limit(PULL_PAGE_SIZE);
+    let query = supabase
+      .from(table as never)
+      .select("*")
+      .order("updated_at", { ascending: true })
+      .limit(PULL_PAGE_SIZE);
     if (lastSync) {
       query = query.gt("updated_at" as never, lastSync as never);
     }
 
     const { data, error } = await query;
     if (error) {
-      // Tables may not exist for some business modules; surface but don't kill the whole sync.
-      console.warn(`[Sync] pull ${table} failed:`, error.message);
-      return;
-    }
-    const rows = (data ?? []) as Array<{ id: string; updated_at: string; deleted?: boolean }>;
-    if (rows.length === 0) {
+      console.error(`[Sync] pull ${table} failed:`, error.message);
       await offlineDb.sync_meta.put({
         table,
-        last_sync: lastSync ?? new Date().toISOString(),
+        last_sync: lastSync,
+        initial_pulled: meta?.initial_pulled ?? false,
+        last_error: error.message,
+        last_attempt_at: Date.now(),
+        row_count: meta?.row_count ?? 0,
+      } as never);
+      // Bubble up so runOnce surfaces it to the UI badge.
+      throw new Error(`pull ${table}: ${error.message}`);
+    }
+    const rows = (data ?? []) as Array<{ id: string; updated_at: string; deleted?: boolean }>;
+
+    // Count local rows after potential write so the UI can show per-table totals.
+    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
+
+    if (rows.length === 0) {
+      // Don't fast-forward a missing cursor to "now" — that would skip ALL existing rows
+      // on subsequent pulls. Only persist the cursor we already had.
+      const rowCount = await tbl.count();
+      await offlineDb.sync_meta.put({
+        table,
+        last_sync: lastSync,
         initial_pulled: true,
-      });
+        last_error: undefined,
+        last_attempt_at: Date.now(),
+        row_count: rowCount,
+      } as never);
       return;
     }
 
-    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
     const stamped = rows.map((r) => ({ ...r, _sync_state: "synced", _local_updated_at: Date.now() }));
     await tbl.bulkPut(stamped as never);
 
     const newCursor = rows[rows.length - 1].updated_at;
-    await offlineDb.sync_meta.put({ table, last_sync: newCursor, initial_pulled: true });
+    const rowCount = await tbl.count();
+    await offlineDb.sync_meta.put({
+      table,
+      last_sync: newCursor,
+      initial_pulled: true,
+      last_error: undefined,
+      last_attempt_at: Date.now(),
+      row_count: rowCount,
+    } as never);
 
     // If we hit page size, keep pulling.
     if (rows.length === PULL_PAGE_SIZE) {

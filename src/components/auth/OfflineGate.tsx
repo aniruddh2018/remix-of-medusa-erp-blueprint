@@ -4,28 +4,46 @@
  * present the PIN unlock screen instead of bouncing the user to /auth.
  */
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { OfflinePinUnlock } from "./OfflinePinUnlock";
-import { hasOfflineCache } from "@/offline/auth/offlineSession";
+import { hasOfflineCache, type CachedSession } from "@/offline/auth/offlineSession";
 
 export function OfflineGate({ children }: { children: React.ReactNode }) {
   const { user, loading, hydrateFromOfflineSession } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [eligible, setEligible] = useState<boolean | null>(null);
+
+  const handleUnlocked = (session: CachedSession) => {
+    hydrateFromOfflineSession(session);
+    if (location.pathname === "/" || location.pathname === "/auth") {
+      navigate("/dashboard", { replace: true });
+    }
+  };
 
   useEffect(() => {
     let alive = true;
     (async () => {
       if (loading || user) { if (alive) setEligible(false); return; }
       const cached = await hasOfflineCache();
-      // Show unlock only when there's a cache AND the browser thinks it is offline.
-      // (Online but logged out → normal /auth flow.)
-      if (alive) setEligible(cached && !navigator.onLine);
+      // If a PIN cache exists, let the app boot from local data even when the
+      // browser reports "online" but the live session/network is unavailable.
+      if (alive) setEligible(cached);
     })();
     return () => { alive = false; };
   }, [user, loading]);
 
+  if (!loading && !user && eligible === null) {
+    return null;
+  }
+
+  if (user) {
+    return <>{children}</>;
+  }
+
   if (eligible) {
-    return <OfflinePinUnlock onUnlocked={hydrateFromOfflineSession} />;
+    return <OfflinePinUnlock onUnlocked={handleUnlocked} />;
   }
   return <>{children}</>;
 }

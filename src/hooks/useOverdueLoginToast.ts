@@ -11,11 +11,12 @@ const SESSION_FLAG = "overdue_toast_shown_session";
  * overdue credit invoices. Company-isolated through RLS in useOverdueInvoices.
  */
 export function useOverdueLoginToast() {
-  const { user } = useAuth();
+  const { user, offlineMode } = useAuth();
   const navigate = useNavigate();
   const { data: overdue, isLoading } = useOverdueInvoices();
 
   useEffect(() => {
+    if (offlineMode) return;
     if (!user || isLoading) return;
     if (!overdue || overdue.length === 0) return;
     if (sessionStorage.getItem(SESSION_FLAG)) return;
@@ -31,5 +32,5 @@ export function useOverdueLoginToast() {
         onClick: () => navigate("/sales"),
       },
     });
-  }, [user, isLoading, overdue, navigate]);
+  }, [user, offlineMode, isLoading, overdue, navigate]);
 }

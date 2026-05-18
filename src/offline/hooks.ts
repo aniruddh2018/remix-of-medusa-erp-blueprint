@@ -197,3 +197,14 @@ export function useCustomers<T = any>(companyId: string | null | undefined): T[]
   }, [companyId]);
 }
 
+/** Active doctors list. */
+export function useDoctors<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const rows = await offlineDb.doctors.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((d: any) => !d.deleted && d.is_active !== false)
+      .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
+  }, [companyId]);
+}
+

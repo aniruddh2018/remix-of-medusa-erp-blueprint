@@ -4,13 +4,23 @@
  * present the PIN unlock screen instead of bouncing the user to /auth.
  */
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { OfflinePinUnlock } from "./OfflinePinUnlock";
-import { hasOfflineCache } from "@/offline/auth/offlineSession";
+import { hasOfflineCache, type CachedSession } from "@/offline/auth/offlineSession";
 
 export function OfflineGate({ children }: { children: React.ReactNode }) {
   const { user, loading, hydrateFromOfflineSession } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [eligible, setEligible] = useState<boolean | null>(null);
+
+  const handleUnlocked = (session: CachedSession) => {
+    hydrateFromOfflineSession(session);
+    if (location.pathname === "/" || location.pathname === "/auth") {
+      navigate("/dashboard", { replace: true });
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -29,7 +39,7 @@ export function OfflineGate({ children }: { children: React.ReactNode }) {
   }
 
   if (eligible) {
-    return <OfflinePinUnlock onUnlocked={hydrateFromOfflineSession} />;
+    return <OfflinePinUnlock onUnlocked={handleUnlocked} />;
   }
   return <>{children}</>;
 }

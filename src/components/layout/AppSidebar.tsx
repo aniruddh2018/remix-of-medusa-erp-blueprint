@@ -63,6 +63,8 @@ const allOrderMenuItems: MenuItem[] = [
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
   { title: "Counter Sales", icon: Zap, path: "/counter-sales", shortcut: "Alt+3" },
   { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
+  { title: "Generate Sale (AI)", icon: Bot, path: "/sales?quick=1", shortcut: null },
+  { title: "Generate Purchase (AI)", icon: Bot, path: "/purchase-orders?quick=1", shortcut: null },
 ];
 
 const allComplianceMenuItems: MenuItem[] = [

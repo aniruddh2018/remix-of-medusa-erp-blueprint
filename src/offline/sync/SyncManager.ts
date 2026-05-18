@@ -79,6 +79,16 @@ class SyncManagerImpl {
   }
 
   // ── manual queue actions (used by Sync Center UI) ─────────────
+  /** Wipe the pull cursor for a table so the next sync re-pulls it from scratch. */
+  async resetTableCursor(table: SyncedTableName | "all") {
+    if (table === "all") {
+      await offlineDb.sync_meta.clear();
+    } else {
+      await offlineDb.sync_meta.delete(table);
+    }
+    void this.runOnce();
+  }
+
   /** Reset a failed/conflict queue row back to pending and kick a sync. */
   async retryQueueItem(id: number) {
     await offlineDb.sync_queue.update(id, {

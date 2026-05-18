@@ -78,6 +78,73 @@ class SyncManagerImpl {
     await this.runOnce();
   }
 
+  // ── manual queue actions (used by Sync Center UI) ─────────────
+  /** Reset a failed/conflict queue row back to pending and kick a sync. */
+  async retryQueueItem(id: number) {
+    await offlineDb.sync_queue.update(id, {
+      status: "pending",
+      retries: 0,
+      last_error: undefined,
+    });
+    void this.runOnce();
+  }
+
+  /** Drop a queue row entirely (gives up — local change stays, won't be pushed). */
+  async discardQueueItem(id: number) {
+    await offlineDb.sync_queue.delete(id);
+    const queueSize = await offlineDb.sync_queue.where("status").equals("pending").count();
+    this.setState({ queueSize });
+  }
+
+  /**
+   * Resolve a conflict.
+   *   - "server": discard local payload, keep what the server has (already in Dexie from the next pull).
+   *   - "local":  re-queue our payload as an update, bump version above server's so it wins next push.
+   */
+  async resolveConflict(conflictId: number, choice: "server" | "local") {
+    const conflict = await offlineDb.conflict_log.get(conflictId);
+    if (!conflict) return;
+
+    if (choice === "local") {
+      const serverVersion = Number(
+        (conflict.server_payload as { version?: number } | null)?.version ?? 0,
+      );
+      const payload = {
+        ...conflict.local_payload,
+        version: serverVersion + 1,
+        updated_at: new Date().toISOString(),
+      };
+      const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[
+        conflict.table
+      ];
+      await tbl.put({ ...payload, _sync_state: "local_only", _local_updated_at: Date.now() } as never);
+      await offlineDb.sync_queue.add({
+        table: conflict.table,
+        op: "update",
+        record_id: conflict.record_id,
+        payload,
+        status: "pending",
+        retries: 0,
+        created_at: Date.now(),
+      });
+    } else {
+      // Server wins — overwrite local with server payload so the UI reflects it.
+      const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[
+        conflict.table
+      ];
+      if (conflict.server_payload && (conflict.server_payload as { id?: string }).id) {
+        await tbl.put({
+          ...conflict.server_payload,
+          _sync_state: "synced",
+          _local_updated_at: Date.now(),
+        } as never);
+      }
+    }
+
+    await offlineDb.conflict_log.update(conflictId, { resolved: true });
+    void this.runOnce();
+  }
+
   // ── core loop ────────────────────────────────────────────────
   private handleOnline = () => {
     this.setState({ online: true });
@@ -134,6 +201,14 @@ class SyncManagerImpl {
         await offlineDb.sync_queue.update(item.id!, { status: "synced" });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        const isConflict = await this.detectAndLogConflict(item, msg);
+        if (isConflict) {
+          await offlineDb.sync_queue.update(item.id!, {
+            status: "conflict",
+            last_error: msg,
+          });
+          continue;
+        }
         console.warn(`[Sync] push failed for ${item.table}/${item.record_id}:`, msg);
         await offlineDb.sync_queue.update(item.id!, {
           status: item.retries >= 5 ? "failed" : "pending",
@@ -208,6 +283,51 @@ class SyncManagerImpl {
     if (rows.length === PULL_PAGE_SIZE) {
       await this.pullChanges(table);
     }
+  }
+
+
+  /**
+   * Decide whether a failed push is actually a conflict (server has newer version,
+   * duplicate invoice number on insert, etc.). If so, log to `conflict_log` and
+   * return true so the caller marks the queue row as "conflict".
+   */
+  private async detectAndLogConflict(item: SyncQueueRow, errMsg: string): Promise<boolean> {
+    const lower = errMsg.toLowerCase();
+    const looksLikeConflict =
+      lower.includes("duplicate key") ||
+      lower.includes("unique") ||
+      lower.includes("version") ||
+      lower.includes("conflict") ||
+      lower.includes("23505");
+
+    // Fetch current server row to surface a side-by-side payload to the user.
+    let serverRow: Record<string, unknown> | null = null;
+    try {
+      const { data } = await supabase
+        .from(item.table as never)
+        .select("*")
+        .eq("id" as never, item.record_id as never)
+        .maybeSingle();
+      serverRow = (data as Record<string, unknown> | null) ?? null;
+    } catch {
+      /* ignore */
+    }
+
+    const localVersion = Number((item.payload as { version?: number }).version ?? 0);
+    const serverVersion = Number((serverRow as { version?: number } | null)?.version ?? 0);
+    const versionMismatch = serverRow !== null && serverVersion >= localVersion;
+
+    if (!looksLikeConflict && !versionMismatch) return false;
+
+    await offlineDb.conflict_log.add({
+      table: item.table,
+      record_id: item.record_id,
+      local_payload: item.payload,
+      server_payload: serverRow ?? {},
+      created_at: Date.now(),
+      resolved: false,
+    });
+    return true;
   }
 
   // ── state helpers ────────────────────────────────────────────

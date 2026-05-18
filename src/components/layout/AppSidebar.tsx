@@ -38,6 +38,7 @@ import {
   Zap,
   Bot,
   Database,
+  RefreshCw,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -78,6 +79,7 @@ const allManagementMenuItems: MenuItem[] = [
 
 const allAdminMenuItems: MenuItem[] = [
   { title: "Reports", icon: BarChart3, path: "/reports" },
+  { title: "Sync Center", icon: RefreshCw, path: "/sync" },
   { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Settings", icon: Settings, path: "/settings" },

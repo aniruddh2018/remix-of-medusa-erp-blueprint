@@ -37,6 +37,7 @@ import Chat from "./pages/Chat";
 import QueryEngine from "./pages/QueryEngine";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
+import SyncCenter from "./pages/SyncCenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const App = () => (
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/sync" element={<SyncCenter />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

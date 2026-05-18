@@ -54,6 +54,7 @@ export class BaseRepo<T extends SyncedRow> {
       ...(existing ?? {}),
       ...row,
       id,
+      created_at: (existing?.created_at ?? (row as Partial<T>).created_at ?? now) as string,
       updated_at: now,
       version: (existing?.version ?? 0) + 1,
       device_id: getDeviceId(),

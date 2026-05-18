@@ -285,6 +285,51 @@ class SyncManagerImpl {
     }
   }
 
+
+  /**
+   * Decide whether a failed push is actually a conflict (server has newer version,
+   * duplicate invoice number on insert, etc.). If so, log to `conflict_log` and
+   * return true so the caller marks the queue row as "conflict".
+   */
+  private async detectAndLogConflict(item: SyncQueueRow, errMsg: string): Promise<boolean> {
+    const lower = errMsg.toLowerCase();
+    const looksLikeConflict =
+      lower.includes("duplicate key") ||
+      lower.includes("unique") ||
+      lower.includes("version") ||
+      lower.includes("conflict") ||
+      lower.includes("23505");
+
+    // Fetch current server row to surface a side-by-side payload to the user.
+    let serverRow: Record<string, unknown> | null = null;
+    try {
+      const { data } = await supabase
+        .from(item.table as never)
+        .select("*")
+        .eq("id" as never, item.record_id as never)
+        .maybeSingle();
+      serverRow = (data as Record<string, unknown> | null) ?? null;
+    } catch {
+      /* ignore */
+    }
+
+    const localVersion = Number((item.payload as { version?: number }).version ?? 0);
+    const serverVersion = Number((serverRow as { version?: number } | null)?.version ?? 0);
+    const versionMismatch = serverRow !== null && serverVersion >= localVersion;
+
+    if (!looksLikeConflict && !versionMismatch) return false;
+
+    await offlineDb.conflict_log.add({
+      table: item.table,
+      record_id: item.record_id,
+      local_payload: item.payload,
+      server_payload: serverRow ?? {},
+      created_at: Date.now(),
+      resolved: false,
+    });
+    return true;
+  }
+
   // ── state helpers ────────────────────────────────────────────
   private setState(patch: Partial<SyncState>) {
     this.state = { ...this.state, ...patch };

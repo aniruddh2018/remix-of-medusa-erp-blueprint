@@ -125,7 +125,6 @@ export function ReceiveInventoryDialog({
     setSaving(true);
 
     try {
-      // Fetch company_id from the order
       const { data: orderData } = await supabase
         .from("purchase_orders")
         .select("company_id")
@@ -133,72 +132,37 @@ export function ReceiveInventoryDialog({
         .single();
 
       const companyId = orderData?.company_id;
+      if (!companyId) throw new Error("Could not resolve company for this order.");
 
-      // Persist batches with pack_size so each batch's packing is independent.
-      const batchPayload = batchDetails.map((batch) => ({
-        product_id: batch.product_id,
-        batch_number: batch.batch_number,
-        quantity: batch.quantity,
-        purchase_price: batch.purchase_price,
-        mrp: batch.mrp,
-        expiry_date: batch.expiry_date || null,
-        manufacturing_date: batch.manufacturing_date || null,
-        supplier_id: supplierId,
-        company_id: companyId,
-        pack_size: batch.pack_size > 0 ? batch.pack_size : null,
-      }));
+      const { receiveInventoryLocal } = await import("@/offline/inventory/receiveInventoryLocal");
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id || null;
 
-      const { data: result, error: rpcError } = await supabase.rpc("receive_purchase_batches", {
-        _batches: batchPayload,
-        _purchase_order_id: orderId,
-      });
-
-      if (rpcError) throw rpcError;
-
-      const actions = (result as any[]) || [];
-
-      // Persist per-batch conversions (Pack -> Base, e.g. 1 Strip = 10 Tablets for THIS batch).
-      // Each new batch with a meaningful pack hierarchy gets its own batch_conversion row,
-      // so Batch A (10/strip) and Batch B (15/strip) are treated independently.
-      const conversionRows: any[] = [];
-      actions.forEach((a: any, idx: number) => {
-        const batch = batchDetails[idx];
-        if (!batch) return;
-        if (a.action !== 'created') return; // only seed conversions for new batches
-        const sameUnit = batch.pack_unit.trim().toLowerCase() === batch.base_unit.trim().toLowerCase();
-        if (sameUnit || !batch.pack_size || batch.pack_size <= 1) return;
-        conversionRows.push({
-          company_id: companyId,
+      const { created, merged } = await receiveInventoryLocal({
+        companyId,
+        userId,
+        purchaseOrderId: orderId,
+        batches: batchDetails.map((batch) => ({
           product_id: batch.product_id,
-          batch_id: a.batch_id,
-          from_unit: batch.pack_unit,
-          to_unit: batch.base_unit,
-          // Factors are stored numeric(18,6) so fractional conversions
-          // (e.g. 1 bottle = 99.5 ml of usable liquid) are preserved.
-          conversion_factor: Number(batch.pack_size),
-        });
+          batch_number: batch.batch_number,
+          quantity: batch.quantity,
+          purchase_price: batch.purchase_price,
+          mrp: batch.mrp,
+          expiry_date: batch.expiry_date || null,
+          manufacturing_date: batch.manufacturing_date || null,
+          supplier_id: supplierId,
+          company_id: companyId,
+          pack_unit: batch.pack_unit,
+          base_unit: batch.base_unit,
+          pack_size: batch.pack_size > 0 ? batch.pack_size : 1,
+        })),
       });
-
-      if (conversionRows.length > 0) {
-        const { error: convErr } = await supabase.from("batch_conversions").insert(conversionRows);
-        if (convErr) {
-          // Non-fatal: batches were received; conversion seed failed. Surface a warning.
-          toast({
-            title: "Batches received, conversion seed failed",
-            description: convErr.message,
-            variant: "destructive",
-          });
-        }
-      }
 
       clearConversionCache();
 
-      const merged = actions.filter((a: any) => a.action?.includes('merged')).length;
-      const created = actions.filter((a: any) => a.action?.includes('created')).length;
-
       toast({
         title: "Inventory Received",
-        description: `${created} batch(es) created, ${merged} merged into existing.`,
+        description: `${created} batch(es) with new packing, ${merged} merged/simple.`,
       });
 
       onSuccess();

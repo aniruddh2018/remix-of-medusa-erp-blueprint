@@ -39,6 +39,7 @@ import {
   Bot,
   Database,
   RefreshCw,
+  BrainCircuit,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 

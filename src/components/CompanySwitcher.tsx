@@ -26,7 +26,7 @@ interface UserCompany {
 }
 
 export function CompanySwitcher() {
-  const { user } = useAuth();
+  const { user, offlineMode, offlineSession } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -35,6 +35,12 @@ export function CompanySwitcher() {
 
   useEffect(() => {
     if (!user) return;
+    if (offlineMode) {
+      setCompanies([]);
+      setActiveCompanyId(offlineSession?.company_id ?? null);
+      setLoading(false);
+      return;
+    }
     let mounted = true;
     (async () => {
       const [{ data: ucs }, { data: profile }] = await Promise.all([
@@ -56,7 +62,7 @@ export function CompanySwitcher() {
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [user, offlineMode, offlineSession?.company_id]);
 
   const switchTo = async (companyId: string, role: string) => {
     if (!user || companyId === activeCompanyId) {

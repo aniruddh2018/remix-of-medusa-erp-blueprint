@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { usePurchaseOrdersWithSupplier, usePaymentsByRefType, useActiveSuppliers, useActiveProducts } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";

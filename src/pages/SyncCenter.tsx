@@ -119,8 +119,9 @@ export default function SyncCenter() {
         </Card>
       )}
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="tables">
         <TabsList>
+          <TabsTrigger value="tables">Tables</TabsTrigger>
           <TabsTrigger value="pending">Pending {pendingCount > 0 && <CountBadge n={pendingCount} />}</TabsTrigger>
           <TabsTrigger value="conflicts">
             Conflicts {conflictCount > 0 && <CountBadge n={conflictCount} tone="error" />}
@@ -131,6 +132,9 @@ export default function SyncCenter() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="tables" className="mt-4">
+          <TablesPanel onForce={() => void forceSync()} />
+        </TabsContent>
         <TabsContent value="pending" className="mt-4">
           <QueueTable rows={pending ?? []} emptyText="Nothing waiting to sync." />
         </TabsContent>

@@ -14,6 +14,7 @@ import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CommandPalette } from "@/components/CommandPalette";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
+import { OfflineAccessButton } from "@/components/auth/OfflineAccessButton";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";
@@ -145,7 +146,7 @@ export function AppLayout() {
 
             <CompanySwitcher />
             <SyncStatusBadge />
-
+            <OfflineAccessButton />
 
             {/* Keyboard shortcuts — click for full searchable dialog, hover for quick hints */}
             <TooltipProvider>

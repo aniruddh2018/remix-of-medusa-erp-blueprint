@@ -17,12 +17,16 @@ export function OfflineGate({ children }: { children: React.ReactNode }) {
     (async () => {
       if (loading || user) { if (alive) setEligible(false); return; }
       const cached = await hasOfflineCache();
-      // Show unlock only when there's a cache AND the browser thinks it is offline.
-      // (Online but logged out → normal /auth flow.)
-      if (alive) setEligible(cached && !navigator.onLine);
+      // If a PIN cache exists, let the app boot from local data even when the
+      // browser reports "online" but the live session/network is unavailable.
+      if (alive) setEligible(cached);
     })();
     return () => { alive = false; };
   }, [user, loading]);
+
+  if (!loading && !user && eligible === null) {
+    return null;
+  }
 
   if (eligible) {
     return <OfflinePinUnlock onUnlocked={hydrateFromOfflineSession} />;

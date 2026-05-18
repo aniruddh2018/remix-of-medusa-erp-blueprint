@@ -64,11 +64,10 @@ export interface InventoryWithJoins {
 
 export function useInventoryWithJoins(companyId: string | null | undefined): InventoryWithJoins[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [];
     const [batches, products, suppliers] = await Promise.all([
-      offlineDb.inventory_batches.where("company_id").equals(companyId).toArray(),
-      offlineDb.products.where("company_id").equals(companyId).toArray(),
-      offlineDb.suppliers.where("company_id").equals(companyId).toArray(),
+      rowsForCompany<any>("inventory_batches", companyId),
+      rowsForCompany<any>("products", companyId),
+      rowsForCompany<any>("suppliers", companyId),
     ]);
     const productMap = new Map(products.map((p) => [p.id, p]));
     const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
@@ -117,8 +116,7 @@ export function useInventoryWithJoins(companyId: string | null | undefined): Inv
 
 export function useSalesOrders<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.sales_orders.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("sales_orders", companyId);
     return rows
       .filter((r) => !r.deleted)
       .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")) as unknown as T[];
@@ -129,10 +127,9 @@ export function usePurchaseOrdersWithSupplier<T = any>(
   companyId: string | null | undefined
 ): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
     const [orders, suppliers] = await Promise.all([
-      offlineDb.purchase_orders.where("company_id").equals(companyId).toArray(),
-      offlineDb.suppliers.where("company_id").equals(companyId).toArray(),
+      rowsForCompany<any>("purchase_orders", companyId),
+      rowsForCompany<any>("suppliers", companyId),
     ]);
     const supMap = new Map(suppliers.map((s: any) => [s.id, s]));
     return orders
@@ -147,8 +144,7 @@ export function usePaymentsByRefType(
   refType: "sales_order" | "purchase_order"
 ): Array<{ reference_id: string; amount: number }> | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [];
-    const rows = await offlineDb.payments.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("payments", companyId);
     return rows
       .filter((p: any) => !p.deleted && p.reference_type === refType)
       .map((p: any) => ({ reference_id: p.reference_id, amount: Number(p.amount) || 0 }));

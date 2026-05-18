@@ -177,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setRoles([]);
     offlineModeRef.current = false;
     setOfflineMode(false);

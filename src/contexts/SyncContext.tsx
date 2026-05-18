@@ -15,7 +15,7 @@ interface SyncContextValue extends SyncState {
 const SyncContext = createContext<SyncContextValue | undefined>(undefined);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, offlineMode, offlineSession } = useAuth();
   const [state, setState] = useState<SyncState>(SyncManager.getState());
 
   useEffect(() => {
@@ -27,6 +27,11 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       SyncManager.stop();
       return;
+    }
+
+    if (offlineMode) {
+      SyncManager.start(offlineSession?.company_id ?? null);
+      return () => SyncManager.stop();
     }
 
     // Resolve company_id then start the engine.
@@ -54,7 +59,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       SyncManager.stop();
     };
-  }, [user]);
+  }, [user, offlineMode, offlineSession?.company_id]);
 
   const forceSync = useCallback(() => SyncManager.forceSync(), []);
 

@@ -49,6 +49,7 @@ const App = () => (
         <AuthProvider>
           <BusinessProvider>
             <FocusProvider>
+            <SyncProvider>
             <Routes>
               {/* Public pages — no auth required */}
               <Route path="/" element={<LandingPage />} />

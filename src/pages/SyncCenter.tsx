@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { offlineDb, SYNCED_TABLES, type SyncedTableName, type SyncQueueRow, type ConflictLogRow, type AttachmentQueueRow, type SyncMetaRow } from "@/offline/db";
 import { SyncManager } from "@/offline/sync/SyncManager";
+import { exportOfflineDiagnostics } from "@/offline/exportDiagnostics";
 import { useSync } from "@/contexts/SyncContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +24,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   RefreshCw,
+  Download,
   Trash2,
   AlertTriangle,
   CheckCircle2,
@@ -77,10 +79,21 @@ export default function SyncCenter() {
         title="Sync Center"
         description="Inspect and resolve offline writes that haven't reached the server yet."
         actions={
-          <Button onClick={() => void forceSync()} size="sm" className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${status === "syncing" ? "animate-spin" : ""}`} />
-            Sync now
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => void exportOfflineDiagnostics().then(() => toast.success("Offline export downloaded"))}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export offline data
+            </Button>
+            <Button onClick={() => void forceSync()} size="sm" className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${status === "syncing" ? "animate-spin" : ""}`} />
+              Sync now
+            </Button>
+          </div>
         }
       />
 
@@ -434,6 +447,13 @@ function TablesPanel({ onForce }: { onForce: () => void }) {
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm">Per-table pull state</CardTitle>
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void exportOfflineDiagnostics().then(() => toast.success("Offline export downloaded"))}
+          >
+            <Download className="h-3.5 w-3.5" /> Export
+          </Button>
           <Button
             size="sm"
             variant="outline"

@@ -7,22 +7,29 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { offlineDb, type SyncedRow, type SyncedTableName } from "./db";
 import type { BaseRepo } from "./repo/baseRepo";
 
+async function rowsForCompany<T>(
+  tableName: string,
+  companyId: string | null | undefined,
+): Promise<T[]> {
+  const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[tableName];
+  if (!companyId) return (await tbl.toArray()) as T[];
+  return (await tbl.where("company_id").equals(companyId).toArray()) as T[];
+}
+
 export function useRepoList<T extends SyncedRow>(
   repo: BaseRepo<T>,
   companyId: string | null | undefined
 ): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[repo.table];
-    const rows = (await tbl.where("company_id").equals(companyId).toArray()) as T[];
+    const rows = await rowsForCompany<T>(repo.table, companyId);
     return rows.filter((r) => !r.deleted);
   }, [companyId, repo.table]);
 }
 
 export function useRepoCount(table: SyncedTableName, companyId: string | null | undefined): number | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return 0;
     const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
+    if (!companyId) return await tbl.count();
     return await tbl.where("company_id").equals(companyId).count();
   }, [companyId, table]);
 }
@@ -57,11 +64,10 @@ export interface InventoryWithJoins {
 
 export function useInventoryWithJoins(companyId: string | null | undefined): InventoryWithJoins[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [];
     const [batches, products, suppliers] = await Promise.all([
-      offlineDb.inventory_batches.where("company_id").equals(companyId).toArray(),
-      offlineDb.products.where("company_id").equals(companyId).toArray(),
-      offlineDb.suppliers.where("company_id").equals(companyId).toArray(),
+      rowsForCompany<any>("inventory_batches", companyId),
+      rowsForCompany<any>("products", companyId),
+      rowsForCompany<any>("suppliers", companyId),
     ]);
     const productMap = new Map(products.map((p) => [p.id, p]));
     const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
@@ -110,8 +116,7 @@ export function useInventoryWithJoins(companyId: string | null | undefined): Inv
 
 export function useSalesOrders<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.sales_orders.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("sales_orders", companyId);
     return rows
       .filter((r) => !r.deleted)
       .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")) as unknown as T[];
@@ -122,10 +127,9 @@ export function usePurchaseOrdersWithSupplier<T = any>(
   companyId: string | null | undefined
 ): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
     const [orders, suppliers] = await Promise.all([
-      offlineDb.purchase_orders.where("company_id").equals(companyId).toArray(),
-      offlineDb.suppliers.where("company_id").equals(companyId).toArray(),
+      rowsForCompany<any>("purchase_orders", companyId),
+      rowsForCompany<any>("suppliers", companyId),
     ]);
     const supMap = new Map(suppliers.map((s: any) => [s.id, s]));
     return orders
@@ -140,8 +144,7 @@ export function usePaymentsByRefType(
   refType: "sales_order" | "purchase_order"
 ): Array<{ reference_id: string; amount: number }> | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [];
-    const rows = await offlineDb.payments.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("payments", companyId);
     return rows
       .filter((p: any) => !p.deleted && p.reference_type === refType)
       .map((p: any) => ({ reference_id: p.reference_id, amount: Number(p.amount) || 0 }));
@@ -151,9 +154,8 @@ export function usePaymentsByRefType(
 /** Batches with stock > 0 and not expired — for sale/return product pickers. */
 export function useAvailableBatches<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
     const today = new Date().toISOString().split("T")[0];
-    const rows = await offlineDb.inventory_batches.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("inventory_batches", companyId);
     return rows
       .filter((b: any) => !b.deleted && Number(b.quantity) > 0 && (!b.expiry_date || b.expiry_date > today))
       .sort((a: any, b: any) => {
@@ -167,8 +169,7 @@ export function useAvailableBatches<T = any>(companyId: string | null | undefine
 /** Active products only (is_active = true). */
 export function useActiveProducts<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.products.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("products", companyId);
     return rows
       .filter((p: any) => !p.deleted && p.is_active !== false)
       .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
@@ -178,8 +179,7 @@ export function useActiveProducts<T = any>(companyId: string | null | undefined)
 /** Active suppliers only. */
 export function useActiveSuppliers<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.suppliers.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("suppliers", companyId);
     return rows
       .filter((s: any) => !s.deleted && s.is_active !== false)
       .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
@@ -189,8 +189,7 @@ export function useActiveSuppliers<T = any>(companyId: string | null | undefined
 /** Customers list (no is_active flag — all non-deleted). */
 export function useCustomers<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.customers.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("customers", companyId);
     return rows
       .filter((c: any) => !c.deleted)
       .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
@@ -200,8 +199,7 @@ export function useCustomers<T = any>(companyId: string | null | undefined): T[]
 /** Active doctors list. */
 export function useDoctors<T = any>(companyId: string | null | undefined): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const rows = await offlineDb.doctors.where("company_id").equals(companyId).toArray();
+    const rows = await rowsForCompany<any>("doctors", companyId);
     return rows
       .filter((d: any) => !d.deleted && d.is_active !== false)
       .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];

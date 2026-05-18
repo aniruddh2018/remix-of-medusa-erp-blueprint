@@ -494,112 +494,48 @@ export default function PurchaseOrders() {
     focusProductSearch();
   }, [clearPODraft, focusProductSearch, gstInclusive]);
 
-  // ── Create order mutation ──
+  // ── Create order mutation (PR 6 — local-first via offline writer) ──
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedSupplier) throw new Error("Please select a supplier");
-      if (orderItems.length === 0) throw new Error("Add at least one item");
-
-      if (challanNumber) {
-        const { data: existing } = await supabase
-          .from("purchase_orders")
-          .select("id")
-          .eq("supplier_id", selectedSupplier)
-          .or(isChallan ? `challan_number.eq.${challanNumber}` : `invoice_number.eq.${challanNumber}`)
-          .limit(1);
-        if (existing && existing.length > 0) throw new Error(`${isChallan ? "Challan" : "Invoice"} "${challanNumber}" already exists for this supplier.`);
-      }
-
-      const orderNumber = `PO-${Date.now()}`;
-      const gstAmount = totalGst;
-      const discountAmount = totalDiscountAmount;
-      const totalAmount = grandTotal;
-
-      const { data: order, error: orderError } = await supabase
-        .from("purchase_orders")
-        .insert({
-          order_number: orderNumber,
+      const { createPurchaseOrderLocal } = await import("@/offline/purchases/createPurchaseOrderLocal");
+      const order = await createPurchaseOrderLocal({
+        companyId: companyId!,
+        userId: user?.id ?? null,
+        header: {
           supplier_id: selectedSupplier,
           expected_delivery_date: expectedDeliveryDate || null,
           notes: notes || null,
-          total_amount: totalAmount,
-          gst_amount: gstAmount,
-          discount_amount: discountAmount,
+          total_amount: grandTotal,
+          gst_amount: totalGst,
+          discount_amount: totalDiscountAmount,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,
-          created_by: user?.id,
           status: "pending",
-          challan_number: isChallan ? (challanNumber || null) : null,
+          challan_number: challanNumber || null,
           is_challan: isChallan,
-          invoice_number: !isChallan ? (challanNumber || null) : null,
-          company_id: companyId,
-        })
-        .select()
-        .single();
-      if (orderError) throw orderError;
+        },
+        items: orderItems.map((item: any) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          free_quantity: item.free_quantity || 0,
+          purchased_unit: item.purchased_unit || item.base_unit || null,
+          base_quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
+          unit_price: item.unit_price,
+          gst_percentage: item.gst_percentage,
+          discount_percentage: item.discount_percentage,
+          total_price: item.total_price,
+          batch_number: item.batch_number || "",
+          expiry_date: item.expiry_date || null,
+          mrp: item.mrp,
+          fromChallan: item.fromChallan,
+        })),
+      });
 
-      // Mark merged challans
-      if (!isChallan && selectedChallanIds.length > 0) {
+      // Mark merged challans (online-only; ignored if offline)
+      if (!isChallan && selectedChallanIds.length > 0 && navigator.onLine) {
         await supabase.from("purchase_orders").update({ converted_from_challan_id: order.id, is_challan: false }).in("id", selectedChallanIds);
-      }
-
-      try {
-        // Insert items
-        const newItems = orderItems.filter(item => !item.fromChallan);
-        if (newItems.length > 0) {
-          // Validate product_ids still exist (avoid FK violation if a product was deleted/merged)
-          const ids = Array.from(new Set(newItems.map(i => i.product_id).filter(Boolean)));
-          const { data: existingProducts, error: prodErr } = await supabase
-            .from("products").select("id").in("id", ids);
-          if (prodErr) throw prodErr;
-          const existingSet = new Set((existingProducts || []).map(p => p.id));
-          const missing = newItems.filter(i => !existingSet.has(i.product_id));
-          if (missing.length > 0) {
-            throw new Error(`These products no longer exist (deleted/merged). Remove them from the cart and re-add: ${missing.map(m => m.product_name).join(", ")}`);
-          }
-          const items = newItems.map((item) => ({
-            purchase_order_id: order.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            free_quantity: item.free_quantity || 0,
-            purchased_unit: item.purchased_unit || item.base_unit || null,
-            base_quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
-            unit_price: item.unit_price,
-            gst_percentage: item.gst_percentage,
-            discount_percentage: item.discount_percentage,
-            total_price: item.total_price,
-            company_id: companyId,
-          }));
-          const { error: itemsError } = await supabase.from("purchase_order_items").insert(items);
-          if (itemsError) throw itemsError;
-        }
-
-        // Auto-receive via RPC (smart batch merge/create, MRP fallback)
-        const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
-        if (allItemsToReceive.length > 0) {
-          const batchPayload = allItemsToReceive.map((item) => ({
-            product_id: item.product_id,
-            batch_number: item.batch_number || "",
-            quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
-            purchase_price: item.unit_price,
-            mrp: item.mrp || item.unit_price * 1.2,
-            expiry_date: item.expiry_date || null,
-            manufacturing_date: null,
-            supplier_id: selectedSupplier || null,
-            company_id: companyId,
-          }));
-          const { error: batchError } = await supabase.rpc("receive_purchase_batches", {
-            _batches: batchPayload,
-            _purchase_order_id: order.id,
-          });
-          if (batchError) throw batchError;
-        }
-      } catch (innerError) {
-        // Rollback: delete partially created order and its items
-        await supabase.from("purchase_order_items").delete().eq("purchase_order_id", order.id);
-        await supabase.from("purchase_orders").delete().eq("id", order.id);
-        throw innerError;
       }
 
       return order;

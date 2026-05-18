@@ -569,26 +569,12 @@ export default function Sales() {
   const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
   const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
 
-  // ── Save mutation ──
+  // ── Save mutation (PR 6 — local-first via offline writer) ──
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      let finalInvoiceNumber = invoiceNumber.trim();
-      if (!finalInvoiceNumber) {
-        const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
-        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: rawPrefix });
-        if (seqErr) throw seqErr;
-        finalInvoiceNumber = seqNum as string;
-      }
-      const invalidItems = cart.filter(i => !i.batch_id);
-      if (invalidItems.length > 0) throw new Error(`${invalidItems.length} item(s) have no batch assigned.`);
+      const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
 
-      const { data: existing } = await supabase.from("sales_orders").select("id").eq("invoice_number", finalInvoiceNumber).eq("company_id", companyId).limit(1);
-      if (existing && existing.length > 0) throw new Error(`Invoice "${finalInvoiceNumber}" already exists.`);
-
-      const gstAmount = totalGst;
-      const totalAmount = grandTotal;
-
-      // Per-schedule prescription check (configurable per pharmacy in Settings)
+      // Per-schedule prescription check (unchanged business rule)
       if (config.hasDrugSchedule) {
         const rxCheck = settings.prescription_check || {};
         const triggeredSchedules = new Set<string>();
@@ -616,71 +602,50 @@ export default function Sales() {
         }
       }
 
-      const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
-        invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
-        customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
-        prescription_number: prescriptionNumber || null,
-        prescription_date: prescriptionDate || null,
-        prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
-        doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
-        notes: notes || null,
-        total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
-        freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
-        other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
-      }).select().single();
-      if (orderError) throw orderError;
-
-      try {
-        // For return rows, persist a NEGATIVE quantity so reports/aggregations net out correctly
-        const orderItems = cart.map(i => ({
-          sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
-          quantity: i.is_return ? -i.quantity : i.quantity,
-          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+      const { createSalesOrderLocal } = await import("@/offline/sales/createSalesOrderLocal");
+      const result = await createSalesOrderLocal({
+        companyId: companyId!,
+        userId: user?.id ?? null,
+        blockExpired: !!(settings as any).block_expired_sales,
+        header: {
+          invoice_number: invoiceNumber.trim() || undefined,
+          prefix: rawPrefix,
+          customer_id: selectedCustomerId || null,
+          customer_name: customerName,
+          customer_phone: customerPhone || null,
+          customer_address: customerAddress || null,
+          customer_gstin: customerGstin || null,
+          prescription_number: prescriptionNumber || null,
+          prescription_date: prescriptionDate || null,
+          prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
+          doctor_id: doctor.id,
+          doctor_name: doctor.name || null,
+          doctor_registration_number: doctor.registration_number || null,
+          notes: notes || null,
+          total_amount: grandTotal,
+          gst_amount: totalGst,
+          discount_amount: totalDiscountAmount,
+          freight_charges: freightCharges,
+          handling_charges: handlingCharges,
+          delivery_charges: deliveryCharges,
+          other_charges: otherCharges,
+          status: "confirmed",
+        },
+        items: cart.map(i => ({
+          product_id: i.product_id,
+          batch_id: i.batch_id!,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
           unit_price: i.unit_price,
-          gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
-          total_price: i.total_price, company_id: companyId,
+          gst_percentage: i.gst_percentage,
+          discount_percentage: i.discount_percentage,
+          total_price: i.total_price,
           sold_unit: i.sold_unit || null,
-          base_quantity: i.is_return
-            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
-            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
-        }));
-        const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
-        if (itemsError) throw itemsError;
-
-        // Split: deduct stock for sale lines, restore stock for return lines.
-        // Pass base_quantity so the RPC can deduct in the correct unit (mixed loose+sealed).
-        const deductItems = cart.filter(i => !i.is_return).map(i => ({
-          batch_id: i.batch_id,
-          quantity: i.quantity,
-          free_quantity: i.free_quantity || 0,
           base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-          reference_id: order.id,
-          unit_price: i.unit_price,
-        }));
-        const restoreItems = cart.filter(i => i.is_return).map(i => ({
-          batch_id: i.batch_id,
-          quantity: i.quantity,
-          free_quantity: i.free_quantity || 0,
-          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-          reference_id: order.id,
-        }));
-
-        if (deductItems.length > 0) {
-          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
-          if (deductError) throw new Error(deductError.message);
-        }
-        if (restoreItems.length > 0) {
-          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
-          if (restoreError) throw new Error(restoreError.message);
-        }
-      } catch (innerError) {
-        // Rollback: delete partially created order and its items
-        await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
-        await supabase.from("sales_orders").delete().eq("id", order.id);
-        throw innerError;
-      }
-
-      return order;
+          is_return: !!i.is_return,
+        })),
+      });
+      return result;
     },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });

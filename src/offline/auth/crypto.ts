@@ -8,11 +8,13 @@ const KEY_LEN_BITS = 256;
 const SALT_LEN = 16;
 const IV_LEN = 12;
 
-function te(s: string) { return new TextEncoder().encode(s); }
+function te(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
+}
 function td(b: ArrayBuffer) { return new TextDecoder().decode(b); }
 
 export function randomBytes(len: number): Uint8Array {
-  const a = new Uint8Array(len);
+  const a = new Uint8Array(new ArrayBuffer(len));
   crypto.getRandomValues(a);
   return a;
 }
@@ -37,11 +39,11 @@ export async function deriveKey(pin: string, salt: ArrayBuffer): Promise<CryptoK
 export async function encryptJson(key: CryptoKey, data: unknown): Promise<{ ciphertext: ArrayBuffer; iv: ArrayBuffer }> {
   const iv = randomBytes(IV_LEN);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
+    { name: "AES-GCM", iv: iv as BufferSource },
     key,
-    te(JSON.stringify(data))
+    te(JSON.stringify(data)) as BufferSource
   );
-  return { ciphertext, iv: iv.buffer };
+  return { ciphertext, iv: iv.buffer as ArrayBuffer };
 }
 
 export async function decryptJson<T>(key: CryptoKey, ciphertext: ArrayBuffer, iv: ArrayBuffer): Promise<T> {

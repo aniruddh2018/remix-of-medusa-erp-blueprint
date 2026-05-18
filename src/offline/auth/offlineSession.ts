@@ -37,7 +37,7 @@ export const isPinConfigured = hasOfflineCache;
 async function getOrCreateSalt(): Promise<ArrayBuffer> {
   const existing = await offlineDb.auth_cache.get("salt");
   if (existing) return existing.ciphertext;
-  const salt = randomBytes(SALT_LEN).buffer;
+  const salt = randomBytes(SALT_LEN).buffer as ArrayBuffer;
   await offlineDb.auth_cache.put({
     key: "salt",
     ciphertext: salt,

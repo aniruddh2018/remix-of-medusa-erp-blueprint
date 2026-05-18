@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { FocusProvider } from "@/contexts/FocusContext";
 import { SyncProvider } from "@/contexts/SyncContext";
+import { OfflineGate } from "@/components/auth/OfflineGate";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -47,6 +48,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <OfflineGate>
           <BusinessProvider>
             <FocusProvider>
             <SyncProvider>
@@ -88,6 +90,7 @@ const App = () => (
             </SyncProvider>
             </FocusProvider>
           </BusinessProvider>
+          </OfflineGate>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

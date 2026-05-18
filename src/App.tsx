@@ -87,6 +87,7 @@ const App = () => (
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/sync" element={<SyncCenter />} />
+                <Route path="/demand-intelligence" element={<DemandIntelligence />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

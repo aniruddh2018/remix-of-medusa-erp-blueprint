@@ -73,3 +73,7 @@ export function useSync() {
   if (!ctx) throw new Error("useSync must be used within SyncProvider");
   return ctx;
 }
+
+export function useSyncSafe() {
+  return useContext(SyncContext);
+}

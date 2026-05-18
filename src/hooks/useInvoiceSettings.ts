@@ -51,6 +51,7 @@ export interface FullInvoiceSettings {
   enable_batch_tracking: boolean;
   enable_expiry_tracking: boolean;
   allow_negative_stock: boolean;
+  block_expired_sales: boolean;
   default_payment_method: string;
   default_customer_name: string;
   // Bank

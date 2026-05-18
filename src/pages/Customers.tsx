@@ -16,6 +16,8 @@ import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstand
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CreditCustomersTab } from "@/components/CreditCustomersTab";
+import { useRepoList } from "@/offline/hooks";
+import { customerRepo } from "@/offline/repo";
 
 interface Customer {
   id: string;
@@ -47,19 +49,10 @@ export default function Customers() {
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   useKeyboardShortcut({ key: "n", callback: () => setDialogOpen(true), enabled: !dialogOpen });
 
-  const { data: customers, isLoading } = useQuery({
-    queryKey: ["customers", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("company_id", companyId!)
-        .order("name");
-      if (error) throw error;
-      return data as Customer[];
-    },
-    enabled: !!companyId,
-  });
+  // Local-first read via Dexie. The sync engine populates this in the background.
+  const localCustomers = useRepoList(customerRepo, companyId);
+  const customers = (localCustomers ?? []).sort((a, b) => a.name.localeCompare(b.name)) as unknown as Customer[];
+  const isLoading = localCustomers === undefined;
 
   // Fetch outstanding balances per customer
   const { data: outstandingMap } = useQuery({

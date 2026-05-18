@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Plus, Search, Pencil, Trash2, Phone, Mail, Users } from "lucide-react";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useRepoList } from "@/offline/hooks";
+import { supplierRepo } from "@/offline/repo";
 
 type Supplier = Tables<"suppliers">;
 
@@ -27,19 +29,9 @@ export default function Suppliers() {
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   useKeyboardShortcut({ key: "n", callback: () => setIsDialogOpen(true), enabled: !isDialogOpen });
 
-  const { data: suppliers, isLoading } = useQuery({
-    queryKey: ["suppliers", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("suppliers")
-        .select("*")
-        .eq("company_id", companyId!)
-        .order("name");
-      if (error) throw error;
-      return data as Supplier[];
-    },
-    enabled: !!companyId,
-  });
+  const localSuppliers = useRepoList(supplierRepo, companyId);
+  const suppliers = (localSuppliers ?? []).sort((a, b) => a.name.localeCompare(b.name)) as unknown as Supplier[];
+  const isLoading = localSuppliers === undefined;
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

@@ -39,13 +39,17 @@ DB migration (one migration covers all 8 tables):
 - `devices` table: `id uuid PK, user_id uuid, last_sync timestamptz, app_version text`.
 - Index `(company_id, updated_at)` on every synced table for delta pulls.
 
-### PR 2 — Offline auth + read-cache (Customers, Products, Suppliers)
+### PR 2 — Offline auth + read-cache (Customers, Products, Suppliers) ✅ SHIPPED
 Read-only modules first — zero conflict risk.
-- Cache encrypted profile + roles in IndexedDB (Web Crypto, key derived from PIN).
-- `OfflinePinSetup` on first login; `OfflinePinUnlock` when JWT expired offline.
-- `AuthContext` falls back to cached profile when `getSession` fails.
-- Migrate Customers, Products, Suppliers pages: replace `supabase.from(...).select` with `customerRepo.getAll(...)` etc.
-- Initial full pull on first login, then delta pull on reconnect.
+- ✅ `src/offline/auth/crypto.ts` PBKDF2-200k + AES-GCM helpers.
+- ✅ `src/offline/auth/offlineSession.ts` encrypted snapshot of {user, profile, roles, company_id} in `auth_cache`, 30-day TTL.
+- ✅ `OfflinePinSetup` dialog + `OfflineAccessButton` in header (Shield icon).
+- ✅ `OfflinePinUnlock` full-screen + `OfflineGate` in App tree — shows when there is a cache and the browser is offline.
+- ✅ `AuthContext` exposes `offlineMode`, `offlineSession`, `hasPin`, `hydrateFromOfflineSession`. Sign-out clears offlineMode (cache stays for next unlock).
+- ✅ `customerRepo`, `productRepo`, `supplierRepo` in `src/offline/repo/index.ts`.
+- ✅ `useRepoList(repo, companyId)` Dexie live-query hook in `src/offline/hooks.ts`.
+- ✅ Customers, Products, Suppliers pages now read from local Dexie via `useRepoList`. Writes still go directly to Supabase (PR 3).
+- ⚠️ Initial pull happens via existing `SyncManager.start()` on login; first paint may be empty for ~1s while delta-pull runs.
 
 ### PR 3 — Offline writes (Customers, Products, Suppliers)
 - All create/update/softDelete go through repos → `sync_queue`.

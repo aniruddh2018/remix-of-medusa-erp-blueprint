@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,15 +35,15 @@ export default function Suppliers() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
-      if (error) throw error;
+      await supplierRepo.softDelete(id);
+      void (await import("@/offline/sync/SyncManager")).SyncManager.forceSync();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       toast({ title: "Supplier deleted successfully" });
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 

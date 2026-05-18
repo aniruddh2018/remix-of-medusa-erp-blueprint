@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
+import { customerRepo } from "@/offline/repo";
+import { SyncManager } from "@/offline/sync/SyncManager";
 
 type Customer = Tables<"customers">;
 
@@ -74,13 +75,9 @@ export function CustomerFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const { data: customer, error } = await supabase
-        .from("customers")
-        .insert({ ...data, company_id: companyId } as TablesInsert<"customers">)
-        .select()
-        .single();
-      if (error) throw error;
-      return customer;
+      const row = await customerRepo.upsert({ ...data, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (customer) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -89,20 +86,15 @@ export function CustomerFormDialog({
       onSuccess?.(customer.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const { data: customer, error } = await supabase
-        .from("customers")
-        .update(data as TablesUpdate<"customers">)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return customer;
+      const row = await customerRepo.upsert({ ...data, id, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (customer) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -111,7 +103,7 @@ export function CustomerFormDialog({
       onSuccess?.(customer.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { detectDuplicates } from "@/utils/duplicateDetection";
 import { DuplicateProductsBanner } from "@/components/DuplicateProductsBanner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -163,22 +163,16 @@ export default function Products() {
 
     try {
       if (editingProduct) {
-        const { error } = await supabase
-          .from("products")
-          .update(formData)
-          .eq("id", editingProduct.id);
-
-        if (error) throw error;
+        await productRepo.upsert({ ...formData, id: editingProduct.id, company_id: companyId } as any);
         toast({ title: "Product updated successfully" });
       } else {
-        const { error } = await supabase.from("products").insert({ ...formData, company_id: companyId });
-        if (error) throw error;
+        await productRepo.upsert({ ...formData, company_id: companyId } as any);
         toast({ title: "Product added successfully" });
       }
 
       setDialogOpen(false);
       resetForm();
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -221,21 +215,16 @@ export default function Products() {
 
   const saveInlineEdit = async () => {
     if (!editingCell) return;
-    
+
     try {
       const value = ["mrp", "purchase_price", "sale_price", "gst_percentage"].includes(editingCell.field)
         ? parseFloat(editValue) || 0
         : editValue;
 
-      const { error } = await supabase
-        .from("products")
-        .update({ [editingCell.field]: value })
-        .eq("id", editingCell.id);
+      await productRepo.upsert({ id: editingCell.id, [editingCell.field]: value, company_id: companyId } as any);
 
-      if (error) throw error;
-      
       toast({ title: "Updated successfully" });
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
@@ -253,10 +242,9 @@ export default function Products() {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      await productRepo.softDelete(id);
       toast({ title: "Product deleted successfully" });
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -289,12 +277,13 @@ export default function Products() {
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase.from("products").delete().in("id", ids);
-      if (error) throw error;
+      for (const id of ids) {
+        await productRepo.softDelete(id);
+      }
       toast({ title: `${ids.length} product(s) deleted` });
       setSelectedIds(new Set());
       setBulkDeleteOpen(false);
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {

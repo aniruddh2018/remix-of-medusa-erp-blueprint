@@ -97,8 +97,8 @@ export default function Customers() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("customers").delete().eq("id", id);
-      if (error) throw error;
+      await customerRepo.softDelete(id);
+      void (await import("@/offline/sync/SyncManager")).SyncManager.forceSync();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });

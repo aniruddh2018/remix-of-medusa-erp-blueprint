@@ -241,12 +241,19 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       if (!debitNoteNumber.trim()) throw new Error("Debit note number is required.");
       const suppName = supplierName.trim() || (selectedOrder as any)?.suppliers?.name || "Unknown Supplier";
 
-      const { data: dn, error: dnError } = await supabase
-        .from("debit_notes")
-        .insert({
+      const { createDebitNoteLocal } = await import("@/offline/purchases/createDebitNoteLocal");
+      return await createDebitNoteLocal({
+        companyId: companyId!,
+        userId: user?.id || null,
+        deductStock: false,
+        header: {
           debit_note_number: debitNoteNumber.trim(),
           original_order_id: selectedOrder?.id || null,
-          original_order_number: selectedOrder?.invoice_number || selectedOrder?.challan_number || selectedOrder?.order_number || "MANUAL",
+          original_order_number:
+            (selectedOrder as any)?.invoice_number ||
+            (selectedOrder as any)?.challan_number ||
+            selectedOrder?.order_number ||
+            "MANUAL",
           supplier_id: selectedOrder?.supplier_id || null,
           supplier_name: suppName,
           reason: finalReason,
@@ -254,28 +261,19 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           total_amount: totalAmount,
           gst_amount: totalGst,
           status: "issued",
-          created_by: user?.id || null,
-          company_id: companyId,
-        })
-        .select().single();
-      if (dnError) throw dnError;
-
-      const items = returnItems.map((item) => ({
-        debit_note_id: dn.id,
-        product_id: item.product_id,
-        batch_id: item.batch_id,
-        product_name: item.product_name,
-        batch_number: item.batch_number,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        gst_percentage: item.gst_percentage,
-        discount_percentage: item.discount_percentage,
-        total_price: item.total_price,
-        company_id: companyId,
-      }));
-      const { error: itemsError } = await supabase.from("debit_note_items").insert(items);
-      if (itemsError) throw itemsError;
-      return dn;
+        },
+        items: returnItems.map((item) => ({
+          product_id: item.product_id,
+          batch_id: item.batch_id,
+          product_name: item.product_name,
+          batch_number: item.batch_number,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          gst_percentage: item.gst_percentage,
+          discount_percentage: item.discount_percentage,
+          total_price: item.total_price,
+        })),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["debit-notes"] });

@@ -18,6 +18,11 @@ import type {
   PurchaseOrderRow,
   PurchaseOrderItemRow,
   PaymentRow,
+  CreditNoteRow,
+  CreditNoteItemRow,
+  DebitNoteRow,
+  DebitNoteItemRow,
+  BatchConversionRow,
 } from "../db";
 
 export const customerRepo = new BaseRepo<CustomerRow>("customers");
@@ -30,3 +35,8 @@ export const salesOrderItemRepo   = new BaseRepo<SalesOrderItemRow>("sales_order
 export const purchaseOrderRepo    = new BaseRepo<PurchaseOrderRow>("purchase_orders");
 export const purchaseOrderItemRepo = new BaseRepo<PurchaseOrderItemRow>("purchase_order_items");
 export const paymentRepo          = new BaseRepo<PaymentRow>("payments");
+export const creditNoteRepo       = new BaseRepo<CreditNoteRow>("credit_notes");
+export const creditNoteItemRepo   = new BaseRepo<CreditNoteItemRow>("credit_note_items");
+export const debitNoteRepo        = new BaseRepo<DebitNoteRow>("debit_notes");
+export const debitNoteItemRepo    = new BaseRepo<DebitNoteItemRow>("debit_note_items");
+export const batchConversionRepo  = new BaseRepo<BatchConversionRow>("batch_conversions");

@@ -36,6 +36,7 @@ interface DeductCtx {
   companyId: string;
   userId: string | null;
   blockExpired?: boolean;
+  referenceType?: string; // default "sales_order"
 }
 
 /** Deduct stock from a list of (already FIFO-allocated) batches. */
@@ -93,7 +94,7 @@ export async function deductSaleInventoryLocal(items: DeductItem[], ctx: DeductC
       transaction_type: "sale",
       quantity: -(it.quantity + (it.free_quantity ?? 0)),
       rate: it.unit_price ?? 0,
-      reference_type: "sales_order",
+      reference_type: ctx.referenceType ?? "sales_order",
       reference_id: it.reference_id,
       created_by: ctx.userId,
       notes: broken > 0 ? `Broke ${broken} sealed pack(s) into loose` : null,
@@ -134,7 +135,7 @@ export async function restoreSaleInventoryLocal(items: DeductItem[], ctx: Deduct
       transaction_type: "sale_return",
       quantity: it.quantity + (it.free_quantity ?? 0),
       rate: 0,
-      reference_type: "sales_order",
+      reference_type: ctx.referenceType ?? "sales_order",
       reference_id: it.reference_id,
       created_by: ctx.userId,
     } as any);

@@ -222,6 +222,11 @@ export class OfflineDB extends Dexie {
   purchase_orders!: Table<PurchaseOrderRow, string>;
   purchase_order_items!: Table<PurchaseOrderItemRow, string>;
   payments!: Table<PaymentRow, string>;
+  credit_notes!: Table<CreditNoteRow, string>;
+  credit_note_items!: Table<CreditNoteItemRow, string>;
+  debit_notes!: Table<DebitNoteRow, string>;
+  debit_note_items!: Table<DebitNoteItemRow, string>;
+  batch_conversions!: Table<BatchConversionRow, string>;
 
   sync_queue!: Table<SyncQueueRow, number>;
   sync_meta!: Table<SyncMetaRow, string>;
@@ -252,6 +257,15 @@ export class OfflineDB extends Dexie {
       attachment_queue: "++id, status, created_at",
       auth_cache:       "key",
     });
+
+    // v2 — add credit/debit notes + batch conversions for fully-offline returns & receipts (PR 7)
+    this.version(2).stores({
+      credit_notes:        "id, company_id, credit_note_number, original_invoice_id, updated_at, deleted",
+      credit_note_items:   "id, company_id, credit_note_id, product_id, batch_id, updated_at, deleted",
+      debit_notes:         "id, company_id, debit_note_number, original_order_id, supplier_id, updated_at, deleted",
+      debit_note_items:    "id, company_id, debit_note_id, product_id, batch_id, updated_at, deleted",
+      batch_conversions:   "id, company_id, product_id, batch_id, updated_at, deleted",
+    });
   }
 }
 
@@ -270,6 +284,11 @@ export const SYNCED_TABLES = [
   "sales_orders",
   "sales_order_items",
   "payments",
+  "credit_notes",
+  "credit_note_items",
+  "debit_notes",
+  "debit_note_items",
+  "batch_conversions",
 ] as const;
 
 export type SyncedTableName = (typeof SYNCED_TABLES)[number];

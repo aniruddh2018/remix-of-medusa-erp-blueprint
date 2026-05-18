@@ -266,6 +266,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           credit_note_id: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           gst_percentage: number
           id: string
@@ -274,6 +276,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
@@ -281,6 +285,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           credit_note_id: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -289,6 +295,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
@@ -296,6 +304,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           credit_note_id?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -304,6 +314,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -344,6 +356,8 @@ export type Database = {
           credit_note_number: string
           customer_name: string
           customer_phone: string | null
+          deleted: boolean
+          device_id: string | null
           gst_amount: number
           id: string
           notes: string | null
@@ -353,6 +367,7 @@ export type Database = {
           status: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           company_id?: string | null
@@ -361,6 +376,8 @@ export type Database = {
           credit_note_number: string
           customer_name: string
           customer_phone?: string | null
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -370,6 +387,7 @@ export type Database = {
           status?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           company_id?: string | null
@@ -378,6 +396,8 @@ export type Database = {
           credit_note_number?: string
           customer_name?: string
           customer_phone?: string | null
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -387,6 +407,7 @@ export type Database = {
           status?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -463,6 +484,8 @@ export type Database = {
           address: string | null
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           email: string | null
           gst_number: string | null
           id: string
@@ -471,11 +494,14 @@ export type Database = {
           phone: string | null
           total_purchases: number
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           gst_number?: string | null
           id?: string
@@ -484,11 +510,14 @@ export type Database = {
           phone?: string | null
           total_purchases?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           gst_number?: string | null
           id?: string
@@ -497,6 +526,7 @@ export type Database = {
           phone?: string | null
           total_purchases?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -553,6 +583,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           debit_note_id: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           gst_percentage: number
           id: string
@@ -561,6 +593,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
@@ -568,6 +602,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           debit_note_id: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -576,6 +612,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
@@ -583,6 +621,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           debit_note_id?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -591,6 +631,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -629,6 +671,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           debit_note_number: string
+          deleted: boolean
+          device_id: string | null
           gst_amount: number
           id: string
           notes: string | null
@@ -640,12 +684,15 @@ export type Database = {
           supplier_name: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
           debit_note_number: string
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -657,12 +704,15 @@ export type Database = {
           supplier_name: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
           debit_note_number?: string
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -674,6 +724,7 @@ export type Database = {
           supplier_name?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -699,11 +750,46 @@ export type Database = {
           },
         ]
       }
+      devices: {
+        Row: {
+          app_version: string | null
+          company_id: string | null
+          created_at: string
+          device_name: string | null
+          id: string
+          last_seen_at: string
+          last_sync: string | null
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          company_id?: string | null
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          last_sync?: string | null
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          company_id?: string | null
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          last_sync?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           address: string | null
           company_id: string
           created_at: string
+          deleted: boolean
+          device_id: string | null
           email: string | null
           id: string
           is_active: boolean
@@ -713,11 +799,14 @@ export type Database = {
           registration_number: string | null
           speciality: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
           company_id: string
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
@@ -727,11 +816,14 @@ export type Database = {
           registration_number?: string | null
           speciality?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
           company_id?: string
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
@@ -741,6 +833,7 @@ export type Database = {
           registration_number?: string | null
           speciality?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -934,6 +1027,8 @@ export type Database = {
           batch_number: string
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           expiry_date: string | null
           id: string
           loose_quantity: number
@@ -946,11 +1041,14 @@ export type Database = {
           received_date: string
           supplier_id: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           batch_number: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           expiry_date?: string | null
           id?: string
           loose_quantity?: number
@@ -963,11 +1061,14 @@ export type Database = {
           received_date?: string
           supplier_id?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           batch_number?: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           expiry_date?: string | null
           id?: string
           loose_quantity?: number
@@ -980,6 +1081,7 @@ export type Database = {
           received_date?: string
           supplier_id?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1011,6 +1113,8 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           id: string
           notes: string | null
           product_id: string
@@ -1019,12 +1123,16 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           transaction_type: string
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           product_id: string
@@ -1033,12 +1141,16 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           transaction_type: string
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           product_id?: string
@@ -1047,6 +1159,8 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           transaction_type?: string
+          updated_at?: string
+          version?: number
         }
         Relationships: []
       }
@@ -1328,6 +1442,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           id: string
           notes: string | null
           party_name: string
@@ -1339,6 +1455,7 @@ export type Database = {
           reference_number: string
           reference_type: string
           updated_at: string
+          version: number
         }
         Insert: {
           amount?: number
@@ -1347,6 +1464,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           party_name: string
@@ -1358,6 +1477,7 @@ export type Database = {
           reference_number: string
           reference_type: string
           updated_at?: string
+          version?: number
         }
         Update: {
           amount?: number
@@ -1366,6 +1486,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           party_name?: string
@@ -1377,6 +1499,7 @@ export type Database = {
           reference_number?: string
           reference_type?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1447,6 +1570,8 @@ export type Database = {
           company_id: string | null
           composition: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
           expiry_required: boolean | null
           generic_name: string | null
@@ -1465,6 +1590,7 @@ export type Database = {
           strength: string | null
           unit: string
           updated_at: string
+          version: number
         }
         Insert: {
           base_unit?: string | null
@@ -1473,6 +1599,8 @@ export type Database = {
           company_id?: string | null
           composition?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           expiry_required?: boolean | null
           generic_name?: string | null
@@ -1491,6 +1619,7 @@ export type Database = {
           strength?: string | null
           unit?: string
           updated_at?: string
+          version?: number
         }
         Update: {
           base_unit?: string | null
@@ -1499,6 +1628,8 @@ export type Database = {
           company_id?: string | null
           composition?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           expiry_required?: boolean | null
           generic_name?: string | null
@@ -1517,6 +1648,7 @@ export type Database = {
           strength?: string | null
           unit?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1574,6 +1706,8 @@ export type Database = {
           base_quantity: number | null
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           free_quantity: number
           gst_percentage: number
@@ -1584,11 +1718,15 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           base_quantity?: number | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage: number
@@ -1599,11 +1737,15 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           base_quantity?: number | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage?: number
@@ -1614,6 +1756,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1646,6 +1790,8 @@ export type Database = {
           converted_from_challan_id: string | null
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           discount_amount: number
           expected_delivery_date: string | null
           freight_charges: number
@@ -1662,6 +1808,7 @@ export type Database = {
           supplier_id: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           challan_number?: string | null
@@ -1669,6 +1816,8 @@ export type Database = {
           converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
           freight_charges?: number
@@ -1685,6 +1834,7 @@ export type Database = {
           supplier_id: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           challan_number?: string | null
@@ -1692,6 +1842,8 @@ export type Database = {
           converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
           freight_charges?: number
@@ -1708,6 +1860,7 @@ export type Database = {
           supplier_id?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1839,6 +1992,8 @@ export type Database = {
           batch_id: string
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           free_quantity: number
           gst_percentage: number
@@ -1849,12 +2004,16 @@ export type Database = {
           sold_unit: string | null
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           base_quantity?: number | null
           batch_id: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage: number
@@ -1865,12 +2024,16 @@ export type Database = {
           sold_unit?: string | null
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           base_quantity?: number | null
           batch_id?: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage?: number
@@ -1881,6 +2044,8 @@ export type Database = {
           sold_unit?: string | null
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1927,7 +2092,9 @@ export type Database = {
           customer_id: string | null
           customer_name: string
           customer_phone: string | null
+          deleted: boolean
           delivery_charges: number
+          device_id: string | null
           discount_amount: number
           doctor_id: string | null
           doctor_name: string | null
@@ -1951,6 +2118,7 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"]
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           amount_paid?: number
@@ -1965,7 +2133,9 @@ export type Database = {
           customer_id?: string | null
           customer_name: string
           customer_phone?: string | null
+          deleted?: boolean
           delivery_charges?: number
+          device_id?: string | null
           discount_amount?: number
           doctor_id?: string | null
           doctor_name?: string | null
@@ -1989,6 +2159,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           amount_paid?: number
@@ -2003,7 +2174,9 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string
           customer_phone?: string | null
+          deleted?: boolean
           delivery_charges?: number
+          device_id?: string | null
           discount_amount?: number
           doctor_id?: string | null
           doctor_name?: string | null
@@ -2027,6 +2200,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -2134,6 +2308,8 @@ export type Database = {
           company_id: string | null
           contact_person: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           drug_license_number: string | null
           email: string | null
           gst_number: string | null
@@ -2142,12 +2318,15 @@ export type Database = {
           name: string
           phone: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
           company_id?: string | null
           contact_person?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_license_number?: string | null
           email?: string | null
           gst_number?: string | null
@@ -2156,12 +2335,15 @@ export type Database = {
           name: string
           phone?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
           company_id?: string | null
           contact_person?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_license_number?: string | null
           email?: string | null
           gst_number?: string | null
@@ -2170,6 +2352,7 @@ export type Database = {
           name?: string
           phone?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {

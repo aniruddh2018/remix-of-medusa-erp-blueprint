@@ -13,6 +13,7 @@ import { SHORTCUTS, formatShortcut } from "@/lib/platform";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { CommandPalette } from "@/components/CommandPalette";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +144,7 @@ export function AppLayout() {
             <div className="flex-1" />
 
             <CompanySwitcher />
+            <SyncStatusBadge />
 
 
             {/* Keyboard shortcuts — click for full searchable dialog, hover for quick hints */}

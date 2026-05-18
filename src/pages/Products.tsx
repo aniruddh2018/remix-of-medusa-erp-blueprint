@@ -163,22 +163,16 @@ export default function Products() {
 
     try {
       if (editingProduct) {
-        const { error } = await supabase
-          .from("products")
-          .update(formData)
-          .eq("id", editingProduct.id);
-
-        if (error) throw error;
+        await productRepo.upsert({ ...formData, id: editingProduct.id, company_id: companyId } as any);
         toast({ title: "Product updated successfully" });
       } else {
-        const { error } = await supabase.from("products").insert({ ...formData, company_id: companyId });
-        if (error) throw error;
+        await productRepo.upsert({ ...formData, company_id: companyId } as any);
         toast({ title: "Product added successfully" });
       }
 
       setDialogOpen(false);
       resetForm();
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -221,21 +215,16 @@ export default function Products() {
 
   const saveInlineEdit = async () => {
     if (!editingCell) return;
-    
+
     try {
       const value = ["mrp", "purchase_price", "sale_price", "gst_percentage"].includes(editingCell.field)
         ? parseFloat(editValue) || 0
         : editValue;
 
-      const { error } = await supabase
-        .from("products")
-        .update({ [editingCell.field]: value })
-        .eq("id", editingCell.id);
+      await productRepo.upsert({ id: editingCell.id, [editingCell.field]: value, company_id: companyId } as any);
 
-      if (error) throw error;
-      
       toast({ title: "Updated successfully" });
-      fetchProducts();
+      void SyncManager.forceSync();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {

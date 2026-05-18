@@ -28,6 +28,7 @@ export interface SyncState {
 
 const HEARTBEAT_MS = 30_000;
 const PULL_PAGE_SIZE = 500;
+const CURSOR_REPAIR_KEY = "medikarp_sync_cursor_repair_v2";
 
 class SyncManagerImpl {
   private state: SyncState = {
@@ -174,6 +175,7 @@ class SyncManagerImpl {
     this.setState({ status: "syncing" });
 
     try {
+      await this.ensureCursorRepairApplied();
       await this.pushChanges();
       const pullErrors: string[] = [];
       for (const t of SYNCED_TABLES) {
@@ -199,6 +201,13 @@ class SyncManagerImpl {
     } finally {
       this.running = false;
     }
+  }
+
+  private async ensureCursorRepairApplied() {
+    if (typeof localStorage === "undefined") return;
+    if (localStorage.getItem(CURSOR_REPAIR_KEY) === "done") return;
+    await offlineDb.sync_meta.clear();
+    localStorage.setItem(CURSOR_REPAIR_KEY, "done");
   }
 
   // ── push ─────────────────────────────────────────────────────

@@ -175,15 +175,20 @@ class SyncManagerImpl {
 
     try {
       await this.pushChanges();
+      const pullErrors: string[] = [];
       for (const t of SYNCED_TABLES) {
-        await this.pullChanges(t);
+        try {
+          await this.pullChanges(t);
+        } catch (e) {
+          pullErrors.push(e instanceof Error ? e.message : String(e));
+        }
       }
       const queueSize = await offlineDb.sync_queue.where("status").equals("pending").count();
       this.setState({
-        status: "idle",
+        status: pullErrors.length > 0 ? "error" : "idle",
         lastSync: new Date().toISOString(),
         queueSize,
-        lastError: undefined,
+        lastError: pullErrors[0],
       });
     } catch (err) {
       console.error("[Sync] runOnce failed:", err);

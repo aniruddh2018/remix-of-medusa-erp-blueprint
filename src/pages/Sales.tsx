@@ -1086,7 +1086,7 @@ export default function Sales() {
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
-              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
+              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} autoOpen={searchParams.get("quick") === "1"} onAutoOpenHandled={() => { const sp = new URLSearchParams(searchParams); sp.delete("quick"); setSearchParams(sp, { replace: true }); }} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">

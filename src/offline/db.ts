@@ -170,6 +170,12 @@ export interface SyncMetaRow {
   last_sync: string | null;
   /** Initial full-pull completion */
   initial_pulled: boolean;
+  /** Last error message from a pull attempt (cleared on success). */
+  last_error?: string;
+  /** Epoch ms of the last pull attempt. */
+  last_attempt_at?: number;
+  /** Local row count after the last pull (for the UI tile). */
+  row_count?: number;
 }
 
 // ──────────────────────────────────────────────────────────────────

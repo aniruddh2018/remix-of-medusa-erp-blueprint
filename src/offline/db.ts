@@ -103,6 +103,43 @@ export interface PaymentRow extends SyncedRow {
   reference_id: string;
   [k: string]: unknown;
 }
+export interface CreditNoteRow extends SyncedRow {
+  credit_note_number: string;
+  original_invoice_id?: string | null;
+  customer_name: string;
+  total_amount: number;
+  [k: string]: unknown;
+}
+export interface CreditNoteItemRow extends SyncedRow {
+  credit_note_id: string;
+  product_id: string;
+  batch_id: string | null;
+  quantity: number;
+  [k: string]: unknown;
+}
+export interface DebitNoteRow extends SyncedRow {
+  debit_note_number: string;
+  original_order_id?: string | null;
+  supplier_id?: string | null;
+  supplier_name: string;
+  total_amount: number;
+  [k: string]: unknown;
+}
+export interface DebitNoteItemRow extends SyncedRow {
+  debit_note_id: string;
+  product_id: string;
+  batch_id: string | null;
+  quantity: number;
+  [k: string]: unknown;
+}
+export interface BatchConversionRow extends SyncedRow {
+  product_id: string;
+  batch_id: string;
+  from_unit: string;
+  to_unit: string;
+  conversion_factor: number;
+  [k: string]: unknown;
+}
 
 // ──────────────────────────────────────────────────────────────────
 // Sync queue — every local mutation appends one row here

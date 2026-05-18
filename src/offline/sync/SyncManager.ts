@@ -13,8 +13,8 @@
  * so it's a no-op until PR 2/3 migrate modules through repos.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { offlineDb, SYNCED_TABLES, type SyncedTableName, type SyncQueueRow } from "./db";
-import { getDeviceId } from "./device";
+import { offlineDb, SYNCED_TABLES, type SyncedTableName, type SyncQueueRow } from "../db";
+import { getDeviceId } from "../device";
 
 type Listener = (state: SyncState) => void;
 

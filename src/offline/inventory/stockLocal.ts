@@ -36,6 +36,7 @@ interface DeductCtx {
   companyId: string;
   userId: string | null;
   blockExpired?: boolean;
+  referenceType?: string; // default "sales_order"
 }
 
 /** Deduct stock from a list of (already FIFO-allocated) batches. */

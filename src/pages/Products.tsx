@@ -50,6 +50,9 @@ import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog"
 import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
 import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useRepoList } from "@/offline/hooks";
+import { productRepo } from "@/offline/repo";
+import { SyncManager } from "@/offline/sync/SyncManager";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type DrugSchedule = Database["public"]["Enums"]["drug_schedule"];
@@ -74,8 +77,9 @@ export default function Products() {
   const { isPharmacist } = useAuth();
   const { toast } = useToast();
   const { companyId, config } = useBusiness();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const localProducts = useRepoList(productRepo, companyId);
+  const products = (localProducts ?? []) as unknown as Product[];
+  const loading = localProducts === undefined;
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -116,30 +120,19 @@ export default function Products() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // List comes from the offline repo (Dexie live query). After server-side
+  // mutations we just kick the sync engine; the live query re-renders
+  // automatically once new rows are pulled.
   const fetchProducts = async () => {
-    if (!companyId) return;
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("name");
-
-      if (error) throw error;
-      setProducts(data || []);
+      await SyncManager.forceSync();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
+      toast({ variant: "destructive", title: "Sync failed", description: error.message });
     }
   };
 
   useEffect(() => {
-    fetchProducts();
+    // No-op on mount: useRepoList already subscribes. Kept for compatibility.
   }, [companyId]);
 
   const resetForm = () => {

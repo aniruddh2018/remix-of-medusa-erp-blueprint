@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { detectDuplicates } from "@/utils/duplicateDetection";
 import { DuplicateProductsBanner } from "@/components/DuplicateProductsBanner";
 import { useAuth } from "@/contexts/AuthContext";

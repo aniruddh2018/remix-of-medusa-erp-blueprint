@@ -35,15 +35,15 @@ export default function Suppliers() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
-      if (error) throw error;
+      await supplierRepo.softDelete(id);
+      void (await import("@/offline/sync/SyncManager")).SyncManager.forceSync();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       toast({ title: "Supplier deleted successfully" });
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 

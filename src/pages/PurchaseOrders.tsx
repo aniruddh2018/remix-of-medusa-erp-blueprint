@@ -949,7 +949,7 @@ export default function PurchaseOrders() {
                     GST incl. rate
                   </Label>
                 </div>
-                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
+                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} autoOpen={searchParams.get("quick") === "1"} onAutoOpenHandled={() => { const sp = new URLSearchParams(searchParams); sp.delete("quick"); setSearchParams(sp, { replace: true }); }} />
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">

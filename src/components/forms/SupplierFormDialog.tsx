@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supplierRepo } from "@/offline/repo";
+import { SyncManager } from "@/offline/sync/SyncManager";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -76,13 +77,9 @@ export function SupplierFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const { data: supplier, error } = await supabase
-        .from("suppliers")
-        .insert({ ...data, company_id: companyId } as TablesInsert<"suppliers">)
-        .select()
-        .single();
-      if (error) throw error;
-      return supplier;
+      const row = await supplierRepo.upsert({ ...data, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -92,20 +89,15 @@ export function SupplierFormDialog({
       onSuccess?.(supplier.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const { data: supplier, error } = await supabase
-        .from("suppliers")
-        .update(data as TablesUpdate<"suppliers">)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return supplier;
+      const row = await supplierRepo.upsert({ ...data, id, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -115,7 +107,7 @@ export function SupplierFormDialog({
       onSuccess?.(supplier.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 

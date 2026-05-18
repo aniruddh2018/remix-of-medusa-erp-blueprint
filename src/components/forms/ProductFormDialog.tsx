@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { productRepo } from "@/offline/repo";
+import { SyncManager } from "@/offline/sync/SyncManager";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -118,13 +119,9 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
 
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const { data: product, error } = await supabase
-        .from("products")
-        .insert({ ...data, company_id: companyId } as TablesInsert<"products">)
-        .select()
-        .single();
-      if (error) throw error;
-      return product;
+      const row = await productRepo.upsert({ ...data, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (product) => {
       invalidateProductQueries();
@@ -133,20 +130,15 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       onSuccess?.(product.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const { data: product, error } = await supabase
-        .from("products")
-        .update(data as TablesUpdate<"products">)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return product;
+      const row = await productRepo.upsert({ ...data, id, company_id: companyId } as any);
+      void SyncManager.forceSync();
+      return row;
     },
     onSuccess: (product) => {
       invalidateProductQueries();
@@ -155,7 +147,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       onSuccess?.(product.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     },
   });
 

@@ -7,22 +7,29 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { offlineDb, type SyncedRow, type SyncedTableName } from "./db";
 import type { BaseRepo } from "./repo/baseRepo";
 
+async function rowsForCompany<T>(
+  tableName: string,
+  companyId: string | null | undefined,
+): Promise<T[]> {
+  const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[tableName];
+  if (!companyId) return (await tbl.toArray()) as T[];
+  return (await tbl.where("company_id").equals(companyId).toArray()) as T[];
+}
+
 export function useRepoList<T extends SyncedRow>(
   repo: BaseRepo<T>,
   companyId: string | null | undefined
 ): T[] | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return [] as T[];
-    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[repo.table];
-    const rows = (await tbl.where("company_id").equals(companyId).toArray()) as T[];
+    const rows = await rowsForCompany<T>(repo.table, companyId);
     return rows.filter((r) => !r.deleted);
   }, [companyId, repo.table]);
 }
 
 export function useRepoCount(table: SyncedTableName, companyId: string | null | undefined): number | undefined {
   return useLiveQuery(async () => {
-    if (!companyId) return 0;
     const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
+    if (!companyId) return await tbl.count();
     return await tbl.where("company_id").equals(companyId).count();
   }, [companyId, table]);
 }

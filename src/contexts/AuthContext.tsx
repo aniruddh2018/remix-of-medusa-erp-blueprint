@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineSession, setOfflineSession] = useState<CachedSession | null>(null);
   const [hasPin, setHasPin] = useState(false);
+  const offlineModeRef = useRef(false);
 
   const refreshPinStatus = useCallback(async () => {
     setHasPin(await hasOfflineCache());
@@ -97,9 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
       console.log("[Auth] onAuthStateChange:", event, sess?.user?.email);
       if (!mounted) return;
+      if (!sess?.user && offlineModeRef.current) return;
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
+        offlineModeRef.current = false;
         setOfflineMode(false);
         setOfflineSession(null);
         const uid = sess.user.id;
@@ -120,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
       console.log("[Auth] getSession:", sess?.user?.email ?? "no session");
       if (!mounted) return;
+      if (!sess?.user && offlineModeRef.current) return;
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
@@ -148,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       aud: "authenticated",
       created_at: new Date(s.cached_at).toISOString(),
     } as unknown as User;
+    offlineModeRef.current = true;
     setUser(fakeUser);
     setSession(null);
     setRoles(s.roles as AppRole[]);
@@ -173,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
+    offlineModeRef.current = false;
     setOfflineMode(false);
     setOfflineSession(null);
   };

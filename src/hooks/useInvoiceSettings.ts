@@ -110,6 +110,7 @@ const DEFAULTS: FullInvoiceSettings = {
   enable_batch_tracking: true,
   enable_expiry_tracking: true,
   allow_negative_stock: false,
+  block_expired_sales: true,
   default_payment_method: "cash",
   default_customer_name: "Walk-in Customer",
   bank_name: "",

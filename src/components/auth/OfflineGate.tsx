@@ -38,6 +38,10 @@ export function OfflineGate({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  if (user) {
+    return <>{children}</>;
+  }
+
   if (eligible) {
     return <OfflinePinUnlock onUnlocked={handleUnlocked} />;
   }

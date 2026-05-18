@@ -298,3 +298,14 @@ export const SYNCED_TABLES = [
 ] as const;
 
 export type SyncedTableName = (typeof SYNCED_TABLES)[number];
+
+export const OFFLINE_DIAGNOSTIC_TABLES = [
+  ...SYNCED_TABLES,
+  "sync_queue",
+  "sync_meta",
+  "conflict_log",
+  "attachment_queue",
+  "auth_cache",
+] as const;
+
+export type OfflineDiagnosticTableName = (typeof OFFLINE_DIAGNOSTIC_TABLES)[number];

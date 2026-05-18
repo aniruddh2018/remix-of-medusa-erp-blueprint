@@ -59,6 +59,7 @@ const salesFlow = ["product", "unit", "qty", "free", "rate", "discount", "fefo",
 
 export default function Sales() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAdmin, isPharmacist } = useAuth();
   const { config, companyId, gstInclusive } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();

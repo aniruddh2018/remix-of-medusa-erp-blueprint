@@ -93,7 +93,7 @@ const superAdminMenuItems: MenuItem[] = [
 ];
 
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {
-  return items.filter((item) => visiblePages.includes(item.path));
+  return items.filter((item) => visiblePages.includes(item.path.split("?")[0]));
 }
 
 function MenuSection({ items, label }: { items: MenuItem[]; label: string }) {

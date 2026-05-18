@@ -22,7 +22,7 @@ export function randomBytes(len: number): Uint8Array {
 export async function deriveKey(pin: string, salt: ArrayBuffer): Promise<CryptoKey> {
   const baseKey = await crypto.subtle.importKey(
     "raw",
-    te(pin),
+    te(pin) as BufferSource,
     { name: "PBKDF2" },
     false,
     ["deriveKey"]

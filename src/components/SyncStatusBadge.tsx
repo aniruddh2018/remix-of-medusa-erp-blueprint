@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 
 export function SyncStatusBadge() {
   const { user } = useAuth();
-  const { status, online, lastSync, queueSize, lastError, forceSync } = useSync();
+  const sync = useSyncSafe();
 
-  if (!user) return null;
+  if (!user || !sync) return null;
+  const { status, online, lastSync, queueSize, lastError, forceSync } = sync;
 
   const icon = !online ? (
     <CloudOff className="h-3.5 w-3.5" />

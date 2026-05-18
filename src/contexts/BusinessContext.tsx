@@ -142,6 +142,18 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
   },
 };
 
+async function inferOfflineCompanyId(): Promise<string | null> {
+  for (const table of SYNCED_TABLES) {
+    const rows = await (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table]
+      .toCollection()
+      .limit(25)
+      .toArray();
+    const row = rows.find((r: { company_id?: string | null }) => r.company_id);
+    if (row?.company_id) return row.company_id;
+  }
+  return null;
+}
+
 interface BusinessContextType {
   config: BusinessConfig;
   businessType: BusinessType;

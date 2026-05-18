@@ -62,17 +62,28 @@ Read-only modules first — zero conflict risk.
 - Stock adjustments queued offline.
 - Reconciliation worker: after reconnect, compare `local_stock` vs `server_stock`, generate `reconciliation_tasks` rows for any delta on a batch the device touched while offline.
 
-### PR 5 — POS Billing + Orders + Purchases (the hard one)
-- **Offline invoice numbering**: per-device prefix block (e.g. `INV-D{deviceShort}-{seq}`). Server reconciles to canonical numbers via `get_next_invoice_number` on sync; UI shows both local and final number until synced.
-- Local sales_orders + sales_order_items written to Dexie, queued to sync.
-- Local stock deduction via FIFO; reversed if server rejects on sync.
-- Purchase order receive (`receive_purchase_batches` RPC) gets a local equivalent that enqueues; server is the source of truth once back online.
-- Print/PDF works entirely from Dexie data.
+### PR 5 — Sales + Purchase READS (local-first) ✅ SHIPPED
+- Sales / Purchase / Payments list views and product/batch pickers all read from Dexie.
+- Writes still online.
 
-### PR 6 — Attachments (Phase 1.5 — bundled here since prescriptions are POS-adjacent)
+### PR 6 — Offline order WRITES (Sales create + Purchase create) ✅ SHIPPED
+- `src/offline/billing/invoiceNumbering.ts`: `getNextInvoiceNumber()` uses RPC when online, else per-device local sequence `<PREFIX>-<YEAR>-D<shortDevice>-<NNNN>`.
+- `src/offline/inventory/stockLocal.ts`: mirrors `deduct_sale_inventory`, `restore_sale_inventory`, `receive_purchase_batches` — writes batches via `inventoryBatchRepo` (queued) and logs to `inventoryTransactionRepo`.
+- `src/offline/sales/createSalesOrderLocal.ts`: full sale flow (header + items + stock + manual rollback) via repos → sync_queue.
+- `src/offline/purchases/createPurchaseOrderLocal.ts`: same for PO + auto-receive batches with local merge-by-(product, batch_number, mrp).
+- `Sales.tsx` createSaleMutation and `PurchaseOrders.tsx` createOrderMutation rewired to call the local writers.
+
+Deferred to PR 7:
+- Edit/delete sales (EditSaleDialog) — still online.
+- CounterSales — still online.
+- Supplier returns / debit notes — still online.
+- ReceiveInventoryDialog standalone receive — still online.
+- Scheduled-drug register auto-log (server trigger — runs on sync push).
+
+### PR 7 — Attachments + remaining mutations
 - IndexedDB blob store for prescription / invoice PDFs.
-- Upload queue with `pending|uploading|synced|failed` states.
-- Service worker upload worker drains queue on reconnect.
+- Upload queue with `pending|uploading|synced|failed` states; service worker drains on reconnect.
+- Migrate edit/delete + CounterSales + debit-note flows through the offline writer set.
 
 ## Technical notes (for me/devs)
 

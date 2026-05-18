@@ -157,7 +157,7 @@ interface BusinessContextType {
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, roles } = useAuth();
+  const { user, loading: authLoading, roles, offlineMode, offlineSession } = useAuth();
   const isSuperAdmin = roles.includes("super_admin");
   const [businessType, setBusinessTypeState] = useState<BusinessType>("pharmacy");
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -172,6 +172,14 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
     // No user → not loading, no onboarding needed
     if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (offlineMode && offlineSession) {
+      setCompanyId(offlineSession.company_id);
+      setCompanyNameState(offlineSession.full_name || "");
+      setNeedsOnboarding(!offlineSession.company_id && !isSuperAdmin);
       setIsLoading(false);
       return;
     }
@@ -245,7 +253,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     fetchProfile();
 
     return () => { mounted = false; };
-  }, [user, authLoading, isSuperAdmin]);
+  }, [user, authLoading, isSuperAdmin, offlineMode, offlineSession]);
 
   const setBusinessType = async (type: BusinessType) => {
     if (!user || !companyId) return;

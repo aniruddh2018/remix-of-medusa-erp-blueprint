@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { usePurchaseOrdersWithSupplier, usePaymentsByRefType, useActiveSuppliers, useActiveProducts } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,34 +207,11 @@ export default function PurchaseOrders() {
     flowStartedWhen: !!selectedSupplier || orderItems.length > 0,
   });
 
-  // ── Queries ──
-  const { data: purchaseOrders, isLoading } = useQuery({
-    queryKey: ["purchase-orders", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchase_orders")
-        .select("*, suppliers (name)")
-        .eq("company_id", companyId!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId,
-  });
+  // ── Queries (PR 5: local-first reads via Dexie) ──
+  const purchaseOrders = usePurchaseOrdersWithSupplier<any>(companyId);
+  const isLoading = purchaseOrders === undefined;
 
-  const { data: poPayments } = useQuery({
-    queryKey: ["payments-purchase", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payments")
-        .select("reference_id, amount")
-        .eq("company_id", companyId!)
-        .eq("reference_type", "purchase_order");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId,
-  });
+  const poPayments = usePaymentsByRefType(companyId, "purchase_order");
 
   const paidByPoId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -241,25 +219,11 @@ export default function PurchaseOrders() {
     return map;
   }, [poPayments]);
 
-  const { data: suppliers, refetch: refetchSuppliers } = useQuery({
-    queryKey: ["suppliers-active", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
-      if (error) throw error;
-      return data as Supplier[];
-    },
-    enabled: !!companyId,
-  });
+  const suppliers = useActiveSuppliers<Supplier>(companyId);
+  const refetchSuppliers = () => { /* reactive via Dexie */ };
 
-  const { data: products, refetch: refetchProducts } = useQuery({
-    queryKey: ["products-active", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
-      if (error) throw error;
-      return data as Product[];
-    },
-    enabled: !!companyId,
-  });
+  const products = useActiveProducts<Product>(companyId);
+  const refetchProducts = () => { /* reactive via Dexie */ };
 
   // ── Calculation helpers ──
   const calculateItemTotal = useCallback((price: number, qty: number, gst: number, discount: number, discountFlat: number = 0) => {

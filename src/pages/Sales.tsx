@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useCustomers, useSalesOrders, usePaymentsByRefType, useActiveProducts, useAvailableBatches } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,16 +125,8 @@ export default function Sales() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
 
-  // ── Queries ──
-  const { data: customers } = useQuery({
-    queryKey: ["customers-for-sale", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name, phone, email, address, gst_number").eq("company_id", companyId!).order("name");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId,
-  });
+  // ── Queries (PR 5: local-first reads via Dexie) ──
+  const customers = useCustomers<{ id: string; name: string; phone: string | null; email: string | null; address: string | null; gst_number: string | null }>(companyId);
 
 
   const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
@@ -185,25 +178,9 @@ export default function Sales() {
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });
 
-  const { data: salesOrders, isLoading } = useQuery({
-    queryKey: ["sales-orders", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("sales_orders").select("*").eq("company_id", companyId!).order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as SalesOrder[];
-    },
-    enabled: !!companyId,
-  });
-
-  const { data: salesPayments } = useQuery({
-    queryKey: ["payments-sales", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("payments").select("reference_id, amount").eq("company_id", companyId!).eq("reference_type", "sales_order");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId,
-  });
+  const salesOrders = useSalesOrders<SalesOrder>(companyId);
+  const isLoading = salesOrders === undefined;
+  const salesPayments = usePaymentsByRefType(companyId, "sales_order");
 
   const paidBySalesId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -211,27 +188,12 @@ export default function Sales() {
     return map;
   }, [salesPayments]);
 
-  const { data: products, refetch: refetchProducts } = useQuery({
-    queryKey: ["products-for-sale", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
-      if (error) throw error;
-      return data as Product[];
-    },
-    enabled: !!companyId,
-  });
+  const products = useActiveProducts<Product>(companyId);
+  const refetchProducts = () => { /* reactive via Dexie */ };
 
   // Preload ALL batches for instant search (MARG-style speed)
-  const { data: allBatches } = useQuery({
-    queryKey: ["all-batches-for-sale", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`).order("expiry_date", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      return data as InventoryBatch[];
-    },
-    enabled: !!companyId,
-    staleTime: 30000,
-  });
+  const allBatches = useAvailableBatches<InventoryBatch>(companyId);
+
 
   const batchesForProduct = useMemo(() => {
     if (!allBatches || !selectedProduct) return [];

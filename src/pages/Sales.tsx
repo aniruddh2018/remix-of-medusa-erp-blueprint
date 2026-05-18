@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCustomers, useSalesOrders, usePaymentsByRefType, useActiveProducts, useAvailableBatches } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

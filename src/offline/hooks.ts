@@ -104,3 +104,96 @@ export function useInventoryWithJoins(companyId: string | null | undefined): Inv
   }, [companyId]);
 }
 
+// ──────────────────────────────────────────────────────────────────
+// PR 5 — Sales / Purchase / Payments local-first reads
+// ──────────────────────────────────────────────────────────────────
+
+export function useSalesOrders<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const rows = await offlineDb.sales_orders.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((r) => !r.deleted)
+      .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")) as unknown as T[];
+  }, [companyId]);
+}
+
+export function usePurchaseOrdersWithSupplier<T = any>(
+  companyId: string | null | undefined
+): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const [orders, suppliers] = await Promise.all([
+      offlineDb.purchase_orders.where("company_id").equals(companyId).toArray(),
+      offlineDb.suppliers.where("company_id").equals(companyId).toArray(),
+    ]);
+    const supMap = new Map(suppliers.map((s: any) => [s.id, s]));
+    return orders
+      .filter((r) => !r.deleted)
+      .map((o: any) => ({ ...o, suppliers: supMap.get(o.supplier_id) ? { name: (supMap.get(o.supplier_id) as any).name } : null }))
+      .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")) as unknown as T[];
+  }, [companyId]);
+}
+
+export function usePaymentsByRefType(
+  companyId: string | null | undefined,
+  refType: "sales_order" | "purchase_order"
+): Array<{ reference_id: string; amount: number }> | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [];
+    const rows = await offlineDb.payments.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((p: any) => !p.deleted && p.reference_type === refType)
+      .map((p: any) => ({ reference_id: p.reference_id, amount: Number(p.amount) || 0 }));
+  }, [companyId, refType]);
+}
+
+/** Batches with stock > 0 and not expired — for sale/return product pickers. */
+export function useAvailableBatches<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const today = new Date().toISOString().split("T")[0];
+    const rows = await offlineDb.inventory_batches.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((b: any) => !b.deleted && Number(b.quantity) > 0 && (!b.expiry_date || b.expiry_date > today))
+      .sort((a: any, b: any) => {
+        if (!a.expiry_date) return 1;
+        if (!b.expiry_date) return -1;
+        return a.expiry_date.localeCompare(b.expiry_date);
+      }) as unknown as T[];
+  }, [companyId]);
+}
+
+/** Active products only (is_active = true). */
+export function useActiveProducts<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const rows = await offlineDb.products.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((p: any) => !p.deleted && p.is_active !== false)
+      .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
+  }, [companyId]);
+}
+
+/** Active suppliers only. */
+export function useActiveSuppliers<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const rows = await offlineDb.suppliers.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((s: any) => !s.deleted && s.is_active !== false)
+      .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
+  }, [companyId]);
+}
+
+/** Customers list (no is_active flag — all non-deleted). */
+export function useCustomers<T = any>(companyId: string | null | undefined): T[] | undefined {
+  return useLiveQuery(async () => {
+    if (!companyId) return [] as T[];
+    const rows = await offlineDb.customers.where("company_id").equals(companyId).toArray();
+    return rows
+      .filter((c: any) => !c.deleted)
+      .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")) as unknown as T[];
+  }, [companyId]);
+}
+

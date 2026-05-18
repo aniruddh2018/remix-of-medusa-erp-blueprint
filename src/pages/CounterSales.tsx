@@ -696,7 +696,7 @@ export default function CounterSales() {
       const result = await createSalesOrderLocal({
         companyId: companyId!,
         userId: user?.id || null,
-        blockExpired: settings.block_expired_sales ?? true,
+        blockExpired: (settings as any).block_expired_sales ?? true,
         header: {
           prefix: rawPrefix,
           invoice_number: invoiceNumber.trim() || undefined,

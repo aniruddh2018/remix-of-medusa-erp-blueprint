@@ -264,13 +264,22 @@ class SyncManagerImpl {
   // ── pull ─────────────────────────────────────────────────────
   private async pullChanges(table: SyncedTableName) {
     const meta = await offlineDb.sync_meta.get(table);
-    const lastSync = meta?.last_sync ?? null;
+    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
+    const companyRowCount = this.companyId
+      ? await tbl.where("company_id").equals(this.companyId).count()
+      : await tbl.count();
+    // Self-heal stale cursors: if the cache is blank for this company, a delta
+    // cursor would keep returning [] forever. Force a full company pull instead.
+    const lastSync = companyRowCount === 0 ? null : meta?.last_sync ?? null;
 
     let query = supabase
       .from(table as never)
       .select("*")
       .order("updated_at", { ascending: true })
       .limit(PULL_PAGE_SIZE);
+    if (this.companyId) {
+      query = query.eq("company_id" as never, this.companyId as never);
+    }
     if (lastSync) {
       query = query.gt("updated_at" as never, lastSync as never);
     }
@@ -291,13 +300,12 @@ class SyncManagerImpl {
     }
     const rows = (data ?? []) as Array<{ id: string; updated_at: string; deleted?: boolean }>;
 
-    // Count local rows after potential write so the UI can show per-table totals.
-    const tbl = (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table];
-
     if (rows.length === 0) {
       // Don't fast-forward a missing cursor to "now" — that would skip ALL existing rows
       // on subsequent pulls. Only persist the cursor we already had.
-      const rowCount = await tbl.count();
+      const rowCount = this.companyId
+        ? await tbl.where("company_id").equals(this.companyId).count()
+        : await tbl.count();
       await offlineDb.sync_meta.put({
         table,
         last_sync: lastSync,
@@ -313,7 +321,9 @@ class SyncManagerImpl {
     await tbl.bulkPut(stamped as never);
 
     const newCursor = rows[rows.length - 1].updated_at;
-    const rowCount = await tbl.count();
+    const rowCount = this.companyId
+      ? await tbl.where("company_id").equals(this.companyId).count()
+      : await tbl.count();
     await offlineDb.sync_meta.put({
       table,
       last_sync: newCursor,

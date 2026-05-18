@@ -34,7 +34,7 @@ export function OfflinePinUnlock({ onUnlocked }: Props) {
           </div>
           <CardTitle>Offline Unlock</CardTitle>
           <CardDescription className="flex items-center justify-center gap-1.5">
-            <WifiOff className="h-3.5 w-3.5" /> No internet — enter your PIN to continue
+            <WifiOff className="h-3.5 w-3.5" /> Enter your PIN to open local data
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

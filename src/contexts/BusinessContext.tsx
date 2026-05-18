@@ -148,7 +148,9 @@ async function inferOfflineCompanyId(): Promise<string | null> {
       .toCollection()
       .limit(25)
       .toArray();
-    const row = rows.find((r: { company_id?: string | null }) => r.company_id);
+    const row = rows.find((r: unknown) => Boolean((r as { company_id?: string | null }).company_id)) as
+      | { company_id?: string | null }
+      | undefined;
     if (row?.company_id) return row.company_id;
   }
   return null;

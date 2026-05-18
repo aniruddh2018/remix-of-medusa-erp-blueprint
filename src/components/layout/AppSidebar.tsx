@@ -57,6 +57,7 @@ const allMainMenuItems: MenuItem[] = [
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+6" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
+  { title: "Demand Intelligence", icon: BrainCircuit, path: "/demand-intelligence", shortcut: null },
 ];
 
 const allOrderMenuItems: MenuItem[] = [

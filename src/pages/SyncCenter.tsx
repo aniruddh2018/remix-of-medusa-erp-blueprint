@@ -9,12 +9,14 @@
  *
  * Every row has actions: Retry / Discard / (for conflicts) Keep mine | Keep server.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { offlineDb, SYNCED_TABLES, type SyncedTableName, type SyncQueueRow, type ConflictLogRow, type AttachmentQueueRow, type SyncMetaRow } from "@/offline/db";
 import { SyncManager } from "@/offline/sync/SyncManager";
 import { exportOfflineDiagnostics } from "@/offline/exportDiagnostics";
 import { useSync } from "@/contexts/SyncContext";
+import { supabase } from "@/integrations/supabase/client";
+import { reconcileInventoryLedger, type LedgerDriftRow } from "@/offline/inventory/reconcileLedger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ import {
   Cloud,
   ServerCrash,
   GitMerge,
+  Scale,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";

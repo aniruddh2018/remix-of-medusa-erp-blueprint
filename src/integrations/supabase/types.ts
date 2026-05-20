@@ -2623,6 +2623,18 @@ export type Database = {
         Args: { _batches: Json; _purchase_order_id?: string }
         Returns: Json
       }
+      reconcile_inventory_ledger: {
+        Args: { p_apply?: boolean; p_company_id: string }
+        Returns: {
+          applied: boolean
+          batch_id: string
+          batch_number: string
+          diff: number
+          ledger_qty: number
+          product_id: string
+          stored_qty: number
+        }[]
+      }
       resolve_conversion: {
         Args: {
           _batch_id: string

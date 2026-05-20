@@ -537,3 +537,135 @@ function TablesPanel({ onForce }: { onForce: () => void }) {
     </Card>
   );
 }
+
+function ReconcilePanel() {
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [rows, setRows] = useState<LedgerDriftRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [lastRunAt, setLastRunAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id;
+      if (!uid) return;
+      void supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", uid)
+        .maybeSingle()
+        .then(({ data: p }) => setCompanyId((p?.company_id as string | null) ?? null));
+    });
+  }, []);
+
+  const run = async (apply: boolean) => {
+    if (!companyId) {
+      toast.error("No company context — sign in first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await reconcileInventoryLedger(companyId, apply);
+      setRows(result);
+      setLastRunAt(Date.now());
+      if (apply) {
+        toast.success(`Reconciled ${result.length} batch(es) from the ledger.`);
+      } else if (result.length === 0) {
+        toast.success("All batches match the ledger. No drift.");
+      } else {
+        toast.warning(`${result.length} batch(es) drift from the ledger.`);
+      }
+    } catch (e) {
+      console.error("[reconcile]", e);
+      toast.error((e as Error).message || "Reconciliation failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const driftCount = rows?.length ?? 0;
+  const totalNegative = rows?.filter((r) => r.ledger_qty < 0).length ?? 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Scale className="h-4 w-4" /> Reconcile inventory from the ledger
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Recomputes each batch's stock from <code className="text-[10px]">inventory_transactions</code>.
+          Use this when an offline device may have sold the same batch as an online device — drift surfaces here
+          before the shelf count does. <strong>Scan first</strong>, then click <em>Apply</em> if the numbers look right.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={busy || !companyId} onClick={() => void run(false)}>
+            <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} /> Scan ledger
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={busy || !companyId || driftCount === 0}
+            onClick={() => void run(true)}
+          >
+            Apply &amp; fix {driftCount > 0 ? `(${driftCount})` : ""}
+          </Button>
+          {lastRunAt && (
+            <span className="text-xs text-muted-foreground self-center">
+              Last run {formatDistanceToNow(lastRunAt, { addSuffix: true })}
+            </span>
+          )}
+        </div>
+
+        {totalNegative > 0 && (
+          <div className="text-xs text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {totalNegative} batch(es) have negative ledger totals — likely oversold across devices. Investigate before applying.
+          </div>
+        )}
+
+        {rows && rows.length === 0 && (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            <CheckCircle2 className="h-5 w-5 mx-auto mb-1 text-green-600" />
+            No drift. Stored stock matches the ledger.
+          </div>
+        )}
+
+        {rows && rows.length > 0 && (
+          <div className="border rounded divide-y text-sm">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
+              <div className="col-span-4">Batch</div>
+              <div className="col-span-2 text-right">Stored</div>
+              <div className="col-span-2 text-right">Ledger</div>
+              <div className="col-span-2 text-right">Diff</div>
+              <div className="col-span-2 text-right">Status</div>
+            </div>
+            {rows.map((r) => (
+              <div key={r.batch_id} className="grid grid-cols-12 gap-2 px-3 py-2 items-center">
+                <div className="col-span-4 min-w-0">
+                  <div className="font-mono text-xs truncate" title={r.batch_number}>{r.batch_number}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">{r.batch_id.slice(0, 8)}…</div>
+                </div>
+                <div className="col-span-2 text-right tabular-nums">{r.stored_qty}</div>
+                <div className="col-span-2 text-right tabular-nums">{r.ledger_qty}</div>
+                <div
+                  className={`col-span-2 text-right tabular-nums font-medium ${
+                    r.diff < 0 ? "text-destructive" : "text-amber-600"
+                  }`}
+                >
+                  {r.diff > 0 ? "+" : ""}
+                  {r.diff}
+                </div>
+                <div className="col-span-2 text-right">
+                  <Badge variant={r.applied ? "secondary" : "outline"} className="text-[10px]">
+                    {r.applied ? "Fixed" : "Drift"}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

@@ -146,6 +146,7 @@ export default function SyncCenter() {
           <TabsTrigger value="attachments">
             Files {attachCount > 0 && <CountBadge n={attachCount} />}
           </TabsTrigger>
+          <TabsTrigger value="reconcile">Reconcile</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tables" className="mt-4">
@@ -162,6 +163,9 @@ export default function SyncCenter() {
         </TabsContent>
         <TabsContent value="attachments" className="mt-4">
           <AttachmentTable rows={attachments ?? []} />
+        </TabsContent>
+        <TabsContent value="reconcile" className="mt-4">
+          <ReconcilePanel />
         </TabsContent>
       </Tabs>
     </div>

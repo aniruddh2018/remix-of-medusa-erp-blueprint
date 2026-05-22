@@ -38,6 +38,7 @@ import {
   Zap,
   Bot,
   Database,
+  ShieldCheck,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 

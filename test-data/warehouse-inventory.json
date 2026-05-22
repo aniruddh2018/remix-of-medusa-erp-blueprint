@@ -1,0 +1,59 @@
+{
+  "inventory_import": {
+    "source": "PharmaDistributor_v3",
+    "export_date": "20-05-2026",
+    "warehouse": "WH-MAIN-GN",
+    "records": [
+      {
+        "item_description": "Paracetamol 500mg Tablet",
+        "batch_identifier": "PT2425-001",
+        "physical_qty": 500,
+        "unit_purchase_rate": 22.50,
+        "printed_mrp": 30.00,
+        "expiration_date": "31-12-2026",
+        "mfg_timestamp": "01-01-2025",
+        "vendor_reference": "Sun Pharmaceutical Ind"
+      },
+      {
+        "item_description": "Amoxicillin 250mg Capsule",
+        "batch_identifier": "AMX-2025-B2",
+        "physical_qty": 300,
+        "unit_purchase_rate": 35.00,
+        "printed_mrp": 45.00,
+        "expiration_date": "15-03-2025",
+        "mfg_timestamp": "15-03-2023",
+        "vendor_reference": "Cipla Ltd"
+      },
+      {
+        "item_description": "Human Mixtard 30/70 Insulin",
+        "batch_identifier": "INS-001",
+        "physical_qty": 25,
+        "unit_purchase_rate": 180.00,
+        "printed_mrp": 420.00,
+        "expiration_date": "30-06-2027",
+        "mfg_timestamp": "01-07-2025",
+        "vendor_reference": "Novo Nordisk India"
+      },
+      {
+        "item_description": "Dolo 650 Tablet",
+        "batch_identifier": "D650-3025",
+        "physical_qty": 1000,
+        "unit_purchase_rate": 18.00,
+        "printed_mrp": 25.00,
+        "expiration_date": "01-01-2028",
+        "mfg_timestamp": "01-07-2025",
+        "vendor_reference": "Micro Labs Ltd"
+      },
+      {
+        "item_description": "Cetrizine 10mg Tablet",
+        "batch_identifier": "CTZ-B25",
+        "physical_qty": -5,
+        "unit_purchase_rate": 35.00,
+        "printed_mrp": 28.00,
+        "expiration_date": "15-08-2026",
+        "mfg_timestamp": "15-08-2024",
+        "vendor_reference": "Torrent Pharmaceuticals"
+      }
+    ]
+  }
+}

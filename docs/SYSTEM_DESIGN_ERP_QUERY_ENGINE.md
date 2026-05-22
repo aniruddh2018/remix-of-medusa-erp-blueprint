@@ -53,7 +53,7 @@ A secure, AI-powered natural language query system that allows authorized users 
 │  │                    NATURAL LANGUAGE PROCESSOR                         │    │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                │    │
 │  │  │ Intent Parser│  │ Entity Extract│  │ SQL Generator│                │    │
-│  │  │ (Gemini/LLM) │  │ (Regex + NLP) │  │ (Safe Builder)│               │    │
+│  │  │ (Llama/LLM)  │  │ (Regex + NLP) │  │ (Safe Builder)│               │    │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘                │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                      │                                       │
@@ -210,7 +210,7 @@ interface NLQueryResponse {
 }
 
 // Processing Pipeline:
-// 1. Intent Classification (Gemini/LLM)
+// 1. Intent Classification (Llama/LLM)
 //    → "sales_summary" | "customer_ranking" | "inventory_report" | ...
 // 
 // 2. Entity Extraction
@@ -604,7 +604,7 @@ interface QueryError {
 | Frontend | React + TypeScript + Tailwind |
 | Charts | Recharts |
 | Query Builder | react-querybuilder |
-| NLP/AI | Google Gemini API |
+| NLP/AI | Fireworks AI API |
 | Backend | Supabase Edge Functions |
 | Cache | Redis (Upstash) |
 | Export | PapaParse (CSV) + jsPDF (PDF) |
@@ -627,7 +627,7 @@ interface QueryError {
 
 ### 1.2 Supabase Edge Function - Natural Language Query � BACKLOG
 - [x] Create `supabase/functions/nl-query/index.ts`
-- [x] Reuse Lovable AI Gateway pattern (see `parse-order-text/index.ts`)
+    - [x] Reuse Fireworks AI Gateway pattern (see `parse-order-text/index.ts`)
 - [x] System prompt: ERP schema + SQL generation rules
 - [x] Function calling: structured SQL output
 - [x] Rate limiting + error handling (429, 402)
@@ -766,16 +766,16 @@ When another agent continues this work:
 
 ---
 
-**Last Updated**: 2026-05-09 00:02 UTC by Cascade
-**Status**: Code review fixes complete. Ready for deployment.
-**Next Agent**: Deploy `nl-query` function and run migration, then test the QueryEngine page
+**Last Updated**: 2026-05-09 16:58 UTC by Kilo
+**Status**: AI Gateway migration complete. All 4 edge functions now use Fireworks AI Gateway (`api.fireworks.ai`) with `accounts/fireworks/models/llama-v3p1-70b-instruct`.
+**Next Agent**: Set `FIREWORKS_API_KEY` secret, deploy all edge functions (`supabase functions deploy`), then test QueryEngine page
 
 ## IMPLEMENTATION NOTES
 
 ### Files Created Today:
 
 1. `supabase/functions/nl-query/index.ts` (183 lines) - Complete edge function:
-   - Natural language → SQL generation via Lovable AI Gateway (Gemini 2.5 Flash)
+    - Natural language → SQL generation via Fireworks AI Gateway (Llama 3.1 70B Instruct)
    - Comprehensive security: SELECT-only, forbidden keywords, company_id enforcement
    - Role-based row limits (super_admin: 100k, admin: 50k, manager: 10k, staff: 1k)
    - Query execution with 30s timeout

@@ -1,0 +1,10 @@
+Name,Manufacturer,Selling Price (INR),Cost Price (INR),Tax Rate %,HSN/SAC Code,Min Qty,Max Qty,Reorder Point,Unit of Measure
+"Azithromycin 500mg Tablet","Pfizer India","85.00","55.00","12","30042050","20","200","40","Strip"
+"Atorvastatin 1mg Tablet","Pfizer India","120.00","80.00","12","30049079","15","150","30","Strip"
+"Metformin SR 500mg Tablet","USV Pvt Ltd","35.00","22.00","12","30049099","60","600","120","Strip"
+"Dexona Injection 2ml","Zydus Cadila","12.50","7.00","12","30043200","10","200","30","Ampoule"
+"Pantoprazole 40mg Tablet","Aristo Pharma","95.00","60.00","12","30049034","25","250","50","Strip"
+"Levocet M Tablet","Mankind Pharma Pvt","65.00","42.00","12","30049039","30","300","60","Strip"
+"Telmisartan 40mg Tablet","Cipla Ltd","110.00","75.00","12","30049079","20","200","40","Strip"
+"Febuxostat 40mg Tablet","Sun Pharma","140.00","90.00","12","30049099","10","100","20","Strip"
+"Voveran SR 100 Tablet","Novartis India","165.00","110.00","12","30049069","15","150","30","Strip"

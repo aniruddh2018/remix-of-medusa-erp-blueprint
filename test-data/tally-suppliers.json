@@ -1,0 +1,50 @@
+{"collection":"vendor_master","exported_by":"TallyPrime","version":"4.0","entries":[
+  {
+    "ledger_name": "Akums Drugs & Pharmaceuticals Ltd",
+    "ledger_alias": "AKUMS",
+    "ledger_group": "Sundry Creditors",
+    "gst_registration_type": "Regular",
+    "gstin_uin": "05AAACA1234A1Z7",
+    "contact_person_name": "Pankaj Arora",
+    "phone_number": "91-135-2456789",
+    "email_id": "sales@akums.in",
+    "drug_license": "DL-UK-77889",
+    "mailing_address": "Plot 19-20 Sector 6A IIP SIDCUL Haridwar 249403 Uttarakhand"
+  },
+  {
+    "ledger_name": "Lupin Ltd",
+    "ledger_alias": "LUPIN",
+    "ledger_group": "Sundry Creditors",
+    "gst_registration_type": "Regular",
+    "gstin_uin": "27AABCL2026B1Z0",
+    "contact_person_name": "Deepak Mehta",
+    "phone_number": "+91 22 6640 2222",
+    "email_id": "deepak.mehta@lupin.com",
+    "drug_license": "DL-MH-88900",
+    "mailing_address": "Lupin Research Park Village Nande Taluka Mulshi Pune 412115"
+  },
+  {
+    "ledger_name": "Intas Pharmaceuticals Ltd",
+    "ledger_alias": "INTAS",
+    "ledger_group": "Sundry Creditors",
+    "gst_registration_type": "Regular",
+    "gstin_uin": "24AAACI1234C1Z6",
+    "contact_person_name": "",
+    "phone_number": "+91 2717 660 300",
+    "email_id": "",
+    "drug_license": "DL-GJ-99001",
+    "mailing_address": "Chinubhai Centre Ashram Road Ahmedabad 380009 Gujarat"
+  },
+  {
+    "ledger_name": "Micro Labs Ltd",
+    "ledger_alias": "MICRO",
+    "ledger_group": "Sundry Creditors",
+    "gst_registration_type": "Composition",
+    "gstin_uin": "29AABCM3456D1Z1",
+    "contact_person_name": "Suresh Nair",
+    "phone_number": "080-27839900",
+    "email_id": "suresh.nair@microlabs.in",
+    "drug_license": "",
+    "mailing_address": "27 Race Course Road Bangalore 560001 Karnataka"
+  }
+]}

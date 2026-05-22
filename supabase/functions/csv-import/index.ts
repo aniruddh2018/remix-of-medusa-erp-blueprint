@@ -1,3 +1,6 @@
+// DEPRECATED — Replaced by supabase/functions/data-import/index.ts
+// This function only supports suppliers, products, and inventory. The new data-import
+// edge function supports all 7 entity types with field mapping and batch processing.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
@@ -16,6 +19,7 @@ interface ImportResult {
 }
 
 Deno.serve(async (req) => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

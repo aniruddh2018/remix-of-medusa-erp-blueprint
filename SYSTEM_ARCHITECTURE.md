@@ -153,16 +153,16 @@ An AI-powered conversational agent embedded within the ERP to help users query d
                                     ┌───────────┴───────────┐
                                     │                       │
                               ┌─────▼─────┐          ┌─────▼─────┐
-                              │  Lovable  │          │  Database  │
-                              │  AI GW    │          │  (via RLS) │
-                              │  Gemini   │          │            │
+                               │ Fireworks │          │  Database  │
+                               │  AI GW    │          │  (via RLS) │
+                               │  Llama    │          │            │
                               └───────────┘          └────────────┘
 ```
 
 ### Technology Stack
-- **Model**: `google/gemini-3-flash-preview` via Lovable AI Gateway
-- **API Key**: `LOVABLE_API_KEY` (pre-provisioned, no user config needed)
-- **Gateway URL**: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- **Model**: `accounts/fireworks/models/llama-v3p1-70b-instruct` via Fireworks AI Gateway
+- **API Key**: `FIREWORKS_API_KEY` (set via Supabase secrets)
+- **Gateway URL**: `https://api.fireworks.ai/inference/v1/chat/completions`
 - **Transport**: Server-Sent Events (SSE) for streaming responses
 - **Frontend**: Chat panel component with `react-markdown` rendering
 
@@ -234,6 +234,6 @@ Write actions will require:
 - Audit logging of AI-initiated mutations
 
 ### Cost & Rate Limits
-- **Model**: Gemini Flash (cost-effective, fast)
-- **Rate Limits**: Per-workspace limits via Lovable AI; 429/402 errors surfaced to user
+- **Model**: Llama 3.1 70B Instruct (cost-effective, fast)
+- **Rate Limits**: Per-workspace limits via Fireworks AI; 429/402 errors surfaced to user
 - **Optimization**: Conversation history trimmed to last 20 messages to control token usage

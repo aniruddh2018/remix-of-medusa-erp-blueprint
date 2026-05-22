@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Navigate } from "react-router-dom";
@@ -10,11 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   Upload, Loader2, CheckCircle2, AlertTriangle, Camera, FileText, Save, ScanLine, X, ImagePlus,
+  Plus, Search, SearchCheck, Box
 } from "lucide-react";
 
 interface LineItem {
@@ -32,6 +32,44 @@ interface LineItem {
   total_price: number;
   matched_product_id?: string | null;
   matched_product_name?: string | null;
+  matching_confidence?: number | null;
+  matching_method?: string | null;
+  extraction_confidence?: number | null;
+  raw_text?: string | null;
+  needs_review?: boolean;
+  matching_details?: {
+    method: string;
+    confidence: number;
+    auto_accepted: boolean;
+    raw_confidence?: number;
+    capped_confidence?: number;
+  } | null;
+  _is_resolved?: boolean; // track if user handled it inline
+}
+
+interface FormatAnalysis {
+  format_type: "standard_table" | "compact_grid" | "multi_section" | "gst_compliant" | "pharma_specific" | "unstructured";
+  format_confidence: number;
+  page_layout?: string;
+  field_positions?: {
+    supplier_info?: string;
+    invoice_details?: string;
+    line_items_table?: string;
+    totals_section?: string;
+    tax_breakdown?: string | null;
+  };
+  table_structure?: {
+    has_header_row?: boolean;
+    column_order?: string[];
+    row_pattern?: string;
+    multi_line_items?: boolean;
+  };
+  special_features?: string[];
+}
+
+interface Product {
+  id: string;
+  name: string;
 }
 
 interface ExtractedInvoice {
@@ -52,6 +90,8 @@ interface ExtractedInvoice {
   gst_amount?: number | null;
   total_amount: number;
   matched_supplier_id?: string | null;
+  format_analysis?: FormatAnalysis;
+  learned_formats?: { format_type: string; format_confidence: number; column_mappings?: Record<string, string[]> }[];
 }
 
 interface SelectedFile {
@@ -70,8 +110,50 @@ export default function ScanInvoice() {
   const [scanning, setScanning] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [extracted, setExtracted] = useState<ExtractedInvoice | null>(null);
   const [saved, setSaved] = useState(false);
+  const [pendingChallans, setPendingChallans] = useState<any[]>([]);
+  const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
+  const [loadingChallans, setLoadingChallans] = useState(false);
+
+  // Inline resolution state
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [resolving, setResolving] = useState(false);
+
+  // Fetch products for manual mapping
+  useEffect(() => {
+    if (!companyId) return;
+    const fetchProducts = async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (data) setProducts(data);
+    };
+    fetchProducts();
+  }, [companyId]);
+
+  // Restore extracted invoice from localStorage on mount
+  const STORAGE_KEY = `scan_invoice_draft_${companyId}`;
+  const [extracted, setExtracted] = useState<ExtractedInvoice | null>(() => {
+    try {
+      const saved = localStorage.getItem(`scan_invoice_draft_${companyId}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  // Persist to localStorage whenever extracted changes
+  useEffect(() => {
+    if (!companyId) return;
+    if (extracted) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(extracted));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [extracted, STORAGE_KEY]);
 
   if (authLoading) return null;
   if (!user) return <Navigate to="/auth" replace />;
@@ -139,13 +221,78 @@ export default function ScanInvoice() {
 
       setExtracted(data as ExtractedInvoice);
       setUploadProgress(100);
-      toast({ title: "Invoice Scanned", description: `Found ${data.line_items?.length || 0} items from ${files.length} image(s)` });
+      toast({
+        title: "Invoice Scanned",
+        description: `Found ${data.line_items?.length || 0} items from ${files.length} image(s)`,
+      });
+
+      // Fetch pending challans with product overlap
+      const matchedSupplierId = (data as any).matched_supplier_id;
+      if (matchedSupplierId) {
+        fetchPendingChallans(matchedSupplierId, (data as ExtractedInvoice).line_items);
+      }
     } catch (err: any) {
       console.error("Scan error:", err);
-      toast({ title: "Scan Failed", description: err.message, variant: "destructive" });
+      let message = err.message || "Unknown error";
+      try {
+        if (err.context) {
+          const text = await err.context.text();
+          const body = JSON.parse(text);
+          if (body?.detail) message = `[Stage ${body.stage}] ${body.detail}`;
+          else if (body?.error) message = body.error;
+        }
+      } catch { /* use default message */ }
+      toast({ title: "Scan Failed", description: message, variant: "destructive" });
     } finally {
       setScanning(false);
       setUploadProgress(0);
+    }
+  };
+
+  const fetchPendingChallans = async (supplierId: string, lineItems: LineItem[]) => {
+    if (!companyId) return;
+    setLoadingChallans(true);
+    try {
+      const { data: challans } = await supabase
+        .from("purchase_orders")
+        .select("id, order_number, challan_number, order_date, total_amount")
+        .eq("supplier_id", supplierId)
+        .eq("is_challan", true)
+        .is("converted_from_challan_id", null)
+        .eq("company_id", companyId)
+        .order("order_date", { ascending: false });
+
+      if (!challans?.length) { setPendingChallans([]); return; }
+
+      const { data: items } = await supabase
+        .from("purchase_order_items")
+        .select("purchase_order_id, product_id, quantity, unit_price")
+        .in("purchase_order_id", challans.map(c => c.id));
+
+      const invoiceProductIds = new Set(
+        lineItems.filter(item => item.matched_product_id).map(item => item.matched_product_id!)
+      );
+
+      const itemsByChallan = new Map<string, any[]>();
+      (items || []).forEach(item => {
+        if (!itemsByChallan.has(item.purchase_order_id)) itemsByChallan.set(item.purchase_order_id, []);
+        itemsByChallan.get(item.purchase_order_id)!.push(item);
+      });
+
+      const relevantChallans = challans.filter(c => {
+        const challanItems = itemsByChallan.get(c.id) || [];
+        return challanItems.some(i => invoiceProductIds.has(i.product_id));
+      });
+
+      setPendingChallans(relevantChallans.map(c => ({
+        ...c,
+        _items: itemsByChallan.get(c.id) || [],
+        _overlapCount: (itemsByChallan.get(c.id) || []).filter(i => invoiceProductIds.has(i.product_id)).length,
+      })));
+    } catch (err) {
+      console.error("Failed to fetch pending challans:", err);
+    } finally {
+      setLoadingChallans(false);
     }
   };
 
@@ -161,6 +308,24 @@ export default function ScanInvoice() {
     setSaving(true);
 
     try {
+      // Validate batch + expiry: batch number is optional (MRP_xxx fallback allowed),
+      // but if batch is provided, expiry must also be present (never auto-generate)
+      const missingExpiry: number[] = [];
+      extracted.line_items.forEach((item, i) => {
+        if (item.batch_number && item.batch_number.trim() && !item.expiry_date) {
+          missingExpiry.push(i + 1);
+        }
+      });
+      if (missingExpiry.length > 0) {
+        toast({
+          title: "Expiry Date Required",
+          description: `Lines ${missingExpiry.slice(0, 5).join(", ")}${missingExpiry.length > 5 ? "…" : ""} have batch numbers but no expiry date. Expiry must be manually entered or extracted from the invoice.`,
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
       // 1. Supplier: match or create with full details
       let supplierId = extracted.matched_supplier_id;
       if (!supplierId) {
@@ -206,6 +371,14 @@ export default function ScanInvoice() {
         .select("id")
         .single();
       if (poErr) throw poErr;
+
+      // Mark selected challans as converted
+      if (selectedChallanIds.length > 0) {
+        await supabase
+          .from("purchase_orders")
+          .update({ converted_from_challan_id: po.id, is_challan: false })
+          .in("id", selectedChallanIds);
+      }
 
       // 3. Process each line item — create products if needed, insert PO items, prepare batch data
       const batchPayload: any[] = [];
@@ -281,12 +454,141 @@ export default function ScanInvoice() {
       });
 
       setSaved(true);
+      localStorage.removeItem(STORAGE_KEY);
       toast({ title: "Invoice Saved!", description: `PO ${orderNumber} created with ${extracted.line_items.length} items, inventory received & payment recorded.` });
     } catch (err: any) {
       console.error("Save error:", err);
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleInlineMap = async (index: number, productId: string, productName: string) => {
+    if (!extracted || !companyId || !user) return;
+    setResolving(true);
+    try {
+      const item = extracted.line_items[index];
+      
+      // Update local state
+      updateLineItem(index, "matched_product_id", productId);
+      updateLineItem(index, "matched_product_name", productName);
+      updateLineItem(index, "matching_confidence", 100);
+      updateLineItem(index, "matching_method", "manual");
+      updateLineItem(index, "_is_resolved", true);
+
+      // Immediately create alias for future
+      let supplierId = extracted.matched_supplier_id;
+      if (supplierId) {
+        // Normalize name
+        const { data: norm } = await supabase.rpc('normalize_product_text', { input_text: item.product_name });
+        const normalized = (norm as string) || item.product_name;
+        
+        await supabase.from("vendor_product_aliases").upsert({
+          supplier_id: supplierId,
+          vendor_product_name: item.product_name,
+          normalized_name: normalized,
+          product_id: productId,
+          confidence_score: 100,
+          is_approved: true,
+          approved_by: user.id,
+        }, { onConflict: "supplier_id,vendor_product_name", ignoreDuplicates: false });
+      }
+
+      toast({ title: "Resolved", description: "Product mapped successfully." });
+      setExpandedRow(null);
+      setProductSearch("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleInlineCreate = async (index: number, newProdData: any) => {
+    if (!extracted || !companyId || !user) return;
+    setResolving(true);
+    try {
+      const item = extracted.line_items[index];
+
+      // 1. Create product in DB immediately
+      const { data: prod, error: prodErr } = await supabase
+        .from("products")
+        .insert({
+          company_id: companyId,
+          name: newProdData.name.trim(),
+          generic_name: newProdData.generic_name || "",
+          manufacturer: newProdData.manufacturer || "",
+          strength: newProdData.strength || "",
+          category: newProdData.category || "",
+          mrp: newProdData.mrp ? parseFloat(newProdData.mrp) : 0,
+          purchase_price: newProdData.purchase_price ? parseFloat(newProdData.purchase_price) : 0,
+          gst_percentage: parseFloat(newProdData.gst_percentage) || 12,
+          is_active: true,
+        })
+        .select("id, name")
+        .single();
+      if (prodErr) throw prodErr;
+
+      // Update local state
+      updateLineItem(index, "matched_product_id", prod.id);
+      updateLineItem(index, "matched_product_name", prod.name);
+      updateLineItem(index, "matching_confidence", 100);
+      updateLineItem(index, "matching_method", "manual");
+      updateLineItem(index, "_is_resolved", true);
+
+      // Create alias
+      let supplierId = extracted.matched_supplier_id;
+      if (supplierId) {
+        const { data: norm } = await supabase.rpc('normalize_product_text', { input_text: item.product_name });
+        const normalized = (norm as string) || item.product_name;
+        
+        await supabase.from("vendor_product_aliases").upsert({
+          supplier_id: supplierId,
+          vendor_product_name: item.product_name,
+          normalized_name: normalized,
+          product_id: prod.id,
+          confidence_score: 100,
+          is_approved: true,
+          approved_by: user.id,
+        }, { onConflict: "supplier_id,vendor_product_name", ignoreDuplicates: false });
+      }
+
+      // Generate and store semantic embedding (non-blocking)
+      try {
+        const { data: embedData, error: embedError } = await supabase.functions.invoke("embed-text", {
+          body: { texts: [prod.name] },
+        });
+        if (!embedError && embedData?.embeddings?.[0]) {
+          await supabase.from("product_embeddings").upsert({
+            product_id: prod.id,
+            company_id: companyId,
+            embedding: JSON.stringify(embedData.embeddings[0]),
+            model: "nomic-ai/nomic-embed-text-v1.5",
+            generated_at: new Date().toISOString(),
+          }, { onConflict: "product_id" });
+          await supabase.from("products").update({ embedding_needs_update: false }).eq("id", prod.id);
+        }
+      } catch (embedErr) {
+        console.error("Failed to generate product embedding:", embedErr);
+      }
+
+      toast({ title: "Product Created", description: `"${prod.name}" has been added.` });
+      setExpandedRow(null);
+
+      // Refresh products list
+      const { data: newProducts } = await supabase
+        .from("products")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (newProducts) setProducts(newProducts);
+      
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -384,9 +686,50 @@ export default function ScanInvoice() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" /> Extracted Invoice Data
-              </CardTitle>
+              <div className="flex items-start justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" /> Extracted Invoice Data
+                </CardTitle>
+                {extracted.format_analysis && (
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={extracted.format_analysis.format_confidence >= 80 ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {extracted.format_analysis.format_type.replace("_", " ").toUpperCase()}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round(extracted.format_analysis.format_confidence)}% confidence
+                    </span>
+                  </div>
+                )}
+              </div>
+              {extracted.format_analysis?.table_structure && (
+                <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Layout:</span> 
+                    {extracted.format_analysis.page_layout?.replace(/_/g, " ")}
+                  </div>
+                  {extracted.format_analysis.table_structure.column_order && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Columns:</span> 
+                      {extracted.format_analysis.table_structure.column_order.join(" → ")}
+                    </div>
+                  )}
+                  {extracted.format_analysis.special_features && extracted.format_analysis.special_features.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Features:</span> 
+                      {extracted.format_analysis.special_features.join(", ")}
+                    </div>
+                  )}
+                  {extracted.learned_formats && extracted.learned_formats.length > 0 && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <span className="font-medium">Learned:</span> 
+                      {extracted.learned_formats.length} previous format{extracted.learned_formats.length > 1 ? "s" : ""} stored for this supplier
+                    </div>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Supplier Details */}
@@ -503,6 +846,50 @@ export default function ScanInvoice() {
             </CardContent>
           </Card>
 
+          {/* Challan Picking */}
+          {pendingChallans.length > 0 && (
+            <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Box className="h-4 w-4 text-blue-500" />
+                  Pending Challans with Matching Products
+                </CardTitle>
+                <CardDescription>
+                  Select challans to link with this invoice. Selected challans will be marked as converted on save.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {pendingChallans.map(challan => (
+                    <label key={challan.id} className="flex items-center gap-3 p-3 border rounded-lg bg-background hover:bg-accent/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedChallanIds.includes(challan.id)}
+                        onChange={() => {
+                          setSelectedChallanIds(prev =>
+                            prev.includes(challan.id)
+                              ? prev.filter(id => id !== challan.id)
+                              : [...prev, challan.id]
+                          );
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{challan.challan_number || challan.order_number}</span>
+                          <Badge variant="outline" className="text-[10px]">{challan.order_date}</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {challan._overlapCount} matching product(s) · ₹{Number(challan.total_amount).toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Line Items ({extracted.line_items.length})</CardTitle>
@@ -526,44 +913,199 @@ export default function ScanInvoice() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {extracted.line_items.map((item, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={item.batch_number || ""} onChange={(e) => updateLineItem(i, "batch_number", e.target.value)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="date" value={item.expiry_date || ""} onChange={(e) => updateLineItem(i, "expiry_date", e.target.value)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.quantity} onChange={(e) => updateLineItem(i, "quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.free_quantity || 0} onChange={(e) => updateLineItem(i, "free_quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.purchase_price} onChange={(e) => updateLineItem(i, "purchase_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.mrp} onChange={(e) => updateLineItem(i, "mrp", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.gst_percentage} onChange={(e) => updateLineItem(i, "gst_percentage", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={item.total_price} onChange={(e) => updateLineItem(i, "total_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
-                        </TableCell>
-                        <TableCell>
-                          {item.matched_product_id ? (
-                            <Badge variant="secondary" className="text-[10px]">✓</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px]">New</Badge>
+                    {extracted.line_items.map((item, i) => {
+                      const needsResolution = !item._is_resolved && (item.needs_review === true || !item.matched_product_id);
+                      const isExpanded = expandedRow === i;
+
+                      return (
+                        <Fragment key={i}>
+                          <TableRow className={needsResolution ? "bg-orange-50/50 dark:bg-orange-950/20" : ""}>
+                            <TableCell>
+                              <Input value={item.product_name} onChange={(e) => updateLineItem(i, "product_name", e.target.value)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input value={item.batch_number || ""} onChange={(e) => updateLineItem(i, "batch_number", e.target.value)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="date" value={item.expiry_date || ""} onChange={(e) => updateLineItem(i, "expiry_date", e.target.value)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.quantity} onChange={(e) => updateLineItem(i, "quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.free_quantity || 0} onChange={(e) => updateLineItem(i, "free_quantity", parseInt(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.purchase_price} onChange={(e) => updateLineItem(i, "purchase_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.mrp} onChange={(e) => updateLineItem(i, "mrp", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.gst_percentage} onChange={(e) => updateLineItem(i, "gst_percentage", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={item.total_price} onChange={(e) => updateLineItem(i, "total_price", parseFloat(e.target.value) || 0)} className="text-xs h-8" />
+                            </TableCell>
+                            <TableCell>
+                              {item.matched_product_id && (!needsResolution || item._is_resolved) ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <Badge className="text-[10px] bg-green-500 hover:bg-green-600 cursor-default w-fit">✓ {Math.round(item.matching_confidence || 100)}%</Badge>
+                                  {item.matching_method && item.matching_method !== 'exact' && (
+                                    <span className="text-[9px] text-muted-foreground capitalize">{item.matching_method}</span>
+                                  )}
+                                  {item.matching_details && !item.matching_details.auto_accepted && (
+                                    <span className="text-[9px] text-amber-600">reviewed</span>
+                                  )}
+                                  {item.extraction_confidence != null && item.extraction_confidence < 90 && (
+                                    <span className="text-[9px] text-amber-600">extract: {Math.round(item.extraction_confidence)}%</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  {item.matched_product_id && (
+                                    <Badge className="text-[10px] bg-yellow-500 w-fit">~ {Math.round(item.matching_confidence || 0)}%</Badge>
+                                  )}
+                                  {!item.matched_product_id && (
+                                    <Badge variant="outline" className="text-[10px] border-orange-400 text-orange-500 w-fit">New</Badge>
+                                  )}
+                                  {item.needs_review && item.matched_product_id && (
+                                    <span className="text-[9px] text-amber-600">needs review</span>
+                                  )}
+                                  {item.extraction_confidence != null && (
+                                    <span className="text-[9px] text-muted-foreground">
+                                      extract: {Math.round(item.extraction_confidence)}%
+                                    </span>
+                                  )}
+                                  <Button 
+                                    size="sm" 
+                                    variant={isExpanded ? "default" : "outline"}
+                                    className="h-6 text-[10px] px-2 w-fit"
+                                    onClick={() => setExpandedRow(isExpanded ? null : i)}
+                                  >
+                                    Resolve
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={10} className="bg-muted/30 p-0 border-b">
+                                <div className="p-4 flex flex-col gap-3">
+                                  <div className="font-semibold text-sm flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                    Resolve Product Mapping for: <span className="text-primary">{item.product_name}</span>
+                                  </div>
+                                  {item.raw_text && (
+                                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border">
+                                      <span className="font-medium">Raw OCR:</span> {item.raw_text}
+                                    </div>
+                                  )}
+                                  <div className="grid grid-cols-2 gap-6">
+                                    {/* Column 1: Map to Existing */}
+                                    <div className="space-y-3 border rounded-lg p-3 bg-background shadow-sm">
+                                      <h4 className="font-medium text-sm flex items-center gap-2"><SearchCheck className="h-4 w-4 text-blue-500" /> Map to Existing Product</h4>
+                                      <div className="space-y-2">
+                                        <Input 
+                                          placeholder="Search existing products..." 
+                                          value={productSearch}
+                                          onChange={(e) => setProductSearch(e.target.value)}
+                                          className="h-8 text-xs"
+                                        />
+                                        <div className="max-h-[140px] overflow-y-auto border rounded divide-y">
+                                          {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 20).map(p => (
+                                            <div key={p.id} className="flex items-center justify-between p-2 text-xs hover:bg-accent group">
+                                              <span className="truncate pr-2">{p.name}</span>
+                                              <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                className="h-6 text-[10px] px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => handleInlineMap(i, p.id, p.name)}
+                                                disabled={resolving}
+                                              >
+                                                Map to this
+                                              </Button>
+                                            </div>
+                                          ))}
+                                          {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                                            <div className="p-4 text-xs text-muted-foreground text-center">No products found</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Column 2: Create New */}
+                                    <div className="space-y-3 border rounded-lg p-3 bg-background shadow-sm">
+                                      <h4 className="font-medium text-sm flex items-center gap-2"><Box className="h-4 w-4 text-emerald-500" /> Create New Product</h4>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="col-span-2">
+                                          <Label className="text-[10px]">Product Name *</Label>
+                                          <Input id={`new-name-${i}`} defaultValue={item.product_name} className="h-7 text-xs" />
+                                        </div>
+                                        <div className="col-span-2">
+                                          <Label className="text-[10px]">Manufacturer</Label>
+                                          <Input id={`new-mfg-${i}`} defaultValue={extracted.supplier_name} className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">Generic Name</Label>
+                                          <Input id={`new-generic-${i}`} placeholder="e.g. Paracetamol" className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">Strength</Label>
+                                          <Input id={`new-strength-${i}`} placeholder="e.g. 500mg" className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">Category</Label>
+                                          <Input id={`new-cat-${i}`} placeholder="e.g. Tablets" className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">MRP (₹)</Label>
+                                          <Input id={`new-mrp-${i}`} defaultValue={item.mrp} type="number" className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">Purchase Price (₹)</Label>
+                                          <Input id={`new-price-${i}`} defaultValue={item.purchase_price} type="number" className="h-7 text-xs" />
+                                        </div>
+                                        <div>
+                                          <Label className="text-[10px]">GST %</Label>
+                                          <Input id={`new-gst-${i}`} defaultValue={item.gst_percentage} type="number" className="h-7 text-xs" />
+                                        </div>
+                                        <div className="col-span-2 flex items-end">
+                                          <Button 
+                                            className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white mt-1" 
+                                            disabled={resolving}
+                                            onClick={() => {
+                                              const name = (document.getElementById(`new-name-${i}`) as HTMLInputElement).value;
+                                              const manufacturer = (document.getElementById(`new-mfg-${i}`) as HTMLInputElement).value;
+                                              const generic_name = (document.getElementById(`new-generic-${i}`) as HTMLInputElement).value;
+                                              const strength = (document.getElementById(`new-strength-${i}`) as HTMLInputElement).value;
+                                              const category = (document.getElementById(`new-cat-${i}`) as HTMLInputElement).value;
+                                              const mrp = (document.getElementById(`new-mrp-${i}`) as HTMLInputElement).value;
+                                              const purchase_price = (document.getElementById(`new-price-${i}`) as HTMLInputElement).value;
+                                              const gst = (document.getElementById(`new-gst-${i}`) as HTMLInputElement).value;
+                                              
+                                              handleInlineCreate(i, {
+                                                name, manufacturer, generic_name, strength, category, mrp, 
+                                                gst_percentage: gst || item.gst_percentage,
+                                                purchase_price: purchase_price || item.purchase_price
+                                              });
+                                            }}
+                                          >
+                                            {resolving ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <Plus className="h-3 w-3 mr-1" />}
+                                            Save & Map
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

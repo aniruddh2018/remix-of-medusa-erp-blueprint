@@ -169,6 +169,8 @@ export default function Products() {
     setSubmitting(true);
 
     try {
+      let productId: string | null = null;
+
       if (editingProduct) {
         const { error } = await supabase
           .from("products")
@@ -176,11 +178,38 @@ export default function Products() {
           .eq("id", editingProduct.id);
 
         if (error) throw error;
+        productId = editingProduct.id;
         toast({ title: "Product updated successfully" });
       } else {
-        const { error } = await supabase.from("products").insert({ ...formData, company_id: companyId });
+        const { data, error } = await supabase
+          .from("products")
+          .insert({ ...formData, company_id: companyId })
+          .select()
+          .single();
         if (error) throw error;
+        productId = data.id;
         toast({ title: "Product added successfully" });
+      }
+
+      // Generate and store semantic embedding (non-blocking to UI)
+      if (productId && formData.name) {
+        try {
+          const { data: embedData, error: embedError } = await supabase.functions.invoke("embed-text", {
+            body: { texts: [formData.name] },
+          });
+          if (!embedError && embedData?.embeddings?.[0]) {
+            await supabase.from("product_embeddings").upsert({
+              product_id: productId,
+              company_id: companyId,
+              embedding: JSON.stringify(embedData.embeddings[0]),
+              model: "nomic-ai/nomic-embed-text-v1.5",
+              generated_at: new Date().toISOString(),
+            }, { onConflict: "product_id" });
+            await supabase.from("products").update({ embedding_needs_update: false }).eq("id", productId);
+          }
+        } catch (embedErr) {
+          console.error("Failed to generate product embedding:", embedErr);
+        }
       }
 
       setDialogOpen(false);

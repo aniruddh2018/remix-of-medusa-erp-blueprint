@@ -89,6 +89,16 @@ CREATE POLICY custom_calculations_public_read ON custom_calculations
 CREATE POLICY data_favorites_user_isolation ON data_favorites
   FOR ALL USING (user_id = auth.uid());
 
+-- RLS Policies for user_companies (if not already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_companies' AND policyname = 'user_companies_user_access') THEN
+    ALTER TABLE user_companies ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY user_companies_user_access ON user_companies
+      FOR ALL USING (user_id = auth.uid());
+  END IF;
+END $$;
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_query_history_user ON query_history(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_query_history_company ON query_history(company_id, created_at DESC);

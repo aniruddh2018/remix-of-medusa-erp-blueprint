@@ -22,9 +22,9 @@ Rules when working on this feature:
 - **Check off items** in the progress tracker as you complete them
 - **Follow the phases** in order: 1.1 → 1.2 → 1.3 → 1.4 → Phase 2...
 - **Reuse existing patterns**:
-  - LLM calls: see `supabase/functions/parse-order-text/index.ts` (Lovable AI Gateway)
+  - LLM calls: see `supabase/functions/parse-order-text/index.ts` (Fireworks AI Gateway)
   - Intent parsing: see `src/services/chatAutomation.ts`
   - RBAC: check existing role checks in `src/contexts/AuthContext.tsx`
 - **Update this doc** at the bottom with your progress
 
-**Next Item to Implement**: Phase 1.2 - `supabase/functions/nl-query/index.ts`
+**Next Item to Implement**: Deploy all edge functions after setting `FIREWORKS_API_KEY` secret. Phase 1.2 code is complete (gateway migrated from Lovable to Fireworks).

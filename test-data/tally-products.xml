@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ENVELOPE>
+  <HEADER><TALLYREQUEST>Export</TALLYREQUEST></HEADER>
+  <BODY>
+    <DATA>
+      <COLLECTION>
+        <!-- Row 1: Paracetamol 500mg — normal data -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Paracetamol 500mg Tablet</STOCKITEMNAME>
+          <MANUFACTURER>Sun Pharmaceutical Industries Ltd</MANUFACTURER>
+          <DRUGSCHEDULE ref="H">Schedule H</DRUGSCHEDULE>
+          <HSNCODE>30049099</HSNCODE>
+          <BASEUNIT>Strip</BASEUNIT>
+          <RATE unit="INR">22.50</RATE>
+          <MRP unit="INR">30.00</MRP>
+          <GSTPERCENT>12</GSTPERCENT>
+          <MINSTOCK>50</MINSTOCK>
+          <MAXSTOCK>500</MAXSTOCK>
+          <REORDERLVL>100</REORDERLVL>
+          <GENERICNAME>Acetaminophen</GENERICNAME>
+          <COMPOSITION>Paracetamol IP 500mg</COMPOSITION>
+          <STRENGTH unit="mg">500</STRENGTH>
+          <OPENINGQTY>200</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 2: Amoxicillin — different caps manufacturer -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Amoxicillin 250mg Capsule</STOCKITEMNAME>
+          <MANUFACTURER>CIPLA LIMITED</MANUFACTURER>
+          <DRUGSCHEDULE ref="H1">Schedule H1</DRUGSCHEDULE>
+          <HSNCODE>30041090</HSNCODE>
+          <BASEUNIT>Capsule</BASEUNIT>
+          <RATE unit="INR">35.00</RATE>
+          <MRP unit="INR">45.00</MRP>
+          <GSTPERCENT>12</GSTPERCENT>
+          <MINSTOCK>30</MINSTOCK>
+          <MAXSTOCK>300</MAXSTOCK>
+          <REORDERLVL>60</REORDERLVL>
+          <GENERICNAME>Amoxicillin Trihydrate</GENERICNAME>
+          <COMPOSITION>Amoxicillin IP 250mg</COMPOSITION>
+          <STRENGTH unit="mg">250</STRENGTH>
+          <OPENINGQTY>150</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 3: Insulin — Schedule X drug, high GST anomaly -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Human Mixtard 30/70 Insulin</STOCKITEMNAME>
+          <MANUFACTURER>Novo Nordisk India Pvt Ltd</MANUFACTURER>
+          <DRUGSCHEDULE ref="X">Schedule X</DRUGSCHEDULE>
+          <HSNCODE>30043110</HSNCODE>
+          <BASEUNIT>Vial</BASEUNIT>
+          <RATE unit="INR">180.00</RATE>
+          <MRP unit="INR">420.00</MRP>
+          <GSTPERCENT>50</GSTPERCENT>
+          <MINSTOCK>5</MINSTOCK>
+          <MAXSTOCK>50</MAXSTOCK>
+          <REORDERLVL>10</REORDERLVL>
+          <GENERICNAME>Biphasic Isophane Insulin</GENERICNAME>
+          <COMPOSITION>Soluble Insulin 30% + Isophane Insulin 70%</COMPOSITION>
+          <STRENGTH unit="IU/ml">100</STRENGTH>
+          <OPENINGQTY>20</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 4: Missing manufacturer — should trigger warning -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Dolo 650 Tablet</STOCKITEMNAME>
+          <MANUFACTURER></MANUFACTURER>
+          <DRUGSCHEDULE ref="None">NONE</DRUGSCHEDULE>
+          <HSNCODE>30049099</HSNCODE>
+          <BASEUNIT>Strip</BASEUNIT>
+          <RATE unit="INR">18.00</RATE>
+          <MRP unit="INR">25.00</MRP>
+          <GSTPERCENT>12</GSTPERCENT>
+          <MINSTOCK>100</MINSTOCK>
+          <MAXSTOCK>1000</MAXSTOCK>
+          <REORDERLVL>200</REORDERLVL>
+          <OPENINGQTY>500</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 5: MRP less than purchase price anomaly -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Cetrizine 10mg Tablet</STOCKITEMNAME>
+          <MANUFACTURER>Dr Reddys Laboratories Ltd</MANUFACTURER>
+          <DRUGSCHEDULE ref="None">NONE</DRUGSCHEDULE>
+          <HSNCODE>30049039</HSNCODE>
+          <BASEUNIT>Strip</BASEUNIT>
+          <RATE unit="INR">35.00</RATE>
+          <MRP unit="INR">28.00</MRP>
+          <GSTPERCENT>12</GSTPERCENT>
+          <MINSTOCK>20</MINSTOCK>
+          <MAXSTOCK>200</MAXSTOCK>
+          <REORDERLVL>40</REORDERLVL>
+          <GENERICNAME>Cetirizine Hydrochloride</GENERICNAME>
+          <COMPOSITION>Cetirizine 10mg</COMPOSITION>
+          <STRENGTH unit="mg">10</STRENGTH>
+          <OPENINGQTY>80</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 6: Narcotic drug -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Morphine Sulphate 10mg Tablet</STOCKITEMNAME>
+          <MANUFACTURER>Rusan Pharma Ltd</MANUFACTURER>
+          <DRUGSCHEDULE ref="Narcotic">NARCOTIC</DRUGSCHEDULE>
+          <HSNCODE>29391100</HSNCODE>
+          <BASEUNIT>Tablet</BASEUNIT>
+          <RATE unit="INR">120.00</RATE>
+          <MRP unit="INR">150.00</MRP>
+          <GSTPERCENT>5</GSTPERCENT>
+          <MINSTOCK>2</MINSTOCK>
+          <MAXSTOCK>20</MAXSTOCK>
+          <REORDERLVL>5</REORDERLVL>
+          <GENERICNAME>Morphine Sulphate</GENERICNAME>
+          <COMPOSITION>Morphine Sulphate IP 10mg</COMPOSITION>
+          <STRENGTH unit="mg">10</STRENGTH>
+          <OPENINGQTY>10</OPENINGQTY>
+        </STOCKITEM>
+
+        <!-- Row 7: Omeprazole — normal -->
+        <STOCKITEM>
+          <STOCKITEMNAME>Omez 20mg Capsule</STOCKITEMNAME>
+          <MANUFACTURER>Dr Reddys Laboratories Ltd</MANUFACTURER>
+          <DRUGSCHEDULE ref="H">Schedule H</DRUGSCHEDULE>
+          <HSNCODE>30049034</HSNCODE>
+          <BASEUNIT>Capsule</BASEUNIT>
+          <RATE unit="INR">45.00</RATE>
+          <MRP unit="INR">62.00</MRP>
+          <GSTPERCENT>12</GSTPERCENT>
+          <MINSTOCK>40</MINSTOCK>
+          <MAXSTOCK>400</MAXSTOCK>
+          <REORDERLVL>80</REORDERLVL>
+          <GENERICNAME>Omeprazole</GENERICNAME>
+          <COMPOSITION>Omeprazole IP 20mg</COMPOSITION>
+          <STRENGTH unit="mg">20</STRENGTH>
+          <OPENINGQTY>250</OPENINGQTY>
+        </STOCKITEM>
+      </COLLECTION>
+    </DATA>
+  </BODY>
+</ENVELOPE>

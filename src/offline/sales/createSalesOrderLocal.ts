@@ -115,7 +115,6 @@ export async function createSalesOrderLocal(args: {
     created_by: userId,
     status: header.status ?? "confirmed",
     sale_date: new Date().toISOString().slice(0, 10),
-    order_number: invoiceNumber,
   } as any);
 
   // 4. items + stock

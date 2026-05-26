@@ -16,7 +16,10 @@ import { getDeviceId } from "../device";
 export type RepoFilter<T> = Partial<Pick<T, Extract<keyof T, string>>>;
 
 export class BaseRepo<T extends SyncedRow> {
-  constructor(public readonly table: SyncedTableName) {}
+  constructor(
+    public readonly table: SyncedTableName,
+    private pushExclude: string[] = [],
+  ) {}
 
   private get tbl() {
     // Dexie table typed loosely — caller knows the shape.
@@ -69,7 +72,7 @@ export class BaseRepo<T extends SyncedRow> {
         table: this.table,
         op: existing ? "update" : op,
         record_id: id,
-        payload: stripLocalFields(next),
+        payload: stripLocalFields(next, this.pushExclude),
         status: "pending",
         retries: 0,
         created_at: Date.now(),
@@ -98,7 +101,7 @@ export class BaseRepo<T extends SyncedRow> {
         table: this.table,
         op: "update",
         record_id: id,
-        payload: stripLocalFields(next),
+        payload: stripLocalFields(next, this.pushExclude),
         status: "pending",
         retries: 0,
         created_at: Date.now(),
@@ -121,7 +124,12 @@ export class BaseRepo<T extends SyncedRow> {
   }
 }
 
-function stripLocalFields<T extends SyncedRow>(row: T): Record<string, unknown> {
-  const { _sync_state, _local_updated_at, ...rest } = row;
-  return rest as unknown as Record<string, unknown>;
+function stripLocalFields<T extends SyncedRow>(row: T, exclude: string[] = []): Record<string, unknown> {
+  const result = { ...row } as Record<string, unknown>;
+  delete result._sync_state;
+  delete result._local_updated_at;
+  for (const key of exclude) {
+    delete result[key];
+  }
+  return result;
 }

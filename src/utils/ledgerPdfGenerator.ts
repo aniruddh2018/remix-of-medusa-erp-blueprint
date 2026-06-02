@@ -14,6 +14,8 @@ interface LedgerEntry {
   totalReceived?: number;
   totalPurchase?: number;
   totalPaid?: number;
+  totalDebit?: number;
+  totalCredit?: number;
   balance: number;
   transactions: LedgerTransaction[];
 }
@@ -137,8 +139,8 @@ tr.total td { padding-top: 10px; }
     <div>
       <h3>${partyLabel} Details</h3>
       <div class="name">${entry.name}</div>
-      <p style="font-size:11px;color:#888;margin-top:4px;">${isCustomer ? "Total Sales" : "Total Purchases"}: ₹${(isCustomer ? (entry.totalSales ?? 0) : (entry.totalPurchase ?? 0)).toFixed(2)}</p>
-      <p style="font-size:11px;color:#888;">${isCustomer ? "Total Received" : "Total Paid"}: ₹${(isCustomer ? (entry.totalReceived ?? 0) : (entry.totalPaid ?? 0)).toFixed(2)}</p>
+      <p style="font-size:11px;color:#888;margin-top:4px;">${isCustomer ? "Total Sales" : "Total Purchases"}: ₹${(isCustomer ? (entry.totalSales ?? entry.totalDebit ?? 0) : (entry.totalPurchase ?? entry.totalCredit ?? 0)).toFixed(2)}</p>
+      <p style="font-size:11px;color:#888;">${isCustomer ? "Total Received" : "Total Paid"}: ₹${(isCustomer ? (entry.totalReceived ?? entry.totalCredit ?? 0) : (entry.totalPaid ?? entry.totalDebit ?? 0)).toFixed(2)}</p>
     </div>
     <div class="summary-box">
       <h3>Outstanding Balance</h3>

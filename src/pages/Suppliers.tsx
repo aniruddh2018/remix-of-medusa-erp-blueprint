@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Phone, Mail, Users } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Phone, Mail, Users, BookOpen } from "lucide-react";
 import { SupplierFormDialog } from "@/components/forms/SupplierFormDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LedgerViewTab } from "@/components/LedgerViewTab";
+import type { LedgerBalanceWithName } from "@/types/ledger";
 
 type Supplier = Tables<"suppliers">;
 
@@ -31,24 +34,51 @@ export default function Suppliers() {
     queryKey: ["suppliers", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("suppliers")
+        .from("ledger_balances_with_names")
         .select("*")
         .eq("company_id", companyId!)
+        .contains("roles", ["supplier"])
         .order("name");
       if (error) throw error;
-      return data as Supplier[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        contact_person: l.contact_person ?? null,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        gst_number: l.gst_number ?? null,
+        drug_license_number: l.import_metadata?.drug_license_number ?? null,
+        address: l.address?.line1 ?? null,
+        state: l.state ?? null,
+        is_active: l.is_active ?? true,
+        company_id: l.company_id,
+        currentBalance: Number(l.current_balance ?? 0),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      })) as any[];
     },
     enabled: !!companyId,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
-      if (error) throw error;
+      const { data: vouchLines } = await supabase
+        .from("journal_voucher_lines")
+        .select("id")
+        .eq("ledger_id", id)
+        .limit(1);
+      if (vouchLines && vouchLines.length > 0) {
+        const { error } = await supabase.from("ledgers").update({ is_active: false }).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("ledgers").delete().eq("id", id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      toast({ title: "Supplier deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["ledger-balances"] });
+      toast({ title: "Supplier deactivated (has ledger history)" });
     },
     onError: (error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -97,6 +127,14 @@ export default function Suppliers() {
           Add Supplier
         </Button>
       </div>
+
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all" className="gap-1.5"><Users className="h-3.5 w-3.5" /> All Suppliers</TabsTrigger>
+          <TabsTrigger value="ledger" className="gap-1.5"><BookOpen className="h-3.5 w-3.5" /> Ledger View</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-4">
 
       <Card>
         <CardHeader className="p-3 sm:p-6">
@@ -268,6 +306,13 @@ export default function Suppliers() {
           )}
         </CardContent>
       </Card>
+
+        </TabsContent>
+
+        <TabsContent value="ledger" className="mt-4">
+          <LedgerViewTab role="supplier" />
+        </TabsContent>
+      </Tabs>
 
       <SupplierFormDialog
         open={isDialogOpen}

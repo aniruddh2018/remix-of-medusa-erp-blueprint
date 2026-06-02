@@ -29,10 +29,12 @@ import AuditLogs from "./pages/AuditLogs";
 import Install from "./pages/Install";
 import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
+import MigrationDashboard from "./pages/MigrationDashboard";
 import ScanInvoice from "./pages/ScanInvoice";
 import CounterSales from "./pages/CounterSales";
 import Chat from "./pages/Chat";
 import QueryEngine from "./pages/QueryEngine";
+import LedgerManagement from "./pages/LedgerManagement";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
@@ -73,11 +75,13 @@ const App = () => (
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/super-admin" element={<SuperAdmin />} />
                 <Route path="/data-import" element={<DataImport />} />
+                <Route path="/migration" element={<MigrationDashboard />} />
                 <Route path="/scan-invoice" element={<ScanInvoice />} />
       
                 <Route path="/counter-sales" element={<CounterSales />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/query" element={<QueryEngine />} />
+                <Route path="/ledgers" element={<LedgerManagement />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />

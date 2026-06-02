@@ -407,5 +407,3 @@ function getTableName(entityType: string): string {
   if (!table) throw new Error(`Unknown entity type: ${entityType}`);
   return table;
 }
-
-async function deleteImportedRows(

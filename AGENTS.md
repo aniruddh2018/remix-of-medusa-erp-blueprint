@@ -28,3 +28,21 @@ Rules when working on this feature:
 - **Update this doc** at the bottom with your progress
 
 **Next Item to Implement**: Deploy all edge functions after setting `FIREWORKS_API_KEY` secret. Phase 1.2 code is complete (gateway migrated from Lovable to Fireworks).
+
+## Pharma ERP Migration Engine (ACTIVE)
+
+This project has an active Marg/Tally XML migration engine implementation.
+
+**System Design**: `docs/SYSTEM_DESIGN_ERP_MIGRATION_ENGINE.md`
+**DB Migration**: `supabase/migrations/20260528000000_add_migration_engine.sql`
+
+Rules when working on this feature:
+- **ALWAYS READ** `docs/SYSTEM_DESIGN_ERP_MIGRATION_ENGINE.md` first
+- **Staging workflow**: Upload → Parse → Stage → Review → Confirm → Done
+- **Never import directly to production** — always go through staging tables
+- **Mapping engine**: `src/services/mappingEngine.ts` handles unit/group/tax/manufacturer auto-mapping
+- **Edge functions**:
+  - `tally-import` — parses Tally/Marg XML (streaming, memory-safe)
+  - `migration-staging` — stages, validates, confirms, rolls back
+
+**Next Item to Implement**: Deploy edge functions (`supabase functions deploy tally-import`, `supabase functions deploy migration-staging`) and run `supabase db push` for the migration.

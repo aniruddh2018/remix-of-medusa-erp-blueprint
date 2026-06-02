@@ -99,6 +99,8 @@ export function RecordPaymentDialog({
       queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
       queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
       queryClient.invalidateQueries({ queryKey: ["payments-for-ref", referenceId] });
+      queryClient.invalidateQueries({ queryKey: ["ledger-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["ledger-transactions"] });
       onOpenChange(false);
       setAmount(balance > 0 ? parseFloat(balance.toFixed(2)) : 0);
       setMethod("cash");
@@ -123,6 +125,8 @@ export function RecordPaymentDialog({
       queryClient.invalidateQueries({ queryKey: ["payments-sales"] });
       queryClient.invalidateQueries({ queryKey: ["payments-purchase"] });
       queryClient.invalidateQueries({ queryKey: ["payments-for-ref", referenceId] });
+      queryClient.invalidateQueries({ queryKey: ["ledger-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["ledger-transactions"] });
       setDeleteConfirmId(null);
     },
     onError: (e: any) => {

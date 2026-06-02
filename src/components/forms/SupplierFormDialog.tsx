@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { syncSupplierToLedger } from "@/services/ledgerBridge";
 
 type Supplier = Tables<"suppliers">;
 
@@ -87,6 +88,7 @@ export function SupplierFormDialog({
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      if (companyId) syncSupplierToLedger(supplier, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Supplier created successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);
@@ -110,6 +112,7 @@ export function SupplierFormDialog({
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      if (companyId) syncSupplierToLedger(supplier, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Supplier updated successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);

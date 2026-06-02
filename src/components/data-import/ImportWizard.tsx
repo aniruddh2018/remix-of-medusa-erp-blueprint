@@ -8,6 +8,9 @@ interface ImportWizardProps {
   onNext: () => void;
   onBack: () => void;
   children: React.ReactNode;
+  isTallyMultiEntity?: boolean;
+  isLastEntity?: boolean;
+  hasNextEntity?: boolean;
 }
 
 const STEPS: { step: WizardStep; label: string }[] = [
@@ -26,8 +29,15 @@ export function ImportWizard({
   onNext,
   onBack,
   children,
+  isTallyMultiEntity,
+  hasNextEntity,
 }: ImportWizardProps) {
   const currentIndex = STEPS.findIndex(s => s.step === currentStep);
+
+  let nextLabel = 'Next →';
+  if (currentIndex === STEPS.length - 1) nextLabel = 'Finish';
+  else if (isTallyMultiEntity && currentStep === 'preview' && hasNextEntity) nextLabel = 'Next Entity →';
+  else if (isTallyMultiEntity && currentStep === 'mapping') nextLabel = 'Preview →';
 
   return (
     <div className="space-y-6" data-enter-nav>
@@ -88,7 +98,7 @@ export function ImportWizard({
           disabled={!canGoForward}
           className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {currentIndex === STEPS.length - 1 ? 'Finish' : 'Next →'}
+          {currentIndex === STEPS.length - 1 ? 'Finish' : nextLabel}
         </button>
       </div>
     </div>

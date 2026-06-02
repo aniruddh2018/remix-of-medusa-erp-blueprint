@@ -7,6 +7,7 @@ import type {
   DetectedColumnType,
   ImportJob,
   ValidationResult,
+  TallyMastersParseResult,
 } from '@/types/dataImport';
 
 interface AIMappingItem {
@@ -274,4 +275,35 @@ export async function rollbackImport(
 
   if (error) return { success: false, message: error.message };
   return data as { success: boolean; message: string };
+}
+
+// ─── Tally All Masters ───────────────────────────────────────────────────────
+
+export async function parseTallyMasters(
+  supabase: SupabaseClient<Database>,
+  file: File
+): Promise<TallyMastersParseResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data: session } = await supabase.auth.getSession();
+  const accessToken = session?.session?.access_token;
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tally-import`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(err.error || `Tally import failed: ${response.status}`);
+  }
+
+  return response.json();
 }

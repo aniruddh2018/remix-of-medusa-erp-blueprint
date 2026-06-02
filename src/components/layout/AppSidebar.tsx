@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
+import   {
   LayoutDashboard,
   Package,
   Boxes,
@@ -39,6 +39,7 @@ import {
   Bot,
   Database,
   ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -69,6 +70,7 @@ const allComplianceMenuItems: MenuItem[] = [
   { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs", shortcut: null },
   { title: "Credit & Debit Notes", icon: RotateCcw, path: "/notes" },
   { title: "Accounts", icon: Wallet, path: "/accounts" },
+  { title: "Chart of Accounts", icon: BookOpen, path: "/ledgers" },
 ];
 
 const allManagementMenuItems: MenuItem[] = [
@@ -87,6 +89,7 @@ const allAdminMenuItems: MenuItem[] = [
 const superAdminMenuItems: MenuItem[] = [
   { title: "Super Admin", icon: Shield, path: "/super-admin" },
   { title: "Data Import", icon: Upload, path: "/data-import" },
+  { title: "Migration Engine", icon: Database, path: "/migration" },
 ];
 
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {

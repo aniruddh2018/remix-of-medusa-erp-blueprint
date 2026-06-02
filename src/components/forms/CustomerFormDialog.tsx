@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { syncCustomerToLedger } from "@/services/ledgerBridge";
 
 type Customer = Tables<"customers">;
 
@@ -84,6 +85,7 @@ export function CustomerFormDialog({
     },
     onSuccess: (customer) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      if (companyId) syncCustomerToLedger(customer, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Customer added successfully" });
       onOpenChange(false);
       onSuccess?.(customer.id);
@@ -106,6 +108,7 @@ export function CustomerFormDialog({
     },
     onSuccess: (customer) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      if (companyId) syncCustomerToLedger(customer, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Customer updated successfully" });
       onOpenChange(false);
       onSuccess?.(customer.id);

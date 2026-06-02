@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { History, Upload, RefreshCw } from "lucide-react";
+import { History, Upload, RefreshCw, FileCode } from "lucide-react";
 
 import { useImportWizard } from "@/hooks/useImportWizard";
 import { useFieldMapping } from "@/hooks/useFieldMapping";
@@ -29,11 +29,13 @@ import {
   convertAIMappingsToFieldMappings,
   executeImport,
   rollbackImport,
+  parseTallyMasters,
 } from "@/services/dataImport";
 import { validateRows } from "@/services/importValidators";
 import { saveTemplate } from "@/services/importTemplates";
 import { ENTITY_SCHEMAS, topologicalSort } from "@/types/dataImport";
-import type { FieldMapping, ImportJob } from "@/types/dataImport";
+import type { FieldMapping, ImportJob, ImportEntityType, TallyMastersParseResult } from "@/types/dataImport";
+import type { ParsedData } from "@/types/dataImport";
 
 export default function DataImport() {
   const { isSuperAdmin, loading: authLoading } = useAuth();
@@ -52,6 +54,13 @@ export default function DataImport() {
     currentBatch: 0,
     totalBatches: 0,
   });
+
+  const [isTallyMultiEntity, setIsTallyMultiEntity] = useState(false);
+  const [tallyResult, setTallyResult] = useState<TallyMastersParseResult | null>(null);
+  const [selectedTallyEntities, setSelectedTallyEntities] = useState<ImportEntityType[]>([]);
+  const [isTallyParsing, setIsTallyParsing] = useState(false);
+  const [tallyEntityParsedData, setTallyEntityParsedData] = useState<Record<ImportEntityType, ParsedData>>({} as Record<ImportEntityType, ParsedData>);
+  const tallyFileRef = useRef<File | null>(null);
 
   const wizard = useImportWizard();
   const history = useImportHistory(supabase, company?.id ?? "");
@@ -149,6 +158,66 @@ export default function DataImport() {
     toast({ title: "Re-import Ready", description: `Entity set to ${job.entityType}. Upload a new file.` });
   }, [wizard, toast]);
 
+  // ─── Tally All Masters handler ─────────────────────────────────────────────
+
+  const handleFileParsed = useCallback(async (data: ParsedData, file: File) => {
+    wizard.setParsedData(data);
+    tallyFileRef.current = file;
+
+    // Check for Tally All Masters XML
+    if (data.fileType === 'xml') {
+      const text = await file.text();
+      if (text.includes('<TALLYREQUEST>Import Data</TALLYREQUEST>') && text.includes('<REPORTNAME>All Masters</REPORTNAME>')) {
+        setIsTallyParsing(true);
+        try {
+          const result = await parseTallyMasters(supabase, file);
+          setTallyResult(result);
+          setIsTallyMultiEntity(true);
+          wizard.setError(null);
+        } catch (err) {
+          wizard.setError(err instanceof Error ? err.message : 'Tally parsing failed');
+          setIsTallyMultiEntity(false);
+        } finally {
+          setIsTallyParsing(false);
+        }
+        return;
+      }
+    }
+    setIsTallyMultiEntity(false);
+  }, [wizard]);
+
+  const toggleTallyEntity = useCallback((entity: ImportEntityType) => {
+    setSelectedTallyEntities(prev =>
+      prev.includes(entity) ? prev.filter(e => e !== entity) : [...prev, entity]
+    );
+  }, []);
+
+  const buildEntityParsedData = useCallback((result: TallyMastersParseResult): Record<ImportEntityType, ParsedData> => {
+    return {
+      product: {
+        headers: ['name', 'category', 'hsn_code', 'gst_percentage', 'unit', 'purchase_price', 'mrp', 'opening_balance', 'opening_value'],
+        rows: result.stockItems as unknown as Record<string, unknown>[],
+        totalRows: result.stockItems.length,
+        fileType: 'xml' as const,
+        entityType: 'product' as const,
+      },
+      supplier: {
+        headers: ['name', 'gstin', 'phone', 'address', 'state', 'parent_group', 'pan'],
+        rows: result.suppliers as unknown as Record<string, unknown>[],
+        totalRows: result.suppliers.length,
+        fileType: 'xml' as const,
+        entityType: 'supplier' as const,
+      },
+      customer: {
+        headers: ['name', 'gstin', 'phone', 'address', 'state', 'parent_group'],
+        rows: result.customers as unknown as Record<string, unknown>[],
+        totalRows: result.customers.length,
+        fileType: 'xml' as const,
+        entityType: 'customer' as const,
+      },
+    };
+  }, []);
+
   // ─── Navigation Logic ──────────────────────────────────────────────────────
 
   const canGoBack = wizard.currentStep !== "upload";
@@ -168,8 +237,21 @@ export default function DataImport() {
     switch (wizard.currentStep) {
       case "upload": {
         if (!wizard.parsedData) return;
-        wizard.setDetectedColumns(detectSchemaClient(wizard.parsedData.rows));
-        wizard.setStep("schema");
+        if (isTallyMultiEntity && tallyResult) {
+          if (selectedTallyEntities.length === 0) {
+            toast({ title: "Select entities", description: "Please select at least one entity type to import", variant: "destructive" });
+            return;
+          }
+          const entityData = buildEntityParsedData(tallyResult);
+          setTallyEntityParsedData(entityData);
+          const sorted = topologicalSort(selectedTallyEntities);
+          wizard.setEntities(sorted);
+          wizard.setDetectedColumns([]);
+          wizard.setStep("schema");
+        } else {
+          wizard.setDetectedColumns(detectSchemaClient(wizard.parsedData.rows));
+          wizard.setStep("schema");
+        }
         break;
       }
       case "schema": {
@@ -177,16 +259,32 @@ export default function DataImport() {
           toast({ title: "Select entities", description: "Please select at least one entity type", variant: "destructive" });
           return;
         }
-        wizard.setEntities(topologicalSort(wizard.selectedEntities));
-        wizard.setStep("mapping");
-        setDetectedErp(null);
+        if (isTallyMultiEntity && tallyResult) {
+          // Auto-select entity type and skip to mapping
+          wizard.setStep("mapping");
+          setDetectedErp(null);
+        } else {
+          wizard.setEntities(topologicalSort(wizard.selectedEntities));
+          wizard.setStep("mapping");
+          setDetectedErp(null);
+        }
         break;
       }
       case "mapping": {
-        if (!wizard.currentEntity || !wizard.parsedData) return;
+        if (!wizard.currentEntity) return;
+        const entityRows = isTallyMultiEntity && tallyEntityParsedData[wizard.currentEntity]
+          ? tallyEntityParsedData[wizard.currentEntity].rows
+          : wizard.parsedData?.rows ?? [];
+        const entityHeaders = isTallyMultiEntity && tallyEntityParsedData[wizard.currentEntity]
+          ? tallyEntityParsedData[wizard.currentEntity].headers
+          : wizard.parsedData?.headers ?? [];
+
         const mappings = wizard.currentMappings.length > 0 ? wizard.currentMappings : fieldMapping.generateInitialMappings();
         wizard.setMappings(wizard.currentEntity, mappings);
-        wizard.setValidationResult(wizard.currentEntity, validateRows(wizard.currentEntity, wizard.parsedData.rows, mappings));
+
+        // Build a fake parsed data just for validation
+        const fakeData: ParsedData = { headers: entityHeaders, rows: entityRows, totalRows: entityRows.length, fileType: 'xml', entityType: wizard.currentEntity };
+        wizard.setValidationResult(wizard.currentEntity, validateRows(wizard.currentEntity, entityRows, mappings));
         wizard.setStep("preview");
         break;
       }
@@ -196,7 +294,7 @@ export default function DataImport() {
         break;
       }
       case "execute": {
-        if (!wizard.parsedData || wizard.selectedEntities.length === 0) return;
+        if (wizard.selectedEntities.length === 0) return;
         setIsImporting(true);
         setIsRolledBack(false);
         wizard.setError(null);
@@ -209,10 +307,15 @@ export default function DataImport() {
         for (let i = 0; i < sorted.length; i++) {
           const entity = sorted[i];
           setExecutionState(s => ({ ...s, currentBatch: i + 1 }));
+
+          const entityRows = isTallyMultiEntity && tallyEntityParsedData[entity]
+            ? tallyEntityParsedData[entity].rows
+            : wizard.parsedData?.rows ?? [];
+
           try {
             const result = await executeImport(supabase, {
               companyId: company?.id ?? "", entityType: entity,
-              rows: wizard.parsedData!.rows, mappings: wizard.fieldMappings[entity] ?? [], batchSize: 500,
+              rows: entityRows, mappings: wizard.fieldMappings[entity] ?? [], batchSize: 500,
             });
             totalSuccess += result.successRows;
             totalFailed += result.failedRows;
@@ -287,10 +390,77 @@ export default function DataImport() {
             <CardHeader><CardTitle>Import Wizard</CardTitle></CardHeader>
             <CardContent>
               {wizard.error && <Alert variant="destructive" className="mb-4"><AlertDescription>{wizard.error}</AlertDescription></Alert>}
-              <ImportWizard currentStep={wizard.currentStep} setStep={wizard.setStep} canGoBack={canGoBack} canGoForward={canGoForward()} onNext={handleNext} onBack={handleBack}>
-                {wizard.currentStep === "upload" && <FileUploadStep onParsed={wizard.setParsedData} onError={wizard.setError} />}
+              <ImportWizard
+                currentStep={wizard.currentStep}
+                setStep={wizard.setStep}
+                canGoBack={canGoBack}
+                canGoForward={canGoForward()}
+                onNext={handleNext}
+                onBack={handleBack}
+                isTallyMultiEntity={isTallyMultiEntity}
+                isLastEntity={wizard.isLastEntity}
+                hasNextEntity={wizard.hasNextEntity}
+              >
+                {wizard.currentStep === "upload" && <>
+                  <FileUploadStep
+                    onParsed={(data) => { if (tallyFileRef.current) handleFileParsed(data, tallyFileRef.current); else wizard.setParsedData(data); }}
+                    onFileReady={(file) => { tallyFileRef.current = file; }}
+                    onError={wizard.setError}
+                  />
+                  {isTallyParsing && (
+                    <div className="mt-4 flex items-center gap-3 p-3 rounded-md bg-blue-50 border border-blue-200">
+                      <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-blue-700">Analyzing Tally All Masters file...</p>
+                    </div>
+                  )}
+                  {isTallyMultiEntity && tallyResult && !isTallyParsing && (
+                    <div className="mt-6 space-y-4">
+                      <h3 className="text-sm font-semibold">Tally "All Masters" Detected — Select entities to import</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${selectedTallyEntities.includes('product') ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'}`}>
+                          <input type="checkbox" checked={selectedTallyEntities.includes('product')} onChange={() => toggleTallyEntity('product')} className="mt-0.5" />
+                          <div>
+                            <p className="font-medium text-sm">Products</p>
+                            <p className="text-xs text-muted-foreground">{tallyResult.summary.stockItems.toLocaleString()} items · {tallyResult.summary.stockGroups} categories</p>
+                          </div>
+                        </label>
+                        <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${selectedTallyEntities.includes('supplier') ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'}`}>
+                          <input type="checkbox" checked={selectedTallyEntities.includes('supplier')} onChange={() => toggleTallyEntity('supplier')} className="mt-0.5" />
+                          <div>
+                            <p className="font-medium text-sm">Suppliers</p>
+                            <p className="text-xs text-muted-foreground">{tallyResult.summary.suppliers.toLocaleString()} suppliers · with GSTIN, phone, address</p>
+                          </div>
+                        </label>
+                        <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${selectedTallyEntities.includes('customer') ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'}`}>
+                          <input type="checkbox" checked={selectedTallyEntities.includes('customer')} onChange={() => toggleTallyEntity('customer')} className="mt-0.5" />
+                          <div>
+                            <p className="font-medium text-sm">Customers</p>
+                            <p className="text-xs text-muted-foreground">{tallyResult.summary.customers.toLocaleString()} customers</p>
+                          </div>
+                        </label>
+                        <div className="p-4 rounded-lg border-2 border-muted bg-muted/30">
+                          <p className="font-medium text-sm text-muted-foreground">Other (not imported)</p>
+                          <p className="text-xs text-muted-foreground">{tallyResult.summary.groups} groups · {tallyResult.summary.units} units · {tallyResult.summary.skippedLedgers} skipped ledgers</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>}
 
                 {wizard.currentStep === "schema" && wizard.parsedData && (
+                  isTallyMultiEntity ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 border border-green-200">
+                        <span className="text-sm font-medium text-green-800">Tally Data Ready</span>
+                        <span className="text-xs text-green-600">
+                          Importing: {wizard.selectedEntities.map(e => ENTITY_SCHEMAS[e]?.label ?? e).join(', ')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Database tables will be populated in dependency order: {topologicalSort(wizard.selectedEntities).map(e => ENTITY_SCHEMAS[e]?.label ?? e).join(' → ')}.
+                      </p>
+                    </div>
+                  ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">AI can improve column type detection</span>
@@ -300,18 +470,68 @@ export default function DataImport() {
                     </div>
                     <SchemaDetectionStep columns={wizard.detectedColumns} totalRows={wizard.parsedData.totalRows} fileType={wizard.parsedData.fileType ?? "csv"} selectedEntities={wizard.selectedEntities} onEntitiesChange={wizard.setEntities} />
                   </div>
+                  )
                 )}
 
                 {wizard.currentStep === "mapping" && wizard.currentEntity && (
-                  <FieldMappingStep entityType={wizard.currentEntity} detectedColumns={wizard.detectedColumns} mappings={wizard.currentMappings} onMappingsChange={m => wizard.setMappings(wizard.currentEntity!, m)} detectedErp={detectedErp} onAIMapping={handleAIMapping} isAILoading={isAILoading} />
+                  isTallyMultiEntity && tallyEntityParsedData[wizard.currentEntity!] ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 p-3 rounded-md bg-blue-50 border border-blue-200">
+                        <FileCode className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">
+                          Mapping {ENTITY_SCHEMAS[wizard.currentEntity]?.label ?? wizard.currentEntity} ({tallyEntityParsedData[wizard.currentEntity!].totalRows.toLocaleString()} rows)
+                        </span>
+                      </div>
+                      <FieldMappingStep
+                        entityType={wizard.currentEntity}
+                        detectedColumns={(wizard.detectedColumns && wizard.detectedColumns.length > 0)
+                          ? wizard.detectedColumns
+                          : tallyEntityParsedData[wizard.currentEntity!].headers.map(h => ({ name: h, normalizedName: h, sampleValues: [], detectedType: 'string' as const, nullCount: 0, uniqueCount: 0 }))}
+                        mappings={wizard.currentMappings}
+                        onMappingsChange={m => wizard.setMappings(wizard.currentEntity!, m)}
+                        detectedErp="tally"
+                        onAIMapping={handleAIMapping}
+                        isAILoading={isAILoading}
+                      />
+                    </div>
+                  ) : (
+                    <FieldMappingStep entityType={wizard.currentEntity} detectedColumns={wizard.detectedColumns} mappings={wizard.currentMappings} onMappingsChange={m => wizard.setMappings(wizard.currentEntity!, m)} detectedErp={detectedErp} onAIMapping={handleAIMapping} isAILoading={isAILoading} />
+                  )
                 )}
 
-                {wizard.currentStep === "preview" && wizard.currentEntity && wizard.parsedData && (
-                  <ValidationPreviewStep entityType={wizard.currentEntity} headers={wizard.parsedData.headers} rows={wizard.parsedData.rows} mappings={wizard.currentMappings} validationResult={wizard.currentValidation ?? { totalRows: wizard.parsedData.totalRows, validRows: wizard.parsedData.totalRows, errorRows: 0, warningRows: 0, errors: [] }} onValidate={() => {}} isLastEntity={wizard.isLastEntity} hasNextEntity={wizard.hasNextEntity} />
+                {wizard.currentStep === "preview" && wizard.currentEntity && (
+                  isTallyMultiEntity && tallyEntityParsedData[wizard.currentEntity!] ? (
+                    <ValidationPreviewStep
+                      entityType={wizard.currentEntity}
+                      headers={tallyEntityParsedData[wizard.currentEntity!].headers}
+                      rows={tallyEntityParsedData[wizard.currentEntity!].rows}
+                      mappings={wizard.currentMappings}
+                      validationResult={wizard.currentValidation ?? { totalRows: tallyEntityParsedData[wizard.currentEntity!].totalRows, validRows: tallyEntityParsedData[wizard.currentEntity!].totalRows, errorRows: 0, warningRows: 0, errors: [] }}
+                      onValidate={() => {}}
+                      isLastEntity={wizard.isLastEntity}
+                      hasNextEntity={wizard.hasNextEntity}
+                    />
+                  ) : wizard.parsedData && (
+                    <ValidationPreviewStep entityType={wizard.currentEntity} headers={wizard.parsedData.headers} rows={wizard.parsedData.rows} mappings={wizard.currentMappings} validationResult={wizard.currentValidation ?? { totalRows: wizard.parsedData.totalRows, validRows: wizard.parsedData.totalRows, errorRows: 0, warningRows: 0, errors: [] }} onValidate={() => {}} isLastEntity={wizard.isLastEntity} hasNextEntity={wizard.hasNextEntity} />
+                  )
                 )}
 
-                {wizard.currentStep === "execute" && wizard.parsedData && (
-                  <ImportExecutionStep isImporting={isImporting} totalRows={wizard.parsedData.totalRows * wizard.selectedEntities.length} successRows={executionState.successRows} failedRows={executionState.failedRows} currentBatch={executionState.currentBatch} totalBatches={executionState.totalBatches} error={wizard.error} jobId={currentJobId} isRolledBack={isRolledBack} onCancel={() => { setIsImporting(false); wizard.setError("Import cancelled"); }} onRollback={handleRollback} />
+                {wizard.currentStep === "execute" && (
+                  <ImportExecutionStep
+                    isImporting={isImporting}
+                    totalRows={(isTallyMultiEntity
+                      ? wizard.selectedEntities.reduce((sum, e) => sum + (tallyEntityParsedData[e]?.totalRows ?? 0), 0)
+                      : wizard.selectedEntities.length * (wizard.parsedData?.totalRows ?? 0))}
+                    successRows={executionState.successRows}
+                    failedRows={executionState.failedRows}
+                    currentBatch={executionState.currentBatch}
+                    totalBatches={executionState.totalBatches}
+                    error={wizard.error}
+                    jobId={currentJobId}
+                    isRolledBack={isRolledBack}
+                    onCancel={() => { setIsImporting(false); wizard.setError("Import cancelled"); }}
+                    onRollback={handleRollback}
+                  />
                 )}
               </ImportWizard>
             </CardContent>

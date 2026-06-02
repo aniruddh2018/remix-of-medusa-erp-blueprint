@@ -1,10 +1,11 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { Upload, FileSpreadsheet, FileJson, FileText, FileCode } from 'lucide-react';
 import type { ParsedData } from '@/types/dataImport';
 import { parseFile, detectFileType } from '@/services/fileParsers';
 
 interface FileUploadStepProps {
   onParsed: (data: ParsedData) => void;
+  onFileReady?: (file: File) => void;
   onError: (error: string) => void;
 }
 
@@ -24,7 +25,7 @@ function getFileIcon(fileType: string | null) {
   }
 }
 
-export function FileUploadStep({ onParsed, onError }: FileUploadStepProps) {
+export function FileUploadStep({ onParsed, onFileReady, onError }: FileUploadStepProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileType, setFileType] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export function FileUploadStep({ onParsed, onError }: FileUploadStepProps) {
       try {
         const data = await parseFile(file);
         setPreview(data);
+        onFileReady?.(file);
         onParsed(data);
       } catch (err) {
         onError(err instanceof Error ? err.message : 'Failed to parse file');
@@ -53,7 +55,7 @@ export function FileUploadStep({ onParsed, onError }: FileUploadStepProps) {
         setIsParsing(false);
       }
     },
-    [onParsed, onError]
+    [onParsed, onFileReady, onError]
   );
 
   const handleDrop = useCallback(
@@ -161,5 +163,3 @@ export function FileUploadStep({ onParsed, onError }: FileUploadStepProps) {
     </div>
   );
 }
-
-import { useState } from 'react';

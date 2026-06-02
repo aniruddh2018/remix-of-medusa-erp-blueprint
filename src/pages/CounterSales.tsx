@@ -758,12 +758,14 @@ export default function CounterSales() {
         }
 
         // Auto-record full payment for counter sale (paid by selected method)
+        // skip_voucher_posting=true because the sale voucher already posts Dr Cash → Cr Sales.
         const { error: payErr } = await supabase.from("payments").insert({
           payment_type: "received", reference_type: "sales_order", reference_id: order.id,
           reference_number: finalInvoiceNumber, party_name: customerName, party_type: "customer",
           amount: totalAmount, payment_method: paymentMethod,
           payment_date: new Date().toISOString().split("T")[0],
           created_by: user?.id, company_id: companyId,
+          skip_voucher_posting: true,
         });
         if (payErr) throw payErr;
       } catch (innerError) {

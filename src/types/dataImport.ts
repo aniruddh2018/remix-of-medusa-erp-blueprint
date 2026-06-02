@@ -5,7 +5,15 @@ export type ImportEntityType =
   | 'inventory_batch'
   | 'purchase_order'
   | 'sales_order'
-  | 'payment';
+  | 'payment'
+  | 'ledger_group'
+  | 'ledger'
+  | 'manufacturer'
+  | 'gst_structure';
+
+export type StagingEntityType = 'product' | 'ledger' | 'batch' | 'supplier';
+
+export type MigrationEntityType = 'ledger_group' | 'manufacturer' | 'supplier' | 'customer' | 'product' | 'batch';
 
 export type ImportFileType = 'csv' | 'xlsx' | 'xls' | 'json' | 'xml';
 
@@ -51,6 +59,155 @@ export interface ParsedData {
   totalRows: number;
   fileType?: ImportFileType;
   delimiter?: string;
+  entityType?: ImportEntityType;
+  tallyMasters?: TallyMastersParseResult;
+}
+
+export interface TallyStockItem {
+  name: string;
+  category: string;
+  hsn_code: string;
+  gst_percentage: string;
+  unit: string;
+  purchase_price: string;
+  mrp: string;
+  opening_balance: string;
+  opening_value: string;
+}
+
+export interface TallySupplierLedger {
+  name: string;
+  gstin: string;
+  phone: string;
+  address: string;
+  state: string;
+  parent_group: string;
+  pan: string;
+}
+
+export interface TallyCustomerLedger {
+  name: string;
+  gstin: string;
+  phone: string;
+  address: string;
+  state: string;
+  parent_group: string;
+}
+
+export interface TallyStockGroup {
+  name: string;
+  parent: string;
+}
+
+export interface TallyUnit {
+  name: string;
+}
+
+export interface TallyGroup {
+  name: string;
+  parent: string;
+}
+
+export interface TallyGodown {
+  name: string;
+  parent: string;
+}
+
+export interface TallyFullLedger {
+  name: string;
+  parent_group: string;
+  ledger_type: string;
+  gstin: string;
+  pan: string;
+  phone: string;
+  email: string;
+  address: string;
+  state: string;
+  opening_balance: string;
+  source_data: Record<string, unknown>;
+}
+
+export interface TallyGstRateDetail {
+  hsn_code: string;
+  cgst_rate: number;
+  sgst_rate: number;
+  igst_rate: number;
+  effective_rate: number;
+}
+
+export interface TallyMastersParseResult {
+  source_system: 'tally' | 'marg';
+  company_name: string;
+  summary: {
+    groups: number;
+    stockGroups: number;
+    units: number;
+    godowns: number;
+    suppliers: number;
+    customers: number;
+    stockItems: number;
+    allLedgers: number;
+    skippedLedgers: number;
+    gstRates: number;
+  };
+  groups: TallyGroup[];
+  stockGroups: TallyStockGroup[];
+  units: TallyUnit[];
+  godowns: TallyGodown[];
+  suppliers: TallySupplierLedger[];
+  customers: TallyCustomerLedger[];
+  stockItems: TallyStockItem[];
+  allLedgers: TallyFullLedger[];
+  skippedLedgers: string[];
+  gstRates: TallyGstRateDetail[];
+}
+
+export interface ImportSession {
+  id: string;
+  companyId: string;
+  userId: string;
+  name: string;
+  sourceSystem: string;
+  fileName: string | null;
+  fileSize: number | null;
+  status: ImportSessionStatus;
+  parseSummary: Record<string, unknown>;
+  stagingSummary: Record<string, unknown>;
+  importSummary: Record<string, unknown>;
+  errorLog: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ImportSessionStatus =
+  | 'uploaded'
+  | 'parsing'
+  | 'staging'
+  | 'reviewing'
+  | 'importing'
+  | 'completed'
+  | 'failed'
+  | 'rolled_back';
+
+export interface StagingValidationSummary {
+  total: number;
+  valid: number;
+  invalid: number;
+  warnings: number;
+}
+
+export interface StagingPreviewResult {
+  rows: Record<string, unknown>[];
+  total: number;
+  valid: number;
+  invalid: number;
+}
+
+export interface MigrationConfirmResult {
+  status: 'completed' | 'rolled_back';
+  totalSuccess: number;
+  totalFailed: number;
+  details: Record<string, { success: number; failed: number; errors: string[] }>;
 }
 
 export interface FieldMapping {
@@ -217,6 +374,53 @@ export const ENTITY_SCHEMAS: Record<ImportEntityType, EntitySchema> = {
       { key: 'status', label: 'Status', required: false, type: 'string' },
     ],
   },
+  ledger_group: {
+    entityType: 'ledger_group',
+    label: 'Ledger Groups',
+    icon: 'FolderTree',
+    fields: [
+      { key: 'name', label: 'Group Name', required: true, type: 'string' },
+      { key: 'parent_name', label: 'Parent Group', required: false, type: 'string' },
+      { key: 'affects_stock', label: 'Affects Stock', required: false, type: 'boolean' },
+    ],
+  },
+  ledger: {
+    entityType: 'ledger',
+    label: 'Ledgers',
+    icon: 'BookOpen',
+    dependencies: ['ledger_group'],
+    fields: [
+      { key: 'name', label: 'Ledger Name', required: true, type: 'string' },
+      { key: 'parent_group_name', label: 'Group', required: true, type: 'string' },
+      { key: 'ledger_type', label: 'Type', required: false, type: 'string' },
+      { key: 'gst_number', label: 'GST Number', required: false, type: 'gst' },
+      { key: 'pan_number', label: 'PAN', required: false, type: 'string' },
+      { key: 'phone', label: 'Phone', required: false, type: 'phone' },
+      { key: 'address', label: 'Address', required: false, type: 'string' },
+      { key: 'state', label: 'State', required: false, type: 'string' },
+      { key: 'opening_balance', label: 'Opening Balance', required: false, type: 'number' },
+    ],
+  },
+  manufacturer: {
+    entityType: 'manufacturer',
+    label: 'Manufacturers',
+    icon: 'Factory',
+    fields: [
+      { key: 'name', label: 'Manufacturer Name', required: true, type: 'string' },
+    ],
+  },
+  gst_structure: {
+    entityType: 'gst_structure',
+    label: 'GST Structures',
+    icon: 'Percent',
+    fields: [
+      { key: 'hsn_code', label: 'HSN Code', required: false, type: 'string' },
+      { key: 'gst_rate', label: 'GST Rate %', required: true, type: 'number' },
+      { key: 'cgst_rate', label: 'CGST %', required: false, type: 'number' },
+      { key: 'sgst_rate', label: 'SGST %', required: false, type: 'number' },
+      { key: 'igst_rate', label: 'IGST %', required: false, type: 'number' },
+    ],
+  },
   payment: {
     entityType: 'payment',
     label: 'Payments',
@@ -235,6 +439,8 @@ export const ENTITY_SCHEMAS: Record<ImportEntityType, EntitySchema> = {
 };
 
 export const IMPORT_ENTITY_ORDER: ImportEntityType[] = [
+  'ledger_group',
+  'manufacturer',
   'supplier',
   'customer',
   'product',
@@ -242,6 +448,7 @@ export const IMPORT_ENTITY_ORDER: ImportEntityType[] = [
   'purchase_order',
   'sales_order',
   'payment',
+  'gst_structure',
 ];
 
 export function getEntityDependencies(entityType: ImportEntityType): ImportEntityType[] {

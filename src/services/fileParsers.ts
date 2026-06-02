@@ -183,3 +183,8 @@ export function detectFileType(fileName: string): ImportFileType | null {
   if (ext === 'csv' || ext === 'xlsx' || ext === 'xls' || ext === 'json' || ext === 'xml') return ext;
   return null;
 }
+
+export function isTallyAllMasters(text: string): boolean {
+  return text.includes('<TALLYREQUEST>Import Data</TALLYREQUEST>') &&
+    text.includes('<REPORTNAME>All Masters</REPORTNAME>');
+}

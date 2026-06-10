@@ -1022,6 +1022,178 @@ export type Database = {
           },
         ]
       }
+      import_jobs: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          entity_type: string
+          error_log: Json | null
+          failed_rows: number | null
+          file_name: string | null
+          file_type: string | null
+          id: string
+          mapping_config: Json | null
+          status: string
+          success_rows: number | null
+          total_rows: number | null
+          updated_at: string | null
+          user_id: string | null
+          validation_results: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          entity_type: string
+          error_log?: Json | null
+          failed_rows?: number | null
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          mapping_config?: Json | null
+          status?: string
+          success_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          validation_results?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          entity_type?: string
+          error_log?: Json | null
+          failed_rows?: number | null
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          mapping_config?: Json | null
+          status?: string
+          success_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          validation_results?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_mappings: {
+        Row: {
+          company_id: string
+          confidence: number | null
+          created_at: string | null
+          entity_type: string
+          id: string
+          is_ai_generated: boolean | null
+          job_id: string | null
+          source_field: string
+          target_field: string
+          transformation: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          confidence?: number | null
+          created_at?: string | null
+          entity_type: string
+          id?: string
+          is_ai_generated?: boolean | null
+          job_id?: string | null
+          source_field: string
+          target_field: string
+          transformation?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          confidence?: number | null
+          created_at?: string | null
+          entity_type?: string
+          id?: string
+          is_ai_generated?: boolean | null
+          job_id?: string | null
+          source_field?: string
+          target_field?: string
+          transformation?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_mappings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_templates: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          entity_type: string
+          field_mappings: Json
+          id: string
+          is_system: boolean | null
+          name: string
+          source_system: string
+          transformations: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type: string
+          field_mappings?: Json
+          id?: string
+          is_system?: boolean | null
+          name: string
+          source_system?: string
+          transformations?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type?: string
+          field_mappings?: Json
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          source_system?: string
+          transformations?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_batches: {
         Row: {
           batch_number: string
@@ -1163,6 +1335,68 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      invoice_scan_queue: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          error_message: string | null
+          file_paths: string[]
+          id: string
+          max_retries: number | null
+          priority: number | null
+          queued_at: string
+          result: Json | null
+          retry_count: number | null
+          stage: string | null
+          stage_progress: number | null
+          started_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          error_message?: string | null
+          file_paths: string[]
+          id?: string
+          max_retries?: number | null
+          priority?: number | null
+          queued_at?: string
+          result?: Json | null
+          retry_count?: number | null
+          stage?: string | null
+          stage_progress?: number | null
+          started_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          error_message?: string | null
+          file_paths?: string[]
+          id?: string
+          max_retries?: number | null
+          priority?: number | null
+          queued_at?: string
+          result?: Json | null
+          retry_count?: number | null
+          stage?: string | null
+          stage_progress?: number | null
+          started_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_scan_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_sequences: {
         Row: {
@@ -1562,6 +1796,48 @@ export type Database = {
           },
         ]
       }
+      product_embeddings: {
+        Row: {
+          company_id: string
+          embedding: string
+          generated_at: string
+          id: string
+          model: string
+          product_id: string
+        }
+        Insert: {
+          company_id: string
+          embedding: string
+          generated_at?: string
+          id?: string
+          model?: string
+          product_id: string
+        }
+        Update: {
+          company_id?: string
+          embedding?: string
+          generated_at?: string
+          id?: string
+          model?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_embeddings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_embeddings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_mapping_review_queue: {
         Row: {
           company_id: string
@@ -1702,6 +1978,7 @@ export type Database = {
           device_id: string | null
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
           embedding: string | null
+          embedding_needs_update: boolean
           expiry_required: boolean | null
           fingerprint: string | null
           form: string | null
@@ -1737,6 +2014,7 @@ export type Database = {
           device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           embedding?: string | null
+          embedding_needs_update?: boolean
           expiry_required?: boolean | null
           fingerprint?: string | null
           form?: string | null
@@ -1772,6 +2050,7 @@ export type Database = {
           device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
           embedding?: string | null
+          embedding_needs_update?: boolean
           expiry_required?: boolean | null
           fingerprint?: string | null
           form?: string | null
@@ -2453,6 +2732,66 @@ export type Database = {
           },
         ]
       }
+      supplier_invoice_formats: {
+        Row: {
+          column_coordinates: Json | null
+          column_mappings: Json | null
+          company_id: string | null
+          created_at: string | null
+          format_type: string
+          id: string
+          learned_offsets: Json | null
+          row_detection_pattern: string | null
+          supplier_id: string | null
+          template_version: number | null
+          total_scanned: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          column_coordinates?: Json | null
+          column_mappings?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          format_type?: string
+          id?: string
+          learned_offsets?: Json | null
+          row_detection_pattern?: string | null
+          supplier_id?: string | null
+          template_version?: number | null
+          total_scanned?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          column_coordinates?: Json | null
+          column_mappings?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          format_type?: string
+          id?: string
+          learned_offsets?: Json | null
+          row_detection_pattern?: string | null
+          supplier_id?: string | null
+          template_version?: number | null
+          total_scanned?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoice_formats_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_invoice_formats_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -2698,13 +3037,18 @@ export type Database = {
       }
       vendor_product_aliases: {
         Row: {
+          approval_history: Json | null
           approved_by: string | null
           confidence_score: number | null
           created_at: string
           embedding: string | null
           id: string
           is_approved: boolean | null
+          last_match_confidence: number | null
+          last_matched_at: string | null
           last_used_at: string | null
+          match_count: number | null
+          match_history: Json | null
           normalized_name: string
           product_id: string
           supplier_id: string
@@ -2713,13 +3057,18 @@ export type Database = {
           vendor_product_name: string
         }
         Insert: {
+          approval_history?: Json | null
           approved_by?: string | null
           confidence_score?: number | null
           created_at?: string
           embedding?: string | null
           id?: string
           is_approved?: boolean | null
+          last_match_confidence?: number | null
+          last_matched_at?: string | null
           last_used_at?: string | null
+          match_count?: number | null
+          match_history?: Json | null
           normalized_name: string
           product_id: string
           supplier_id: string
@@ -2728,13 +3077,18 @@ export type Database = {
           vendor_product_name: string
         }
         Update: {
+          approval_history?: Json | null
           approved_by?: string | null
           confidence_score?: number | null
           created_at?: string
           embedding?: string | null
           id?: string
           is_approved?: boolean | null
+          last_match_confidence?: number | null
+          last_matched_at?: string | null
           last_used_at?: string | null
+          match_count?: number | null
+          match_history?: Json | null
           normalized_name?: string
           product_id?: string
           supplier_id?: string
@@ -2791,6 +3145,16 @@ export type Database = {
             }
             Returns: Json
           }
+      batch_match_products: {
+        Args: {
+          _company_id: string
+          _embeddings?: Json
+          _line_items: Json
+          _supplier_id?: string
+        }
+        Returns: Json
+      }
+      claim_next_scan_job: { Args: never; Returns: Json }
       complete_onboarding: {
         Args: { _business_type: string; _company_name: string }
         Returns: string
@@ -2845,6 +3209,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_alias_reliability: { Args: { _supplier_id: string }; Returns: number }
       get_current_financial_year: {
         Args: { _company_id: string }
         Returns: string
@@ -2865,6 +3230,16 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      learn_column_mapping: {
+        Args: {
+          _confidence?: number
+          _detected_column: string
+          _field_name: string
+          _format_type: string
+          _supplier_id: string
+        }
+        Returns: undefined
+      }
       normalize_product_text: { Args: { input_text: string }; Returns: string }
       parse_product_text: { Args: { input_text: string }; Returns: Json }
       process_supplier_return: {
@@ -2893,6 +3268,15 @@ export type Database = {
           stored_qty: number
         }[]
       }
+      record_alias_match: {
+        Args: {
+          _confidence: number
+          _extracted_name?: string
+          _supplier_id: string
+          _vendor_product_name: string
+        }
+        Returns: undefined
+      }
       resolve_conversion: {
         Args: {
           _batch_id: string
@@ -2904,8 +3288,22 @@ export type Database = {
         Returns: Json
       }
       restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }
+      retry_failed_scans: { Args: { _company_id?: string }; Returns: number }
+      review_alias: {
+        Args: {
+          _alias_id: string
+          _approved: boolean
+          _notes?: string
+          _reviewed_by: string
+        }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      suggest_column_mappings: {
+        Args: { _format_type?: string; _supplier_id: string }
+        Returns: Json
+      }
       switch_active_company: {
         Args: { _company_id: string }
         Returns: undefined
@@ -2915,6 +3313,17 @@ export type Database = {
         Returns: number
       }
       unaccent: { Args: { "": string }; Returns: string }
+      update_scan_job: {
+        Args: {
+          _error?: string
+          _job_id: string
+          _result?: Json
+          _stage?: string
+          _stage_progress?: number
+          _status: string
+        }
+        Returns: undefined
+      }
       user_has_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

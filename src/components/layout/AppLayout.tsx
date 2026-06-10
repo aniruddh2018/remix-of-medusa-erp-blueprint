@@ -18,6 +18,7 @@ import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";
 import { useFocus } from "@/contexts/FocusContext";
 import { useOverdueLoginToast } from "@/hooks/useOverdueLoginToast";
+import { useAutoLedgerBackfill } from "@/hooks/useAutoLedgerBackfill";
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +38,9 @@ export function AppLayout() {
 
   // One-time per-session overdue invoices toast
   useOverdueLoginToast();
+
+  // Auto-backfill historical entries into the unified ledger (once per company per browser)
+  useAutoLedgerBackfill();
 
   // Platform-aware shortcuts
   usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => navigate("/counter-sales"), enabled: !!user });

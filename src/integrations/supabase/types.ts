@@ -2646,10 +2646,13 @@ export type Database = {
         Returns: Json
       }
       restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       switch_active_company: {
         Args: { _company_id: string }
         Returns: undefined
       }
+      unaccent: { Args: { "": string }; Returns: string }
       user_has_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

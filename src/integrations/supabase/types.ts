@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -291,6 +266,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           credit_note_id: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           gst_percentage: number
           id: string
@@ -299,6 +276,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
@@ -306,6 +285,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           credit_note_id: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -314,6 +295,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
@@ -321,6 +304,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           credit_note_id?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -329,6 +314,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -369,6 +356,8 @@ export type Database = {
           credit_note_number: string
           customer_name: string
           customer_phone: string | null
+          deleted: boolean
+          device_id: string | null
           gst_amount: number
           id: string
           notes: string | null
@@ -378,6 +367,7 @@ export type Database = {
           status: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           company_id?: string | null
@@ -386,6 +376,8 @@ export type Database = {
           credit_note_number: string
           customer_name: string
           customer_phone?: string | null
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -395,6 +387,7 @@ export type Database = {
           status?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           company_id?: string | null
@@ -403,6 +396,8 @@ export type Database = {
           credit_note_number?: string
           customer_name?: string
           customer_phone?: string | null
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -412,6 +407,7 @@ export type Database = {
           status?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -488,6 +484,8 @@ export type Database = {
           address: string | null
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           email: string | null
           gst_number: string | null
           id: string
@@ -496,11 +494,14 @@ export type Database = {
           phone: string | null
           total_purchases: number
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           gst_number?: string | null
           id?: string
@@ -509,11 +510,14 @@ export type Database = {
           phone?: string | null
           total_purchases?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           gst_number?: string | null
           id?: string
@@ -522,6 +526,7 @@ export type Database = {
           phone?: string | null
           total_purchases?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -578,6 +583,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           debit_note_id: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           gst_percentage: number
           id: string
@@ -586,6 +593,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
@@ -593,6 +602,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           debit_note_id: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -601,6 +612,8 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
@@ -608,6 +621,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           debit_note_id?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           gst_percentage?: number
           id?: string
@@ -616,6 +631,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -654,6 +671,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           debit_note_number: string
+          deleted: boolean
+          device_id: string | null
           gst_amount: number
           id: string
           notes: string | null
@@ -665,12 +684,15 @@ export type Database = {
           supplier_name: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
           debit_note_number: string
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -682,12 +704,15 @@ export type Database = {
           supplier_name: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
           debit_note_number?: string
+          deleted?: boolean
+          device_id?: string | null
           gst_amount?: number
           id?: string
           notes?: string | null
@@ -699,6 +724,7 @@ export type Database = {
           supplier_name?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -724,11 +750,46 @@ export type Database = {
           },
         ]
       }
+      devices: {
+        Row: {
+          app_version: string | null
+          company_id: string | null
+          created_at: string
+          device_name: string | null
+          id: string
+          last_seen_at: string
+          last_sync: string | null
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          company_id?: string | null
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          last_sync?: string | null
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          company_id?: string | null
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          last_sync?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           address: string | null
           company_id: string
           created_at: string
+          deleted: boolean
+          device_id: string | null
           email: string | null
           id: string
           is_active: boolean
@@ -738,11 +799,14 @@ export type Database = {
           registration_number: string | null
           speciality: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
           company_id: string
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
@@ -752,11 +816,14 @@ export type Database = {
           registration_number?: string | null
           speciality?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
           company_id?: string
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
@@ -766,6 +833,7 @@ export type Database = {
           registration_number?: string | null
           speciality?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -824,6 +892,45 @@ export type Database = {
           },
         ]
       }
+      financial_years: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          company_id: string
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          status: Database["public"]["Enums"]["fy_status"]
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          status?: Database["public"]["Enums"]["fy_status"]
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["fy_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       form_configs: {
         Row: {
           company_id: string
@@ -877,296 +984,40 @@ export type Database = {
           },
         ]
       }
-      gst_tax_structures: {
+      fy_audit_logs: {
         Row: {
-          cess_rate: number | null
-          cgst_rate: number | null
+          action: string
           company_id: string
-          created_at: string | null
-          description: string | null
-          effective_from: string | null
-          gst_rate: number
-          hsn_code: string | null
+          created_at: string
+          details: Json
+          financial_year_id: string | null
           id: string
-          igst_rate: number | null
-          is_active: boolean
-          sgst_rate: number | null
+          performed_by: string
         }
         Insert: {
-          cess_rate?: number | null
-          cgst_rate?: number | null
+          action: string
           company_id: string
-          created_at?: string | null
-          description?: string | null
-          effective_from?: string | null
-          gst_rate: number
-          hsn_code?: string | null
+          created_at?: string
+          details?: Json
+          financial_year_id?: string | null
           id?: string
-          igst_rate?: number | null
-          is_active?: boolean
-          sgst_rate?: number | null
+          performed_by: string
         }
         Update: {
-          cess_rate?: number | null
-          cgst_rate?: number | null
+          action?: string
           company_id?: string
-          created_at?: string | null
-          description?: string | null
-          effective_from?: string | null
-          gst_rate?: number
-          hsn_code?: string | null
+          created_at?: string
+          details?: Json
+          financial_year_id?: string | null
           id?: string
-          igst_rate?: number | null
-          is_active?: boolean
-          sgst_rate?: number | null
+          performed_by?: string
         }
         Relationships: [
           {
-            foreignKeyName: "gst_tax_structures_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: "fy_audit_logs_financial_year_id_fkey"
+            columns: ["financial_year_id"]
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_jobs: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          entity_type: string
-          error_log: Json | null
-          failed_rows: number | null
-          file_name: string | null
-          file_type: string | null
-          id: string
-          mapping_config: Json | null
-          session_id: string | null
-          status: string
-          success_rows: number | null
-          total_rows: number | null
-          updated_at: string | null
-          user_id: string | null
-          validation_results: Json | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          entity_type: string
-          error_log?: Json | null
-          failed_rows?: number | null
-          file_name?: string | null
-          file_type?: string | null
-          id?: string
-          mapping_config?: Json | null
-          session_id?: string | null
-          status?: string
-          success_rows?: number | null
-          total_rows?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-          validation_results?: Json | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          entity_type?: string
-          error_log?: Json | null
-          failed_rows?: number | null
-          file_name?: string | null
-          file_type?: string | null
-          id?: string
-          mapping_config?: Json | null
-          session_id?: string | null
-          status?: string
-          success_rows?: number | null
-          total_rows?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-          validation_results?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_jobs_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "import_jobs_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_mappings: {
-        Row: {
-          company_id: string
-          confidence: number | null
-          created_at: string | null
-          entity_type: string
-          id: string
-          is_ai_generated: boolean | null
-          job_id: string | null
-          source_field: string
-          target_field: string
-          transformation: string | null
-          user_id: string | null
-        }
-        Insert: {
-          company_id: string
-          confidence?: number | null
-          created_at?: string | null
-          entity_type: string
-          id?: string
-          is_ai_generated?: boolean | null
-          job_id?: string | null
-          source_field: string
-          target_field: string
-          transformation?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          company_id?: string
-          confidence?: number | null
-          created_at?: string | null
-          entity_type?: string
-          id?: string
-          is_ai_generated?: boolean | null
-          job_id?: string | null
-          source_field?: string
-          target_field?: string
-          transformation?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_mappings_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "import_mappings_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "import_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_sessions: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          error_log: Json | null
-          file_name: string | null
-          file_size: number | null
-          id: string
-          import_summary: Json | null
-          name: string
-          parse_summary: Json | null
-          source_system: string
-          staging_summary: Json | null
-          status: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string
-          import_summary?: Json | null
-          name?: string
-          parse_summary?: Json | null
-          source_system?: string
-          staging_summary?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string
-          import_summary?: Json | null
-          name?: string
-          parse_summary?: Json | null
-          source_system?: string
-          staging_summary?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_sessions_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_templates: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          entity_type: string
-          field_mappings: Json
-          id: string
-          is_system: boolean | null
-          name: string
-          source_system: string
-          transformations: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          entity_type: string
-          field_mappings?: Json
-          id?: string
-          is_system?: boolean | null
-          name: string
-          source_system?: string
-          transformations?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          entity_type?: string
-          field_mappings?: Json
-          id?: string
-          is_system?: boolean | null
-          name?: string
-          source_system?: string
-          transformations?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_templates_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -1176,6 +1027,8 @@ export type Database = {
           batch_number: string
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           expiry_date: string | null
           id: string
           loose_quantity: number
@@ -1188,11 +1041,14 @@ export type Database = {
           received_date: string
           supplier_id: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           batch_number: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           expiry_date?: string | null
           id?: string
           loose_quantity?: number
@@ -1205,11 +1061,14 @@ export type Database = {
           received_date?: string
           supplier_id?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           batch_number?: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           expiry_date?: string | null
           id?: string
           loose_quantity?: number
@@ -1222,6 +1081,7 @@ export type Database = {
           received_date?: string
           supplier_id?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1253,6 +1113,8 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           id: string
           notes: string | null
           product_id: string
@@ -1261,12 +1123,16 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           transaction_type: string
+          updated_at: string
+          version: number
         }
         Insert: {
           batch_id?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           product_id: string
@@ -1275,12 +1141,16 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           transaction_type: string
+          updated_at?: string
+          version?: number
         }
         Update: {
           batch_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           product_id?: string
@@ -1289,70 +1159,10 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           transaction_type?: string
+          updated_at?: string
+          version?: number
         }
         Relationships: []
-      }
-      invoice_scan_queue: {
-        Row: {
-          company_id: string
-          completed_at: string | null
-          error_message: string | null
-          file_paths: string[]
-          id: string
-          max_retries: number | null
-          priority: number | null
-          queued_at: string
-          result: Json | null
-          retry_count: number | null
-          stage: string | null
-          stage_progress: number | null
-          started_at: string | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          company_id: string
-          completed_at?: string | null
-          error_message?: string | null
-          file_paths: string[]
-          id?: string
-          max_retries?: number | null
-          priority?: number | null
-          queued_at?: string
-          result?: Json | null
-          retry_count?: number | null
-          stage?: string | null
-          stage_progress?: number | null
-          started_at?: string | null
-          status?: string
-          user_id: string
-        }
-        Update: {
-          company_id?: string
-          completed_at?: string | null
-          error_message?: string | null
-          file_paths?: string[]
-          id?: string
-          max_retries?: number | null
-          priority?: number | null
-          queued_at?: string
-          result?: Json | null
-          retry_count?: number | null
-          stage?: string | null
-          stage_progress?: number | null
-          started_at?: string | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_scan_queue_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       invoice_sequences: {
         Row: {
@@ -1571,511 +1381,55 @@ export type Database = {
           },
         ]
       }
-      ledger_audit_log: {
+      opening_balances: {
         Row: {
-          action: string
-          changed_fields: string[] | null
+          balance_type: string
           company_id: string
-          created_at: string | null
-          description: string | null
+          created_at: string
+          credit_amount: number
+          debit_amount: number
+          financial_year_id: string
           id: string
-          ledger_id: string | null
-          new_values: Json | null
-          old_values: Json | null
-          user_id: string | null
+          notes: string | null
+          quantity: number | null
+          reference_id: string
+          reference_name: string
+          updated_at: string
         }
         Insert: {
-          action: string
-          changed_fields?: string[] | null
+          balance_type: string
           company_id: string
-          created_at?: string | null
-          description?: string | null
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          financial_year_id: string
           id?: string
-          ledger_id?: string | null
-          new_values?: Json | null
-          old_values?: Json | null
-          user_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          reference_id: string
+          reference_name: string
+          updated_at?: string
         }
         Update: {
-          action?: string
-          changed_fields?: string[] | null
+          balance_type?: string
           company_id?: string
-          created_at?: string | null
-          description?: string | null
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          financial_year_id?: string
           id?: string
-          ledger_id?: string | null
-          new_values?: Json | null
-          old_values?: Json | null
-          user_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          reference_id?: string
+          reference_name?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "ledger_audit_log_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: "opening_balances_financial_year_id_fkey"
+            columns: ["financial_year_id"]
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_audit_log_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_audit_log_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers_with_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ledger_balances: {
-        Row: {
-          closing_balance: number
-          closing_balance_type: Database["public"]["Enums"]["balance_type"]
-          company_id: string
-          created_at: string | null
-          current_balance: number
-          financial_year: string
-          id: string
-          ledger_id: string
-          opening_balance: number
-          opening_balance_type: Database["public"]["Enums"]["balance_type"]
-          total_credit: number
-          total_debit: number
-          updated_at: string | null
-        }
-        Insert: {
-          closing_balance?: number
-          closing_balance_type?: Database["public"]["Enums"]["balance_type"]
-          company_id: string
-          created_at?: string | null
-          current_balance?: number
-          financial_year: string
-          id?: string
-          ledger_id: string
-          opening_balance?: number
-          opening_balance_type?: Database["public"]["Enums"]["balance_type"]
-          total_credit?: number
-          total_debit?: number
-          updated_at?: string | null
-        }
-        Update: {
-          closing_balance?: number
-          closing_balance_type?: Database["public"]["Enums"]["balance_type"]
-          company_id?: string
-          created_at?: string | null
-          current_balance?: number
-          financial_year?: string
-          id?: string
-          ledger_id?: string
-          opening_balance?: number
-          opening_balance_type?: Database["public"]["Enums"]["balance_type"]
-          total_credit?: number
-          total_debit?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledger_balances_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_balances_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_balances_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers_with_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ledger_groups: {
-        Row: {
-          affects_stock: boolean
-          company_id: string
-          created_at: string | null
-          group_type: string
-          id: string
-          is_active: boolean
-          is_system: boolean
-          level: number
-          materialized_path: string
-          name: string
-          parent_id: string | null
-          reserved_name: string | null
-          sort_order: number
-          source_system: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          affects_stock?: boolean
-          company_id: string
-          created_at?: string | null
-          group_type?: string
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          level?: number
-          materialized_path?: string
-          name: string
-          parent_id?: string | null
-          reserved_name?: string | null
-          sort_order?: number
-          source_system?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          affects_stock?: boolean
-          company_id?: string
-          created_at?: string | null
-          group_type?: string
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          level?: number
-          materialized_path?: string
-          name?: string
-          parent_id?: string | null
-          reserved_name?: string | null
-          sort_order?: number
-          source_system?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledger_groups_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_groups_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ledger_import_sessions: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          duplicate_groups: number | null
-          duplicate_ledgers: number | null
-          error_log: Json | null
-          file_name: string | null
-          file_size: number | null
-          groups_failed: number | null
-          groups_imported: number | null
-          id: string
-          ledgers_failed: number | null
-          ledgers_imported: number | null
-          name: string
-          source_system: string
-          status: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          duplicate_groups?: number | null
-          duplicate_ledgers?: number | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          groups_failed?: number | null
-          groups_imported?: number | null
-          id?: string
-          ledgers_failed?: number | null
-          ledgers_imported?: number | null
-          name: string
-          source_system?: string
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          duplicate_groups?: number | null
-          duplicate_ledgers?: number | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          groups_failed?: number | null
-          groups_imported?: number | null
-          id?: string
-          ledgers_failed?: number | null
-          ledgers_imported?: number | null
-          name?: string
-          source_system?: string
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledger_import_sessions_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ledger_roles: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          id: string
-          is_primary: boolean
-          ledger_id: string
-          metadata: Json | null
-          priority: number
-          role_type: Database["public"]["Enums"]["ledger_role_type"]
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          id?: string
-          is_primary?: boolean
-          ledger_id: string
-          metadata?: Json | null
-          priority?: number
-          role_type: Database["public"]["Enums"]["ledger_role_type"]
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          id?: string
-          is_primary?: boolean
-          ledger_id?: string
-          metadata?: Json | null
-          priority?: number
-          role_type?: Database["public"]["Enums"]["ledger_role_type"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledger_roles_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_roles_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledger_roles_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "ledgers_with_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ledgers: {
-        Row: {
-          address: Json | null
-          alias: string | null
-          balance_type: string | null
-          bank_account_number: string | null
-          bank_branch: string | null
-          bank_ifsc: string | null
-          bank_name: string | null
-          billing_address: Json | null
-          city: string | null
-          company_id: string
-          contact_person: string | null
-          country: string | null
-          created_at: string | null
-          current_balance: number
-          email: string | null
-          group_id: string | null
-          gst_number: string | null
-          gst_registration_type: string | null
-          id: string
-          import_metadata: Json | null
-          is_active: boolean
-          ledger_code: string | null
-          ledger_group_id: string | null
-          ledger_type: string
-          mobile: string | null
-          name: string
-          opening_balance: number | null
-          pan_number: string | null
-          party_type: string | null
-          phone: string | null
-          pincode: string | null
-          shipping_address: Json | null
-          source_group_name: string | null
-          source_ledger_name: string | null
-          source_system: string | null
-          state: string | null
-          tax_id: string | null
-          updated_at: string | null
-          website: string | null
-        }
-        Insert: {
-          address?: Json | null
-          alias?: string | null
-          balance_type?: string | null
-          bank_account_number?: string | null
-          bank_branch?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
-          billing_address?: Json | null
-          city?: string | null
-          company_id: string
-          contact_person?: string | null
-          country?: string | null
-          created_at?: string | null
-          current_balance?: number
-          email?: string | null
-          group_id?: string | null
-          gst_number?: string | null
-          gst_registration_type?: string | null
-          id?: string
-          import_metadata?: Json | null
-          is_active?: boolean
-          ledger_code?: string | null
-          ledger_group_id?: string | null
-          ledger_type?: string
-          mobile?: string | null
-          name: string
-          opening_balance?: number | null
-          pan_number?: string | null
-          party_type?: string | null
-          phone?: string | null
-          pincode?: string | null
-          shipping_address?: Json | null
-          source_group_name?: string | null
-          source_ledger_name?: string | null
-          source_system?: string | null
-          state?: string | null
-          tax_id?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Update: {
-          address?: Json | null
-          alias?: string | null
-          balance_type?: string | null
-          bank_account_number?: string | null
-          bank_branch?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
-          billing_address?: Json | null
-          city?: string | null
-          company_id?: string
-          contact_person?: string | null
-          country?: string | null
-          created_at?: string | null
-          current_balance?: number
-          email?: string | null
-          group_id?: string | null
-          gst_number?: string | null
-          gst_registration_type?: string | null
-          id?: string
-          import_metadata?: Json | null
-          is_active?: boolean
-          ledger_code?: string | null
-          ledger_group_id?: string | null
-          ledger_type?: string
-          mobile?: string | null
-          name?: string
-          opening_balance?: number | null
-          pan_number?: string | null
-          party_type?: string | null
-          phone?: string | null
-          pincode?: string | null
-          shipping_address?: Json | null
-          source_group_name?: string | null
-          source_ledger_name?: string | null
-          source_system?: string | null
-          state?: string | null
-          tax_id?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledgers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledgers_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledgers_ledger_group_id_fkey"
-            columns: ["ledger_group_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      manufacturers: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          id: string
-          is_active: boolean
-          name: string
-          source_system: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          source_system?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          source_system?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "manufacturers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -2088,6 +1442,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           id: string
           notes: string | null
           party_name: string
@@ -2099,6 +1455,7 @@ export type Database = {
           reference_number: string
           reference_type: string
           updated_at: string
+          version: number
         }
         Insert: {
           amount?: number
@@ -2107,6 +1464,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           party_name: string
@@ -2118,6 +1477,7 @@ export type Database = {
           reference_number: string
           reference_type: string
           updated_at?: string
+          version?: number
         }
         Update: {
           amount?: number
@@ -2126,6 +1486,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           id?: string
           notes?: string | null
           party_name?: string
@@ -2137,6 +1499,7 @@ export type Database = {
           reference_number?: string
           reference_type?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -2199,285 +1562,95 @@ export type Database = {
           },
         ]
       }
-      product_embeddings: {
-        Row: {
-          company_id: string
-          embedding: string
-          generated_at: string
-          id: string
-          model: string
-          product_id: string
-        }
-        Insert: {
-          company_id: string
-          embedding: string
-          generated_at?: string
-          id?: string
-          model?: string
-          product_id: string
-        }
-        Update: {
-          company_id?: string
-          embedding?: string
-          generated_at?: string
-          id?: string
-          model?: string
-          product_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_embeddings_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_embeddings_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: true
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_mapping_review_queue: {
-        Row: {
-          company_id: string
-          confidence_score: number
-          created_at: string
-          extracted_name: string
-          id: string
-          invoice_id: string | null
-          matching_method: string
-          normalized_name: string
-          review_notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          suggested_product_id: string | null
-          supplier_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          confidence_score: number
-          created_at?: string
-          extracted_name: string
-          id?: string
-          invoice_id?: string | null
-          matching_method: string
-          normalized_name: string
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          suggested_product_id?: string | null
-          supplier_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          confidence_score?: number
-          created_at?: string
-          extracted_name?: string
-          id?: string
-          invoice_id?: string | null
-          matching_method?: string
-          normalized_name?: string
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          suggested_product_id?: string | null
-          supplier_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_mapping_review_queue_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_mapping_review_queue_suggested_product_id_fkey"
-            columns: ["suggested_product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_mapping_review_queue_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_mapping_stats: {
-        Row: {
-          auto_mapped: number | null
-          avg_confidence_score: number | null
-          company_id: string | null
-          created_at: string
-          date: string
-          duplicates_prevented: number | null
-          human_approved: number | null
-          id: string
-          new_products_created: number | null
-          total_scans: number | null
-          updated_at: string
-        }
-        Insert: {
-          auto_mapped?: number | null
-          avg_confidence_score?: number | null
-          company_id?: string | null
-          created_at?: string
-          date: string
-          duplicates_prevented?: number | null
-          human_approved?: number | null
-          id?: string
-          new_products_created?: number | null
-          total_scans?: number | null
-          updated_at?: string
-        }
-        Update: {
-          auto_mapped?: number | null
-          avg_confidence_score?: number | null
-          company_id?: string | null
-          created_at?: string
-          date?: string
-          duplicates_prevented?: number | null
-          human_approved?: number | null
-          id?: string
-          new_products_created?: number | null
-          total_scans?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_mapping_stats_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       products: {
         Row: {
           base_unit: string | null
           batch_tracking_enabled: boolean
-          brand: string | null
-          canonical_name: string | null
           category: string | null
-          company_id: string
+          company_id: string | null
           composition: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
-          embedding: string | null
-          embedding_needs_update: boolean
           expiry_required: boolean | null
-          fingerprint: string | null
-          form: string | null
           generic_name: string | null
           gst_percentage: number
           hsn_code: string | null
           id: string
           is_active: boolean
           manufacturer: string
-          manufacturer_id: string | null
           max_stock_level: number
           min_stock_level: number
           mrp: number
           name: string
-          pack_size: string | null
           purchase_price: number
           reorder_level: number
           sale_price: number | null
           strength: string | null
           unit: string
           updated_at: string
+          version: number
         }
         Insert: {
           base_unit?: string | null
           batch_tracking_enabled?: boolean
-          brand?: string | null
-          canonical_name?: string | null
           category?: string | null
-          company_id: string
+          company_id?: string | null
           composition?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
-          embedding?: string | null
-          embedding_needs_update?: boolean
           expiry_required?: boolean | null
-          fingerprint?: string | null
-          form?: string | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null
           id?: string
           is_active?: boolean
           manufacturer: string
-          manufacturer_id?: string | null
           max_stock_level?: number
           min_stock_level?: number
           mrp: number
           name: string
-          pack_size?: string | null
           purchase_price: number
           reorder_level?: number
           sale_price?: number | null
           strength?: string | null
           unit?: string
           updated_at?: string
+          version?: number
         }
         Update: {
           base_unit?: string | null
           batch_tracking_enabled?: boolean
-          brand?: string | null
-          canonical_name?: string | null
           category?: string | null
-          company_id?: string
+          company_id?: string | null
           composition?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
-          embedding?: string | null
-          embedding_needs_update?: boolean
           expiry_required?: boolean | null
-          fingerprint?: string | null
-          form?: string | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null
           id?: string
           is_active?: boolean
           manufacturer?: string
-          manufacturer_id?: string | null
           max_stock_level?: number
           min_stock_level?: number
           mrp?: number
           name?: string
-          pack_size?: string | null
           purchase_price?: number
           reorder_level?: number
           sale_price?: number | null
           strength?: string | null
           unit?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_products_company_id"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "products_company_id_fkey"
             columns: ["company_id"]
@@ -2485,18 +1658,11 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "products_manufacturer_id_fkey"
-            columns: ["manufacturer_id"]
-            isOneToOne: false
-            referencedRelation: "manufacturers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
         Row: {
-          business_module: string | null
+          business_module: string
           company_id: string | null
           created_at: string
           full_name: string
@@ -2506,7 +1672,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          business_module?: string | null
+          business_module?: string
           company_id?: string | null
           created_at?: string
           full_name: string
@@ -2516,7 +1682,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          business_module?: string | null
+          business_module?: string
           company_id?: string | null
           created_at?: string
           full_name?: string
@@ -2540,6 +1706,8 @@ export type Database = {
           base_quantity: number | null
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           free_quantity: number
           gst_percentage: number
@@ -2550,11 +1718,15 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           base_quantity?: number | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage: number
@@ -2565,11 +1737,15 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           base_quantity?: number | null
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage?: number
@@ -2580,6 +1756,8 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -2612,6 +1790,8 @@ export type Database = {
           converted_from_challan_id: string | null
           created_at: string
           created_by: string | null
+          deleted: boolean
+          device_id: string | null
           discount_amount: number
           expected_delivery_date: string | null
           freight_charges: number
@@ -2628,6 +1808,7 @@ export type Database = {
           supplier_id: string
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           challan_number?: string | null
@@ -2635,6 +1816,8 @@ export type Database = {
           converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
           freight_charges?: number
@@ -2651,6 +1834,7 @@ export type Database = {
           supplier_id: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           challan_number?: string | null
@@ -2658,6 +1842,8 @@ export type Database = {
           converted_from_challan_id?: string | null
           created_at?: string
           created_by?: string | null
+          deleted?: boolean
+          device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
           freight_charges?: number
@@ -2674,6 +1860,7 @@ export type Database = {
           supplier_id?: string
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -2805,6 +1992,8 @@ export type Database = {
           batch_id: string
           company_id: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           discount_percentage: number
           free_quantity: number
           gst_percentage: number
@@ -2815,12 +2004,16 @@ export type Database = {
           sold_unit: string | null
           total_price: number
           unit_price: number
+          updated_at: string
+          version: number
         }
         Insert: {
           base_quantity?: number | null
           batch_id: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage: number
@@ -2831,12 +2024,16 @@ export type Database = {
           sold_unit?: string | null
           total_price: number
           unit_price: number
+          updated_at?: string
+          version?: number
         }
         Update: {
           base_quantity?: number | null
           batch_id?: string
           company_id?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           discount_percentage?: number
           free_quantity?: number
           gst_percentage?: number
@@ -2847,6 +2044,8 @@ export type Database = {
           sold_unit?: string | null
           total_price?: number
           unit_price?: number
+          updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -2893,7 +2092,9 @@ export type Database = {
           customer_id: string | null
           customer_name: string
           customer_phone: string | null
+          deleted: boolean
           delivery_charges: number
+          device_id: string | null
           discount_amount: number
           doctor_id: string | null
           doctor_name: string | null
@@ -2917,6 +2118,7 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"]
           total_amount: number
           updated_at: string
+          version: number
         }
         Insert: {
           amount_paid?: number
@@ -2931,7 +2133,9 @@ export type Database = {
           customer_id?: string | null
           customer_name: string
           customer_phone?: string | null
+          deleted?: boolean
           delivery_charges?: number
+          device_id?: string | null
           discount_amount?: number
           doctor_id?: string | null
           doctor_name?: string | null
@@ -2955,6 +2159,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Update: {
           amount_paid?: number
@@ -2969,7 +2174,9 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string
           customer_phone?: string | null
+          deleted?: boolean
           delivery_charges?: number
+          device_id?: string | null
           discount_amount?: number
           doctor_id?: string | null
           doctor_name?: string | null
@@ -2993,6 +2200,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -3094,558 +2302,14 @@ export type Database = {
           },
         ]
       }
-      staging_batches: {
-        Row: {
-          batch_number: string | null
-          company_id: string
-          created_at: string | null
-          expiry_date: string | null
-          godown_name: string | null
-          id: string
-          manufacturing_date: string | null
-          mapped_product_id: string | null
-          mapped_supplier_id: string | null
-          mrp: number | null
-          product_name: string
-          purchase_price: number | null
-          quantity: number | null
-          resolved: boolean | null
-          row_index: number
-          session_id: string
-          source_data: Json | null
-          supplier_name: string | null
-          validation_errors: Json | null
-          validation_status: string | null
-        }
-        Insert: {
-          batch_number?: string | null
-          company_id: string
-          created_at?: string | null
-          expiry_date?: string | null
-          godown_name?: string | null
-          id?: string
-          manufacturing_date?: string | null
-          mapped_product_id?: string | null
-          mapped_supplier_id?: string | null
-          mrp?: number | null
-          product_name: string
-          purchase_price?: number | null
-          quantity?: number | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id: string
-          source_data?: Json | null
-          supplier_name?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Update: {
-          batch_number?: string | null
-          company_id?: string
-          created_at?: string | null
-          expiry_date?: string | null
-          godown_name?: string | null
-          id?: string
-          manufacturing_date?: string | null
-          mapped_product_id?: string | null
-          mapped_supplier_id?: string | null
-          mrp?: number | null
-          product_name?: string
-          purchase_price?: number | null
-          quantity?: number | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id?: string
-          source_data?: Json | null
-          supplier_name?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staging_batches_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staging_batches_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staging_ledger_groups: {
-        Row: {
-          affects_stock: boolean | null
-          company_id: string
-          created_at: string | null
-          group_type: string | null
-          id: string
-          level: number | null
-          mapped_group_id: string | null
-          materialized_path: string | null
-          name: string
-          parent_name: string | null
-          resolved: boolean | null
-          row_index: number
-          session_id: string
-          source_data: Json | null
-          validation_errors: Json | null
-          validation_status: string | null
-        }
-        Insert: {
-          affects_stock?: boolean | null
-          company_id: string
-          created_at?: string | null
-          group_type?: string | null
-          id?: string
-          level?: number | null
-          mapped_group_id?: string | null
-          materialized_path?: string | null
-          name: string
-          parent_name?: string | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id: string
-          source_data?: Json | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Update: {
-          affects_stock?: boolean | null
-          company_id?: string
-          created_at?: string | null
-          group_type?: string | null
-          id?: string
-          level?: number | null
-          mapped_group_id?: string | null
-          materialized_path?: string | null
-          name?: string
-          parent_name?: string | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id?: string
-          source_data?: Json | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staging_ledger_groups_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staging_ledger_groups_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staging_ledgers: {
-        Row: {
-          address: string | null
-          alias: string | null
-          balance_type: string | null
-          bank_account_number: string | null
-          bank_ifsc: string | null
-          bank_name: string | null
-          city: string | null
-          company_id: string
-          contact_person: string | null
-          country: string | null
-          created_at: string | null
-          email: string | null
-          gst_number: string | null
-          id: string
-          ledger_code: string | null
-          ledger_type: string | null
-          mapped_group_id: string | null
-          mapped_ledger_id: string | null
-          name: string
-          opening_balance: number | null
-          pan_number: string | null
-          parent_group_name: string | null
-          phone: string | null
-          pincode: string | null
-          resolved: boolean | null
-          role_types: string[] | null
-          row_index: number
-          session_id: string
-          source_data: Json | null
-          state: string | null
-          validation_errors: Json | null
-          validation_status: string | null
-        }
-        Insert: {
-          address?: string | null
-          alias?: string | null
-          balance_type?: string | null
-          bank_account_number?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
-          city?: string | null
-          company_id: string
-          contact_person?: string | null
-          country?: string | null
-          created_at?: string | null
-          email?: string | null
-          gst_number?: string | null
-          id?: string
-          ledger_code?: string | null
-          ledger_type?: string | null
-          mapped_group_id?: string | null
-          mapped_ledger_id?: string | null
-          name: string
-          opening_balance?: number | null
-          pan_number?: string | null
-          parent_group_name?: string | null
-          phone?: string | null
-          pincode?: string | null
-          resolved?: boolean | null
-          role_types?: string[] | null
-          row_index?: number
-          session_id: string
-          source_data?: Json | null
-          state?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Update: {
-          address?: string | null
-          alias?: string | null
-          balance_type?: string | null
-          bank_account_number?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
-          city?: string | null
-          company_id?: string
-          contact_person?: string | null
-          country?: string | null
-          created_at?: string | null
-          email?: string | null
-          gst_number?: string | null
-          id?: string
-          ledger_code?: string | null
-          ledger_type?: string | null
-          mapped_group_id?: string | null
-          mapped_ledger_id?: string | null
-          name?: string
-          opening_balance?: number | null
-          pan_number?: string | null
-          parent_group_name?: string | null
-          phone?: string | null
-          pincode?: string | null
-          resolved?: boolean | null
-          role_types?: string[] | null
-          row_index?: number
-          session_id?: string
-          source_data?: Json | null
-          state?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staging_ledgers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staging_ledgers_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staging_products: {
-        Row: {
-          category: string | null
-          company_id: string
-          composition: string | null
-          created_at: string | null
-          drug_schedule: string | null
-          generic_name: string | null
-          gst_percentage: number | null
-          hsn_code: string | null
-          id: string
-          manufacturer_name: string | null
-          mapped_manufacturer_id: string | null
-          mrp: number | null
-          name: string
-          opening_balance: number | null
-          opening_value: number | null
-          purchase_price: number | null
-          resolved: boolean | null
-          row_index: number
-          sale_price: number | null
-          session_id: string
-          source_data: Json | null
-          strength: string | null
-          unit: string | null
-          validation_errors: Json | null
-          validation_status: string | null
-        }
-        Insert: {
-          category?: string | null
-          company_id: string
-          composition?: string | null
-          created_at?: string | null
-          drug_schedule?: string | null
-          generic_name?: string | null
-          gst_percentage?: number | null
-          hsn_code?: string | null
-          id?: string
-          manufacturer_name?: string | null
-          mapped_manufacturer_id?: string | null
-          mrp?: number | null
-          name: string
-          opening_balance?: number | null
-          opening_value?: number | null
-          purchase_price?: number | null
-          resolved?: boolean | null
-          row_index?: number
-          sale_price?: number | null
-          session_id: string
-          source_data?: Json | null
-          strength?: string | null
-          unit?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Update: {
-          category?: string | null
-          company_id?: string
-          composition?: string | null
-          created_at?: string | null
-          drug_schedule?: string | null
-          generic_name?: string | null
-          gst_percentage?: number | null
-          hsn_code?: string | null
-          id?: string
-          manufacturer_name?: string | null
-          mapped_manufacturer_id?: string | null
-          mrp?: number | null
-          name?: string
-          opening_balance?: number | null
-          opening_value?: number | null
-          purchase_price?: number | null
-          resolved?: boolean | null
-          row_index?: number
-          sale_price?: number | null
-          session_id?: string
-          source_data?: Json | null
-          strength?: string | null
-          unit?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staging_products_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staging_products_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staging_suppliers: {
-        Row: {
-          address: string | null
-          company_id: string
-          contact_person: string | null
-          created_at: string | null
-          drug_license_number: string | null
-          email: string | null
-          gst_number: string | null
-          id: string
-          name: string
-          pan_number: string | null
-          parent_group_name: string | null
-          phone: string | null
-          resolved: boolean | null
-          row_index: number
-          session_id: string
-          source_data: Json | null
-          state: string | null
-          validation_errors: Json | null
-          validation_status: string | null
-        }
-        Insert: {
-          address?: string | null
-          company_id: string
-          contact_person?: string | null
-          created_at?: string | null
-          drug_license_number?: string | null
-          email?: string | null
-          gst_number?: string | null
-          id?: string
-          name: string
-          pan_number?: string | null
-          parent_group_name?: string | null
-          phone?: string | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id: string
-          source_data?: Json | null
-          state?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Update: {
-          address?: string | null
-          company_id?: string
-          contact_person?: string | null
-          created_at?: string | null
-          drug_license_number?: string | null
-          email?: string | null
-          gst_number?: string | null
-          id?: string
-          name?: string
-          pan_number?: string | null
-          parent_group_name?: string | null
-          phone?: string | null
-          resolved?: boolean | null
-          row_index?: number
-          session_id?: string
-          source_data?: Json | null
-          state?: string | null
-          validation_errors?: Json | null
-          validation_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staging_suppliers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staging_suppliers_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      supplier_invoice_formats: {
-        Row: {
-          avg_confidence: number | null
-          column_coordinates: Json | null
-          column_mappings: Json | null
-          company_id: string
-          created_at: string | null
-          created_by: string | null
-          field_positions: Json | null
-          format_confidence: number
-          format_fingerprint: string | null
-          format_type: string
-          id: string
-          last_used_at: string | null
-          learned_offsets: Json | null
-          page_layout: string | null
-          row_detection_pattern: string | null
-          special_features: Json | null
-          successful_extractions: number
-          supplier_id: string
-          table_structure: Json | null
-          template_version: number | null
-          total_scanned: number
-          updated_at: string | null
-        }
-        Insert: {
-          avg_confidence?: number | null
-          column_coordinates?: Json | null
-          column_mappings?: Json | null
-          company_id: string
-          created_at?: string | null
-          created_by?: string | null
-          field_positions?: Json | null
-          format_confidence: number
-          format_fingerprint?: string | null
-          format_type: string
-          id?: string
-          last_used_at?: string | null
-          learned_offsets?: Json | null
-          page_layout?: string | null
-          row_detection_pattern?: string | null
-          special_features?: Json | null
-          successful_extractions?: number
-          supplier_id: string
-          table_structure?: Json | null
-          template_version?: number | null
-          total_scanned?: number
-          updated_at?: string | null
-        }
-        Update: {
-          avg_confidence?: number | null
-          column_coordinates?: Json | null
-          column_mappings?: Json | null
-          company_id?: string
-          created_at?: string | null
-          created_by?: string | null
-          field_positions?: Json | null
-          format_confidence?: number
-          format_fingerprint?: string | null
-          format_type?: string
-          id?: string
-          last_used_at?: string | null
-          learned_offsets?: Json | null
-          page_layout?: string | null
-          row_detection_pattern?: string | null
-          special_features?: Json | null
-          successful_extractions?: number
-          supplier_id?: string
-          table_structure?: Json | null
-          template_version?: number | null
-          total_scanned?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "supplier_invoice_formats_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "supplier_invoice_formats_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       suppliers: {
         Row: {
           address: string | null
-          company_id: string
+          company_id: string | null
           contact_person: string | null
           created_at: string
+          deleted: boolean
+          device_id: string | null
           drug_license_number: string | null
           email: string | null
           gst_number: string | null
@@ -3654,12 +2318,15 @@ export type Database = {
           name: string
           phone: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           address?: string | null
-          company_id: string
+          company_id?: string | null
           contact_person?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_license_number?: string | null
           email?: string | null
           gst_number?: string | null
@@ -3668,12 +2335,15 @@ export type Database = {
           name: string
           phone?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           address?: string | null
-          company_id?: string
+          company_id?: string | null
           contact_person?: string | null
           created_at?: string
+          deleted?: boolean
+          device_id?: string | null
           drug_license_number?: string | null
           email?: string | null
           gst_number?: string | null
@@ -3682,15 +2352,9 @@ export type Database = {
           name?: string
           phone?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_suppliers_company_id"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "suppliers_company_id_fkey"
             columns: ["company_id"]
@@ -3827,23 +2491,23 @@ export type Database = {
       user_companies: {
         Row: {
           company_id: string
-          created_at: string | null
+          created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           company_id: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"] | null
+          role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           company_id?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"] | null
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: [
@@ -3874,156 +2538,19 @@ export type Database = {
         }
         Relationships: []
       }
-      vendor_product_aliases: {
-        Row: {
-          approval_history: Json | null
-          approved_by: string | null
-          confidence_score: number | null
-          created_at: string
-          embedding: string | null
-          id: string
-          is_approved: boolean | null
-          last_match_confidence: number | null
-          last_matched_at: string | null
-          last_used_at: string | null
-          match_count: number | null
-          match_history: Json | null
-          normalized_name: string
-          product_id: string
-          supplier_id: string
-          updated_at: string
-          usage_count: number | null
-          vendor_product_name: string
-        }
-        Insert: {
-          approval_history?: Json | null
-          approved_by?: string | null
-          confidence_score?: number | null
-          created_at?: string
-          embedding?: string | null
-          id?: string
-          is_approved?: boolean | null
-          last_match_confidence?: number | null
-          last_matched_at?: string | null
-          last_used_at?: string | null
-          match_count?: number | null
-          match_history?: Json | null
-          normalized_name: string
-          product_id: string
-          supplier_id: string
-          updated_at?: string
-          usage_count?: number | null
-          vendor_product_name: string
-        }
-        Update: {
-          approval_history?: Json | null
-          approved_by?: string | null
-          confidence_score?: number | null
-          created_at?: string
-          embedding?: string | null
-          id?: string
-          is_approved?: boolean | null
-          last_match_confidence?: number | null
-          last_matched_at?: string | null
-          last_used_at?: string | null
-          match_count?: number | null
-          match_history?: Json | null
-          normalized_name?: string
-          product_id?: string
-          supplier_id?: string
-          updated_at?: string
-          usage_count?: number | null
-          vendor_product_name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendor_product_aliases_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_product_aliases_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
-      ledgers_with_roles: {
-        Row: {
-          address: Json | null
-          alias: string | null
-          balance_type: string | null
-          bank_account_number: string | null
-          bank_branch: string | null
-          bank_ifsc: string | null
-          bank_name: string | null
-          billing_address: Json | null
-          city: string | null
-          company_id: string | null
-          contact_person: string | null
-          country: string | null
-          created_at: string | null
-          current_balance: number | null
-          email: string | null
-          group_id: string | null
-          gst_number: string | null
-          gst_registration_type: string | null
-          id: string | null
-          import_metadata: Json | null
-          is_active: boolean | null
-          ledger_code: string | null
-          ledger_group_id: string | null
-          ledger_type: string | null
-          mobile: string | null
-          name: string | null
-          opening_balance: number | null
-          pan_number: string | null
-          party_type: string | null
-          phone: string | null
-          pincode: string | null
-          primary_role: Database["public"]["Enums"]["ledger_role_type"] | null
-          roles: Database["public"]["Enums"]["ledger_role_type"][] | null
-          shipping_address: Json | null
-          source_group_name: string | null
-          source_ledger_name: string | null
-          source_system: string | null
-          state: string | null
-          tax_id: string | null
-          updated_at: string | null
-          website: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ledgers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledgers_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ledgers_ledger_group_id_fkey"
-            columns: ["ledger_group_id"]
-            isOneToOne: false
-            referencedRelation: "ledger_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
+      add_user_to_company: {
+        Args: {
+          _company_id: string
+          _role?: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       allocate_batches_fifo:
         | {
             Args: {
@@ -4043,48 +2570,9 @@ export type Database = {
             }
             Returns: Json
           }
-      batch_match_products: {
-        Args: {
-          _company_id: string
-          _embeddings?: Json
-          _line_items: Json
-          _supplier_id?: string
-        }
-        Returns: Json
-      }
-      claim_next_scan_job: { Args: never; Returns: Json }
-      close_financial_year: {
-        Args: { p_company_id: string; p_financial_year: string }
-        Returns: {
-          closing_balance: number
-          closing_balance_type: string
-          ledger_id: string
-          name: string
-        }[]
-      }
       complete_onboarding: {
         Args: { _business_type: string; _company_name: string }
         Returns: string
-      }
-      compute_hybrid_match_score: {
-        Args: {
-          _candidate_product: Json
-          _parsed_invoice: Json
-          _vector_similarity?: number
-        }
-        Returns: number
-      }
-      cosine_distance_to_confidence: {
-        Args: { distance: number }
-        Returns: number
-      }
-      create_ledger_roles_from_staging: {
-        Args: {
-          p_company_id: string
-          p_ledger_id: string
-          p_role_types: string[]
-        }
-        Returns: undefined
       }
       deduct_batch_quantity:
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }
@@ -4101,56 +2589,11 @@ export type Database = {
         Args: { max_rows?: number; query_sql: string }
         Returns: Json
       }
-      find_best_product_match:
-        | {
-            Args: {
-              company_id: string
-              extracted_name: string
-              supplier_id?: string
-            }
-            Returns: {
-              confidence_score: number
-              matching_method: string
-              product_id: string
-              product_name: string
-            }[]
-          }
-        | {
-            Args: {
-              company_id: string
-              extracted_name: string
-              query_embedding?: string
-              supplier_id?: string
-            }
-            Returns: {
-              confidence_score: number
-              matching_method: string
-              product_id: string
-              product_name: string
-            }[]
-          }
-      generate_product_fingerprint: {
-        Args: {
-          brand?: string
-          form?: string
-          pack_size?: string
-          strength?: string
-        }
+      get_current_financial_year: {
+        Args: { _company_id: string }
         Returns: string
       }
-      get_alias_reliability: { Args: { _supplier_id: string }; Returns: number }
-      get_ledger_group_ancestors: {
-        Args: { p_group_id: string }
-        Returns: {
-          id: string
-        }[]
-      }
-      get_ledger_group_descendants: {
-        Args: { p_group_id: string }
-        Returns: {
-          id: string
-        }[]
-      }
+      get_fy_name: { Args: { _date: string }; Returns: string }
       get_next_invoice_number: {
         Args: { _company_id: string; _prefix?: string }
         Returns: string
@@ -4165,23 +2608,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      increment_invoice_format_stats: {
-        Args: { _confidence: number; _format_id: string; _success: boolean }
-        Returns: undefined
-      }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
-      learn_column_mapping: {
-        Args: {
-          _confidence?: number
-          _detected_column: string
-          _field_name: string
-          _format_type: string
-          _supplier_id: string
-        }
-        Returns: undefined
-      }
-      normalize_product_text: { Args: { input_text: string }; Returns: string }
-      parse_product_text: { Args: { input_text: string }; Returns: Json }
       process_supplier_return: {
         Args: {
           _batch_id: string
@@ -4196,14 +2623,17 @@ export type Database = {
         Args: { _batches: Json; _purchase_order_id?: string }
         Returns: Json
       }
-      record_alias_match: {
-        Args: {
-          _confidence: number
-          _extracted_name?: string
-          _supplier_id: string
-          _vendor_product_name: string
-        }
-        Returns: undefined
+      reconcile_inventory_ledger: {
+        Args: { p_apply?: boolean; p_company_id: string }
+        Returns: {
+          applied: boolean
+          batch_id: string
+          batch_number: string
+          diff: number
+          ledger_qty: number
+          product_id: string
+          stored_qty: number
+        }[]
       }
       resolve_conversion: {
         Args: {
@@ -4216,87 +2646,24 @@ export type Database = {
         Returns: Json
       }
       restore_sale_inventory: { Args: { _items: Json }; Returns: undefined }
-      retry_failed_scans: { Args: { _company_id?: string }; Returns: number }
-      review_alias: {
-        Args: {
-          _alias_id: string
-          _approved: boolean
-          _notes?: string
-          _reviewed_by: string
-        }
+      switch_active_company: {
+        Args: { _company_id: string }
         Returns: undefined
       }
-      seed_default_ledger_groups: {
-        Args: { p_company_id: string }
-        Returns: undefined
-      }
-      suggest_column_mappings: {
-        Args: { _format_type?: string; _supplier_id: string }
-        Returns: Json
-      }
-      text_similarity: {
-        Args: { text1: string; text2: string }
-        Returns: number
-      }
-      trial_balance: {
-        Args: { p_company_id: string; p_financial_year: string }
-        Returns: {
-          group_name: string
-          group_type: string
-          total_credit: number
-          total_debit: number
-        }[]
-      }
-      update_scan_job: {
-        Args: {
-          _error?: string
-          _job_id: string
-          _result?: Json
-          _stage?: string
-          _stage_progress?: number
-          _status: string
-        }
-        Returns: undefined
-      }
-      upsert_learned_invoice_format: {
-        Args: {
-          _column_mappings: Json
-          _company_id: string
-          _field_positions: Json
-          _format_confidence: number
-          _format_fingerprint: string
-          _format_type: string
-          _page_layout: string
-          _special_features: Json
-          _supplier_id: string
-          _table_structure: Json
-          _user_id: string
-        }
-        Returns: string
+      user_has_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
       app_role: "admin" | "pharmacist" | "staff" | "super_admin"
-      balance_type: "debit" | "credit"
       drug_schedule:
         | "none"
         | "schedule_h"
         | "schedule_h1"
         | "schedule_x"
         | "narcotic"
-      ledger_role_type:
-        | "customer"
-        | "supplier"
-        | "manufacturer"
-        | "distributor"
-        | "employee"
-        | "doctor"
-        | "bank"
-        | "tax"
-        | "expense"
-        | "income"
-        | "asset"
-        | "liability"
+      fy_status: "active" | "closed" | "archived"
       order_status:
         | "pending"
         | "confirmed"
@@ -4428,13 +2795,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "pharmacist", "staff", "super_admin"],
-      balance_type: ["debit", "credit"],
       drug_schedule: [
         "none",
         "schedule_h",
@@ -4442,20 +2805,7 @@ export const Constants = {
         "schedule_x",
         "narcotic",
       ],
-      ledger_role_type: [
-        "customer",
-        "supplier",
-        "manufacturer",
-        "distributor",
-        "employee",
-        "doctor",
-        "bank",
-        "tax",
-        "expense",
-        "income",
-        "asset",
-        "liability",
-      ],
+      fy_status: ["active", "closed", "archived"],
       order_status: [
         "pending",
         "confirmed",
@@ -4466,5 +2816,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.101.0 (currently installed v2.98.2)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

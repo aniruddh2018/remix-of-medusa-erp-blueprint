@@ -31,9 +31,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const fireworksApiKey = Deno.env.get("FIREWORKS_API_KEY");
-    if (!fireworksApiKey) {
-      return new Response(JSON.stringify({ error: "FIREWORKS_API_KEY is not configured" }), {
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableApiKey) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        result = await detectSchemaWithAI(headers, sample_rows, fireworksApiKey);
+        result = await detectSchemaWithAI(headers, sample_rows, lovableApiKey);
         break;
       }
 
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        result = await suggestFieldMappings(source_columns, target_entity, fireworksApiKey);
+        result = await suggestFieldMappings(source_columns, target_entity, lovableApiKey);
         break;
       }
 

@@ -9,9 +9,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const VISION_MODEL = "accounts/fireworks/models/kimi-k2p5";
-const TEXT_MODEL = "accounts/fireworks/models/kimi-k2p5";
-const EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5";
+const VISION_MODEL = "google/gemini-2.5-flash";
+const TEXT_MODEL = "google/gemini-2.5-flash";
+const EMBEDDING_MODEL = "google/gemini-embedding-001";
 
 // ── Structured logger ──
 const LOG_LEVEL = (Deno.env.get("LOG_LEVEL") || "info") as "debug" | "info" | "warn" | "error";
@@ -147,7 +147,7 @@ async function stageA_extractRawTextWithLayout(
   const stageTimer = startTimer();
   log("info", "stageA", "start", { page_count: imageContents.length });
 
-  const response = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -244,7 +244,7 @@ async function stageB_extractStructured(
     layout_type: layout.format_type,
   });
 
-  const response = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -475,7 +475,7 @@ async function stageC_reconcileProducts(
       const embeddingsMap: Record<string, number[]> = {};
       let embedSuccess = false;
       try {
-        const embedRes = await fetch("https://api.fireworks.ai/inference/v1/embeddings", {
+        const embedRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: EMBEDDING_MODEL, input: productNamesToEmbed }),
@@ -580,8 +580,8 @@ serve(async (req) => {
   let companyId = "";
 
   try {
-    const FIREWORKS_API_KEY = Deno.env.get("FIREWORKS_API_KEY");
-    if (!FIREWORKS_API_KEY) throw new Error("FIREWORKS_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
@@ -678,7 +678,7 @@ serve(async (req) => {
     let rawText: string;
     let layout: Record<string, unknown>;
     try {
-      const result = await stageA_extractRawTextWithLayout(imageContents, FIREWORKS_API_KEY);
+      const result = await stageA_extractRawTextWithLayout(imageContents, LOVABLE_API_KEY);
       rawText = result.rawText;
       layout = result.layout;
     } catch (e) {
@@ -696,7 +696,7 @@ serve(async (req) => {
     console.log("[Stage B] Extracting structured data from text...");
     let extractedData: Record<string, unknown>;
     try {
-      extractedData = await stageB_extractStructured(rawText, layout, FIREWORKS_API_KEY);
+      extractedData = await stageB_extractStructured(rawText, layout, LOVABLE_API_KEY);
     } catch (e) {
       log("error", "pipeline", "stageB_failed", {
         error: e instanceof Error ? e.message : "Unknown error",
@@ -728,7 +728,7 @@ serve(async (req) => {
     let anomalyFlags: AnomalyFlag[];
     try {
       const result = await stageC_reconcileProducts(
-        extractedData, companyId, suppliers || [], products || [], supabase, FIREWORKS_API_KEY, matchedSupplierId
+        extractedData, companyId, suppliers || [], products || [], supabase, LOVABLE_API_KEY, matchedSupplierId
       );
       enriched = result.enriched;
       validationErrors = result.validationErrors;

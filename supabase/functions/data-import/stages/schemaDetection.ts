@@ -1,7 +1,7 @@
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const FIREWORKS_MODEL = "accounts/fireworks/models/qwen3p6-plus";
-const FIREWORKS_API_URL = "https://api.fireworks.ai/inference/v1/chat/completions";
+const FIREWORKS_MODEL = "google/gemini-2.5-flash";
+const FIREWORKS_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ─── Zod schemas for LLM output validation ───────────────────────────────────
 

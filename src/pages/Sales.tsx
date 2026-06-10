@@ -962,6 +962,19 @@ export default function Sales() {
               <Label className="text-[11px]">Invoice #</Label>
               <Input ref={invoiceNumberRef} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto-generated" className="h-8 text-sm" />
             </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">
+                Sale Date {saleDate !== todayISO() && <span className="text-amber-600 font-medium">(backdated)</span>}
+              </Label>
+              <Input
+                type="date"
+                value={saleDate}
+                max={todayISO()}
+                min={getCurrentFY().start}
+                onChange={e => setSaleDate(e.target.value || todayISO())}
+                className="h-8 text-sm"
+              />
+            </div>
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>
                 <div className="flex gap-1">

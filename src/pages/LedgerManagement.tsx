@@ -754,6 +754,34 @@ export default function LedgerManagement() {
     onError: (err) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
   });
 
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      const { supabase } = await import('@/integrations/supabase/client');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.rpc as any)('backfill_company_ledger_entries', {
+        p_company_id: companyId!,
+      });
+      if (error) throw error;
+      return data as {
+        customers_created: number;
+        suppliers_created: number;
+        sales_posted: number;
+        purchases_posted: number;
+        payments_posted: number;
+      };
+    },
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ['ledgers'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ledgers-by-role'] });
+      toast({
+        title: 'Backfill complete',
+        description: `+${r.customers_created} customers, +${r.suppliers_created} suppliers, ${r.sales_posted} sales, ${r.purchases_posted} purchases, ${r.payments_posted} payments posted.`,
+      });
+    },
+    onError: (err: Error) => toast({ title: 'Backfill failed', description: err.message, variant: 'destructive' }),
+  });
+
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleEditGroup = useCallback((g: LedgerGroup) => {
@@ -821,6 +849,17 @@ export default function LedgerManagement() {
               Seed Defaults
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending || !companyId}
+            title="Import old customers, suppliers, sales, purchases & payments into the unified ledger"
+          >
+            {backfillMutation.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              : <RefreshCw className="h-4 w-4 mr-1" />}
+            Backfill Old Entries
+          </Button>
           <Button onClick={() => { setEditingLedger(null); setLedgerForm({ name: '', roles: ['customer'] }); setIsLedgerDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> New Ledger
           </Button>

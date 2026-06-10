@@ -4640,6 +4640,10 @@ export type Database = {
             }
             Returns: Json
           }
+      backfill_company_ledger_entries: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
       batch_match_products: {
         Args: {
           _company_id: string

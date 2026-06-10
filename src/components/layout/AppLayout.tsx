@@ -39,6 +39,9 @@ export function AppLayout() {
   // One-time per-session overdue invoices toast
   useOverdueLoginToast();
 
+  // Auto-backfill historical entries into the unified ledger (once per company per browser)
+  useAutoLedgerBackfill();
+
   // Platform-aware shortcuts
   usePlatformShortcut({ shortcut: SHORTCUTS.QUICK_SALE, callback: () => navigate("/counter-sales"), enabled: !!user });
   usePlatformShortcut({ shortcut: SHORTCUTS.COMMAND_PALETTE, callback: () => setCommandPaletteOpen(true), enabled: !!user });

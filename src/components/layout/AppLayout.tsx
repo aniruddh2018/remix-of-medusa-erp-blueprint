@@ -18,6 +18,7 @@ import { SkipToContent } from "@/components/ui/skip-to-content";
 import { Badge } from "@/components/ui/badge";
 import { useFocus } from "@/contexts/FocusContext";
 import { useOverdueLoginToast } from "@/hooks/useOverdueLoginToast";
+import { useAutoLedgerBackfill } from "@/hooks/useAutoLedgerBackfill";
 import {
   Tooltip,
   TooltipContent,

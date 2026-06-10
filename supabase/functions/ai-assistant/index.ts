@@ -64,14 +64,14 @@ Respond using the classify_intent tool only.`;
 }
 
 async function callLLM(apiKey: string, systemPrompt: string, userMessage: string): Promise<any> {
-  const response = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "accounts/fireworks/models/qwen3p6-plus",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -152,8 +152,8 @@ serve(async (req) => {
   }
 
   try {
-    const FIREWORKS_API_KEY = Deno.env.get("FIREWORKS_API_KEY");
-    if (!FIREWORKS_API_KEY) throw new Error("FIREWORKS_API_KEY not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -201,7 +201,7 @@ serve(async (req) => {
 
     let classification: any;
     try {
-      const llmResult = await callLLM(FIREWORKS_API_KEY, systemPrompt, message);
+      const llmResult = await callLLM(LOVABLE_API_KEY, systemPrompt, message);
       const toolCall = llmResult.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall) throw new Error("No tool call returned");
       classification = JSON.parse(toolCall.function.arguments);

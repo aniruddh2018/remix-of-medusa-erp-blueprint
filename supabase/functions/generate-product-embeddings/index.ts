@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5";
+const EMBEDDING_MODEL = "google/gemini-embedding-001";
 const BATCH_SIZE = 20;
 
 serve(async (req) => {

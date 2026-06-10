@@ -11,7 +11,7 @@ const corsHeaders = {
 
 const VISION_MODEL = "google/gemini-2.5-flash";
 const TEXT_MODEL = "google/gemini-2.5-flash";
-const EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5";
+const EMBEDDING_MODEL = "google/gemini-embedding-001";
 
 // ── Structured logger ──
 const LOG_LEVEL = (Deno.env.get("LOG_LEVEL") || "info") as "debug" | "info" | "warn" | "error";

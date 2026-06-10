@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import * as ledgerService from '@/services/ledgerService';
 import type { LedgerRoleType } from '@/types/ledger';

@@ -1,9 +1,14 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import type { LedgerBalanceWithName, LedgerTransaction } from "@/types/ledger";
+import type {
+  LedgerBalanceWithName, LedgerTransaction, Ledger, LedgerGroup, LedgerGroupNode,
+  LedgerRoleType, LedgerGroupType, LedgerListResponse, CreateLedgerRequest,
+  CreateLedgerGroupRequest, TrialBalanceResult, LedgerAuditEntry, CsvLedgerRow,
+  FinancialYearCloseResult,
+} from "@/types/ledger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +18,15 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Banknote, Search, TrendingUp, TrendingDown, AlertCircle,
   CheckCircle2, Clock, FileText, ReceiptText, BarChart3, Lock,
   Download, Trash2, Users, Building2, Loader2, AlertTriangle, CreditCard,
   ChevronDown, ChevronRight, FileDown, BookOpen, Filter,
+  Plus, Pencil, Scale, Merge, History, FileSpreadsheet, ClipboardCheck,
+  RefreshCw, Upload, XCircle, ArrowUpDown, Truck, Factory, User, Receipt,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/dialogs/RecordPaymentDialog";
@@ -26,6 +34,10 @@ import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { generateLedgerPDF } from "@/utils/ledgerPdfGenerator";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CreditCustomersTab } from "@/components/CreditCustomersTab";
+import * as ledgerService from "@/services/ledgerService";
+import * as ledgerAdvanced from "@/services/ledgerAdvancedService";
+import { syncLedgerToCustomer, syncLedgerToSupplier } from "@/services/ledgerBridge";
+import { parse as csvParse } from "papaparse";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function paymentStatusBadge(paid: number, total: number) {
@@ -203,13 +215,13 @@ export default function Accounts() {
     enabled: !!companyId,
   });
 
-  // Transaction history for expanded ledger
+  // Transaction history for expanded ledger (use party view for complete history)
   const { data: expandedLedgerTxs } = useQuery({
-    queryKey: ["ledger-transactions", expandedLedger],
+    queryKey: ["party-transactions", expandedLedger],
     queryFn: async () => {
       if (!expandedLedger) return [];
       const { data, error } = await supabase
-        .rpc("get_ledger_transactions", {
+        .rpc("get_party_transactions", {
           p_ledger_id: expandedLedger,
           p_year: null,
           p_limit: 100,
@@ -222,13 +234,13 @@ export default function Accounts() {
     enabled: !!expandedLedger,
   });
 
-  // Transaction history for expanded supplier
+  // Transaction history for expanded supplier (use party view for complete history)
   const { data: expandedSupplierTxs } = useQuery({
-    queryKey: ["ledger-transactions", expandedSupplier],
+    queryKey: ["party-transactions", expandedSupplier],
     queryFn: async () => {
       if (!expandedSupplier) return [];
       const { data, error } = await supabase
-        .rpc("get_ledger_transactions", {
+        .rpc("get_party_transactions", {
           p_ledger_id: expandedSupplier,
           p_year: null,
           p_limit: 100,
@@ -566,6 +578,21 @@ export default function Accounts() {
           <TabsTrigger value="gst" className="gap-1.5">
             <ReceiptText className="h-3.5 w-3.5" />GST Summary
           </TabsTrigger>
+          <TabsTrigger value="expense-entry" className="gap-1.5">
+            <ArrowUpDown className="h-3.5 w-3.5" />Expense Entry
+          </TabsTrigger>
+          <TabsTrigger value="chart-of-accounts" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />Chart of Accounts
+          </TabsTrigger>
+          <TabsTrigger value="trial-balance" className="gap-1.5">
+            <Scale className="h-3.5 w-3.5" />Trial Balance
+          </TabsTrigger>
+          <TabsTrigger value="duplicates" className="gap-1.5">
+            <Merge className="h-3.5 w-3.5" />Duplicates
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-1.5">
+            <History className="h-3.5 w-3.5" />Audit
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Unified Ledger ───────────────────────────────────────────── */}
@@ -784,13 +811,14 @@ export default function Accounts() {
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">Paid</TableHead>
                       <TableHead className="text-right">Balance</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPO?.length === 0 && (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No purchase orders found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No purchase orders found.</TableCell></TableRow>
                     )}
                     {filteredPO?.map(order => {
                       const paid = paidByPoId[order.id] || 0;
@@ -805,9 +833,19 @@ export default function Accounts() {
                           <TableCell className="text-right font-mono">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                           <TableCell className="text-right font-mono text-green-600">₹{paid.toFixed(2)}</TableCell>
                           <TableCell className={`text-right font-mono ${balance > 0 ? "text-amber-600" : "text-muted-foreground"}`}>₹{balance.toFixed(2)}</TableCell>
+                          <TableCell>
+                            {(order as any).payment_method === "credit" || !(order as any).payment_method ? (
+                              <Badge variant="outline" className="text-xs">Credit</Badge>
+                            ) : (
+                              <Badge className="text-xs bg-green-100 text-green-800 border-green-200">
+                                <Banknote className="h-3 w-3 mr-1" />
+                                {(order as any).payment_method || "Cash"}
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>{paymentStatusBadge(paid, Number(order.total_amount))}</TableCell>
                           <TableCell>
-                            {balance > 0.01 && (
+                            {balance > 0.01 && (order as any).payment_method === "credit" && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1222,6 +1260,31 @@ export default function Accounts() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Expense Entry ─────────────────────────────────────────────── */}
+        <TabsContent value="expense-entry" className="mt-4">
+          <ExpenseEntryTab />
+        </TabsContent>
+
+        {/* ── Chart of Accounts ─────────────────────────────────────────────── */}
+        <TabsContent value="chart-of-accounts" className="mt-4">
+          <ChartOfAccountsTab />
+        </TabsContent>
+
+        {/* ── Trial Balance ─────────────────────────────────────────────── */}
+        <TabsContent value="trial-balance" className="mt-4">
+          <TrialBalanceTab />
+        </TabsContent>
+
+        {/* ── Duplicates ─────────────────────────────────────────────── */}
+        <TabsContent value="duplicates" className="mt-4">
+          <DuplicatesTab />
+        </TabsContent>
+
+        {/* ── Audit ─────────────────────────────────────────────── */}
+        <TabsContent value="audit" className="mt-4">
+          <AuditTab />
+        </TabsContent>
       </Tabs>
 
       {/* Record Payment Dialog */}
@@ -1260,6 +1323,572 @@ export default function Accounts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Chart of Accounts Tab Component ─────────────────────────────────────────
+
+const GROUP_TYPE_LABELS: Record<string, string> = {
+  assets: 'Assets', liabilities: 'Liabilities', income: 'Income',
+  expenses: 'Expenses', capital: 'Capital', bank: 'Bank',
+  cash: 'Cash', tax: 'Tax', sundry_debtors: 'Sundry Debtors',
+  sundry_creditors: 'Sundry Creditors', loan: 'Loans',
+  investment: 'Investments', other: 'Other',
+};
+
+function GroupTreeNode({ node, depth, onSelect, selectedId }: {
+  node: LedgerGroupNode; depth: number;
+  onSelect: (id: string) => void; selectedId: string | null;
+}) {
+  const [expanded, setExpanded] = useState(depth < 2);
+  const hasChildren = node.children && node.children.length > 0;
+  const isSelected = selectedId === node.id;
+
+  return (
+    <>
+      <div
+        className={`flex items-center gap-1 py-1.5 px-2 cursor-pointer rounded hover:bg-muted/50 ${isSelected ? 'bg-muted font-medium' : ''}`}
+        style={{ paddingLeft: `${depth * 24 + 8}px` }}
+        onClick={() => { onSelect(node.id); if (hasChildren) setExpanded(!expanded); }}
+      >
+        {hasChildren ? (
+          expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+        ) : <span className="w-3.5" />}
+        <span className="text-sm flex-1 truncate">{node.name}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+          {GROUP_TYPE_LABELS[node.groupType] || node.groupType}
+        </Badge>
+        {node.isSystem && <Badge className="text-[10px] px-1.5 py-0 h-4 bg-slate-100 text-slate-600">System</Badge>}
+      </div>
+      {expanded && hasChildren && node.children!.map(child => (
+        <GroupTreeNode key={child.id} node={child} depth={depth + 1} onSelect={onSelect} selectedId={selectedId} />
+      ))}
+    </>
+  );
+}
+
+function ChartOfAccountsTab() {
+  const { companyId } = useBusiness();
+  const { toast } = useToast();
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: groupTree, isLoading } = useQuery<LedgerGroupNode[]>({
+    queryKey: ['ledger-group-tree', companyId],
+    queryFn: () => ledgerService.getLedgerGroupTree(companyId!),
+    enabled: !!companyId,
+  });
+
+  const seedDefaultsMutation = useMutation({
+    mutationFn: () => ledgerService.seedDefaultLedgerGroups(companyId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ledger-group-tree'] });
+      toast({ title: 'Default groups created' });
+    },
+    onError: (err) => toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium">Chart of Accounts</h3>
+          <p className="text-xs text-muted-foreground">Accounting groups hierarchy</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => seedDefaultsMutation.mutate()} disabled={seedDefaultsMutation.isPending}>
+          {seedDefaultsMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+          Seed Defaults
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : !groupTree || groupTree.length === 0 ? (
+        <Card className="p-8 text-center text-muted-foreground">
+          <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p>No ledger groups found.</p>
+          <Button className="mt-4" size="sm" onClick={() => seedDefaultsMutation.mutate()}>Create Default Groups</Button>
+        </Card>
+      ) : (
+        <Card className="p-4">
+          <div className="space-y-1">
+            {groupTree.map(node => (
+              <GroupTreeNode key={node.id} node={node} depth={0} onSelect={setSelectedGroupId} selectedId={selectedGroupId} />
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Trial Balance Tab Component ─────────────────────────────────────────────
+
+function TrialBalanceTab() {
+  const { companyId } = useBusiness();
+  const { toast } = useToast();
+  const [fy, setFy] = useState(() => {
+    const now = new Date();
+    const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${y}-${y + 1}`;
+  });
+
+  const { data, isLoading } = useQuery<TrialBalanceResult>({
+    queryKey: ['trial-balance', companyId, fy],
+    queryFn: () => ledgerAdvanced.getTrialBalance(companyId!, fy),
+    enabled: !!companyId,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Label className="text-sm">Financial Year</Label>
+        <Input value={fy} onChange={e => setFy(e.target.value)} className="w-32" placeholder="2025-2026" />
+        <Badge variant="outline">{fy}</Badge>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : !data || data.rows.length === 0 ? (
+        <Card className="p-8 text-center text-muted-foreground">
+          <Scale className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p>No balances found for {fy}.</p>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="p-3"><div className="text-xs text-muted-foreground">Total Debit</div><div className="text-xl font-bold text-red-600">₹{data.totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div></Card>
+            <Card className="p-3"><div className="text-xs text-muted-foreground">Total Credit</div><div className="text-xl font-bold text-green-600">₹{data.totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div></Card>
+            <Card className="p-3"><div className="text-xs text-muted-foreground">Difference</div>
+              <div className={`text-xl font-bold ${data.isBalanced ? 'text-green-600' : 'text-red-600'}`}>
+                {data.isBalanced ? 'Balanced ✓' : `₹${data.difference.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+              </div>
+            </Card>
+          </div>
+          <Card>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Group</TableHead><TableHead>Type</TableHead>
+                <TableHead className="text-right">Debit (₹)</TableHead><TableHead className="text-right">Credit (₹)</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {data.rows.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium text-sm">{r.groupName}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px]">{r.groupType}</Badge></TableCell>
+                    <TableCell className="text-right font-mono">{r.totalDebit > 0 ? `₹${r.totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</TableCell>
+                    <TableCell className="text-right font-mono">{r.totalCredit > 0 ? `₹${r.totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Duplicates Tab Component ────────────────────────────────────────────────
+
+interface DuplicateLedgerForMerge {
+  canonicalName: string;
+  duplicateCount: number;
+  ledgerIds: string[];
+  totalDebit: number;
+  totalCredit: number;
+}
+
+interface MergePreviewResult {
+  canonicalName: string;
+  keptLedgerId: string;
+  keptLedgerName: string;
+  mergedLedgerId: string;
+  mergedLedgerName: string;
+  transactionsMoved: number;
+  ordersUpdated: number;
+  paymentsUpdated: number;
+  status: string;
+}
+
+function DuplicatesTab() {
+  const { companyId } = useBusiness();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isMerging, setIsMerging] = useState(false);
+  const [previewResults, setPreviewResults] = useState<MergePreviewResult[] | null>(null);
+
+  const { data: duplicates, isLoading, refetch } = useQuery<DuplicateLedgerForMerge[]>({
+    queryKey: ['ledger-duplicates-db', companyId],
+    queryFn: () => ledgerAdvanced.findDuplicateLedgers(companyId!),
+    enabled: !!companyId,
+  });
+
+  const handlePreview = async () => {
+    if (!companyId) return;
+    setIsMerging(true);
+    try {
+      const results = await ledgerAdvanced.bulkMergeDuplicateLedgers(companyId, true);
+      setPreviewResults(results);
+      toast({ title: 'Preview Ready', description: `${results.filter(r => r.status === 'WOULD_MERGE').length} duplicates would be merged` });
+    } catch (err) {
+      toast({ title: 'Preview failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleBulkMerge = async () => {
+    if (!companyId) return;
+    if (!confirm('This will merge all duplicate ledgers. This action cannot be undone. Continue?')) return;
+
+    setIsMerging(true);
+    try {
+      const results = await ledgerAdvanced.bulkMergeDuplicateLedgers(companyId, false);
+      const merged = results.filter(r => r.status === 'MERGED').length;
+      const errors = results.filter(r => r.status.startsWith('ERROR')).length;
+
+      toast({
+        title: 'Merge Complete',
+        description: `${merged} groups merged${errors > 0 ? `, ${errors} errors` : ''}`,
+        variant: errors > 0 ? 'destructive' : 'default'
+      });
+
+      setPreviewResults(results);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['ledgers'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger-stats'] });
+    } catch (err) {
+      toast({ title: 'Merge failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const clearPreview = () => setPreviewResults(null);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium">Duplicate Ledgers</h3>
+          <p className="text-xs text-muted-foreground">Merge duplicate party records to consolidate transaction history</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isMerging}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />Scan
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePreview} disabled={isMerging || !duplicates?.length}>
+            <ClipboardCheck className="h-3.5 w-3.5 mr-1" />Preview
+          </Button>
+          <Button size="sm" onClick={handleBulkMerge} disabled={isMerging || !duplicates?.length} className="bg-amber-600 hover:bg-amber-700">
+            {isMerging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Merge className="h-3.5 w-3.5 mr-1" />}
+            Merge All
+          </Button>
+        </div>
+      </div>
+
+      {previewResults && (
+        <Card className="p-4 bg-muted/50">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">
+              {previewResults.some(r => r.status === 'MERGED') ? 'Merge Results' : 'Preview (Dry Run)'}
+            </h4>
+            <Button variant="ghost" size="sm" onClick={clearPreview}><XCircle className="h-4 w-4" /></Button>
+          </div>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {previewResults.map((result, i) => (
+              <div key={i} className={`flex items-center justify-between p-2 rounded text-xs ${
+                result.status === 'MERGED' ? 'bg-green-50 border border-green-200' :
+                result.status === 'WOULD_MERGE' ? 'bg-blue-50 border border-blue-200' :
+                'bg-red-50 border border-red-200'
+              }`}>
+                <div>
+                  <span className="font-medium">{result.canonicalName}</span>
+                  <span className="text-muted-foreground ml-2">
+                    {result.mergedLedgerName} → {result.keptLedgerName}
+                  </span>
+                </div>
+                <Badge variant={result.status === 'MERGED' ? 'default' : result.status === 'WOULD_MERGE' ? 'secondary' : 'destructive'} className="text-[10px]">
+                  {result.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : !duplicates || duplicates.length === 0 ? (
+        <Card className="p-8 text-center text-muted-foreground">
+          <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
+          <p>No duplicate ledgers detected.</p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">{duplicates.length} duplicate group(s) found</p>
+          {duplicates.map((group, i) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">{group.canonicalName}</span>
+                  <Badge variant="outline" className="text-[10px]">{group.duplicateCount} ledgers</Badge>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground font-mono">
+                IDs: {group.ledgerIds.join(', ')}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Audit Tab Component ─────────────────────────────────────────────────────
+
+function AuditTab() {
+  const { companyId } = useBusiness();
+  const [actionFilter, setActionFilter] = useState<string>('all');
+
+  const { data, isLoading } = useQuery<{ data: LedgerAuditEntry[]; count: number }>({
+    queryKey: ['ledger-audit', companyId, actionFilter],
+    queryFn: () => ledgerAdvanced.getLedgerAuditLog(companyId!, { action: actionFilter !== 'all' ? actionFilter : undefined, limit: 100 }),
+    enabled: !!companyId,
+  });
+
+  const ACTION_COLORS: Record<string, string> = {
+    create: 'bg-green-100 text-green-800', update: 'bg-blue-100 text-blue-800',
+    delete: 'bg-red-100 text-red-800', merge: 'bg-purple-100 text-purple-800',
+    role_add: 'bg-cyan-100 text-cyan-800', role_remove: 'bg-amber-100 text-amber-800',
+    balance_close: 'bg-slate-100 text-slate-800', import: 'bg-teal-100 text-teal-800',
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Label className="text-sm">Action</Label>
+        <Select value={actionFilter} onValueChange={setActionFilter}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Actions</SelectItem>
+            {['create', 'update', 'delete', 'merge', 'role_add', 'role_remove', 'balance_close', 'import'].map(a => (
+              <SelectItem key={a} value={a}>{a.replace('_', ' ')}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : !data || data.data.length === 0 ? (
+        <Card className="p-8 text-center text-muted-foreground">
+          <History className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p>No audit records found.</p>
+        </Card>
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>User</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.data.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className="text-xs">{new Date(entry.createdAt).toLocaleString()}</TableCell>
+                  <TableCell><Badge className={`text-[10px] ${ACTION_COLORS[entry.action] || 'bg-slate-100'}`}>{entry.action}</Badge></TableCell>
+                  <TableCell className="text-sm">{entry.description}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{entry.performedBy || 'System'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Expense Entry Tab Component ─────────────────────────────────────────────
+
+function ExpenseEntryTab() {
+  const { companyId } = useBusiness();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [expenseLedgerId, setExpenseLedgerId] = useState<string>("");
+  const [paymentLedgerId, setPaymentLedgerId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [referenceNumber, setReferenceNumber] = useState<string>("");
+  const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch expense ledgers
+  const { data: expenseLedgers, isLoading: loadingExpenses } = useQuery({
+    queryKey: ["expense-ledgers", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc("get_expense_ledgers", { p_company_id: companyId });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch cash/bank ledgers for payment
+  const { data: paymentLedgers, isLoading: loadingPayments } = useQuery({
+    queryKey: ["payment-ledgers", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ledgers")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .or("group_type.eq.cash,group_type.eq.bank")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  const handleSubmit = async () => {
+    if (!expenseLedgerId || !paymentLedgerId || !amount || parseFloat(amount) <= 0) {
+      toast({ title: "Validation Error", description: "Please select expense type, payment method, and enter a valid amount.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc("create_expense_voucher", {
+        p_company_id: companyId,
+        p_date: date,
+        p_expense_ledger_id: expenseLedgerId,
+        p_payment_ledger_id: paymentLedgerId,
+        p_amount: parseFloat(amount),
+        p_description: description || null,
+        p_reference_number: referenceNumber || null,
+        p_created_by: user?.id,
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Expense Recorded", 
+        description: `Voucher created for ₹${parseFloat(amount).toFixed(2)}` 
+      });
+
+      // Reset form
+      setExpenseLedgerId("");
+      setPaymentLedgerId("");
+      setAmount("");
+      setDescription("");
+      setReferenceNumber("");
+
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["ledgers"] });
+      queryClient.invalidateQueries({ queryKey: ["ledger-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-ledgers"] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ArrowUpDown className="h-4 w-4" />Record Expense
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference Number (Optional)</Label>
+              <Input placeholder="EXP-001" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Expense Category *</Label>
+            <Select value={expenseLedgerId} onValueChange={setExpenseLedgerId}>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingExpenses ? "Loading..." : "Select expense type"} />
+              </SelectTrigger>
+              <SelectContent>
+                {expenseLedgers?.map((ledger: any) => (
+                  <SelectItem key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Payment Method *</Label>
+            <Select value={paymentLedgerId} onValueChange={setPaymentLedgerId}>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingPayments ? "Loading..." : "Select payment method"} />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentLedgers?.map((ledger: any) => (
+                  <SelectItem key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Amount (₹) *</Label>
+            <Input type="number" min="0.01" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Textarea placeholder="Enter expense details..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+          </div>
+
+          <div className="bg-muted/50 p-3 rounded-md text-sm">
+            <p className="font-medium">Journal Entry Preview:</p>
+            <div className="mt-2 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span>Dr. {expenseLedgers?.find((l: any) => l.id === expenseLedgerId)?.name || "Expense Account"}</span>
+                <span>₹{amount || "0.00"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cr. {paymentLedgers?.find((l: any) => l.id === paymentLedgerId)?.name || "Cash/Bank"}</span>
+                <span>₹{amount || "0.00"}</span>
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={handleSubmit} disabled={isSubmitting || !expenseLedgerId || !paymentLedgerId || !amount} className="w-full">
+            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Record Expense
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

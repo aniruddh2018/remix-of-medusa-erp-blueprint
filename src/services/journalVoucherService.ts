@@ -95,13 +95,29 @@ export async function getLedgerTransactions(
   limit = 100,
   offset = 0,
 ): Promise<LedgerTransaction[]> {
-  const { data, error } = await supabase.rpc('get_ledger_transactions', {
+  const { data, error } = await supabase.rpc('get_party_transactions', {
     p_ledger_id: ledgerId,
     p_year: year ?? null,
     p_limit: limit,
     p_offset: offset,
   });
   if (error) throw new Error(`Failed to fetch ledger transactions: ${error.message}`);
+  return (data ?? []).map(fromDbTransaction);
+}
+
+export async function getPartyTransactions(
+  ledgerId: string,
+  year?: string,
+  limit = 100,
+  offset = 0,
+): Promise<LedgerTransaction[]> {
+  const { data, error } = await supabase.rpc('get_party_transactions', {
+    p_ledger_id: ledgerId,
+    p_year: year ?? null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw new Error(`Failed to fetch party transactions: ${error.message}`);
   return (data ?? []).map(fromDbTransaction);
 }
 

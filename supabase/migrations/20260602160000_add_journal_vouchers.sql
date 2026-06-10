@@ -106,21 +106,20 @@ CREATE OR REPLACE FUNCTION public.get_or_create_system_ledger(
   p_company_id UUID,
   p_ledger_name TEXT,
   p_group_name TEXT,
-  p_role_type ledger_role_type DEFAULT NULL
+  p_role_type TEXT DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
   v_group_id UUID;
   v_ledger_id UUID;
 BEGIN
-  -- Find the group
+  SET LOCAL search_path = 'public', 'extensions';
   SELECT id INTO v_group_id
   FROM public.ledger_groups
   WHERE company_id = p_company_id AND name = p_group_name AND is_system = true
   LIMIT 1;
 
   IF v_group_id IS NULL THEN
-    -- Try to find any group with that name
     SELECT id INTO v_group_id
     FROM public.ledger_groups
     WHERE company_id = p_company_id AND name = p_group_name
@@ -128,13 +127,11 @@ BEGIN
   END IF;
 
   IF v_group_id IS NULL THEN
-    -- Auto-create the group as system group
     INSERT INTO public.ledger_groups (company_id, name, group_type, is_system, sort_order)
-    VALUES (p_company_id, p_group_name, 'other'::ledger_group_type, true, 99)
+    VALUES (p_company_id, p_group_name, 'other', true, 99)
     RETURNING id INTO v_group_id;
   END IF;
 
-  -- Find existing ledger
   SELECT id INTO v_ledger_id
   FROM public.ledgers
   WHERE company_id = p_company_id AND name = p_ledger_name
@@ -145,15 +142,17 @@ BEGIN
       company_id, ledger_group_id, name, opening_balance, balance_type,
       is_active, source_system
     ) VALUES (
-      p_company_id, v_group_id, p_ledger_name, 0, 'debit', true, 'system'
+      p_company_id, v_group_id, p_ledger_name, 0, 'debit', true, 'imported'
     )
     RETURNING id INTO v_ledger_id;
   END IF;
 
-  -- Ensure role if provided
-  IF p_role_type IS NOT NULL THEN
+  IF p_role_type IS NOT NULL AND p_role_type IN (
+    'customer','supplier','manufacturer','distributor',
+    'employee','doctor','bank','tax','expense','income','asset','liability'
+  ) THEN
     INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
-    VALUES (v_ledger_id, p_company_id, p_role_type, false)
+    VALUES (v_ledger_id, p_company_id, p_role_type::public.ledger_role_type, false)
     ON CONFLICT (ledger_id, role_type) DO NOTHING;
   END IF;
 
@@ -161,23 +160,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Resolve a party name to a ledger (auto-create under Sundry Debtors / Creditors if missing)
 CREATE OR REPLACE FUNCTION public.resolve_party_ledger(
   p_company_id UUID,
   p_party_name TEXT,
-  p_party_type TEXT   -- 'customer' or 'supplier'
+  p_party_type TEXT
 )
 RETURNS UUID AS $$
 DECLARE
   v_ledger_id UUID;
   v_group_name TEXT;
-  v_role ledger_role_type;
+  v_role TEXT;
+  v_group_type TEXT;
 BEGIN
+  SET LOCAL search_path = 'public', 'extensions';
   IF p_party_name IS NULL OR trim(p_party_name) = '' THEN
     RETURN NULL;
   END IF;
 
-  -- Case-insensitive match
   SELECT id INTO v_ledger_id
   FROM public.ledgers
   WHERE company_id = p_company_id
@@ -188,23 +187,23 @@ BEGIN
     RETURN v_ledger_id;
   END IF;
 
-  -- Fallback: create under Sundry Debtors / Creditors
   IF p_party_type = 'supplier' THEN
     v_group_name := 'Sundry Creditors';
     v_role := 'supplier';
+    v_group_type := 'sundry_creditors';
   ELSE
     v_group_name := 'Sundry Debtors';
     v_role := 'customer';
+    v_group_type := 'sundry_debtors';
   END IF;
 
   INSERT INTO public.ledgers (
     company_id, name, opening_balance, balance_type, is_active, source_system
   ) VALUES (
-    p_company_id, trim(p_party_name), 0, 'debit', true, 'auto'
+    p_company_id, trim(p_party_name), 0, 'debit', true, 'imported'
   )
   RETURNING id INTO v_ledger_id;
 
-  -- Assign to group
   DECLARE
     v_group_id UUID;
   BEGIN
@@ -213,18 +212,84 @@ BEGIN
     LIMIT 1;
     IF v_group_id IS NULL THEN
       INSERT INTO public.ledger_groups (company_id, name, group_type, is_system, sort_order)
-      VALUES (p_company_id, v_group_name,
-        CASE WHEN p_party_type = 'supplier' THEN 'sundry_creditors'::ledger_group_type ELSE 'sundry_debtors'::ledger_group_type END,
-        true, 99)
+      VALUES (p_company_id, v_group_name, v_group_type, true, 99)
       RETURNING id INTO v_group_id;
     END IF;
     UPDATE public.ledgers SET ledger_group_id = v_group_id WHERE id = v_ledger_id;
   END;
 
-  -- Assign role
   INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
-  VALUES (v_ledger_id, p_company_id, v_role, true)
+  VALUES (v_ledger_id, p_company_id, v_role::public.ledger_role_type, true)
   ON CONFLICT (ledger_id, role_type) DO NOTHING;
+
+  RETURN v_ledger_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Resolve a party name to a ledger (auto-create under Sundry Debtors / Creditors if missing)
+CREATE OR REPLACE FUNCTION public.resolve_party_ledger(
+  p_company_id UUID,
+  p_party_name TEXT,
+  p_party_type TEXT
+)
+RETURNS UUID AS $$
+DECLARE
+  v_ledger_id UUID;
+  v_group_name TEXT;
+  v_role TEXT;
+  v_group_type TEXT;
+BEGIN
+  IF p_party_name IS NULL OR trim(p_party_name) = '' THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT id INTO v_ledger_id
+  FROM public.ledgers
+  WHERE company_id = p_company_id
+    AND lower(name) = lower(trim(p_party_name))
+  LIMIT 1;
+
+  IF v_ledger_id IS NOT NULL THEN
+    RETURN v_ledger_id;
+  END IF;
+
+  IF p_party_type = 'supplier' THEN
+    v_group_name := 'Sundry Creditors';
+    v_role := 'supplier';
+    v_group_type := 'sundry_creditors';
+  ELSE
+    v_group_name := 'Sundry Debtors';
+    v_role := 'customer';
+    v_group_type := 'sundry_debtors';
+  END IF;
+
+  INSERT INTO public.ledgers (
+    company_id, name, opening_balance, balance_type, is_active, source_system
+  ) VALUES (
+    p_company_id, trim(p_party_name), 0, 'debit', true, 'imported'
+  )
+  RETURNING id INTO v_ledger_id;
+
+  DECLARE
+    v_group_id UUID;
+  BEGIN
+    SELECT id INTO v_group_id FROM public.ledger_groups
+    WHERE company_id = p_company_id AND name = v_group_name AND is_system = true
+    LIMIT 1;
+    IF v_group_id IS NULL THEN
+      INSERT INTO public.ledger_groups (company_id, name, group_type, is_system, sort_order)
+      VALUES (p_company_id, v_group_name, v_group_type, true, 99)
+      RETURNING id INTO v_group_id;
+    END IF;
+    UPDATE public.ledgers SET ledger_group_id = v_group_id WHERE id = v_ledger_id;
+  END;
+
+  IF v_role IN ('customer','supplier','manufacturer','distributor',
+    'employee','doctor','bank','tax','expense','income','asset','liability') THEN
+    INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
+    VALUES (v_ledger_id, p_company_id, v_role::public.ledger_role_type, true)
+    ON CONFLICT (ledger_id, role_type) DO NOTHING;
+  END IF;
 
   RETURN v_ledger_id;
 END;
@@ -513,10 +578,10 @@ BEGIN
     current_balance, total_debit, total_credit, closing_balance, closing_balance_type
   ) VALUES (
     v_ledger_id, v_company_id, v_fy,
-    COALESCE(v_opening, 0), 'debit',
+    COALESCE(v_opening, 0), 'debit'::public.balance_type,
     v_current, v_total_debit, v_total_credit,
     v_current,
-    CASE WHEN v_current >= 0 THEN 'debit' ELSE 'credit' END
+    CASE WHEN v_current >= 0 THEN 'debit'::public.balance_type ELSE 'credit'::public.balance_type END
   )
   ON CONFLICT (ledger_id, financial_year) DO UPDATE SET
     current_balance = EXCLUDED.current_balance,
@@ -638,7 +703,7 @@ SELECT
   lb.total_credit,
   lb.closing_balance,
   lb.closing_balance_type,
-  COALESCE(array_agg(DISTINCT lr.role_type) FILTER (WHERE lr.role_type IS NOT NULL), ARRAY[]::ledger_role_type[]) AS roles,
+  COALESCE(array_agg(DISTINCT lr.role_type::text) FILTER (WHERE lr.role_type IS NOT NULL), ARRAY[]::text[]) AS roles,
   lg.name AS group_name,
   lg.group_type
 FROM public.ledgers l

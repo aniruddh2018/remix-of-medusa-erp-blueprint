@@ -23,6 +23,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import * as ledgerService from "@/services/ledgerService";
 import * as ledgerImportService from "@/services/ledgerImportService";
 import * as ledgerAdvanced from "@/services/ledgerAdvancedService";
+import { syncLedgerToCustomer, syncLedgerToSupplier } from "@/services/ledgerBridge";
 import { parse as csvParse } from "papaparse";
 import type {
   Ledger, LedgerGroup, LedgerGroupNode, LedgerRoleType, LedgerGroupType,
@@ -164,69 +165,209 @@ function TrialBalanceTab() {
   );
 }
 
+interface DuplicateLedgerForMerge {
+  canonicalName: string;
+  duplicateCount: number;
+  ledgerIds: string[];
+  totalDebit: number;
+  totalCredit: number;
+}
+
+interface MergePreviewResult {
+  canonicalName: string;
+  keptLedgerId: string;
+  keptLedgerName: string;
+  mergedLedgerId: string;
+  mergedLedgerName: string;
+  transactionsMoved: number;
+  ordersUpdated: number;
+  paymentsUpdated: number;
+  status: string;
+}
+
 function DuplicatesTab() {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [merging, setMerging] = useState<string | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
+  const [previewResults, setPreviewResults] = useState<MergePreviewResult[] | null>(null);
 
-  const { data: duplicates, isLoading, refetch } = useQuery<DuplicateLedgerGroup[]>({
-    queryKey: ['ledger-duplicates', companyId],
-    queryFn: () => ledgerAdvanced.detectDuplicateLedgers(companyId!),
+  const { data: duplicates, isLoading, refetch } = useQuery<DuplicateLedgerForMerge[]>({
+    queryKey: ['ledger-duplicates-db', companyId],
+    queryFn: () => ledgerAdvanced.findDuplicateLedgers(companyId!),
     enabled: !!companyId,
   });
 
-  const handleMerge = async (group: DuplicateLedgerGroup) => {
-    const primaryId = group.ledgers[0].id;
-    const dupIds = group.ledgers.slice(1).map(l => l.id);
-    setMerging(primaryId);
+  const handlePreview = async () => {
+    if (!companyId) return;
+    setIsMerging(true);
     try {
-      await ledgerAdvanced.mergeLedgers({ primaryId, duplicateIds: dupIds });
-      toast({ title: 'Merged', description: `${dupIds.length} duplicate(s) merged into ${group.ledgers[0].name}` });
+      const results = await ledgerAdvanced.bulkMergeDuplicateLedgers(companyId, true);
+      setPreviewResults(results);
+      toast({ title: 'Preview Ready', description: `${results.filter(r => r.status === 'WOULD_MERGE').length} duplicates would be merged` });
+    } catch (err) {
+      toast({ title: 'Preview failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleBulkMerge = async () => {
+    if (!companyId) return;
+    if (!confirm('This will merge all duplicate ledgers. This action cannot be undone. Continue?')) return;
+    
+    setIsMerging(true);
+    try {
+      const results = await ledgerAdvanced.bulkMergeDuplicateLedgers(companyId, false);
+      const merged = results.filter(r => r.status === 'MERGED').length;
+      const errors = results.filter(r => r.status.startsWith('ERROR')).length;
+      
+      toast({ 
+        title: 'Merge Complete', 
+        description: `${merged} groups merged${errors > 0 ? `, ${errors} errors` : ''}`,
+        variant: errors > 0 ? 'destructive' : 'default'
+      });
+      
+      setPreviewResults(results);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['ledgers'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger-stats'] });
+    } catch (err) {
+      toast({ title: 'Merge failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleMergeSingle = async (duplicate: DuplicateLedgerForMerge) => {
+    if (!companyId) return;
+    if (!confirm(`Merge ${duplicate.duplicateCount - 1} duplicate(s) into "${duplicate.canonicalName}"?`)) return;
+    
+    setIsMerging(true);
+    try {
+      // Find the target ledger (first with both roles, or most transactions)
+      const targetId = duplicate.ledgerIds[0]; // Already sorted by RPC function
+      const sourceIds = duplicate.ledgerIds.slice(1);
+      
+      for (const sourceId of sourceIds) {
+        await ledgerAdvanced.mergeLedgers(sourceId, targetId, companyId);
+      }
+      
+      toast({ title: 'Merged', description: `${sourceIds.length} ledger(s) merged into "${duplicate.canonicalName}"` });
       refetch();
       queryClient.invalidateQueries({ queryKey: ['ledgers'] });
     } catch (err) {
       toast({ title: 'Merge failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
-      setMerging(null);
+      setIsMerging(false);
     }
   };
 
+  const clearPreview = () => setPreviewResults(null);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Header with actions */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Duplicate Ledgers</h3>
-        <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-3.5 w-3.5 mr-1" />Scan</Button>
+        <div>
+          <h3 className="text-sm font-medium">Duplicate Ledgers</h3>
+          <p className="text-xs text-muted-foreground">Merge duplicate party records to consolidate transaction history</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isMerging}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />Scan
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePreview} disabled={isMerging || !duplicates?.length}>
+            <ClipboardCheck className="h-3.5 w-3.5 mr-1" />Preview
+          </Button>
+          <Button size="sm" onClick={handleBulkMerge} disabled={isMerging || !duplicates?.length} className="bg-amber-600 hover:bg-amber-700">
+            {isMerging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Merge className="h-3.5 w-3.5 mr-1" />}
+            Merge All
+          </Button>
+        </div>
       </div>
+
+      {/* Preview results */}
+      {previewResults && (
+        <Card className="p-4 bg-muted/50">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">
+              {previewResults.some(r => r.status === 'MERGED') ? 'Merge Results' : 'Preview (Dry Run)'}
+            </h4>
+            <Button variant="ghost" size="sm" onClick={clearPreview}><XCircle className="h-4 w-4" /></Button>
+          </div>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {previewResults.map((result, i) => (
+              <div key={i} className={`flex items-center justify-between p-2 rounded text-xs ${
+                result.status === 'MERGED' ? 'bg-green-50 border border-green-200' :
+                result.status === 'WOULD_MERGE' ? 'bg-blue-50 border border-blue-200' :
+                'bg-red-50 border border-red-200'
+              }`}>
+                <div>
+                  <span className="font-medium">{result.canonicalName}</span>
+                  <span className="text-muted-foreground ml-2">
+                    {result.mergedLedgerName} → {result.keptLedgerName}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {result.transactionsMoved > 0 && <span className="text-muted-foreground">{result.transactionsMoved} tx</span>}
+                  {result.ordersUpdated > 0 && <span className="text-muted-foreground">{result.ordersUpdated} orders</span>}
+                  {result.paymentsUpdated > 0 && <span className="text-muted-foreground">{result.paymentsUpdated} payments</span>}
+                  <Badge variant={result.status === 'MERGED' ? 'default' : result.status === 'WOULD_MERGE' ? 'secondary' : 'destructive'} className="text-[10px]">
+                    {result.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+          {previewResults.some(r => r.status === 'WOULD_MERGE') && (
+            <div className="mt-3 flex justify-end">
+              <Button size="sm" onClick={handleBulkMerge} className="bg-amber-600 hover:bg-amber-700">
+                <Merge className="h-3.5 w-3.5 mr-1" /> Execute Merge
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Duplicate list */}
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : !duplicates || duplicates.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground">
           <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
           <p>No duplicate ledgers detected.</p>
+          <p className="text-xs mt-1">All party records are unique and properly linked.</p>
         </Card>
       ) : (
         <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">{duplicates.length} duplicate group(s) found</p>
           {duplicates.map((group, i) => (
             <Card key={i} className="p-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium">{group.matchReason}</span>
-                  <Badge variant="outline" className="text-[10px]">{group.ledgers.length} ledgers</Badge>
+                  <span className="text-sm font-medium">{group.canonicalName}</span>
+                  <Badge variant="outline" className="text-[10px]">{group.duplicateCount} ledgers</Badge>
+                  {group.totalDebit > 0 || group.totalCredit > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Dr: ₹{group.totalDebit.toFixed(2)} · Cr: ₹{group.totalCredit.toFixed(2)}
+                    </span>
+                  )}
                 </div>
-                <Button size="sm" onClick={() => handleMerge(group)}
-                  disabled={merging === group.ledgers[0].id}>
-                  {merging === group.ledgers[0].id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Merge className="h-3.5 w-3.5 mr-1" />}
-                  Merge into first
+                <Button size="sm" onClick={() => handleMergeSingle(group)} disabled={isMerging}>
+                  {isMerging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Merge className="h-3.5 w-3.5 mr-1" />}
+                  Merge
                 </Button>
               </div>
+              <div className="text-xs text-muted-foreground mb-2">
+                Ledger IDs: {group.ledgerIds.join(', ')}
+              </div>
               <div className="flex flex-wrap gap-2">
-                {group.ledgers.map(l => (
-                  <div key={l.id} className="px-3 py-1.5 rounded border text-xs">
-                    <div className="font-medium">{l.name}</div>
-                    <div className="text-muted-foreground">{l.gstNumber || 'No GST'} · {l.sourceSystem}</div>
-                    <div className="flex gap-1 mt-1">{l.roles.map(r => <Badge key={r} className="text-[9px] px-1 py-0 h-3">{r}</Badge>)}</div>
+                {group.ledgerIds.map((id, idx) => (
+                  <div key={id} className={`px-3 py-1.5 rounded border text-xs ${idx === 0 ? 'border-green-300 bg-green-50' : ''}`}>
+                    <div className="font-medium font-mono text-[10px]">{id.substring(0, 8)}...</div>
+                    {idx === 0 && <Badge className="text-[9px] px-1 py-0 h-3 bg-green-100 text-green-800">Keep</Badge>}
                   </div>
                 ))}
               </div>
@@ -571,11 +712,22 @@ export default function LedgerManagement() {
   });
 
   const updateLedgerMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<CreateLedgerRequest> }) =>
-      ledgerService.updateLedger(id, companyId!, input),
+    mutationFn: async ({ id, input }: { id: string; input: Partial<CreateLedgerRequest> }) => {
+      const result = await ledgerService.updateLedger(id, companyId!, input);
+      // Sync to legacy tables when roles are modified
+      if (input.roles?.includes('customer')) {
+        await syncLedgerToCustomer(id, companyId!);
+      }
+      if (input.roles?.includes('supplier')) {
+        await syncLedgerToSupplier(id, companyId!);
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ledgers'] });
       queryClient.invalidateQueries({ queryKey: ['ledger-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       setIsLedgerDialogOpen(false);
       setEditingLedger(null);
       toast({ title: 'Ledger updated successfully' });

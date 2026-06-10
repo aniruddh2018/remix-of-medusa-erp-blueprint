@@ -128,9 +128,23 @@ export default function Sales() {
   const { data: customers } = useQuery({
     queryKey: ["customers-for-sale", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name, phone, email, address, gst_number").eq("company_id", companyId!).order("name");
+      const { data, error } = await supabase
+        .from("ledger_balances_with_names")
+        .select("id, name, phone, email, address, gst_number")
+        .eq("company_id", companyId!)
+        .contains("roles", ["customer"])
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
-      return data;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        address: l.address?.line1 ?? l.address ?? null,
+        gst_number: l.gst_number ?? null,
+      }));
     },
     enabled: !!companyId,
   });
@@ -1081,9 +1095,9 @@ export default function Sales() {
                       }}
                       onEditSelected={async (party) => {
                         // Fetch full record for the form
-                        const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                        const { data } = await supabase.from("ledgers").select("*").eq("id", party.id).single();
                         if (data) {
-                          setEditingCustomer(data as Tables<"customers">);
+                          setEditingCustomer(data as unknown as Tables<"customers">);
                           setCustomerCreateSeed({});
                           setShowCustomerDialog(true);
                         }
@@ -1574,12 +1588,12 @@ export default function Sales() {
           queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
           queryClient.invalidateQueries({ queryKey: ["customers"] });
           // Refresh the active customer's fields with the latest record
-          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+          supabase.from("ledgers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
             if (data) {
               setSelectedCustomerId(data.id);
               setCustomerName(data.name);
               setCustomerPhone(data.phone || "");
-              setCustomerAddress(data.address || "");
+              setCustomerAddress((data.address as any)?.line1 ?? data.address ?? "");
               setCustomerGstin(data.gst_number || "");
               setShowCustomerDialog(false);
               setCustomerCreateSeed({});

@@ -101,6 +101,11 @@ export default function PurchaseOrders() {
   const [handlingCharges, setHandlingCharges] = useState<number>(0);
   const [otherCharges, setOtherCharges] = useState<number>(0);
 
+  // Payment method state (cash purchase support)
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card" | "bank_transfer" | "cheque" | "credit">("credit");
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "pending" | "partial">("pending");
+  const [amountPaid, setAmountPaid] = useState<number>(0);
+
   // Challan/Invoice state
   const [challanNumber, setChallanNumber] = useState("");
   const [isChallan, setIsChallan] = useState(true);
@@ -157,8 +162,10 @@ export default function PurchaseOrders() {
     orderItems, selectedSupplier, expectedDeliveryDate, notes,
     freightCharges, handlingCharges, otherCharges,
     challanNumber, isChallan, purchaseRateGstInclusive,
+    paymentMethod, paymentStatus, amountPaid,
   }), [orderItems, selectedSupplier, expectedDeliveryDate, notes,
-      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan, purchaseRateGstInclusive]);
+      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan, purchaseRateGstInclusive,
+      paymentMethod, paymentStatus, amountPaid]);
 
   const { clearDraft: clearPODraft } = useDraftSave("draft_purchase_order", poDraft, (draft) => {
     if (draft.orderItems?.length > 0 || draft.selectedSupplier || draft.challanNumber) {
@@ -172,6 +179,9 @@ export default function PurchaseOrders() {
       setChallanNumber(draft.challanNumber || "");
       setIsChallan(draft.isChallan ?? true);
       setPurchaseRateGstInclusive(draft.purchaseRateGstInclusive ?? gstInclusive);
+      setPaymentMethod(draft.paymentMethod || "credit");
+      setPaymentStatus(draft.paymentStatus || "pending");
+      setAmountPaid(draft.amountPaid || 0);
       setDraftRestored(true);
     }
   });
@@ -210,13 +220,27 @@ export default function PurchaseOrders() {
   const { data: purchaseOrders, isLoading } = useQuery({
     queryKey: ["purchase-orders", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch purchase orders and join with ledgers for supplier name
+      const { data: orders, error } = await supabase
         .from("purchase_orders")
-        .select("*, suppliers (name)")
+        .select("*")
         .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      
+      // Fetch supplier names from ledgers
+      const supplierIds = [...new Set((orders || []).map(o => o.supplier_id).filter(Boolean))];
+      const { data: ledgers } = supplierIds.length > 0 
+        ? await supabase.from("ledgers").select("id, name").in("id", supplierIds)
+        : { data: [] };
+      
+      const ledgerMap = new Map((ledgers || []).map(l => [l.id, l.name]));
+      
+      // Attach supplier names to orders
+      return (orders || []).map(order => ({
+        ...order,
+        suppliers: { name: ledgerMap.get(order.supplier_id) || "Unknown" }
+      }));
     },
     enabled: !!companyId,
   });
@@ -244,9 +268,28 @@ export default function PurchaseOrders() {
   const { data: suppliers, refetch: refetchSuppliers } = useQuery({
     queryKey: ["suppliers-active", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
+      const { data, error } = await supabase
+        .from("ledger_balances_with_names")
+        .select("*")
+        .eq("company_id", companyId!)
+        .contains("roles", ["supplier"])
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
-      return data as Supplier[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        address: l.address?.line1 ?? l.address ?? null,
+        gst_number: l.gst_number ?? null,
+        contact_person: l.contact_person ?? null,
+        is_active: true,
+        company_id: l.company_id,
+        created_at: l.created_at,
+        updated_at: l.updated_at,
+      })) as Supplier[];
     },
     enabled: !!companyId,
   });
@@ -570,6 +613,9 @@ export default function PurchaseOrders() {
           is_challan: isChallan,
           invoice_number: !isChallan ? (challanNumber || null) : null,
           company_id: companyId,
+          payment_method: paymentMethod,
+          payment_status: paymentStatus,
+          amount_paid: amountPaid,
         })
         .select()
         .single();
@@ -966,8 +1012,8 @@ export default function PurchaseOrders() {
                   onClear={() => setSelectedSupplier("")}
                   onCreateNew={(seed) => { setEditingSupplier(null); setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
                   onEditSelected={async (party) => {
-                    const { data } = await supabase.from("suppliers").select("*").eq("id", party.id).single();
-                    if (data) { setEditingSupplier(data as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
+                    const { data } = await supabase.from("ledgers").select("*").eq("id", party.id).single();
+                    if (data) { setEditingSupplier(data as unknown as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
                   }}
                 />
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditingSupplier(null); setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
@@ -1332,6 +1378,43 @@ export default function PurchaseOrders() {
                   <Input type="number" min={0} step={0.01} value={handlingCharges || ""} onChange={e => setHandlingCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Handling ₹" />
                   <Input type="number" min={0} step={0.01} value={otherCharges || ""} onChange={e => setOtherCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Other ₹" />
                 </div>
+                {/* Payment Method Selection */}
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Payment:</Label>
+                  <Select value={paymentMethod} onValueChange={(v) => {
+                    const method = v as typeof paymentMethod;
+                    setPaymentMethod(method);
+                    if (method === "credit") {
+                      setPaymentStatus("pending");
+                      setAmountPaid(0);
+                    } else {
+                      setPaymentStatus("paid");
+                      setAmountPaid(grandTotal);
+                    }
+                  }}>
+                    <SelectTrigger className="h-7 text-xs w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credit">Credit (Pay Later)</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {paymentMethod !== "credit" && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      <Banknote className="h-3 w-3 mr-1" />Paid
+                    </Badge>
+                  )}
+                  {paymentMethod === "credit" && (
+                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                      Credit
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="space-y-3">
                 <BillingTotals
@@ -1359,7 +1442,7 @@ export default function PurchaseOrders() {
                   data-enter-nav-include="true"
                 >
                   {createOrderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Order (₹{grandTotal.toFixed(2)})
+                  {paymentMethod === "credit" ? "Create Order" : `Cash Purchase`} (₹{grandTotal.toFixed(2)})
                 </Button>
               </div>
             </div>

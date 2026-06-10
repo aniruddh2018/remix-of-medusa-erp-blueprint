@@ -3,20 +3,23 @@
 -- Phase 2.2: One-time migration to populate ledger_balances with real data
 -- ============================================================================
 
--- Fix: recreate helper functions without schema-qualified enum types
--- (the original migration used public.ledger_group_type etc. which may not resolve)
+SET search_path = public, extensions;
+
+-- Fix: recreate helper functions using TEXT instead of enum types
+-- (enum types may not be in the search_path during migration execution)
 
 CREATE OR REPLACE FUNCTION public.get_or_create_system_ledger(
   p_company_id UUID,
   p_ledger_name TEXT,
   p_group_name TEXT,
-  p_role_type ledger_role_type DEFAULT NULL
+  p_role_type TEXT DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
   v_group_id UUID;
   v_ledger_id UUID;
 BEGIN
+  SET LOCAL search_path = 'public', 'extensions';
   SELECT id INTO v_group_id
   FROM public.ledger_groups
   WHERE company_id = p_company_id AND name = p_group_name AND is_system = true
@@ -31,7 +34,7 @@ BEGIN
 
   IF v_group_id IS NULL THEN
     INSERT INTO public.ledger_groups (company_id, name, group_type, is_system, sort_order)
-    VALUES (p_company_id, p_group_name, 'other'::ledger_group_type, true, 99)
+    VALUES (p_company_id, p_group_name, 'other', true, 99)
     RETURNING id INTO v_group_id;
   END IF;
 
@@ -45,20 +48,23 @@ BEGIN
       company_id, ledger_group_id, name, opening_balance, balance_type,
       is_active, source_system
     ) VALUES (
-      p_company_id, v_group_id, p_ledger_name, 0, 'debit', true, 'system'
+      p_company_id, v_group_id, p_ledger_name, 0, 'debit', true, 'imported'
     )
     RETURNING id INTO v_ledger_id;
   END IF;
 
-  IF p_role_type IS NOT NULL THEN
+  IF p_role_type IS NOT NULL AND p_role_type IN (
+    'customer','supplier','manufacturer','distributor',
+    'employee','doctor','bank','tax','expense','income','asset','liability'
+  ) THEN
     INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
-    VALUES (v_ledger_id, p_company_id, p_role_type, false)
+    VALUES (v_ledger_id, p_company_id, p_role_type::public.ledger_role_type, false)
     ON CONFLICT (ledger_id, role_type) DO NOTHING;
   END IF;
 
   RETURN v_ledger_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = 'public', 'extensions';
 
 CREATE OR REPLACE FUNCTION public.resolve_party_ledger(
   p_company_id UUID,
@@ -69,8 +75,10 @@ RETURNS UUID AS $$
 DECLARE
   v_ledger_id UUID;
   v_group_name TEXT;
-  v_role ledger_role_type;
+  v_role TEXT;
+  v_group_type TEXT;
 BEGIN
+  SET LOCAL search_path = 'public', 'extensions';
   IF p_party_name IS NULL OR trim(p_party_name) = '' THEN
     RETURN NULL;
   END IF;
@@ -88,15 +96,17 @@ BEGIN
   IF p_party_type = 'supplier' THEN
     v_group_name := 'Sundry Creditors';
     v_role := 'supplier';
+    v_group_type := 'sundry_creditors';
   ELSE
     v_group_name := 'Sundry Debtors';
     v_role := 'customer';
+    v_group_type := 'sundry_debtors';
   END IF;
 
   INSERT INTO public.ledgers (
     company_id, name, opening_balance, balance_type, is_active, source_system
   ) VALUES (
-    p_company_id, trim(p_party_name), 0, 'debit', true, 'auto'
+    p_company_id, trim(p_party_name), 0, 'debit', true, 'imported'
   )
   RETURNING id INTO v_ledger_id;
 
@@ -108,19 +118,55 @@ BEGIN
     LIMIT 1;
     IF v_group_id IS NULL THEN
       INSERT INTO public.ledger_groups (company_id, name, group_type, is_system, sort_order)
-      VALUES (p_company_id, v_group_name,
-        CASE WHEN p_party_type = 'supplier' THEN 'sundry_creditors'::ledger_group_type ELSE 'sundry_debtors'::ledger_group_type END,
-        true, 99)
+      VALUES (p_company_id, v_group_name, v_group_type, true, 99)
       RETURNING id INTO v_group_id;
     END IF;
     UPDATE public.ledgers SET ledger_group_id = v_group_id WHERE id = v_ledger_id;
   END;
 
-  INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
-  VALUES (v_ledger_id, p_company_id, v_role, true)
-  ON CONFLICT (ledger_id, role_type) DO NOTHING;
+  IF v_role IN ('customer','supplier','manufacturer','distributor',
+    'employee','doctor','bank','tax','expense','income','asset','liability') THEN
+    INSERT INTO public.ledger_roles (ledger_id, company_id, role_type, is_primary)
+    VALUES (v_ledger_id, p_company_id, v_role::public.ledger_role_type, true)
+    ON CONFLICT (ledger_id, role_type) DO NOTHING;
+  END IF;
 
   RETURN v_ledger_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Fix: log_ledger_audit() has a bug with alias — recreate before backfill
+CREATE OR REPLACE FUNCTION public.log_ledger_audit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_action TEXT;
+  v_changed TEXT[];
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    v_action := 'create';
+    INSERT INTO public.ledger_audit_log (company_id, ledger_id, action, new_values, description)
+    VALUES (NEW.company_id, NEW.id, v_action, to_jsonb(NEW), 'Ledger created: ' || NEW.name);
+    RETURN NEW;
+  ELSIF TG_OP = 'UPDATE' THEN
+    v_action := 'update';
+    SELECT array_agg(diff.key) INTO v_changed
+    FROM (
+      SELECT r.key FROM jsonb_each(to_jsonb(NEW)) AS r(key, value)
+      EXCEPT
+      SELECT r.key FROM jsonb_each(to_jsonb(OLD)) AS r(key, value)
+    ) diff;
+    IF v_changed IS NOT NULL AND array_length(v_changed, 1) > 0 THEN
+      INSERT INTO public.ledger_audit_log (company_id, ledger_id, action, old_values, new_values, changed_fields, description)
+      VALUES (NEW.company_id, NEW.id, v_action, to_jsonb(OLD), to_jsonb(NEW), v_changed,
+        'Updated ' || array_to_string(v_changed, ', ') || ' on ' || NEW.name);
+    END IF;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    v_action := 'delete';
+    INSERT INTO public.ledger_audit_log (company_id, ledger_id, action, old_values, description)
+    VALUES (OLD.company_id, OLD.id, v_action, to_jsonb(OLD), 'Ledger deleted: ' || OLD.name);
+    RETURN OLD;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -328,12 +374,12 @@ BEGIN
     jvl.company_id,
     v_fy,
     COALESCE(lb.opening_balance, 0),
-    COALESCE(lb.opening_balance_type, 'debit'),
+    COALESCE(lb.opening_balance_type, 'debit'::public.balance_type),
     COALESCE(lb.opening_balance, 0) + COALESCE(SUM(jvl.debit_amount), 0) - COALESCE(SUM(jvl.credit_amount), 0),
     COALESCE(SUM(jvl.debit_amount), 0),
     COALESCE(SUM(jvl.credit_amount), 0),
     COALESCE(lb.opening_balance, 0) + COALESCE(SUM(jvl.debit_amount), 0) - COALESCE(SUM(jvl.credit_amount), 0),
-    CASE WHEN COALESCE(lb.opening_balance, 0) + COALESCE(SUM(jvl.debit_amount), 0) - COALESCE(SUM(jvl.credit_amount), 0) >= 0 THEN 'debit' ELSE 'credit' END
+    CASE WHEN COALESCE(lb.opening_balance, 0) + COALESCE(SUM(jvl.debit_amount), 0) - COALESCE(SUM(jvl.credit_amount), 0) >= 0 THEN 'debit'::public.balance_type ELSE 'credit'::public.balance_type END
   FROM public.journal_voucher_lines jvl
   LEFT JOIN public.ledger_balances lb ON lb.ledger_id = jvl.ledger_id AND lb.financial_year = v_fy
   GROUP BY jvl.ledger_id, jvl.company_id, lb.opening_balance, lb.opening_balance_type

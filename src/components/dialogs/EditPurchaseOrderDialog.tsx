@@ -509,6 +509,7 @@ export function EditPurchaseOrderDialog({ open, onOpenChange, orderId }: EditPur
             expiry_date: item.expiry_date || defaultExpiry.toISOString().split("T")[0],
             received_date: today,
             supplier_id: effectiveSupplierId,
+            ledger_id: effectiveSupplierId, // Use ledger_id for unified ledger tracking
             company_id: companyId,
           });
         }

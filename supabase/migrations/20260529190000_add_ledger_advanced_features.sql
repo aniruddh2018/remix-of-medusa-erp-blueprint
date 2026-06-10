@@ -49,18 +49,12 @@ BEGIN
     RETURN NEW;
   ELSIF TG_OP = 'UPDATE' THEN
     v_action := 'update';
-    SELECT array_agg(k) INTO v_changed
+    SELECT array_agg(diff.key) INTO v_changed
     FROM (
-      SELECT key FROM jsonb_object_keys(to_jsonb(NEW)) AS k(key)
+      SELECT r.key FROM jsonb_each(to_jsonb(NEW)) AS r(key, value)
       EXCEPT
-      SELECT key FROM jsonb_object_keys(to_jsonb(OLD)) AS k(key)
-      UNION
-      SELECT key FROM (
-        SELECT key, value FROM jsonb_each(to_jsonb(NEW))
-        EXCEPT
-        SELECT key, value FROM jsonb_each(to_jsonb(OLD))
-      ) t
-    ) sub;
+      SELECT r.key FROM jsonb_each(to_jsonb(OLD)) AS r(key, value)
+    ) diff;
     IF v_changed IS NOT NULL AND array_length(v_changed, 1) > 0 THEN
       INSERT INTO public.ledger_audit_log (company_id, ledger_id, action, old_values, new_values, changed_fields, description)
       VALUES (NEW.company_id, NEW.id, v_action, to_jsonb(OLD), to_jsonb(NEW), v_changed,

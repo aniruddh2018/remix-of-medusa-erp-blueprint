@@ -1,7 +1,7 @@
 # Graph Report - remix-of-medusa-erp-blueprint  (2026-06-02)
 
 ## Corpus Check
-- 298 files · ~374,637 words
+- 298 files · ~375,259 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

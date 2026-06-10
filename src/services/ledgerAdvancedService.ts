@@ -79,78 +79,6 @@ export async function detectDuplicateLedgers(companyId: string): Promise<Duplica
   return groups.sort((a, b) => b.matchScore - a.matchScore);
 }
 
-// ─── MERGE LEDGERS ───────────────────────────────────────────────────────────
-
-export async function mergeLedgers(input: {
-  primaryId: string;
-  duplicateIds: string[];
-  mergeRoles?: boolean;
-  mergeContact?: boolean;
-  mergeBank?: boolean;
-  mergeTax?: boolean;
-}): Promise<Ledger> {
-  const parsed = mergeLedgersSchema.parse(input);
-
-  const primary = await ledgerService.getLedgerById(parsed.primaryId);
-  if (!primary) throw new Error('Primary ledger not found');
-
-  for (const dupId of parsed.duplicateIds) {
-    const duplicate = await ledgerService.getLedgerById(dupId);
-    if (!duplicate) continue;
-
-    const updates: Record<string, unknown> = {};
-
-    if (parsed.mergeRoles && duplicate.roles) {
-      const existingRoles = new Set(primary.roles ?? []);
-      const newRoles = duplicate.roles.filter(r => !existingRoles.has(r)) as LedgerRoleType[];
-      for (const role of newRoles) {
-        await ledgerService.addLedgerRole(primary.id, primary.companyId, role).catch(() => {});
-      }
-    }
-
-    if (parsed.mergeContact) {
-      if (!primary.phone && duplicate.phone) updates.phone = duplicate.phone;
-      if (!primary.email && duplicate.email) updates.email = duplicate.email;
-      if (!primary.mobile && duplicate.mobile) updates.mobile = duplicate.mobile;
-      if (!primary.contactPerson && duplicate.contactPerson) updates.contact_person = duplicate.contactPerson;
-      if (!primary.city && duplicate.city) updates.city = duplicate.city;
-      if (!primary.state && duplicate.state) updates.state = duplicate.state;
-      if (!primary.pincode && duplicate.pincode) updates.pincode = duplicate.pincode;
-      if (!primary.alias && duplicate.alias) updates.alias = duplicate.alias;
-    }
-
-    if (parsed.mergeBank) {
-      if (!primary.bankName && duplicate.bankName) updates.bank_name = duplicate.bankName;
-      if (!primary.bankAccountNumber && duplicate.bankAccountNumber) updates.bank_account_number = duplicate.bankAccountNumber;
-      if (!primary.bankIfsc && duplicate.bankIfsc) updates.bank_ifsc = duplicate.bankIfsc;
-      if (!primary.bankBranch && duplicate.bankBranch) updates.bank_branch = duplicate.bankBranch;
-    }
-
-    if (parsed.mergeTax) {
-      if (!primary.gstNumber && duplicate.gstNumber) updates.gst_number = duplicate.gstNumber;
-      if (!primary.panNumber && duplicate.panNumber) updates.pan_number = duplicate.panNumber;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('ledgers').update(updates).eq('id', primary.id);
-    }
-
-    await supabase.from('ledger_roles').delete().eq('ledger_id', dupId);
-    await supabase.from('ledgers').update({ is_active: false }).eq('id', dupId);
-
-    await supabase.from('ledger_audit_log').insert({
-      company_id: primary.companyId,
-      ledger_id: primary.id,
-      action: 'merge',
-      old_values: { duplicate_id: dupId, duplicate_name: duplicate.name },
-      new_values: { merged_into: primary.id, merged_name: primary.name },
-      description: `Merged "${duplicate.name}" into "${primary.name}"`,
-    });
-  }
-
-  return ledgerService.getLedgerById(primary.id) ?? primary;
-}
-
 // ─── AUDIT TRAIL ────────────────────────────────────────────────────────────
 
 export async function getLedgerAuditLog(
@@ -345,4 +273,102 @@ export async function importLedgersFromCsv(
   }
 
   return { imported, duplicates, errors };
+}
+
+// ─── LEDGER MERGE ────────────────────────────────────────────────────────────
+
+export interface MergeLedgerResult {
+  sourceName: string;
+  targetName: string;
+  transactionsMoved: number;
+  ordersUpdated: number;
+  paymentsUpdated: number;
+  rolesMerged: number;
+  balanceTransferred: number;
+}
+
+export async function mergeLedgers(
+  sourceLedgerId: string,
+  targetLedgerId: string,
+  companyId: string,
+): Promise<MergeLedgerResult> {
+  const { data, error } = await supabase.rpc('merge_ledgers', {
+    p_source_ledger_id: sourceLedgerId,
+    p_target_ledger_id: targetLedgerId,
+    p_company_id: companyId,
+  });
+
+  if (error) throw new Error(`Failed to merge ledgers: ${error.message}`);
+  if (!data || data.length === 0) throw new Error('No result from merge operation');
+
+  const row = data[0];
+  return {
+    sourceName: row.source_name,
+    targetName: row.target_name,
+    transactionsMoved: row.transactions_moved,
+    ordersUpdated: row.orders_updated,
+    paymentsUpdated: row.payments_updated,
+    rolesMerged: row.roles_merged,
+    balanceTransferred: row.balance_transferred,
+  };
+}
+
+export interface DuplicateLedgerForMerge {
+  canonicalName: string;
+  duplicateCount: number;
+  ledgerIds: string[];
+  totalDebit: number;
+  totalCredit: number;
+}
+
+export async function findDuplicateLedgers(companyId: string): Promise<DuplicateLedgerForMerge[]> {
+  const { data, error } = await supabase.rpc('find_duplicate_ledgers', {
+    p_company_id: companyId,
+  });
+
+  if (error) throw new Error(`Failed to find duplicate ledgers: ${error.message}`);
+
+  return (data ?? []).map((row: any) => ({
+    canonicalName: row.canonical_name,
+    duplicateCount: row.duplicate_count,
+    ledgerIds: row.ledger_ids,
+    totalDebit: row.total_debit,
+    totalCredit: row.total_credit,
+  }));
+}
+
+export interface BulkMergeResult {
+  canonicalName: string;
+  keptLedgerId: string;
+  keptLedgerName: string;
+  mergedLedgerId: string;
+  mergedLedgerName: string;
+  transactionsMoved: number;
+  ordersUpdated: number;
+  paymentsUpdated: number;
+  status: string;
+}
+
+export async function bulkMergeDuplicateLedgers(
+  companyId: string,
+  dryRun: boolean = true,
+): Promise<BulkMergeResult[]> {
+  const { data, error } = await supabase.rpc('bulk_merge_duplicate_ledgers', {
+    p_company_id: companyId,
+    p_dry_run: dryRun,
+  });
+
+  if (error) throw new Error(`Failed to bulk merge ledgers: ${error.message}`);
+
+  return (data ?? []).map((row: any) => ({
+    canonicalName: row.canonical_name,
+    keptLedgerId: row.kept_ledger_id,
+    keptLedgerName: row.kept_ledger_name,
+    mergedLedgerId: row.merged_ledger_id,
+    mergedLedgerName: row.merged_ledger_name,
+    transactionsMoved: row.transactions_moved,
+    ordersUpdated: row.orders_updated,
+    paymentsUpdated: row.payments_updated,
+    status: row.status,
+  }));
 }

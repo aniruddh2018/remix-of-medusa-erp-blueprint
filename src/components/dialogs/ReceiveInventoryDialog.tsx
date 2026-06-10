@@ -144,6 +144,7 @@ export function ReceiveInventoryDialog({
         expiry_date: batch.expiry_date || null,
         manufacturing_date: batch.manufacturing_date || null,
         supplier_id: supplierId,
+        ledger_id: supplierId, // Use ledger_id for unified ledger tracking
         company_id: companyId,
         pack_size: batch.pack_size > 0 ? batch.pack_size : null,
       }));

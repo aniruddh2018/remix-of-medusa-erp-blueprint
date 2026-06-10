@@ -84,6 +84,14 @@ export default function Sales() {
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const getCurrentFY = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const startYear = d.getMonth() >= 3 ? y : y - 1; // April = month 3
+    return { start: `${startYear}-04-01`, end: `${startYear + 1}-03-31` };
+  };
+  const [saleDate, setSaleDate] = useState<string>(todayISO());
   const [customerName, setCustomerName] = useState(settings.default_customer_name || "");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");

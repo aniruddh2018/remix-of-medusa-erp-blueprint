@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supplierRepo } from "@/offline/repo";
-import { SyncManager } from "@/offline/sync/SyncManager";
+import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { syncSupplierToLedger } from "@/services/ledgerBridge";
 
 type Supplier = Tables<"suppliers">;
 
@@ -77,37 +77,48 @@ export function SupplierFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const row = await supplierRepo.upsert({ ...data, company_id: companyId } as any);
-      void SyncManager.forceSync();
-      return row;
+      const { data: supplier, error } = await supabase
+        .from("suppliers")
+        .insert({ ...data, company_id: companyId } as TablesInsert<"suppliers">)
+        .select()
+        .single();
+      if (error) throw error;
+      return supplier;
     },
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      if (companyId) syncSupplierToLedger(supplier, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Supplier created successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const row = await supplierRepo.upsert({ ...data, id, company_id: companyId } as any);
-      void SyncManager.forceSync();
-      return row;
+      const { data: supplier, error } = await supabase
+        .from("suppliers")
+        .update(data as TablesUpdate<"suppliers">)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return supplier;
     },
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      if (companyId) syncSupplierToLedger(supplier, companyId).catch(() => {});
       toast({ title: uiOverrides.successMessage || "Supplier updated successfully" });
       onOpenChange(false);
       onSuccess?.(supplier.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 

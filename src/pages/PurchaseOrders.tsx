@@ -1,6 +1,4 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { usePurchaseOrdersWithSupplier, usePaymentsByRefType, useActiveSuppliers, useActiveProducts } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +56,6 @@ const purchaseFlow = ["product", "batch", "unit", "qty", "free", "rate", "mrp", 
 
 export default function PurchaseOrders() {
   const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAdmin, isPharmacist } = useAuth();
   const { companyId, config, gstInclusive } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
@@ -103,6 +100,11 @@ export default function PurchaseOrders() {
   const [freightCharges, setFreightCharges] = useState<number>(0);
   const [handlingCharges, setHandlingCharges] = useState<number>(0);
   const [otherCharges, setOtherCharges] = useState<number>(0);
+
+  // Payment method state (cash purchase support)
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card" | "bank_transfer" | "cheque" | "credit">("credit");
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "pending" | "partial">("pending");
+  const [amountPaid, setAmountPaid] = useState<number>(0);
 
   // Challan/Invoice state
   const [challanNumber, setChallanNumber] = useState("");
@@ -160,8 +162,10 @@ export default function PurchaseOrders() {
     orderItems, selectedSupplier, expectedDeliveryDate, notes,
     freightCharges, handlingCharges, otherCharges,
     challanNumber, isChallan, purchaseRateGstInclusive,
+    paymentMethod, paymentStatus, amountPaid,
   }), [orderItems, selectedSupplier, expectedDeliveryDate, notes,
-      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan, purchaseRateGstInclusive]);
+      freightCharges, handlingCharges, otherCharges, challanNumber, isChallan, purchaseRateGstInclusive,
+      paymentMethod, paymentStatus, amountPaid]);
 
   const { clearDraft: clearPODraft } = useDraftSave("draft_purchase_order", poDraft, (draft) => {
     if (draft.orderItems?.length > 0 || draft.selectedSupplier || draft.challanNumber) {
@@ -175,6 +179,9 @@ export default function PurchaseOrders() {
       setChallanNumber(draft.challanNumber || "");
       setIsChallan(draft.isChallan ?? true);
       setPurchaseRateGstInclusive(draft.purchaseRateGstInclusive ?? gstInclusive);
+      setPaymentMethod(draft.paymentMethod || "credit");
+      setPaymentStatus(draft.paymentStatus || "pending");
+      setAmountPaid(draft.amountPaid || 0);
       setDraftRestored(true);
     }
   });
@@ -209,11 +216,48 @@ export default function PurchaseOrders() {
     flowStartedWhen: !!selectedSupplier || orderItems.length > 0,
   });
 
-  // ── Queries (PR 5: local-first reads via Dexie) ──
-  const purchaseOrders = usePurchaseOrdersWithSupplier<any>(companyId);
-  const isLoading = purchaseOrders === undefined;
+  // ── Queries ──
+  const { data: purchaseOrders, isLoading } = useQuery({
+    queryKey: ["purchase-orders", companyId],
+    queryFn: async () => {
+      // Fetch purchase orders and join with ledgers for supplier name
+      const { data: orders, error } = await supabase
+        .from("purchase_orders")
+        .select("*")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      
+      // Fetch supplier names from ledgers
+      const supplierIds = [...new Set((orders || []).map(o => o.supplier_id).filter(Boolean))];
+      const { data: ledgers } = supplierIds.length > 0 
+        ? await supabase.from("ledgers").select("id, name").in("id", supplierIds)
+        : { data: [] };
+      
+      const ledgerMap = new Map((ledgers || []).map(l => [l.id, l.name]));
+      
+      // Attach supplier names to orders
+      return (orders || []).map(order => ({
+        ...order,
+        suppliers: { name: ledgerMap.get(order.supplier_id) || "Unknown" }
+      }));
+    },
+    enabled: !!companyId,
+  });
 
-  const poPayments = usePaymentsByRefType(companyId, "purchase_order");
+  const { data: poPayments } = useQuery({
+    queryKey: ["payments-purchase", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("reference_id, amount")
+        .eq("company_id", companyId!)
+        .eq("reference_type", "purchase_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
 
   const paidByPoId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -221,11 +265,44 @@ export default function PurchaseOrders() {
     return map;
   }, [poPayments]);
 
-  const suppliers = useActiveSuppliers<Supplier>(companyId);
-  const refetchSuppliers = () => { /* reactive via Dexie */ };
+  const { data: suppliers, refetch: refetchSuppliers } = useQuery({
+    queryKey: ["suppliers-active", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ledger_balances_with_names")
+        .select("*")
+        .eq("company_id", companyId!)
+        .contains("roles", ["supplier"])
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        address: l.address?.line1 ?? l.address ?? null,
+        gst_number: l.gst_number ?? null,
+        contact_person: l.contact_person ?? null,
+        is_active: true,
+        company_id: l.company_id,
+        created_at: l.created_at,
+        updated_at: l.updated_at,
+      })) as Supplier[];
+    },
+    enabled: !!companyId,
+  });
 
-  const products = useActiveProducts<Product>(companyId);
-  const refetchProducts = () => { /* reactive via Dexie */ };
+  const { data: products, refetch: refetchProducts } = useQuery({
+    queryKey: ["products-active", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
+      if (error) throw error;
+      return data as Product[];
+    },
+    enabled: !!companyId,
+  });
 
   // ── Calculation helpers ──
   const calculateItemTotal = useCallback((price: number, qty: number, gst: number, discount: number, discountFlat: number = 0) => {
@@ -496,48 +573,115 @@ export default function PurchaseOrders() {
     focusProductSearch();
   }, [clearPODraft, focusProductSearch, gstInclusive]);
 
-  // ── Create order mutation (PR 6 — local-first via offline writer) ──
+  // ── Create order mutation ──
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      const { createPurchaseOrderLocal } = await import("@/offline/purchases/createPurchaseOrderLocal");
-      const order = await createPurchaseOrderLocal({
-        companyId: companyId!,
-        userId: user?.id ?? null,
-        header: {
+      if (!selectedSupplier) throw new Error("Please select a supplier");
+      if (orderItems.length === 0) throw new Error("Add at least one item");
+
+      if (challanNumber) {
+        const { data: existing } = await supabase
+          .from("purchase_orders")
+          .select("id")
+          .eq("supplier_id", selectedSupplier)
+          .or(isChallan ? `challan_number.eq.${challanNumber}` : `invoice_number.eq.${challanNumber}`)
+          .limit(1);
+        if (existing && existing.length > 0) throw new Error(`${isChallan ? "Challan" : "Invoice"} "${challanNumber}" already exists for this supplier.`);
+      }
+
+      const orderNumber = `PO-${Date.now()}`;
+      const gstAmount = totalGst;
+      const discountAmount = totalDiscountAmount;
+      const totalAmount = grandTotal;
+
+      const { data: order, error: orderError } = await supabase
+        .from("purchase_orders")
+        .insert({
+          order_number: orderNumber,
           supplier_id: selectedSupplier,
           expected_delivery_date: expectedDeliveryDate || null,
           notes: notes || null,
-          total_amount: grandTotal,
-          gst_amount: totalGst,
-          discount_amount: totalDiscountAmount,
+          total_amount: totalAmount,
+          gst_amount: gstAmount,
+          discount_amount: discountAmount,
           freight_charges: freightCharges,
           handling_charges: handlingCharges,
           other_charges: otherCharges,
+          created_by: user?.id,
           status: "pending",
-          challan_number: challanNumber || null,
+          challan_number: isChallan ? (challanNumber || null) : null,
           is_challan: isChallan,
-        },
-        items: orderItems.map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          free_quantity: item.free_quantity || 0,
-          purchased_unit: item.purchased_unit || item.base_unit || null,
-          base_quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
-          unit_price: item.unit_price,
-          gst_percentage: item.gst_percentage,
-          discount_percentage: item.discount_percentage,
-          total_price: item.total_price,
-          batch_number: item.batch_number || "",
-          expiry_date: item.expiry_date || null,
-          mrp: item.mrp,
-          fromChallan: item.fromChallan,
-        })),
-      });
+          invoice_number: !isChallan ? (challanNumber || null) : null,
+          company_id: companyId,
+          payment_method: paymentMethod,
+          payment_status: paymentStatus,
+          amount_paid: amountPaid,
+        })
+        .select()
+        .single();
+      if (orderError) throw orderError;
 
-      // Mark merged challans (online-only; ignored if offline)
-      if (!isChallan && selectedChallanIds.length > 0 && navigator.onLine) {
+      // Mark merged challans
+      if (!isChallan && selectedChallanIds.length > 0) {
         await supabase.from("purchase_orders").update({ converted_from_challan_id: order.id, is_challan: false }).in("id", selectedChallanIds);
+      }
+
+      try {
+        // Insert items
+        const newItems = orderItems.filter(item => !item.fromChallan);
+        if (newItems.length > 0) {
+          // Validate product_ids still exist (avoid FK violation if a product was deleted/merged)
+          const ids = Array.from(new Set(newItems.map(i => i.product_id).filter(Boolean)));
+          const { data: existingProducts, error: prodErr } = await supabase
+            .from("products").select("id").in("id", ids);
+          if (prodErr) throw prodErr;
+          const existingSet = new Set((existingProducts || []).map(p => p.id));
+          const missing = newItems.filter(i => !existingSet.has(i.product_id));
+          if (missing.length > 0) {
+            throw new Error(`These products no longer exist (deleted/merged). Remove them from the cart and re-add: ${missing.map(m => m.product_name).join(", ")}`);
+          }
+          const items = newItems.map((item) => ({
+            purchase_order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            free_quantity: item.free_quantity || 0,
+            purchased_unit: item.purchased_unit || item.base_unit || null,
+            base_quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
+            unit_price: item.unit_price,
+            gst_percentage: item.gst_percentage,
+            discount_percentage: item.discount_percentage,
+            total_price: item.total_price,
+            company_id: companyId,
+          }));
+          const { error: itemsError } = await supabase.from("purchase_order_items").insert(items);
+          if (itemsError) throw itemsError;
+        }
+
+        // Auto-receive via RPC (smart batch merge/create, MRP fallback)
+        const allItemsToReceive = orderItems.filter(item => !item.fromChallan);
+        if (allItemsToReceive.length > 0) {
+          const batchPayload = allItemsToReceive.map((item) => ({
+            product_id: item.product_id,
+            batch_number: item.batch_number || "",
+            quantity: item.base_quantity ?? (item.quantity + (item.free_quantity || 0)),
+            purchase_price: item.unit_price,
+            mrp: item.mrp || item.unit_price * 1.2,
+            expiry_date: item.expiry_date || null,
+            manufacturing_date: null,
+            supplier_id: selectedSupplier || null,
+            company_id: companyId,
+          }));
+          const { error: batchError } = await supabase.rpc("receive_purchase_batches", {
+            _batches: batchPayload,
+            _purchase_order_id: order.id,
+          });
+          if (batchError) throw batchError;
+        }
+      } catch (innerError) {
+        // Rollback: delete partially created order and its items
+        await supabase.from("purchase_order_items").delete().eq("purchase_order_id", order.id);
+        await supabase.from("purchase_orders").delete().eq("id", order.id);
+        throw innerError;
       }
 
       return order;
@@ -868,8 +1012,8 @@ export default function PurchaseOrders() {
                   onClear={() => setSelectedSupplier("")}
                   onCreateNew={(seed) => { setEditingSupplier(null); setSupplierCreateSeed(seed); setShowSupplierDialog(true); }}
                   onEditSelected={async (party) => {
-                    const { data } = await supabase.from("suppliers").select("*").eq("id", party.id).single();
-                    if (data) { setEditingSupplier(data as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
+                    const { data } = await supabase.from("ledgers").select("*").eq("id", party.id).single();
+                    if (data) { setEditingSupplier(data as unknown as Supplier); setSupplierCreateSeed({}); setShowSupplierDialog(true); }
                   }}
                 />
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditingSupplier(null); setSupplierCreateSeed({}); setShowSupplierDialog(true); }} data-enter-nav-skip="true" tabIndex={-1} title="Add new supplier (Ctrl+N)"><PlusCircle className="h-3 w-3" /></Button>
@@ -949,7 +1093,7 @@ export default function PurchaseOrders() {
                     GST incl. rate
                   </Label>
                 </div>
-                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} autoOpen={searchParams.get("quick") === "1"} onAutoOpenHandled={() => { const sp = new URLSearchParams(searchParams); sp.delete("quick"); setSearchParams(sp, { replace: true }); }} />
+                <QuickTextEntry type="purchase" products={products} onItemsConfirmed={handleQuickTextItems} />
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2">
@@ -1234,6 +1378,43 @@ export default function PurchaseOrders() {
                   <Input type="number" min={0} step={0.01} value={handlingCharges || ""} onChange={e => setHandlingCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Handling ₹" />
                   <Input type="number" min={0} step={0.01} value={otherCharges || ""} onChange={e => setOtherCharges(parseFloat(e.target.value) || 0)} className="h-7 text-xs" placeholder="Other ₹" />
                 </div>
+                {/* Payment Method Selection */}
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Payment:</Label>
+                  <Select value={paymentMethod} onValueChange={(v) => {
+                    const method = v as typeof paymentMethod;
+                    setPaymentMethod(method);
+                    if (method === "credit") {
+                      setPaymentStatus("pending");
+                      setAmountPaid(0);
+                    } else {
+                      setPaymentStatus("paid");
+                      setAmountPaid(grandTotal);
+                    }
+                  }}>
+                    <SelectTrigger className="h-7 text-xs w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credit">Credit (Pay Later)</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {paymentMethod !== "credit" && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      <Banknote className="h-3 w-3 mr-1" />Paid
+                    </Badge>
+                  )}
+                  {paymentMethod === "credit" && (
+                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                      Credit
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="space-y-3">
                 <BillingTotals
@@ -1261,7 +1442,7 @@ export default function PurchaseOrders() {
                   data-enter-nav-include="true"
                 >
                   {createOrderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Order (₹{grandTotal.toFixed(2)})
+                  {paymentMethod === "credit" ? "Create Order" : `Cash Purchase`} (₹{grandTotal.toFixed(2)})
                 </Button>
               </div>
             </div>

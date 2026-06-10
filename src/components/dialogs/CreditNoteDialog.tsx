@@ -245,11 +245,9 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
       if (!creditNoteNumber.trim()) throw new Error("Credit note number is required.");
       const custName = customerName.trim() || selectedInvoice?.customer_name || "Unknown";
 
-      const { createCreditNoteLocal } = await import("@/offline/sales/createCreditNoteLocal");
-      return await createCreditNoteLocal({
-        companyId: companyId!,
-        userId: user?.id || null,
-        header: {
+      const { data: cn, error: cnError } = await supabase
+        .from("credit_notes")
+        .insert({
           credit_note_number: creditNoteNumber.trim(),
           original_invoice_id: selectedInvoice?.id || null,
           original_invoice_number: selectedInvoice?.invoice_number || "MANUAL",
@@ -260,19 +258,38 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
           total_amount: totalAmount,
           gst_amount: totalGst,
           status: "issued",
-        },
-        items: returnItems.map((item) => ({
-          product_id: item.product_id,
-          batch_id: item.batch_id || null,
-          product_name: item.product_name,
-          batch_number: item.batch_number,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          gst_percentage: item.gst_percentage,
-          discount_percentage: item.discount_percentage,
-          total_price: item.total_price,
-        })),
-      });
+          created_by: user?.id || null,
+          company_id: companyId,
+        })
+        .select().single();
+      if (cnError) throw cnError;
+
+      const items = returnItems.map((item) => ({
+        credit_note_id: cn.id,
+        product_id: item.product_id,
+        batch_id: item.batch_id || null,
+        product_name: item.product_name,
+        batch_number: item.batch_number,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        gst_percentage: item.gst_percentage,
+        discount_percentage: item.discount_percentage,
+        total_price: item.total_price,
+        company_id: companyId,
+      }));
+      const { error: itemsError } = await supabase.from("credit_note_items").insert(items);
+      if (itemsError) throw itemsError;
+
+      // Restore inventory for returned items that have a batch
+      for (const item of returnItems) {
+        if (item.batch_id) {
+          const { data: batch } = await supabase.from("inventory_batches").select("quantity").eq("id", item.batch_id).single();
+          if (batch) {
+            await supabase.from("inventory_batches").update({ quantity: batch.quantity + item.quantity }).eq("id", item.batch_id);
+          }
+        }
+      }
+      return cn;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit-notes"] });

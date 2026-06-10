@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +19,6 @@ import {
 import { Search, Plus, Pencil, Trash2, Stethoscope } from "lucide-react";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import type { Tables } from "@/integrations/supabase/types";
-import { useDoctors } from "@/offline/hooks";
 
 type Doctor = Tables<"doctors">;
 
@@ -34,7 +33,16 @@ export default function Doctors() {
 
   useKeyboardShortcut({ key: "/", callback: () => searchRef.current?.focus() });
 
-  const doctors = (useDoctors<Doctor>(companyId) ?? []) as Doctor[];
+  const { data: doctors = [] } = useQuery({
+    queryKey: ["doctors-page", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("doctors").select("*").eq("company_id", companyId!).order("name");
+      if (error) throw error;
+      return data as Doctor[];
+    },
+    enabled: !!companyId,
+  });
 
   const filtered = doctors.filter((d) => {
     const q = search.toLowerCase();

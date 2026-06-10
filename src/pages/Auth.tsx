@@ -9,20 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Loader2 } from "lucide-react";
 import { z } from "zod";
 import logo from "@/assets/logo.png";
-import { OfflinePinUnlock } from "@/components/auth/OfflinePinUnlock";
-import { hasOfflineCache } from "@/offline/auth/offlineSession";
-import { exportOfflineDiagnostics } from "@/offline/exportDiagnostics";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { user, signIn, hydrateFromOfflineSession } = useAuth();
+  const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [hasOfflineData, setHasOfflineData] = useState(false);
-  const [showOfflineUnlock, setShowOfflineUnlock] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -33,21 +28,6 @@ export default function Auth() {
       navigate("/dashboard", { replace: true });
     }
   }, [user, navigate]);
-
-  useEffect(() => {
-    void hasOfflineCache().then(setHasOfflineData);
-  }, []);
-
-  if (showOfflineUnlock) {
-    return (
-      <OfflinePinUnlock
-        onUnlocked={(session) => {
-          hydrateFromOfflineSession(session);
-          navigate("/dashboard", { replace: true });
-        }}
-      />
-    );
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,21 +127,6 @@ export default function Auth() {
               )}
             </Button>
           </form>
-
-          {hasOfflineData && (
-            <div className="mt-3 grid grid-cols-1 gap-2">
-              <Button variant="outline" className="w-full" onClick={() => setShowOfflineUnlock(true)}>
-                Open offline data
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => void exportOfflineDiagnostics().then(() => toast({ title: "Offline export downloaded" }))}
-              >
-                Export offline data
-              </Button>
-            </div>
-          )}
           
           <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Shield className="h-4 w-4" />

@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 
 export interface OverdueInvoice {
@@ -18,7 +17,6 @@ export interface OverdueInvoice {
 
 export function useOverdueInvoices() {
   const { companyId } = useBusiness();
-  const { offlineMode } = useAuth();
   const today = format(new Date(), "yyyy-MM-dd");
 
   return useQuery({
@@ -36,7 +34,7 @@ export function useOverdueInvoices() {
       if (error) throw error;
       return (data || []) as OverdueInvoice[];
     },
-    enabled: !!companyId && !offlineMode,
+    enabled: !!companyId,
     staleTime: 60_000,
   });
 }

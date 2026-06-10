@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-
+import { supabase } from "@/integrations/supabase/client";
 import { detectDuplicates } from "@/utils/duplicateDetection";
 import { DuplicateProductsBanner } from "@/components/DuplicateProductsBanner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,9 +50,6 @@ import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog"
 import { MergeProductsDialog } from "@/components/dialogs/MergeProductsDialog";
 import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
-import { useRepoList } from "@/offline/hooks";
-import { productRepo } from "@/offline/repo";
-import { SyncManager } from "@/offline/sync/SyncManager";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type DrugSchedule = Database["public"]["Enums"]["drug_schedule"];
@@ -77,9 +74,8 @@ export default function Products() {
   const { isPharmacist } = useAuth();
   const { toast } = useToast();
   const { companyId, config } = useBusiness();
-  const localProducts = useRepoList(productRepo, companyId);
-  const products = (localProducts ?? []) as unknown as Product[];
-  const loading = localProducts === undefined;
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -120,19 +116,30 @@ export default function Products() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // List comes from the offline repo (Dexie live query). After server-side
-  // mutations we just kick the sync engine; the live query re-renders
-  // automatically once new rows are pulled.
   const fetchProducts = async () => {
+    if (!companyId) return;
     try {
-      await SyncManager.forceSync();
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("name");
+
+      if (error) throw error;
+      setProducts(data || []);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Sync failed", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // No-op on mount: useRepoList already subscribes. Kept for compatibility.
+    fetchProducts();
   }, [companyId]);
 
   const resetForm = () => {
@@ -162,17 +169,52 @@ export default function Products() {
     setSubmitting(true);
 
     try {
+      let productId: string | null = null;
+
       if (editingProduct) {
-        await productRepo.upsert({ ...formData, id: editingProduct.id, company_id: companyId } as any);
+        const { error } = await supabase
+          .from("products")
+          .update(formData)
+          .eq("id", editingProduct.id);
+
+        if (error) throw error;
+        productId = editingProduct.id;
         toast({ title: "Product updated successfully" });
       } else {
-        await productRepo.upsert({ ...formData, company_id: companyId } as any);
+        const { data, error } = await supabase
+          .from("products")
+          .insert({ ...formData, company_id: companyId })
+          .select()
+          .single();
+        if (error) throw error;
+        productId = data.id;
         toast({ title: "Product added successfully" });
+      }
+
+      // Generate and store semantic embedding (non-blocking to UI)
+      if (productId && formData.name) {
+        try {
+          const { data: embedData, error: embedError } = await supabase.functions.invoke("embed-text", {
+            body: { texts: [formData.name] },
+          });
+          if (!embedError && embedData?.embeddings?.[0]) {
+            await supabase.from("product_embeddings").upsert({
+              product_id: productId,
+              company_id: companyId,
+              embedding: JSON.stringify(embedData.embeddings[0]),
+              model: "nomic-ai/nomic-embed-text-v1.5",
+              generated_at: new Date().toISOString(),
+            }, { onConflict: "product_id" });
+            await supabase.from("products").update({ embedding_needs_update: false }).eq("id", productId);
+          }
+        } catch (embedErr) {
+          console.error("Failed to generate product embedding:", embedErr);
+        }
       }
 
       setDialogOpen(false);
       resetForm();
-      void SyncManager.forceSync();
+      fetchProducts();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -215,16 +257,21 @@ export default function Products() {
 
   const saveInlineEdit = async () => {
     if (!editingCell) return;
-
+    
     try {
       const value = ["mrp", "purchase_price", "sale_price", "gst_percentage"].includes(editingCell.field)
         ? parseFloat(editValue) || 0
         : editValue;
 
-      await productRepo.upsert({ id: editingCell.id, [editingCell.field]: value, company_id: companyId } as any);
+      const { error } = await supabase
+        .from("products")
+        .update({ [editingCell.field]: value })
+        .eq("id", editingCell.id);
 
+      if (error) throw error;
+      
       toast({ title: "Updated successfully" });
-      void SyncManager.forceSync();
+      fetchProducts();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
@@ -242,9 +289,10 @@ export default function Products() {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      await productRepo.softDelete(id);
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
       toast({ title: "Product deleted successfully" });
-      void SyncManager.forceSync();
+      fetchProducts();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -277,13 +325,12 @@ export default function Products() {
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      for (const id of ids) {
-        await productRepo.softDelete(id);
-      }
+      const { error } = await supabase.from("products").delete().in("id", ids);
+      if (error) throw error;
       toast({ title: `${ids.length} product(s) deleted` });
       setSelectedIds(new Set());
       setBulkDeleteOpen(false);
-      void SyncManager.forceSync();
+      fetchProducts();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { offlineDb, SYNCED_TABLES } from "@/offline/db";
 
 export type BusinessType = "pharmacy" | "pharmacy_b2b" | "b2b_electronics" | "general_trading";
 
@@ -60,7 +59,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings", "/sync", "/demand-intelligence"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
   pharmacy_b2b: {
     type: "pharmacy_b2b",
@@ -86,7 +85,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings", "/sync", "/demand-intelligence"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
   b2b_electronics: {
     type: "b2b_electronics",
@@ -112,7 +111,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "carton", label: "Carton" }, { value: "set", label: "Set" },
       { value: "pair", label: "Pair" }, { value: "meter", label: "Meter" }, { value: "kg", label: "Kilogram" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings", "/sync", "/demand-intelligence"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/purchase-orders", "/sales", "/scan-invoice", "/product-mapping-review", "/suppliers", "/customers", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
   general_trading: {
     type: "general_trading",
@@ -138,23 +137,9 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "carton", label: "Carton" }, { value: "kg", label: "Kilogram" },
       { value: "liter", label: "Liter" }, { value: "meter", label: "Meter" }, { value: "dozen", label: "Dozen" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings", "/sync", "/demand-intelligence"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/purchase-orders", "/sales", "/scan-invoice", "/suppliers", "/customers", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
 };
-
-async function inferOfflineCompanyId(): Promise<string | null> {
-  for (const table of SYNCED_TABLES) {
-    const rows = await (offlineDb as unknown as Record<string, ReturnType<typeof offlineDb.table>>)[table]
-      .toCollection()
-      .limit(25)
-      .toArray();
-    const row = rows.find((r: unknown) => Boolean((r as { company_id?: string | null }).company_id)) as
-      | { company_id?: string | null }
-      | undefined;
-    if (row?.company_id) return row.company_id;
-  }
-  return null;
-}
 
 interface BusinessContextType {
   config: BusinessConfig;
@@ -172,7 +157,7 @@ interface BusinessContextType {
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, roles, offlineMode, offlineSession } = useAuth();
+  const { user, loading: authLoading, roles } = useAuth();
   const isSuperAdmin = roles.includes("super_admin");
   const [businessType, setBusinessTypeState] = useState<BusinessType>("pharmacy");
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -187,25 +172,6 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
     // No user → not loading, no onboarding needed
     if (!user) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (offlineMode && offlineSession) {
-      let mounted = true;
-      (async () => {
-        const resolvedCompanyId = offlineSession.company_id ?? await inferOfflineCompanyId();
-        if (!mounted) return;
-        setCompanyId(resolvedCompanyId);
-        setCompanyNameState(offlineSession.full_name || "Offline company");
-        setNeedsOnboarding(!resolvedCompanyId && !isSuperAdmin);
-        setIsLoading(false);
-      })();
-      return () => { mounted = false; };
-    }
-
-    if (offlineMode) {
-      setCompanyId(null);
       setIsLoading(false);
       return;
     }
@@ -279,7 +245,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     fetchProfile();
 
     return () => { mounted = false; };
-  }, [user, authLoading, isSuperAdmin, offlineMode, offlineSession]);
+  }, [user, authLoading, isSuperAdmin]);
 
   const setBusinessType = async (type: BusinessType) => {
     if (!user || !companyId) return;

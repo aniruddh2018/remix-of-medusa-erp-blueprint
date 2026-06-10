@@ -6,8 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { FocusProvider } from "@/contexts/FocusContext";
-import { SyncProvider } from "@/contexts/SyncContext";
-import { OfflineGate } from "@/components/auth/OfflineGate";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -31,15 +29,15 @@ import AuditLogs from "./pages/AuditLogs";
 import Install from "./pages/Install";
 import Onboarding from "./pages/Onboarding";
 import DataImport from "./pages/DataImport";
+import MigrationDashboard from "./pages/MigrationDashboard";
 import ScanInvoice from "./pages/ScanInvoice";
 import CounterSales from "./pages/CounterSales";
 import Chat from "./pages/Chat";
 import QueryEngine from "./pages/QueryEngine";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
-import SyncCenter from "./pages/SyncCenter";
-import DemandIntelligence from "./pages/DemandIntelligence";
 import NotFound from "./pages/NotFound";
+import ProductMappingReview from "./pages/ProductMappingReview";
 
 const queryClient = new QueryClient();
 
@@ -50,10 +48,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <OfflineGate>
           <BusinessProvider>
             <FocusProvider>
-            <SyncProvider>
             <Routes>
               {/* Public pages — no auth required */}
               <Route path="/" element={<LandingPage />} />
@@ -78,7 +74,9 @@ const App = () => (
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/super-admin" element={<SuperAdmin />} />
                 <Route path="/data-import" element={<DataImport />} />
+                <Route path="/migration" element={<MigrationDashboard />} />
                 <Route path="/scan-invoice" element={<ScanInvoice />} />
+      
                 <Route path="/counter-sales" element={<CounterSales />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/query" element={<QueryEngine />} />
@@ -86,15 +84,11 @@ const App = () => (
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/sync" element={<SyncCenter />} />
-                <Route path="/demand-intelligence" element={<DemandIntelligence />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
-            </SyncProvider>
             </FocusProvider>
           </BusinessProvider>
-          </OfflineGate>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
@@ -102,3 +96,4 @@ const App = () => (
 );
 
 export default App;
+

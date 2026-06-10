@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -211,9 +212,9 @@ serve(async (req) => {
 
   try {
     // Get environment variables
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const FIREWORKS_API_KEY = Deno.env.get("FIREWORKS_API_KEY");
+    if (!FIREWORKS_API_KEY) {
+      throw new Error("FIREWORKS_API_KEY is not configured");
     }
 
     // Authenticate user
@@ -340,14 +341,14 @@ SQL: SELECT p.name, p.manufacturer, SUM(ib.quantity * COALESCE(ib.pack_size, 1) 
 Remember: Always filter by company_id = '${company_id}' and add LIMIT ${maxRows}`;
 
     const llmStartTime = Date.now();
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${FIREWORKS_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "accounts/fireworks/models/kimi-k2p5",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: query },
@@ -466,14 +467,12 @@ Remember: Always filter by company_id = '${company_id}' and add LIMIT ${maxRows}
       );
     }
 
-    // Execute the query
-    // Note: We use the service role client for execution but the SQL has already been validated
-    // and company_id filtering is enforced by validation
+    // Execute the query using anon client with user JWT for RLS enforcement
     let data: any[] | null = null;
     let error: any = null;
 
     try {
-      const queryPromise = supabase.rpc("execute_readonly_query", {
+      const queryPromise = anonClient.rpc("execute_readonly_query", {
         query_sql: validation.sanitized,
         max_rows: maxRows,
       });

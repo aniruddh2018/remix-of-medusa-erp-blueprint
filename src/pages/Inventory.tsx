@@ -1,5 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -13,30 +15,53 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Boxes, Loader2, TrendingUp, TrendingDown, Minus, History, Layers } from "lucide-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { ProductHistoryDialog } from "@/components/dialogs/ProductHistoryDialog";
 import { BatchViewerDialog } from "@/components/dialogs/BatchViewerDialog";
-import { useInventoryWithJoins, type InventoryWithJoins } from "@/offline/hooks";
 
-type InventoryItem = InventoryWithJoins;
+interface InventoryItem {
+  id: string;
+  product_id: string;
+  batch_number: string;
+  quantity: number;
+  loose_quantity: number;
+  pack_size: number | null;
+  expiry_date: string;
+  manufacturing_date: string | null;
+  purchase_price: number;
+  mrp: number;
+  received_date: string;
+  product: {
+    id: string;
+    name: string;
+    manufacturer: string;
+    reorder_level: number;
+    base_unit: string | null;
+    unit: string;
+  };
+  supplier: {
+    name: string;
+  } | null;
+}
 
 interface AggregatedProduct {
   product_id: string;
   product_name: string;
   manufacturer: string;
-  total_base_quantity: number;
+  total_base_quantity: number;   // total in BASE units across all batches (intelligent aggregation)
   reorder_level: number;
   base_unit: string;
-  pack_summary: string;
+  pack_summary: string;          // human readable per-batch packing summary
   batches: InventoryItem[];
 }
 
 export default function Inventory() {
   const { companyId } = useBusiness();
-  const inventoryData = useInventoryWithJoins(companyId);
-  const loading = inventoryData === undefined;
-  const inventory: InventoryItem[] = inventoryData ?? [];
+  const { toast } = useToast();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"aggregated" | "batches">("aggregated");
   const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
@@ -45,8 +70,35 @@ export default function Inventory() {
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
 
-  // Re-fetch is automatic via useLiveQuery; no-op kept for child callbacks.
-  const fetchInventory = () => { /* reactive */ };
+  const fetchInventory = async () => {
+    if (!companyId) return;
+    try {
+      const { data, error } = await supabase
+        .from("inventory_batches")
+        .select(`
+          *,
+          product:products(id, name, manufacturer, reorder_level, base_unit, unit),
+          supplier:suppliers(name)
+        `)
+        .eq("company_id", companyId)
+        .order("expiry_date", { ascending: true });
+
+      if (error) throw error;
+      setInventory(data as InventoryItem[] || []);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, [companyId]);
 
   // Aggregate intelligently: convert each batch's sealed packs (using ITS OWN pack_size)
   // to base units, then add loose. Batches with different pack_size stay independent.

@@ -10,14 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, CreditCard } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, CreditCard, BookOpen } from "lucide-react";
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CreditCustomersTab } from "@/components/CreditCustomersTab";
-import { useRepoList } from "@/offline/hooks";
-import { customerRepo } from "@/offline/repo";
+import { LedgerViewTab } from "@/components/LedgerViewTab";
+import type { LedgerBalanceWithName } from "@/types/ledger";
 
 interface Customer {
   id: string;
@@ -31,9 +31,8 @@ interface Customer {
   created_at: string;
   updated_at: string;
   company_id: string | null;
-  version: number;
-  device_id: string | null;
-  deleted: boolean;
+  currentBalance?: number;
+  roles?: string[];
 }
 
 export default function Customers() {
@@ -49,63 +48,61 @@ export default function Customers() {
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   useKeyboardShortcut({ key: "n", callback: () => setDialogOpen(true), enabled: !dialogOpen });
 
-  // Local-first read via Dexie. The sync engine populates this in the background.
-  const localCustomers = useRepoList(customerRepo, companyId);
-  const customers = (localCustomers ?? []).sort((a, b) => a.name.localeCompare(b.name)) as unknown as Customer[];
-  const isLoading = localCustomers === undefined;
-
-  // Fetch outstanding balances per customer
-  const { data: outstandingMap } = useQuery({
-    queryKey: ["customer-outstandings", companyId],
+  // Read from ledgers_with_roles + ledger_balances instead of customers table
+  const { data: customers, isLoading } = useQuery({
+    queryKey: ["customers", companyId],
     queryFn: async () => {
-      // Fetch all confirmed/delivered sales grouped by customer
-      const { data: sales } = await supabase
-        .from("sales_orders")
-        .select("customer_id, total_amount")
+      const { data, error } = await supabase
+        .from("ledger_balances_with_names")
+        .select("*")
         .eq("company_id", companyId!)
-        .not("customer_id", "is", null)
-        .in("status", ["confirmed", "delivered", "pending", "shipped"]);
-
-      // Fetch all payments for customers
-      const { data: payments } = await supabase
-        .from("payments")
-        .select("reference_id, amount")
-        .eq("company_id", companyId!)
-        .eq("party_type", "customer")
-        .eq("payment_type", "received");
-
-      const salesByCustomer: Record<string, number> = {};
-      sales?.forEach((s) => {
-        if (s.customer_id) {
-          salesByCustomer[s.customer_id] = (salesByCustomer[s.customer_id] || 0) + Number(s.total_amount);
-        }
-      });
-
-      const paymentsByRef: Record<string, number> = {};
-      payments?.forEach((p) => {
-        paymentsByRef[p.reference_id] = (paymentsByRef[p.reference_id] || 0) + Number(p.amount);
-      });
-
-      // Outstanding = total sales - total payments received
-      const map: Record<string, number> = {};
-      for (const custId of Object.keys(salesByCustomer)) {
-        map[custId] = salesByCustomer[custId] - (paymentsByRef[custId] || 0);
-      }
-      return map;
+        .contains("roles", ["customer"])
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        address: l.address?.line1 ?? null,
+        notes: l.import_metadata?.notes ?? null,
+        gst_number: l.gst_number ?? null,
+        total_purchases: Number(l.total_debit ?? 0),
+        created_at: l.created_at,
+        updated_at: l.updated_at,
+        company_id: l.company_id,
+        currentBalance: Number(l.current_balance ?? 0),
+        roles: l.roles ?? [],
+      })) as Customer[];
     },
+    enabled: !!companyId,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await customerRepo.softDelete(id);
-      void (await import("@/offline/sync/SyncManager")).SyncManager.forceSync();
+      const { data: vouchLines } = await supabase
+        .from("journal_voucher_lines")
+        .select("id")
+        .eq("ledger_id", id)
+        .limit(1);
+      if (vouchLines && vouchLines.length > 0) {
+        const { error } = await supabase.from("ledgers").update({ is_active: false }).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("ledgers").delete().eq("id", id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Customer deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["ledger-balances"] });
+      toast({ title: "Customer deactivated (has ledger history)" });
     },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
@@ -185,7 +182,7 @@ export default function Customers() {
               <IndianRupee className="h-8 w-8 text-warning" />
               <div>
                 <p className="text-2xl font-bold">
-                  ₹{Object.values(outstandingMap || {}).reduce((sum, v) => sum + Math.max(0, v), 0).toLocaleString()}
+                  ₹{customers?.reduce((sum, c) => sum + Math.max(0, c.currentBalance ?? 0), 0).toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground">Total Outstanding</p>
               </div>
@@ -202,6 +199,9 @@ export default function Customers() {
           </TabsTrigger>
           <TabsTrigger value="credit" className="gap-1.5">
             <CreditCard className="h-3.5 w-3.5" /> Credit Customers
+          </TabsTrigger>
+          <TabsTrigger value="ledger" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" /> Ledger View
           </TabsTrigger>
         </TabsList>
 
@@ -290,7 +290,7 @@ export default function Customers() {
                     </TableCell>
                     <TableCell className="text-right">
                       {(() => {
-                        const outstanding = outstandingMap?.[customer.id] || 0;
+                        const outstanding = customer.currentBalance ?? 0;
                         return outstanding > 0 ? (
                           <Badge className="bg-destructive text-destructive-foreground cursor-pointer" onClick={() => setOutstandingCustomer(customer)}>₹{outstanding.toLocaleString()}</Badge>
                         ) : (
@@ -382,7 +382,7 @@ export default function Customers() {
                   <div className="flex gap-2 items-center">
                     <Badge variant="secondary">₹{customer.total_purchases.toFixed(2)}</Badge>
                     {(() => {
-                      const outstanding = outstandingMap?.[customer.id] || 0;
+                      const outstanding = customer.currentBalance ?? 0;
                       return outstanding > 0 ? (
                         <Badge className="bg-destructive text-destructive-foreground">Due: ₹{outstanding.toLocaleString()}</Badge>
                       ) : null;
@@ -399,6 +399,10 @@ export default function Customers() {
 
         <TabsContent value="credit" className="mt-4">
           <CreditCustomersTab compact />
+        </TabsContent>
+
+        <TabsContent value="ledger" className="mt-4">
+          <LedgerViewTab role="customer" />
         </TabsContent>
       </Tabs>
 

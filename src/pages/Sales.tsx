@@ -1,6 +1,4 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useCustomers, useSalesOrders, usePaymentsByRefType, useActiveProducts, useAvailableBatches } from "@/offline/hooks";
 import { useDraftSave } from "@/hooks/useDraftSave";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +57,6 @@ const salesFlow = ["product", "unit", "qty", "free", "rate", "discount", "fefo",
 
 export default function Sales() {
   const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAdmin, isPharmacist } = useAuth();
   const { config, companyId, gstInclusive } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
@@ -135,8 +132,30 @@ export default function Sales() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
 
-  // ── Queries (PR 5: local-first reads via Dexie) ──
-  const customers = useCustomers<{ id: string; name: string; phone: string | null; email: string | null; address: string | null; gst_number: string | null }>(companyId);
+  // ── Queries ──
+  const { data: customers } = useQuery({
+    queryKey: ["customers-for-sale", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ledger_balances_with_names")
+        .select("id, name, phone, email, address, gst_number")
+        .eq("company_id", companyId!)
+        .contains("roles", ["customer"])
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? null,
+        email: l.email ?? null,
+        address: l.address?.line1 ?? l.address ?? null,
+        gst_number: l.gst_number ?? null,
+      }));
+    },
+    enabled: !!companyId,
+  });
 
 
   const saleDraft = useMemo(() => ({ cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges }), [cart, invoiceNumber, customerName, customerPhone, customerAddress, customerGstin, prescriptionNumber, prescriptionDate, prescriptionDurationDays, doctor, notes, freightCharges, handlingCharges, deliveryCharges, otherCharges]);
@@ -188,9 +207,25 @@ export default function Sales() {
     flowStartedWhen: !!selectedCustomerId || cart.length > 0,
   });
 
-  const salesOrders = useSalesOrders<SalesOrder>(companyId);
-  const isLoading = salesOrders === undefined;
-  const salesPayments = usePaymentsByRefType(companyId, "sales_order");
+  const { data: salesOrders, isLoading } = useQuery({
+    queryKey: ["sales-orders", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sales_orders").select("*").eq("company_id", companyId!).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as SalesOrder[];
+    },
+    enabled: !!companyId,
+  });
+
+  const { data: salesPayments } = useQuery({
+    queryKey: ["payments-sales", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("payments").select("reference_id, amount").eq("company_id", companyId!).eq("reference_type", "sales_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
 
   const paidBySalesId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -198,12 +233,27 @@ export default function Sales() {
     return map;
   }, [salesPayments]);
 
-  const products = useActiveProducts<Product>(companyId);
-  const refetchProducts = () => { /* reactive via Dexie */ };
+  const { data: products, refetch: refetchProducts } = useQuery({
+    queryKey: ["products-for-sale", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("*").eq("is_active", true).eq("company_id", companyId!).order("name");
+      if (error) throw error;
+      return data as Product[];
+    },
+    enabled: !!companyId,
+  });
 
   // Preload ALL batches for instant search (MARG-style speed)
-  const allBatches = useAvailableBatches<InventoryBatch>(companyId);
-
+  const { data: allBatches } = useQuery({
+    queryKey: ["all-batches-for-sale", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("inventory_batches").select("*").eq("company_id", companyId!).gt("quantity", 0).or(`expiry_date.gt.${new Date().toISOString().split("T")[0]},expiry_date.is.null`).order("expiry_date", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data as InventoryBatch[];
+    },
+    enabled: !!companyId,
+    staleTime: 30000,
+  });
 
   const batchesForProduct = useMemo(() => {
     if (!allBatches || !selectedProduct) return [];
@@ -579,10 +629,16 @@ export default function Sales() {
   const grandTotal = Math.max(0, subtotalBeforeBillDiscount - billDiscountAmount);
   const totalDiscountAmount = totalItemDiscount + billDiscountAmount;
 
-  // ── Save mutation (PR 6 — local-first via offline writer) ──
+  // ── Save mutation ──
   const createSaleMutation = useMutation({
     mutationFn: async () => {
-      const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+      let finalInvoiceNumber = invoiceNumber.trim();
+      if (!finalInvoiceNumber) {
+        const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+        const { data: seqNum, error: seqErr } = await supabase.rpc("get_next_invoice_number", { _company_id: companyId!, _prefix: rawPrefix });
+        if (seqErr) throw seqErr;
+        finalInvoiceNumber = seqNum as string;
+      }
       // Sale-date validation: must be within current FY and not in the future.
       const fy = getCurrentFY();
       const today = todayISO();
@@ -590,8 +646,16 @@ export default function Sales() {
       if (saleDate < fy.start || saleDate > fy.end) {
         throw new Error(`Sale date must be within the current financial year (${fy.start} to ${fy.end}).`);
       }
+      const invalidItems = cart.filter(i => !i.batch_id);
+      if (invalidItems.length > 0) throw new Error(`${invalidItems.length} item(s) have no batch assigned.`);
 
-      // Per-schedule prescription check (unchanged business rule)
+      const { data: existing } = await supabase.from("sales_orders").select("id").eq("invoice_number", finalInvoiceNumber).eq("company_id", companyId).limit(1);
+      if (existing && existing.length > 0) throw new Error(`Invoice "${finalInvoiceNumber}" already exists.`);
+
+      const gstAmount = totalGst;
+      const totalAmount = grandTotal;
+
+      // Per-schedule prescription check (configurable per pharmacy in Settings)
       if (config.hasDrugSchedule) {
         const rxCheck = settings.prescription_check || {};
         const triggeredSchedules = new Set<string>();
@@ -619,51 +683,71 @@ export default function Sales() {
         }
       }
 
-      const { createSalesOrderLocal } = await import("@/offline/sales/createSalesOrderLocal");
-      const result = await createSalesOrderLocal({
-        companyId: companyId!,
-        userId: user?.id ?? null,
-        blockExpired: !!(settings as any).block_expired_sales,
-        header: {
-          invoice_number: invoiceNumber.trim() || undefined,
-          prefix: rawPrefix,
-          customer_id: selectedCustomerId || null,
-          customer_name: customerName,
-          customer_phone: customerPhone || null,
-          customer_address: customerAddress || null,
-          customer_gstin: customerGstin || null,
-          prescription_number: prescriptionNumber || null,
-          prescription_date: prescriptionDate || null,
-          prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
-          doctor_id: doctor.id,
-          doctor_name: doctor.name || null,
-          doctor_registration_number: doctor.registration_number || null,
-          notes: notes || null,
-          total_amount: grandTotal,
-          gst_amount: totalGst,
-          discount_amount: totalDiscountAmount,
-          freight_charges: freightCharges,
-          handling_charges: handlingCharges,
-          delivery_charges: deliveryCharges,
-          other_charges: otherCharges,
-          status: "confirmed",
-          sale_date: saleDate,
-        },
-        items: cart.map(i => ({
-          product_id: i.product_id,
-          batch_id: i.batch_id!,
+      const { data: order, error: orderError } = await supabase.from("sales_orders").insert({
+        invoice_number: finalInvoiceNumber, customer_name: customerName, customer_phone: customerPhone || null,
+        customer_address: customerAddress || null, customer_id: selectedCustomerId || null, customer_gstin: customerGstin || null,
+        prescription_number: prescriptionNumber || null,
+        prescription_date: prescriptionDate || null,
+        prescription_duration_days: prescriptionDurationDays ? parseInt(prescriptionDurationDays, 10) : null,
+        doctor_id: doctor.id, doctor_name: doctor.name || null, doctor_registration_number: doctor.registration_number || null,
+        notes: notes || null,
+        total_amount: totalAmount, gst_amount: gstAmount, discount_amount: totalDiscountAmount,
+        freight_charges: freightCharges, handling_charges: handlingCharges, delivery_charges: deliveryCharges,
+        other_charges: otherCharges, created_by: user?.id, status: "confirmed", company_id: companyId,
+      }).select().single();
+      if (orderError) throw orderError;
+
+      try {
+        // For return rows, persist a NEGATIVE quantity so reports/aggregations net out correctly
+        const orderItems = cart.map(i => ({
+          sales_order_id: order.id, product_id: i.product_id, batch_id: i.batch_id,
+          quantity: i.is_return ? -i.quantity : i.quantity,
+          free_quantity: i.is_return ? -(i.free_quantity || 0) : (i.free_quantity || 0),
+          unit_price: i.unit_price,
+          gst_percentage: i.gst_percentage, discount_percentage: i.discount_percentage,
+          total_price: i.total_price, company_id: companyId,
+          sold_unit: i.sold_unit || null,
+          base_quantity: i.is_return
+            ? -(i.base_quantity ?? (i.quantity + (i.free_quantity || 0)))
+            : (i.base_quantity ?? (i.quantity + (i.free_quantity || 0))),
+        }));
+        const { error: itemsError } = await supabase.from("sales_order_items").insert(orderItems);
+        if (itemsError) throw itemsError;
+
+        // Split: deduct stock for sale lines, restore stock for return lines.
+        // Pass base_quantity so the RPC can deduct in the correct unit (mixed loose+sealed).
+        const deductItems = cart.filter(i => !i.is_return).map(i => ({
+          batch_id: i.batch_id,
           quantity: i.quantity,
           free_quantity: i.free_quantity || 0,
-          unit_price: i.unit_price,
-          gst_percentage: i.gst_percentage,
-          discount_percentage: i.discount_percentage,
-          total_price: i.total_price,
-          sold_unit: i.sold_unit || null,
           base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
-          is_return: !!i.is_return,
-        })),
-      });
-      return result;
+          reference_id: order.id,
+          unit_price: i.unit_price,
+        }));
+        const restoreItems = cart.filter(i => i.is_return).map(i => ({
+          batch_id: i.batch_id,
+          quantity: i.quantity,
+          free_quantity: i.free_quantity || 0,
+          base_quantity: i.base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+          reference_id: order.id,
+        }));
+
+        if (deductItems.length > 0) {
+          const { error: deductError } = await supabase.rpc("deduct_sale_inventory", { _items: deductItems });
+          if (deductError) throw new Error(deductError.message);
+        }
+        if (restoreItems.length > 0) {
+          const { error: restoreError } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+          if (restoreError) throw new Error(restoreError.message);
+        }
+      } catch (innerError) {
+        // Rollback: delete partially created order and its items
+        await supabase.from("sales_order_items").delete().eq("sales_order_id", order.id);
+        await supabase.from("sales_orders").delete().eq("id", order.id);
+        throw innerError;
+      }
+
+      return order;
     },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
@@ -685,8 +769,38 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { deleteSalesOrderLocal } = await import("@/offline/sales/deleteSalesOrderLocal");
-      await deleteSalesOrderLocal(orderId, { companyId: companyId!, userId: user?.id || null });
+      const { data: saleItems, error: fetchErr } = await supabase.from("sales_order_items").select("id, product_id, batch_id, quantity, free_quantity, base_quantity").eq("sales_order_id", orderId);
+      if (fetchErr) throw fetchErr;
+      // Sale lines (positive qty) → restore. Return lines (negative qty) → re-deduct.
+      // CRITICAL: pass base_quantity so multi-unit sales (e.g. 2 strips = 30 pcs) are restored/deducted in BASE units, not billed units.
+      const restoreItems = (saleItems || []).filter(i => i.quantity > 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: i.quantity,
+        free_quantity: i.free_quantity || 0,
+        base_quantity: (i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0)),
+        reference_id: orderId,
+      }));
+      const reDeductItems = (saleItems || []).filter(i => i.quantity < 0).map(i => ({
+        batch_id: i.batch_id,
+        quantity: Math.abs(i.quantity),
+        free_quantity: Math.abs(i.free_quantity || 0),
+        base_quantity: Math.abs((i as any).base_quantity ?? (i.quantity + (i.free_quantity || 0))),
+        reference_id: orderId,
+      }));
+      if (restoreItems.length > 0) {
+        const { error } = await supabase.rpc("restore_sale_inventory", { _items: restoreItems });
+        if (error) throw new Error(error.message);
+      }
+      if (reDeductItems.length > 0) {
+        const { error } = await supabase.rpc("deduct_sale_inventory", { _items: reDeductItems });
+        if (error) throw new Error(error.message);
+      }
+      await supabase.from("credit_notes").update({ original_invoice_id: null }).eq("original_invoice_id", orderId);
+      for (const item of (saleItems || [])) { await supabase.from("sales_order_items").delete().eq("id", item.id); }
+      await supabase.from("payments").delete().eq("reference_id", orderId).eq("reference_type", "sales_order");
+      const { data: deleted, error: orderErr } = await supabase.from("sales_orders").delete().eq("id", orderId).select();
+      if (orderErr) throw new Error(orderErr.message);
+      if (!deleted || deleted.length === 0) throw new Error("Could not delete invoice.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
@@ -1010,9 +1124,9 @@ export default function Sales() {
                       }}
                       onEditSelected={async (party) => {
                         // Fetch full record for the form
-                        const { data } = await supabase.from("customers").select("*").eq("id", party.id).single();
+                        const { data } = await supabase.from("ledgers").select("*").eq("id", party.id).single();
                         if (data) {
-                          setEditingCustomer(data as Tables<"customers">);
+                          setEditingCustomer(data as unknown as Tables<"customers">);
                           setCustomerCreateSeed({});
                           setShowCustomerDialog(true);
                         }
@@ -1117,7 +1231,7 @@ export default function Sales() {
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Products</span>
-              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} autoOpen={searchParams.get("quick") === "1"} onAutoOpenHandled={() => { const sp = new URLSearchParams(searchParams); sp.delete("quick"); setSearchParams(sp, { replace: true }); }} />
+              <QuickTextEntry type="sale" products={products} onItemsConfirmed={handleQuickTextItems} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
@@ -1503,12 +1617,12 @@ export default function Sales() {
           queryClient.invalidateQueries({ queryKey: ["customers-for-sale"] });
           queryClient.invalidateQueries({ queryKey: ["customers"] });
           // Refresh the active customer's fields with the latest record
-          supabase.from("customers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
+          supabase.from("ledgers").select("id, name, phone, address, gst_number").eq("id", customerId).single().then(({ data }) => {
             if (data) {
               setSelectedCustomerId(data.id);
               setCustomerName(data.name);
               setCustomerPhone(data.phone || "");
-              setCustomerAddress(data.address || "");
+              setCustomerAddress((data.address as any)?.line1 ?? data.address ?? "");
               setCustomerGstin(data.gst_number || "");
               setShowCustomerDialog(false);
               setCustomerCreateSeed({});

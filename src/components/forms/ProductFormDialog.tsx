@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { productRepo } from "@/offline/repo";
-import { SyncManager } from "@/offline/sync/SyncManager";
+import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { ProductConversionsEditor } from "@/components/forms/ProductConversionsEditor";
 
 type Product = Tables<"products">;
@@ -119,9 +118,13 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
 
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const row = await productRepo.upsert({ ...data, company_id: companyId } as any);
-      void SyncManager.forceSync();
-      return row;
+      const { data: product, error } = await supabase
+        .from("products")
+        .insert({ ...data, company_id: companyId } as TablesInsert<"products">)
+        .select()
+        .single();
+      if (error) throw error;
+      return product;
     },
     onSuccess: (product) => {
       invalidateProductQueries();
@@ -130,15 +133,20 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       onSuccess?.(product.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const row = await productRepo.upsert({ ...data, id, company_id: companyId } as any);
-      void SyncManager.forceSync();
-      return row;
+      const { data: product, error } = await supabase
+        .from("products")
+        .update(data as TablesUpdate<"products">)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return product;
     },
     onSuccess: (product) => {
       invalidateProductQueries();
@@ -147,7 +155,7 @@ export function ProductFormDialog({ open, onOpenChange, onSuccess, editingProduc
       onSuccess?.(product.id);
     },
     onError: (error) => {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 

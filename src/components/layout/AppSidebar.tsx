@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
+import   {
   LayoutDashboard,
   Package,
   Boxes,
@@ -38,8 +38,8 @@ import {
   Zap,
   Bot,
   Database,
-  RefreshCw,
-  BrainCircuit,
+  ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -57,7 +57,6 @@ const allMainMenuItems: MenuItem[] = [
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+6" },
   { title: "Expiry Tracking", icon: AlertTriangle, path: "/expiry", shortcut: null },
-  { title: "Demand Intelligence", icon: BrainCircuit, path: "/demand-intelligence", shortcut: null },
 ];
 
 const allOrderMenuItems: MenuItem[] = [
@@ -65,8 +64,6 @@ const allOrderMenuItems: MenuItem[] = [
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
   { title: "Counter Sales", icon: Zap, path: "/counter-sales", shortcut: "Alt+3" },
   { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
-  { title: "Generate Sale (AI)", icon: Bot, path: "/sales?quick=1", shortcut: null },
-  { title: "Generate Purchase (AI)", icon: Bot, path: "/purchase-orders?quick=1", shortcut: null },
 ];
 
 const allComplianceMenuItems: MenuItem[] = [
@@ -83,7 +80,6 @@ const allManagementMenuItems: MenuItem[] = [
 
 const allAdminMenuItems: MenuItem[] = [
   { title: "Reports", icon: BarChart3, path: "/reports" },
-  { title: "Sync Center", icon: RefreshCw, path: "/sync" },
   { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Settings", icon: Settings, path: "/settings" },
@@ -92,10 +88,11 @@ const allAdminMenuItems: MenuItem[] = [
 const superAdminMenuItems: MenuItem[] = [
   { title: "Super Admin", icon: Shield, path: "/super-admin" },
   { title: "Data Import", icon: Upload, path: "/data-import" },
+  { title: "Migration Engine", icon: Database, path: "/migration" },
 ];
 
 function filterItems(items: MenuItem[], visiblePages: string[]): MenuItem[] {
-  return items.filter((item) => visiblePages.includes(item.path.split("?")[0]));
+  return items.filter((item) => visiblePages.includes(item.path));
 }
 
 function MenuSection({ items, label }: { items: MenuItem[]; label: string }) {

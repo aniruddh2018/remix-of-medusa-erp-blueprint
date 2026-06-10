@@ -84,7 +84,7 @@ A **multi-tenant B2B SaaS ERP** for small-to-medium businesses. The same codebas
 | Row Level Security (RLS) | Data isolation |
 | Edge Functions (Deno) | Server-side logic |
 | Supabase Storage | Invoice file uploads |
-| Lovable AI Gateway | AI model access (Gemini) |
+| Fireworks AI Gateway | AI model access (Llama) |
 
 ---
 
@@ -502,7 +502,7 @@ Only admin/super_admin can change via Settings page. Updates both `companies.bus
 
 ### 9.9 Invoice Scanning (`ScanInvoice.tsx`)
 - Upload invoice image/PDF to Supabase Storage
-- Edge function sends to Gemini AI via Lovable AI Gateway
+- Edge function sends to Llama AI via Fireworks AI Gateway
 - AI extracts: supplier, items, quantities, prices, dates, GST
 - Auto-matches to existing products/suppliers
 - User reviews & confirms → creates purchase order
@@ -540,8 +540,8 @@ All in `supabase/functions/`. Auto-deployed by Lovable Cloud.
 
 ### `scan-invoice/index.ts`
 - **Auth**: Any authenticated user
-- **Flow**: Download image from storage → convert to base64 → send to Gemini with tool-calling → return structured JSON
-- **AI Model**: `google/gemini-2.5-flash` via Lovable AI Gateway
+- **Flow**: Download image from storage → convert to base64 → send to Llama with tool-calling → return structured JSON
+- **AI Model**: `accounts/fireworks/models/llama-v3p1-70b-instruct` via Fireworks AI Gateway
 - **Tool Schema**: Detailed JSON schema for invoice extraction with supplier, line items, charges
 
 ### `csv-import/index.ts`
@@ -733,7 +733,7 @@ toast({ title: "Error", description: err.message, variant: "destructive" });
 | `SUPABASE_URL` | Database URL |
 | `SUPABASE_ANON_KEY` | Public key for user-scoped queries |
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin key for privileged operations |
-| `LOVABLE_API_KEY` | AI Gateway access (for scan-invoice) |
+| `FIREWORKS_API_KEY` | AI Gateway access (for edge functions) |
 
 ### Deployment
 - **Preview**: Auto-deploys on code changes

@@ -113,43 +113,55 @@ export function SupplierReturnDialog({ open, onOpenChange, batch, onSuccess }: P
       const finalSupplierName = supplierName.trim() || "Unknown Supplier";
       const finalSupplierId = supplierId || null;
       const finalDnNumber = debitNoteNumber.trim() || `DN-${Date.now()}`;
+
       const totalValue = qty * Number(batch.purchase_price);
 
-      const { createDebitNoteLocal } = await import("@/offline/purchases/createDebitNoteLocal");
-      const dn = await createDebitNoteLocal({
-        companyId: companyId!,
-        userId: user?.id || null,
-        deductStock: true,
-        header: {
+      // 1. Create debit note header
+      const { data: dn, error: dnErr } = await supabase
+        .from("debit_notes")
+        .insert({
           debit_note_number: finalDnNumber,
           original_order_id: null,
           original_order_number: `BATCH-${batch.batch_number}`,
           supplier_id: finalSupplierId,
           supplier_name: finalSupplierName,
           reason,
-          notes:
-            notes ||
-            `Return of batch ${batch.batch_number}${
-              batch.expiry_date ? ` (expiry ${format(new Date(batch.expiry_date), "MMM yyyy")})` : ""
-            }`,
+          notes: notes || `Return of batch ${batch.batch_number}${batch.expiry_date ? ` (expiry ${format(new Date(batch.expiry_date), "MMM yyyy")})` : ""}`,
           total_amount: totalValue,
           gst_amount: 0,
           status: "issued",
-        },
-        items: [
-          {
-            product_id: batch.product_id,
-            batch_id: batch.id,
-            product_name: batch.product_name,
-            batch_number: batch.batch_number,
-            quantity: qty,
-            unit_price: Number(batch.purchase_price),
-            gst_percentage: 0,
-            discount_percentage: 0,
-            total_price: totalValue,
-          },
-        ],
+          created_by: user?.id || null,
+          company_id: companyId,
+        })
+        .select()
+        .single();
+      if (dnErr) throw dnErr;
+
+      // 2. Create debit note line item
+      const { error: itemErr } = await supabase.from("debit_note_items").insert({
+        debit_note_id: dn.id,
+        product_id: batch.product_id,
+        batch_id: batch.id,
+        product_name: batch.product_name,
+        batch_number: batch.batch_number,
+        quantity: qty,
+        unit_price: Number(batch.purchase_price),
+        gst_percentage: 0,
+        discount_percentage: 0,
+        total_price: totalValue,
+        company_id: companyId,
       });
+      if (itemErr) throw itemErr;
+
+      // 3. Process the actual return — deduct stock + log ledger
+      const { error: rpcErr } = await supabase.rpc("process_supplier_return" as any, {
+        _batch_id: batch.id,
+        _quantity: qty,
+        _reason: reason,
+        _debit_note_id: dn.id,
+        _notes: notes || null,
+      });
+      if (rpcErr) throw rpcErr;
 
       return { dn, qty };
     },

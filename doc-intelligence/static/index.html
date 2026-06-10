@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Scanner - Pipeline Test</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+.subtitle { color: #94a3b8; font-size: 0.8rem; }
+
+.upload-zone {
+  border: 2px dashed #334155; border-radius: 12px; padding: 30px;
+  text-align: center; cursor: pointer; transition: all 0.2s;
+  background: #1e293b; margin-bottom: 16px;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: #6366f1; background: #1e293b; }
+.upload-zone.has-file { border-color: #22c55e; border-style: solid; }
+.upload-icon { font-size: 1.5rem; margin-bottom: 6px; }
+.upload-zone p { color: #94a3b8; font-size: 0.85rem; }
+.upload-zone .filename { color: #22c55e; font-weight: 600; margin-top: 4px; }
+.preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 8px; display: none; }
+.preview-img.visible { display: block; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 24px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+  border: none; cursor: pointer; transition: all 0.15s; width: 100%; justify-content: center;
+}
+.btn-primary { background: #6366f1; color: white; }
+.btn-primary:hover { background: #4f46e5; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.spinner { display: none; width: 18px; height: 18px; border: 2px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.spinner.visible { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Layout ── */
+.main-layout { display: flex; gap: 16px; margin-top: 16px; }
+.left-panel { flex: 0 0 480px; display: flex; flex-direction: column; }
+.right-panel { flex: 1; min-width: 0; }
+.log-panel {
+  background: #0b1120; border: 1px solid #1e293b; border-radius: 10px;
+  height: 520px; overflow-y: auto; padding: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem; line-height: 1.7;
+}
+.log-header { color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; justify-content: space-between; }
+.log-header .clear-btn { cursor: pointer; color: #6366f1; font-size: 0.65rem; text-transform: none; }
+.log-entry { padding: 2px 0; display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+.log-ts { color: #334155; flex-shrink: 0; font-size: 0.62rem; min-width: 65px; }
+.log-stage { flex-shrink: 0; min-width: 20px; font-weight: 700; font-size: 0.7rem; text-align: center; }
+.log-stage-A { color: #818cf8; }
+.log-stage-B { color: #34d399; }
+.log-stage-C { color: #fbbf24; }
+.log-stage-done { color: #a78bfa; }
+.log-msg { color: #cbd5e1; word-break: break-word; }
+.log-entry.warn .log-msg { color: #fbbf24; }
+.log-entry.error .log-msg { color: #fca5a5; }
+.log-entry.metric { background: rgba(99,102,241,0.05); }
+
+/* ── Stage bar ── */
+.stage-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+.stage-dot {
+  flex: 1; padding: 8px 6px; border-radius: 8px; text-align: center;
+  font-size: 0.7rem; font-weight: 600; background: #1e293b; color: #475569;
+  border: 2px solid #1e293b; transition: all 0.2s;
+}
+.stage-dot.active { border-color: #6366f1; color: #a5b4fc; }
+.stage-dot.done { border-color: #22c55e; color: #22c55e; background: #052e16; }
+.stage-dot.fail { border-color: #ef4444; color: #ef4444; background: #2e0505; }
+.stage-dot .stage-time { font-size: 0.6rem; font-weight: 400; opacity: 0.8; display: block; }
+
+/* ── Results ── */
+.section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin: 16px 0 6px; }
+.card { background: #1e293b; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meta-item { font-size: 0.82rem; }
+.meta-label { color: #64748b; font-size: 0.7rem; }
+.badge { padding: 2px 8px; border-radius: 100px; font-size: 0.65rem; font-weight: 600; }
+.badge-ok { background: #052e16; color: #22c55e; }
+.badge-warn { background: #2e1f05; color: #f59e0b; }
+.badge-err { background: #2e0505; color: #ef4444; }
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+th { text-align: left; color: #64748b; padding: 6px 4px; border-bottom: 1px solid #334155; font-size: 0.65rem; text-transform: uppercase; }
+td { padding: 6px 4px; border-bottom: 1px solid #1e293b; }
+td.conf { font-weight: 600; }
+.conf-high { color: #22c55e; }
+.conf-mid { color: #f59e0b; }
+.conf-low { color: #ef4444; }
+.raw-text { font-family: 'SF Mono', monospace; font-size: 0.7rem; background: #0f172a; padding: 12px; border-radius: 8px; white-space: pre-wrap; max-height: 250px; overflow-y: auto; color: #94a3b8; line-height: 1.6; }
+.error-box { background: #2e0505; border: 1px solid #ef4444; border-radius: 8px; padding: 12px; color: #fca5a5; font-size: 0.82rem; }
+.anomaly-row { background: rgba(245,158,11,0.08); }
+.anomaly-tag { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 0.6rem; font-weight: 700; margin-right: 3px; }
+.tag-gst { background: #f59e0b; color: #0f172a; }
+.tag-qty { background: #ef4444; color: white; }
+.tag-mrp { background: #f97316; color: white; }
+@media (max-width: 960px) { .main-layout { flex-direction: column; } .left-panel { flex: none; } .log-panel { height: 300px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Invoice Scanner Pipeline</h1>
+  <p class="subtitle">Stage A: PaddleOCR → Stage B: Fireworks LLM → Stage C: Validate</p>
+
+  <div class="upload-zone" id="dropZone">
+    <div class="upload-icon">📄</div>
+    <p>Drop invoice image or click to browse</p>
+    <p class="filename" id="fileName"></p>
+    <img id="preview" class="preview-img" />
+    <input type="file" id="fileInput" accept="image/*" hidden />
+  </div>
+
+  <div class="stage-bar" id="stageBar">
+    <div class="stage-dot" id="stgA">A: OCR</div>
+    <div class="stage-dot" id="stgB">B: LLM Extract</div>
+    <div class="stage-dot" id="stgC">C: Validate</div>
+  </div>
+
+  <button class="btn btn-primary" id="scanBtn" disabled>
+    Scan Invoice
+  </button>
+  <div style="display:none" id="spinnerWrap"><span class="spinner visible" id="spinner"></span></div>
+
+  <div class="main-layout">
+    <div class="left-panel">
+      <div class="log-header">
+        <span>Pipeline Log</span>
+        <span class="clear-btn" onclick="clearLogs()">clear</span>
+      </div>
+      <div class="log-panel" id="logPanel">
+        <div class="log-entry" style="color:#475569">Waiting for upload...</div>
+      </div>
+    </div>
+    <div class="right-panel" id="results"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+const scanBtn = $('scanBtn');
+const logPanel = $('logPanel');
+let selectedFile = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  selectedFile = file;
+  $('fileName').textContent = file.name;
+  dropZone.classList.add('has-file');
+  scanBtn.disabled = false;
+  const reader = new FileReader();
+  reader.onload = e => { $('preview').src = e.target.result; $('preview').classList.add('visible'); };
+  reader.readAsDataURL(file);
+}
+
+function clearLogs() {
+  logPanel.innerHTML = '';
+}
+
+function logEntry(ts, stage, msg, level) {
+  const cls = level === 'warn' || level === 'error' ? level : '';
+  const stageCls = stage === 'A' ? 'log-stage-A' : stage === 'B' ? 'log-stage-B' : stage === 'C' ? 'log-stage-C' : 'log-stage-done';
+  const div = document.createElement('div');
+  div.className = `log-entry ${cls}`;
+  div.innerHTML = `<span class="log-ts">${ts}</span><span class="log-stage ${stageCls}">${stage}</span><span class="log-msg">${escHTML(msg)}</span>`;
+  logPanel.appendChild(div);
+  logPanel.scrollTop = logPanel.scrollHeight;
+}
+
+function setStage(stage, status, ms) {
+  const el = $('stg'+stage);
+  el.className = 'stage-dot ' + status;
+  if (ms) {
+    const label = el.textContent.split('\n')[0].trim();
+    el.innerHTML = `${label}<span class="stage-time">${ms}ms</span>`;
+  }
+}
+
+scanBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'Scanning...';
+  $('spinnerWrap').style.display = 'block';
+  $('spinner').classList.add('visible');
+  $('results').innerHTML = '';
+  ['A','B','C'].forEach(s => setStage(s, ''));
+  clearLogs();
+
+  const now = () => new Date().toISOString().split('T')[1].slice(0,12);
+  logEntry(now(), 'go', 'Starting pipeline via SSE...', 'info');
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const resp = await fetch('/pipeline/scan-stream', { method: 'POST', body: formData });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      let eventType = 'message', eventData = '';
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7);
+        else if (line.startsWith('data: ')) {
+          eventData = line.slice(6);
+          if (!eventData) continue;
+          try {
+            const data = JSON.parse(eventData);
+            if (eventType === 'log') {
+              const stage = data.stage || '?';
+              const level = data.level || 'info';
+              logEntry(now(), stage, data.msg, level);
+              if (data.errors) data.errors.forEach(e => logEntry(now(), stage, '  ⚠ ' + e, 'warn'));
+              if (data.anomalies) data.anomalies.forEach(a => logEntry(now(), stage, `  ⚡ ${a.type}: ${a.detail}`, 'warn'));
+            } else if (eventType === 'stage') {
+              const { stage, status, elapsed_ms } = data;
+              setStage(stage, status, elapsed_ms);
+              if (status === 'active') logEntry(now(), stage, data.label + '...', 'info');
+            } else if (eventType === 'error') {
+              logEntry(now(), data.stage||'ERR', 'FAILED: ' + data.msg, 'error');
+              $('results').innerHTML = `<div class="error-box"><strong>Stage ${data.stage||'?'} Failed</strong><br>${escHTML(data.msg)}</div>`;
+              if (data.raw_text_preview) {
+                $('results').innerHTML += `<div class="section-title">Raw Text (preview)</div><div class="raw-text">${escHTML(data.raw_text_preview)}</div>`;
+              }
+              setStage(data.stage||'A', 'fail');
+            } else if (eventType === 'result') {
+              $('results').innerHTML = renderResult(data);
+              const total = Object.values(data.timing||{}).reduce((s,v)=>s+v,0);
+              logEntry(now(), 'done', `Pipeline complete in ${total}ms`, '');
+            }
+          } catch { /* partial JSON, ignore */ }
+        }
+      }
+    }
+  } catch (e) {
+    logEntry(now(), 'ERR', 'Network error: ' + e.message, 'error');
+    $('results').innerHTML = `<div class="error-box">Network error: ${escHTML(e.message)}</div>`;
+  } finally {
+    scanBtn.disabled = false;
+    scanBtn.textContent = 'Scan Invoice';
+    $('spinner').classList.remove('visible');
+    $('spinnerWrap').style.display = 'none';
+  }
+});
+
+function renderResult(d) {
+  const v = d.validation || {};
+  const anom = v.anomalies || [];
+  const items = d.line_items || [];
+  const ocr = d.ocr_metadata || {};
+  let h = '';
+
+  h += `<div class="section-title">Invoice Summary</div>`;
+  h += `<div class="card"><div class="meta-grid">`;
+  h += `<div class="meta-item"><span class="meta-label">Supplier</span><br>${escHTML(d.supplier_name||'—')}</div>`;
+  h += `<div class="meta-item"><span class="meta-label">Invoice #</span><br>${escHTML(d.invoice_number||'—')}</div>`;
+  h += `<div class="meta-item"><span class="meta-label">Date</span><br>${escHTML(d.invoice_date||'—')}</div>`;
+  h += `<div class="meta-item"><span class="meta-label">Total</span><br>₹${d.total_amount||'—'}</div>`;
+  h += `</div></div>`;
+
+  h += `<div class="section-title">Line Items (${items.length})</div>`;
+  h += `<div class="card" style="overflow-x:auto;"><table>`;
+  h += `<tr><th>#</th><th>Product</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Rate</th><th>MRP</th><th>GST</th><th>Total</th><th>Conf</th></tr>`;
+  items.forEach((item, i) => {
+    const isAnom = anom.some(a => a.line === i);
+    const conf = item.extraction_confidence || 0;
+    const confClass = conf >= 80 ? 'conf-high' : conf >= 50 ? 'conf-mid' : 'conf-low';
+    let tags = '';
+    anom.filter(a => a.line === i).forEach(a => {
+      const c = a.type === 'high_gst' ? 'tag-gst' : a.type === 'negative_qty' ? 'tag-qty' : 'tag-mrp';
+      tags += `<span class="anomaly-tag ${c}">${a.type}</span>`;
+    });
+    h += `<tr class="${isAnom?'anomaly-row':''}">`;
+    h += `<td>${i+1}</td><td>${escHTML(item.product_name||'')}${tags}</td>`;
+    h += `<td>${escHTML(item.batch_number||'—')}</td><td>${escHTML(item.expiry_date||'—')}</td>`;
+    h += `<td>${item.quantity||0}</td><td>₹${item.purchase_price||0}</td><td>₹${item.mrp||0}</td>`;
+    h += `<td>${item.gst_percentage||0}%</td><td>₹${item.total_price||0}</td>`;
+    h += `<td class="conf ${confClass}">${conf}%</td></tr>`;
+  });
+  h += `</table></div>`;
+
+  if (anom.length) {
+    h += `<div class="section-title">⚠ Anomalies (${anom.length})</div><div class="card">`;
+    anom.forEach(a => {
+      const c = a.type==='high_gst'?'tag-gst':a.type==='negative_qty'?'tag-qty':'tag-mrp';
+      h += `<div style="font-size:0.82rem;padding:3px 0;border-bottom:1px solid #1e293b;"><span class="anomaly-tag ${c}">${a.type}</span> Line ${a.line+1}: ${escHTML(a.detail)}</div>`;
+    });
+    h += `</div>`;
+  }
+
+  const vPassed = v.passed !== false;
+  h += `<div class="section-title">Validation <span class="badge ${vPassed?'badge-ok':'badge-err'}">${vPassed?'PASSED':'FAILED'}</span></div>`;
+  if (!vPassed && v.validation_errors) {
+    h += `<div class="card">`;
+    v.validation_errors.forEach(e => h += `<div style="color:#fca5a5;font-size:0.82rem;">• ${escHTML(e)}</div>`);
+    h += `</div>`;
+  }
+
+  h += `<div class="section-title">OCR Details</div><div class="card"><div class="meta-grid">`;
+  h += `<div class="meta-item"><span class="meta-label">Type</span><br>${escHTML(ocr.document_type||'?')}</div>`;
+  h += `<div class="meta-item"><span class="meta-label">OCR Confidence</span><br>${((ocr.ocr_confidence_avg||0)*100).toFixed(1)}%</div>`;
+  h += `<div class="meta-item"><span class="meta-label">Text</span><br>${ocr.raw_text_length||0} chars</div>`;
+  h += `<div class="meta-item"><span class="meta-label">Tables</span><br>${ocr.tables_found||0}</div>`;
+  h += `</div></div>`;
+
+  if (d.raw_text) {
+    h += `<div class="section-title">Raw OCR Text</div><div class="raw-text">${escHTML(d.raw_text)}</div>`;
+  }
+
+  return h;
+}
+
+function escHTML(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

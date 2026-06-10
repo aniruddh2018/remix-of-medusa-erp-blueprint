@@ -39,6 +39,7 @@ export interface SalesOrderHeaderInput {
   delivery_charges: number;
   other_charges: number;
   status?: string;
+  sale_date?: string | null; // YYYY-MM-DD, defaults to today
 }
 
 export interface SalesOrderLineInput {

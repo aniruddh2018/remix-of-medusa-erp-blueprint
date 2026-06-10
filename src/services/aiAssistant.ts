@@ -38,7 +38,7 @@ export async function callAIAssistant(
       meta: m.meta ? { intent: m.meta.intent, confidence: m.meta.confidence } : undefined,
     })),
     company_id: params.companyId,
-    user_role: params.userRole,
+    user_role: params.userRole as never,
     business_type: params.businessType,
   };
 

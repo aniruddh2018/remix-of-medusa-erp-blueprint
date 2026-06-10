@@ -713,7 +713,7 @@ export default function LedgerManagement() {
 
   const updateLedgerMutation = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<CreateLedgerRequest> }) => {
-      const result = await ledgerService.updateLedger(id, companyId!, input);
+      const result = await ledgerService.updateLedger(id, companyId!, { ...input, id });
       // Sync to legacy tables when roles are modified
       if (input.roles?.includes('customer')) {
         await syncLedgerToCustomer(id, companyId!);
@@ -781,8 +781,8 @@ export default function LedgerManagement() {
       city: l.city ?? undefined, state: l.state ?? undefined,
       contactPerson: l.contactPerson ?? undefined,
       bankName: l.bankName ?? undefined, bankAccountNumber: l.bankAccountNumber ?? undefined,
-      bankIfsc: l.bankIfsc ?? undefined, bankBranch: l.bankBranch ?? undefined,
-      roles: l.roles ?? [l.primaryRole ?? 'customer'],
+      bankIfsc: l.bankIfsc ?? undefined,
+      roles: (l.roles ?? []).map(r => typeof r === 'string' ? r : r.roleType) as LedgerRoleType[],
       primaryRole: l.primaryRole ?? undefined,
       partyType: l.partyType,
     });
@@ -918,11 +918,14 @@ export default function LedgerManagement() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {l.roles?.map(r => (
-                              <Badge key={r} className={`text-[10px] px-1.5 py-0 h-4 ${ROLE_COLORS[r] || ''}`}>
-                                {r}
-                              </Badge>
-                            ))}
+                            {l.roles?.map(r => {
+                              const rt = typeof r === 'string' ? r : r.roleType;
+                              return (
+                                <Badge key={rt} className={`text-[10px] px-1.5 py-0 h-4 ${ROLE_COLORS[rt] || ''}`}>
+                                  {rt}
+                                </Badge>
+                              );
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -1207,7 +1210,7 @@ export default function LedgerManagement() {
                 </div>
                 <div>
                   <Label>Branch</Label>
-                  <Input value={ledgerForm.bankBranch ?? ''} onChange={e => setLedgerForm(p => ({ ...p, bankBranch: e.target.value || undefined }))} />
+                  <Input value={((ledgerForm as unknown as Record<string, unknown>).bankBranch as string) ?? ''} onChange={e => setLedgerForm(p => ({ ...p, bankBranch: e.target.value || undefined } as typeof p))} />
                 </div>
               </div>
             </div>

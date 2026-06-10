@@ -41,7 +41,6 @@ const ABBREVIATIONS: Record<string, string> = {
   'cr': 'cream',
   'gtt': 'drops',
   'inhl': 'inhaler',
-  'inj': 'injection',
   'sol': 'solution',
   'susp': 'suspension',
   'emul': 'emulsion',

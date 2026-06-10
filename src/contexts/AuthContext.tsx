@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "pharmacist" | "staff" | "super_admin";
+export type AppRole = "admin" | "pharmacist" | "staff" | "super_admin";
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +16,12 @@ interface AuthContextType {
   isAdmin: boolean;
   isPharmacist: boolean;
   isSuperAdmin: boolean;
+  // Offline auth (optional — populated only when offline features are wired)
+  hasPin?: boolean;
+  refreshPinStatus?: () => void;
+  offlineMode?: boolean;
+  offlineSession?: { company_id?: string | null } | null;
+  hydrateFromOfflineSession?: (session: unknown) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -153,6 +159,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isPharmacist,
         isSuperAdmin,
+        hasPin: false,
+        refreshPinStatus: () => {},
+        offlineMode: false,
+        offlineSession: null,
+        hydrateFromOfflineSession: () => {},
       }}
     >
       {children}

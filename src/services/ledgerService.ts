@@ -122,7 +122,7 @@ function fromDbLedger(row: Record<string, unknown>): Ledger {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     primaryRole: (row as Record<string, unknown>).primary_role as LedgerRoleType | null ?? null,
-    roles: ((row as Record<string, unknown>).roles as LedgerRoleType[]) ?? [],
+    roles: ((row as Record<string, unknown>).roles as unknown as import('@/types/ledger').LedgerRole[]) ?? [],
   };
 }
 
@@ -234,7 +234,7 @@ export async function getLedgerGroupById(id: string): Promise<LedgerGroup | null
 
 export async function createLedgerGroup(companyId: string, input: CreateLedgerGroupRequest): Promise<LedgerGroup> {
   const db = toDbGroup(input, companyId);
-  const { data, error } = await supabase.from('ledger_groups').insert(db).select('*').single();
+  const { data, error } = await supabase.from('ledger_groups').insert(db as never).select('*').single();
   if (error) {
     if (error.code === '23505') throw new Error(`Group "${input.name}" already exists`);
     throw new Error(`Failed to create group: ${error.message}`);
@@ -314,7 +314,7 @@ export async function getLedgersByRole(companyId: string, role: LedgerRoleType, 
 export async function createLedger(companyId: string, input: CreateLedgerRequest): Promise<Ledger> {
   const { db, roles, primaryRole } = toDbLedger(input, companyId);
 
-  const { data, error } = await supabase.from('ledgers').insert(db).select('*').single();
+  const { data, error } = await supabase.from('ledgers').insert(db as never).select('*').single();
   if (error) {
     if (error.code === '23505') throw new Error(`Ledger "${input.name}" already exists`);
     throw new Error(`Failed to create ledger: ${error.message}`);

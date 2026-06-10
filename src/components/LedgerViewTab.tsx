@@ -79,9 +79,12 @@ export function LedgerViewTab({ role }: LedgerViewTabProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {l.roles?.map(r => (
-                          <Badge key={r} className={`text-[10px] px-1.5 py-0 h-4 ${ROLE_COLORS[r] || ''}`}>{r}</Badge>
-                        ))}
+                        {l.roles?.map(r => {
+                          const rt = typeof r === 'string' ? r : r.roleType;
+                          return (
+                            <Badge key={rt} className={`text-[10px] px-1.5 py-0 h-4 ${ROLE_COLORS[rt] || ''}`}>{rt}</Badge>
+                          );
+                        })}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs font-mono">{l.gstNumber || '—'}</TableCell>

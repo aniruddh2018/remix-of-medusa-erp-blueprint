@@ -56,7 +56,7 @@ export async function getVouchers(
     .eq('company_id', companyId)
     .order('date', { ascending: false });
 
-  if (filters?.referenceType) query = query.eq('reference_type', filters.referenceType);
+  if (filters?.referenceType) query = query.eq('reference_type', filters.referenceType as never);
   if (filters?.fromDate) query = query.gte('date', filters.fromDate);
   if (filters?.toDate) query = query.lte('date', filters.toDate);
   if (filters?.limit) query = query.limit(filters.limit);

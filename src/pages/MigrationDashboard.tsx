@@ -155,16 +155,16 @@ export default function MigrationDashboard() {
           name: l.name,
           parentGroupName: l.parent_group,
           ledgerType: l.ledger_type,
-          gstNumber: l.gst_number || null,
-          panNumber: l.pan_number || null,
+          gstNumber: l.gstin || null,
+          panNumber: l.pan || null,
           phone: l.phone || null,
           email: l.email || null,
           address: l.address || null,
           state: l.state || null,
           openingBalance: Number(l.opening_balance || 0),
-          balanceType: (l.balance_type || 'debit') as 'debit' | 'credit',
+          balanceType: 'debit' as 'debit' | 'credit',
           roleTypes: (l.ledger_type ? [l.ledger_type].filter(rt => ledgerRoles.includes(rt as any)) : classifyLedgerType(l.parent_group).split(',').map(s => s.trim()).filter(rt => ledgerRoles.includes(rt as any))) as any[],
-          sourceData: l as Record<string, unknown>,
+          sourceData: l as unknown as Record<string, unknown>,
         }));
 
         const groupResult = await ledgerImportService.stageGroups(ledgerSession.id, companyId, groups);

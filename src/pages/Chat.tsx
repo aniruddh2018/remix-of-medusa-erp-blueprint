@@ -316,8 +316,8 @@ export default function Chat() {
           return;
         }
 
-        if (response.reply?.draft?.intent && response.meta.confidence >= 0.7) {
-          const intentData = response.reply.draft.intent;
+        const intentData = response.reply?.draft?.intent;
+        if (intentData && response.meta.confidence >= 0.7) {
           if (intentData.missing?.length === 0 && KNOWN_CRUD_INTENTS.has(intentData.type)) {
             const draft = buildDraft("chat", text, intentData);
             setPendingDraft(draft);
@@ -327,7 +327,7 @@ export default function Chat() {
           }
         }
 
-        if (response.reply?.draft?.intent && intentData?.missing?.length > 0) {
+        if (intentData && (intentData.missing?.length ?? 0) > 0) {
           pushMessages(buildConversationMessage("assistant", response.reply.text));
           setIsLoading(false);
           return;

@@ -1562,10 +1562,138 @@ export type Database = {
           },
         ]
       }
+      product_mapping_review_queue: {
+        Row: {
+          company_id: string
+          confidence_score: number
+          created_at: string
+          extracted_name: string
+          id: string
+          invoice_id: string | null
+          matching_method: string
+          normalized_name: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          suggested_product_id: string | null
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          confidence_score: number
+          created_at?: string
+          extracted_name: string
+          id?: string
+          invoice_id?: string | null
+          matching_method: string
+          normalized_name: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_product_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          confidence_score?: number
+          created_at?: string
+          extracted_name?: string
+          id?: string
+          invoice_id?: string | null
+          matching_method?: string
+          normalized_name?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_product_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_mapping_review_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_mapping_review_queue_suggested_product_id_fkey"
+            columns: ["suggested_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_mapping_review_queue_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_mapping_stats: {
+        Row: {
+          auto_mapped: number | null
+          avg_confidence_score: number | null
+          company_id: string | null
+          created_at: string
+          date: string
+          duplicates_prevented: number | null
+          human_approved: number | null
+          id: string
+          new_products_created: number | null
+          total_scans: number | null
+          updated_at: string
+        }
+        Insert: {
+          auto_mapped?: number | null
+          avg_confidence_score?: number | null
+          company_id?: string | null
+          created_at?: string
+          date: string
+          duplicates_prevented?: number | null
+          human_approved?: number | null
+          id?: string
+          new_products_created?: number | null
+          total_scans?: number | null
+          updated_at?: string
+        }
+        Update: {
+          auto_mapped?: number | null
+          avg_confidence_score?: number | null
+          company_id?: string | null
+          created_at?: string
+          date?: string
+          duplicates_prevented?: number | null
+          human_approved?: number | null
+          id?: string
+          new_products_created?: number | null
+          total_scans?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_mapping_stats_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           base_unit: string | null
           batch_tracking_enabled: boolean
+          brand: string | null
+          canonical_name: string | null
           category: string | null
           company_id: string | null
           composition: string | null
@@ -1573,7 +1701,10 @@ export type Database = {
           deleted: boolean
           device_id: string | null
           drug_schedule: Database["public"]["Enums"]["drug_schedule"]
+          embedding: string | null
           expiry_required: boolean | null
+          fingerprint: string | null
+          form: string | null
           generic_name: string | null
           gst_percentage: number
           hsn_code: string | null
@@ -1584,6 +1715,7 @@ export type Database = {
           min_stock_level: number
           mrp: number
           name: string
+          pack_size: string | null
           purchase_price: number
           reorder_level: number
           sale_price: number | null
@@ -1595,6 +1727,8 @@ export type Database = {
         Insert: {
           base_unit?: string | null
           batch_tracking_enabled?: boolean
+          brand?: string | null
+          canonical_name?: string | null
           category?: string | null
           company_id?: string | null
           composition?: string | null
@@ -1602,7 +1736,10 @@ export type Database = {
           deleted?: boolean
           device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
+          embedding?: string | null
           expiry_required?: boolean | null
+          fingerprint?: string | null
+          form?: string | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null
@@ -1613,6 +1750,7 @@ export type Database = {
           min_stock_level?: number
           mrp: number
           name: string
+          pack_size?: string | null
           purchase_price: number
           reorder_level?: number
           sale_price?: number | null
@@ -1624,6 +1762,8 @@ export type Database = {
         Update: {
           base_unit?: string | null
           batch_tracking_enabled?: boolean
+          brand?: string | null
+          canonical_name?: string | null
           category?: string | null
           company_id?: string | null
           composition?: string | null
@@ -1631,7 +1771,10 @@ export type Database = {
           deleted?: boolean
           device_id?: string | null
           drug_schedule?: Database["public"]["Enums"]["drug_schedule"]
+          embedding?: string | null
           expiry_required?: boolean | null
+          fingerprint?: string | null
+          form?: string | null
           generic_name?: string | null
           gst_percentage?: number
           hsn_code?: string | null
@@ -1642,6 +1785,7 @@ export type Database = {
           min_stock_level?: number
           mrp?: number
           name?: string
+          pack_size?: string | null
           purchase_price?: number
           reorder_level?: number
           sale_price?: number | null
@@ -1651,6 +1795,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_products_company_id"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_company_id_fkey"
             columns: ["company_id"]
@@ -2356,6 +2507,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_suppliers_company_id"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "suppliers_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -2538,6 +2696,69 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_product_aliases: {
+        Row: {
+          approved_by: string | null
+          confidence_score: number | null
+          created_at: string
+          embedding: string | null
+          id: string
+          is_approved: boolean | null
+          last_used_at: string | null
+          normalized_name: string
+          product_id: string
+          supplier_id: string
+          updated_at: string
+          usage_count: number | null
+          vendor_product_name: string
+        }
+        Insert: {
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_approved?: boolean | null
+          last_used_at?: string | null
+          normalized_name: string
+          product_id: string
+          supplier_id: string
+          updated_at?: string
+          usage_count?: number | null
+          vendor_product_name: string
+        }
+        Update: {
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_approved?: boolean | null
+          last_used_at?: string | null
+          normalized_name?: string
+          product_id?: string
+          supplier_id?: string
+          updated_at?: string
+          usage_count?: number | null
+          vendor_product_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_product_aliases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_product_aliases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2574,6 +2795,18 @@ export type Database = {
         Args: { _business_type: string; _company_name: string }
         Returns: string
       }
+      compute_hybrid_match_score: {
+        Args: {
+          _candidate_product: Json
+          _parsed_invoice: Json
+          _vector_similarity?: number
+        }
+        Returns: number
+      }
+      cosine_distance_to_confidence: {
+        Args: { distance: number }
+        Returns: number
+      }
       deduct_batch_quantity:
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }
@@ -2588,6 +2821,29 @@ export type Database = {
       execute_readonly_query: {
         Args: { max_rows?: number; query_sql: string }
         Returns: Json
+      }
+      find_best_product_match: {
+        Args: {
+          company_id: string
+          extracted_name: string
+          query_embedding?: string
+          supplier_id?: string
+        }
+        Returns: {
+          confidence_score: number
+          matching_method: string
+          product_id: string
+          product_name: string
+        }[]
+      }
+      generate_product_fingerprint: {
+        Args: {
+          brand?: string
+          form?: string
+          pack_size?: string
+          strength?: string
+        }
+        Returns: string
       }
       get_current_financial_year: {
         Args: { _company_id: string }
@@ -2609,6 +2865,8 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      normalize_product_text: { Args: { input_text: string }; Returns: string }
+      parse_product_text: { Args: { input_text: string }; Returns: Json }
       process_supplier_return: {
         Args: {
           _batch_id: string
@@ -2651,6 +2909,10 @@ export type Database = {
       switch_active_company: {
         Args: { _company_id: string }
         Returns: undefined
+      }
+      text_similarity: {
+        Args: { text1: string; text2: string }
+        Returns: number
       }
       unaccent: { Args: { "": string }; Returns: string }
       user_has_company: {

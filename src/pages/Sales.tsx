@@ -647,6 +647,7 @@ export default function Sales() {
           delivery_charges: deliveryCharges,
           other_charges: otherCharges,
           status: "confirmed",
+          sale_date: saleDate,
         },
         items: cart.map(i => ({
           product_id: i.product_id,

@@ -703,6 +703,7 @@ export default function Sales() {
     clearDraft();
     setCart([]);
     setInvoiceNumber("");
+    setSaleDate(todayISO());
     setCustomerName(settings.default_customer_name || "");
     setCustomerPhone("");
     setCustomerAddress("");

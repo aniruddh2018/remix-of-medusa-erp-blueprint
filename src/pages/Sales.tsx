@@ -84,6 +84,14 @@ export default function Sales() {
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const getCurrentFY = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const startYear = d.getMonth() >= 3 ? y : y - 1; // April = month 3
+    return { start: `${startYear}-04-01`, end: `${startYear + 1}-03-31` };
+  };
+  const [saleDate, setSaleDate] = useState<string>(todayISO());
   const [customerName, setCustomerName] = useState(settings.default_customer_name || "");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -575,6 +583,13 @@ export default function Sales() {
   const createSaleMutation = useMutation({
     mutationFn: async () => {
       const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+      // Sale-date validation: must be within current FY and not in the future.
+      const fy = getCurrentFY();
+      const today = todayISO();
+      if (saleDate > today) throw new Error("Sale date cannot be in the future.");
+      if (saleDate < fy.start || saleDate > fy.end) {
+        throw new Error(`Sale date must be within the current financial year (${fy.start} to ${fy.end}).`);
+      }
 
       // Per-schedule prescription check (unchanged business rule)
       if (config.hasDrugSchedule) {
@@ -632,6 +647,7 @@ export default function Sales() {
           delivery_charges: deliveryCharges,
           other_charges: otherCharges,
           status: "confirmed",
+          sale_date: saleDate,
         },
         items: cart.map(i => ({
           product_id: i.product_id,
@@ -687,6 +703,7 @@ export default function Sales() {
     clearDraft();
     setCart([]);
     setInvoiceNumber("");
+    setSaleDate(todayISO());
     setCustomerName(settings.default_customer_name || "");
     setCustomerPhone("");
     setCustomerAddress("");
@@ -944,6 +961,19 @@ export default function Sales() {
             <div className="space-y-1">
               <Label className="text-[11px]">Invoice #</Label>
               <Input ref={invoiceNumberRef} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Auto-generated" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">
+                Sale Date {saleDate !== todayISO() && <span className="text-amber-600 font-medium">(backdated)</span>}
+              </Label>
+              <Input
+                type="date"
+                value={saleDate}
+                max={todayISO()}
+                min={getCurrentFY().start}
+                onChange={e => setSaleDate(e.target.value || todayISO())}
+                className="h-8 text-sm"
+              />
             </div>
             <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">Customer *</Label>

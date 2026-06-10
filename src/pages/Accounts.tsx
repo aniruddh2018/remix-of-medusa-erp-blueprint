@@ -1707,7 +1707,7 @@ function AuditTab() {
                   <TableCell className="text-xs">{new Date(entry.createdAt).toLocaleString()}</TableCell>
                   <TableCell><Badge className={`text-[10px] ${ACTION_COLORS[entry.action] || 'bg-slate-100'}`}>{entry.action}</Badge></TableCell>
                   <TableCell className="text-sm">{entry.description}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{entry.performedBy || 'System'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{entry.userId || 'System'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1738,10 +1738,10 @@ function ExpenseEntryTab() {
   const { data: expenseLedgers, isLoading: loadingExpenses } = useQuery({
     queryKey: ["expense-ledgers", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as unknown as { rpc: (n: string, a: unknown) => Promise<{ data: unknown; error: unknown }> })
         .rpc("get_expense_ledgers", { p_company_id: companyId });
-      if (error) throw error;
-      return data || [];
+      if (error) throw error as Error;
+      return (data as unknown[]) || [];
     },
     enabled: !!companyId,
   });
@@ -1771,7 +1771,7 @@ function ExpenseEntryTab() {
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc("create_expense_voucher", {
+      const { data, error } = await (supabase as unknown as { rpc: (n: string, a: unknown) => Promise<{ data: unknown; error: unknown }> }).rpc("create_expense_voucher", {
         p_company_id: companyId,
         p_date: date,
         p_expense_ledger_id: expenseLedgerId,

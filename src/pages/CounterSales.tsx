@@ -203,13 +203,14 @@ export default function CounterSales() {
   const { data: customers } = useQuery({
     queryKey: ["customers-for-counter", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ledger_balances_with_names")
+      const { data, error } = await (supabase.from("ledger_balances_with_names" as never) as never as {
+        select: (s: string) => { eq: (k: string, v: unknown) => { contains: (k: string, v: unknown) => { eq: (k: string, v: unknown) => { order: (k: string) => Promise<{ data: unknown; error: unknown }> } } } }
+      })
         .select("id, name, phone, email, address, gst_number")
         .eq("company_id", companyId!)
         .contains("roles", ["customer"])
         .eq("is_active", true)
-        .order("name");
+        .order("name") as { data: unknown[] | null; error: Error | null };
       if (error) throw error;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data ?? []).map((l: any) => ({

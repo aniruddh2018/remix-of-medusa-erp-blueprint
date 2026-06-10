@@ -39,7 +39,8 @@ import type { ParsedData } from "@/types/dataImport";
 
 export default function DataImport() {
   const { isSuperAdmin, loading: authLoading } = useAuth();
-  const { company } = useBusiness();
+  const { companyId } = useBusiness();
+  const company = companyId ? { id: companyId } : null;
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"import" | "history">("import");
@@ -59,7 +60,7 @@ export default function DataImport() {
   const [tallyResult, setTallyResult] = useState<TallyMastersParseResult | null>(null);
   const [selectedTallyEntities, setSelectedTallyEntities] = useState<ImportEntityType[]>([]);
   const [isTallyParsing, setIsTallyParsing] = useState(false);
-  const [tallyEntityParsedData, setTallyEntityParsedData] = useState<Record<ImportEntityType, ParsedData>>({} as Record<ImportEntityType, ParsedData>);
+  const [tallyEntityParsedData, setTallyEntityParsedData] = useState<Partial<Record<ImportEntityType, ParsedData>>>({});
   const tallyFileRef = useRef<File | null>(null);
 
   const wizard = useImportWizard();
@@ -192,7 +193,7 @@ export default function DataImport() {
     );
   }, []);
 
-  const buildEntityParsedData = useCallback((result: TallyMastersParseResult): Record<ImportEntityType, ParsedData> => {
+  const buildEntityParsedData = useCallback((result: TallyMastersParseResult): Partial<Record<ImportEntityType, ParsedData>> => {
     return {
       product: {
         headers: ['name', 'category', 'hsn_code', 'gst_percentage', 'unit', 'purchase_price', 'mrp', 'opening_balance', 'opening_value'],

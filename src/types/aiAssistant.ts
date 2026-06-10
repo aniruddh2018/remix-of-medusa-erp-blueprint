@@ -1,5 +1,6 @@
 import type { AppRole } from "@/contexts/AuthContext";
 import type { AutomationDraft, AutomationIntent } from "@/services/chatAutomation";
+export type { AutomationDraft, AutomationIntent };
 
 export type AssistantIntentType =
   | "crud_action"

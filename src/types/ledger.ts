@@ -256,6 +256,7 @@ export interface CreateLedgerRequest {
   bankName?: string;
   bankAccountNumber?: string;
   bankIfsc?: string;
+  bankBranch?: string;
   contactPerson?: string;
   partyType?: PartyType;
   roles?: LedgerRoleType[];

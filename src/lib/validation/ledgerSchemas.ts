@@ -37,7 +37,7 @@ export const createLedgerGroupSchema = z.object({
   affectsStock: z.boolean().default(false),
 });
 
-export const updateLedgerGroupSchema = createLedgerGroupSchema.partial().required({ id: z.string().uuid() });
+export const updateLedgerGroupSchema = createLedgerGroupSchema.partial().extend({ id: z.string().uuid() });
 
 const GST_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/;
 const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;

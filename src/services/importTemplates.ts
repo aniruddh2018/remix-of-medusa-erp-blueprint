@@ -27,7 +27,7 @@ export async function listTemplates(
     description: d.description ?? undefined,
     entityType: d.entity_type as ImportEntityType,
     sourceSystem: d.source_system,
-    fieldMappings: (d.field_mappings as FieldMapping[]) ?? [],
+    fieldMappings: (d.field_mappings as unknown as FieldMapping[]) ?? [],
     isSystem: d.is_system ?? false,
     createdAt: d.created_at,
   }));
@@ -69,14 +69,14 @@ export async function saveTemplate(
 ): Promise<ImportTemplate | null> {
   const { data, error } = await supabase
     .from('import_templates')
-    .insert({
+    .insert([{
       name: params.name,
       entity_type: params.entityType,
       company_id: params.companyId,
       source_system: params.sourceSystem ?? 'generic',
-      field_mappings: params.mappings as unknown as Record<string, unknown>[],
+      field_mappings: params.mappings as unknown as never,
       is_system: false,
-    })
+    }])
     .select('*')
     .single();
 
@@ -88,7 +88,7 @@ export async function saveTemplate(
     description: data.description ?? undefined,
     entityType: data.entity_type as ImportEntityType,
     sourceSystem: data.source_system,
-    fieldMappings: (data.field_mappings as FieldMapping[]) ?? [],
+    fieldMappings: (data.field_mappings as unknown as FieldMapping[]) ?? [],
     isSystem: false,
     createdAt: data.created_at,
   };

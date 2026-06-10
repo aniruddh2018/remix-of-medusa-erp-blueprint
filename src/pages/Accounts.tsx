@@ -1741,7 +1741,7 @@ function ExpenseEntryTab() {
       const { data, error } = await (supabase as unknown as { rpc: (n: string, a: unknown) => Promise<{ data: unknown; error: unknown }> })
         .rpc("get_expense_ledgers", { p_company_id: companyId });
       if (error) throw error as Error;
-      return (data as unknown[]) || [];
+      return ((data as unknown[]) || []) as Array<{ id: string; name: string }>;
     },
     enabled: !!companyId,
   });

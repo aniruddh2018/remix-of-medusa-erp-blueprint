@@ -26,7 +26,7 @@ export async function detectDuplicateLedgers(companyId: string): Promise<Duplica
 
   const ledgers = data ?? [];
   const groups: DuplicateLedgerGroup[] = [];
-  const seen = new Map<string, number[]>();
+  const seen = new Map<string, string[]>();
 
   for (const l of ledgers) {
     const nameNorm = l.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -244,7 +244,7 @@ export async function importLedgersFromCsv(
       : [];
 
     try {
-      await ledgerService.createLedger(companyId, {
+      await ledgerService.createLedger(companyId, ({
         name: row.name,
         alias: row.alias,
         ledgerGroupId: undefined,
@@ -258,13 +258,13 @@ export async function importLedgersFromCsv(
         city: row.city,
         state: row.state,
         contactPerson: row.contactPerson,
-        bankName: row.bankName,
-        bankAccountNumber: row.bankAccountNumber,
-        bankIfsc: row.bankIfsc,
+        bankName: (row as Record<string, unknown>).bankName,
+        bankAccountNumber: (row as Record<string, unknown>).bankAccountNumber,
+        bankIfsc: (row as Record<string, unknown>).bankIfsc,
         roles: (roleTypes.length > 0 ? roleTypes : ['customer']) as LedgerRoleType[],
         primaryRole: (roleTypes[0] as LedgerRoleType) ?? 'customer',
         sourceSystem: 'imported',
-      });
+      }) as unknown as Parameters<typeof ledgerService.createLedger>[1]);
       imported++;
       existingNames.add(row.name.toUpperCase());
     } catch {

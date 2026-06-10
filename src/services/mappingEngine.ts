@@ -87,7 +87,6 @@ const TALLY_TO_ERP_UNIT_MAP: Record<string, string> = {
   SET: 'Set',
   PKT: 'Packet',
   NOS: 'Nos',
-  NOS: 'Nos',
   PIECE: 'Piece',
   PIECES: 'Pieces',
   PAIR: 'Pair',

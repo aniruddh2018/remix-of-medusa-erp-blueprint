@@ -122,7 +122,7 @@ function fromDbLedger(row: Record<string, unknown>): Ledger {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     primaryRole: (row as Record<string, unknown>).primary_role as LedgerRoleType | null ?? null,
-    roles: ((row as Record<string, unknown>).roles as LedgerRoleType[]) ?? [],
+    roles: ((row as Record<string, unknown>).roles as unknown as import('@/types/ledger').LedgerRole[]) ?? [],
   };
 }
 

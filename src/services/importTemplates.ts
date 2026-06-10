@@ -51,7 +51,7 @@ export async function loadTemplate(
     description: data.description ?? undefined,
     entityType: data.entity_type as ImportEntityType,
     sourceSystem: data.source_system,
-    fieldMappings: (data.field_mappings as FieldMapping[]) ?? [],
+    fieldMappings: (data.field_mappings as unknown as FieldMapping[]) ?? [],
     isSystem: data.is_system ?? false,
     createdAt: data.created_at,
   };

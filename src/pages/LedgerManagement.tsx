@@ -1210,7 +1210,7 @@ export default function LedgerManagement() {
                 </div>
                 <div>
                   <Label>Branch</Label>
-                  <Input value={((ledgerForm as Record<string, unknown>).bankBranch as string) ?? ''} onChange={e => setLedgerForm(p => ({ ...p, bankBranch: e.target.value || undefined } as typeof p))} />
+                  <Input value={((ledgerForm as unknown as Record<string, unknown>).bankBranch as string) ?? ''} onChange={e => setLedgerForm(p => ({ ...p, bankBranch: e.target.value || undefined } as typeof p))} />
                 </div>
               </div>
             </div>

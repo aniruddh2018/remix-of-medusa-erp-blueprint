@@ -821,6 +821,17 @@ export default function LedgerManagement() {
               Seed Defaults
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending || !companyId}
+            title="Import old customers, suppliers, sales, purchases & payments into the unified ledger"
+          >
+            {backfillMutation.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              : <RefreshCw className="h-4 w-4 mr-1" />}
+            Backfill Old Entries
+          </Button>
           <Button onClick={() => { setEditingLedger(null); setLedgerForm({ name: '', roles: ['customer'] }); setIsLedgerDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> New Ledger
           </Button>

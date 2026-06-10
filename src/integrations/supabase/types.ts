@@ -1798,6 +1798,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "journal_voucher_lines_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
+          },
+          {
             foreignKeyName: "journal_voucher_lines_voucher_id_fkey"
             columns: ["voucher_id"]
             isOneToOne: false
@@ -1809,6 +1816,13 @@ export type Database = {
             columns: ["voucher_id"]
             isOneToOne: false
             referencedRelation: "ledger_transaction_history"
+            referencedColumns: ["voucher_id"]
+          },
+          {
+            foreignKeyName: "journal_voucher_lines_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
             referencedColumns: ["voucher_id"]
           },
         ]
@@ -1926,6 +1940,13 @@ export type Database = {
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ledger_audit_log_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
+          },
         ]
       }
       ledger_balances: {
@@ -2002,6 +2023,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_balances_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
           },
         ]
       }
@@ -2198,6 +2226,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_roles_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
           },
         ]
       }
@@ -2528,6 +2563,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
           },
         ]
       }
@@ -3128,6 +3170,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_orders_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
+          },
+          {
             foreignKeyName: "purchase_orders_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -3464,13 +3513,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sales_orders_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "sales_orders_doctor_id_fkey"
             columns: ["doctor_id"]
             isOneToOne: false
@@ -3497,6 +3539,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
           },
         ]
       }
@@ -4477,6 +4526,13 @@ export type Database = {
             referencedRelation: "ledgers_with_roles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "journal_voucher_lines_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "party_transaction_history"
+            referencedColumns: ["ledger_id"]
+          },
         ]
       }
       ledgers_with_roles: {
@@ -4538,6 +4594,23 @@ export type Database = {
           },
         ]
       }
+      party_transaction_history: {
+        Row: {
+          created_at: string | null
+          credit: number | null
+          date: string | null
+          debit: number | null
+          ledger_current_balance: number | null
+          ledger_id: string | null
+          narration: string | null
+          party_name: string | null
+          ref_number: string | null
+          ref_type: Database["public"]["Enums"]["journal_reference_type"] | null
+          reference_id: string | null
+          voucher_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_user_to_company: {
@@ -4575,6 +4648,24 @@ export type Database = {
           _supplier_id?: string
         }
         Returns: Json
+      }
+      bulk_merge_duplicate_ledgers: {
+        Args: {
+          p_company_id: string
+          p_dry_run?: boolean
+          p_merged_by?: string
+        }
+        Returns: {
+          canonical_name: string
+          kept_ledger_id: string
+          kept_ledger_name: string
+          merged_ledger_id: string
+          merged_ledger_name: string
+          orders_updated: number
+          payments_updated: number
+          status: string
+          transactions_moved: number
+        }[]
       }
       claim_next_scan_job: { Args: never; Returns: Json }
       close_financial_year: {
@@ -4639,6 +4730,16 @@ export type Database = {
           product_name: string
         }[]
       }
+      find_duplicate_ledgers: {
+        Args: { p_company_id: string }
+        Returns: {
+          canonical_name: string
+          duplicate_count: number
+          ledger_ids: string[]
+          total_credit: number
+          total_debit: number
+        }[]
+      }
       generate_product_fingerprint: {
         Args: {
           brand?: string
@@ -4698,6 +4799,24 @@ export type Database = {
         }
         Returns: string
       }
+      get_party_transactions: {
+        Args: {
+          p_ledger_id: string
+          p_limit?: number
+          p_offset?: number
+          p_year?: string
+        }
+        Returns: {
+          credit: number
+          date: string
+          debit: number
+          narration: string
+          ref_number: string
+          ref_type: string
+          running_balance: number
+          voucher_id: string
+        }[]
+      }
       get_user_company_id:
         | { Args: never; Returns: string }
         | { Args: { _user_id: string }; Returns: string }
@@ -4718,6 +4837,23 @@ export type Database = {
           _supplier_id: string
         }
         Returns: undefined
+      }
+      merge_ledgers: {
+        Args: {
+          p_company_id: string
+          p_merged_by?: string
+          p_source_ledger_id: string
+          p_target_ledger_id: string
+        }
+        Returns: {
+          balance_transferred: number
+          orders_updated: number
+          payments_updated: number
+          roles_merged: number
+          source_name: string
+          target_name: string
+          transactions_moved: number
+        }[]
       }
       normalize_product_text: { Args: { input_text: string }; Returns: string }
       parse_product_text: { Args: { input_text: string }; Returns: Json }

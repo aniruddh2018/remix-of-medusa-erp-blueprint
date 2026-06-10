@@ -583,6 +583,13 @@ export default function Sales() {
   const createSaleMutation = useMutation({
     mutationFn: async () => {
       const rawPrefix = (settings.invoice_prefix || "INV").replace(/[-\s]+$/g, "") || "INV";
+      // Sale-date validation: must be within current FY and not in the future.
+      const fy = getCurrentFY();
+      const today = todayISO();
+      if (saleDate > today) throw new Error("Sale date cannot be in the future.");
+      if (saleDate < fy.start || saleDate > fy.end) {
+        throw new Error(`Sale date must be within the current financial year (${fy.start} to ${fy.end}).`);
+      }
 
       // Per-schedule prescription check (unchanged business rule)
       if (config.hasDrugSchedule) {

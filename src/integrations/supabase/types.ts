@@ -1022,6 +1022,59 @@ export type Database = {
           },
         ]
       }
+      gst_tax_structures: {
+        Row: {
+          cess_rate: number | null
+          cgst_rate: number | null
+          company_id: string
+          created_at: string | null
+          description: string | null
+          effective_from: string | null
+          gst_rate: number
+          hsn_code: string | null
+          id: string
+          igst_rate: number | null
+          is_active: boolean
+          sgst_rate: number | null
+        }
+        Insert: {
+          cess_rate?: number | null
+          cgst_rate?: number | null
+          company_id: string
+          created_at?: string | null
+          description?: string | null
+          effective_from?: string | null
+          gst_rate: number
+          hsn_code?: string | null
+          id?: string
+          igst_rate?: number | null
+          is_active?: boolean
+          sgst_rate?: number | null
+        }
+        Update: {
+          cess_rate?: number | null
+          cgst_rate?: number | null
+          company_id?: string
+          created_at?: string | null
+          description?: string | null
+          effective_from?: string | null
+          gst_rate?: number
+          hsn_code?: string | null
+          id?: string
+          igst_rate?: number | null
+          is_active?: boolean
+          sgst_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gst_tax_structures_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_jobs: {
         Row: {
           company_id: string
@@ -1033,6 +1086,7 @@ export type Database = {
           file_type: string | null
           id: string
           mapping_config: Json | null
+          session_id: string | null
           status: string
           success_rows: number | null
           total_rows: number | null
@@ -1050,6 +1104,7 @@ export type Database = {
           file_type?: string | null
           id?: string
           mapping_config?: Json | null
+          session_id?: string | null
           status?: string
           success_rows?: number | null
           total_rows?: number | null
@@ -1067,6 +1122,7 @@ export type Database = {
           file_type?: string | null
           id?: string
           mapping_config?: Json | null
+          session_id?: string | null
           status?: string
           success_rows?: number | null
           total_rows?: number | null
@@ -1080,6 +1136,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_jobs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "import_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1137,6 +1200,65 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_sessions: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          error_log: Json | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          import_summary: Json | null
+          name: string
+          parse_summary: Json | null
+          source_system: string
+          staging_summary: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          import_summary?: Json | null
+          name?: string
+          parse_summary?: Json | null
+          source_system?: string
+          staging_summary?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          import_summary?: Json | null
+          name?: string
+          parse_summary?: Json | null
+          source_system?: string
+          staging_summary?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1615,6 +1737,438 @@ export type Database = {
           },
         ]
       }
+      ledger_balances: {
+        Row: {
+          closing_balance: number
+          closing_balance_type: Database["public"]["Enums"]["balance_type"]
+          company_id: string
+          created_at: string | null
+          current_balance: number
+          financial_year: string
+          id: string
+          ledger_id: string
+          opening_balance: number
+          opening_balance_type: Database["public"]["Enums"]["balance_type"]
+          total_credit: number
+          total_debit: number
+          updated_at: string | null
+        }
+        Insert: {
+          closing_balance?: number
+          closing_balance_type?: Database["public"]["Enums"]["balance_type"]
+          company_id: string
+          created_at?: string | null
+          current_balance?: number
+          financial_year: string
+          id?: string
+          ledger_id: string
+          opening_balance?: number
+          opening_balance_type?: Database["public"]["Enums"]["balance_type"]
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string | null
+        }
+        Update: {
+          closing_balance?: number
+          closing_balance_type?: Database["public"]["Enums"]["balance_type"]
+          company_id?: string
+          created_at?: string | null
+          current_balance?: number
+          financial_year?: string
+          id?: string
+          ledger_id?: string
+          opening_balance?: number
+          opening_balance_type?: Database["public"]["Enums"]["balance_type"]
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_balances_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_balances_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_groups: {
+        Row: {
+          affects_stock: boolean
+          company_id: string
+          created_at: string | null
+          group_type: Database["public"]["Enums"]["ledger_group_type"]
+          id: string
+          is_active: boolean
+          is_system: boolean
+          level: number
+          materialized_path: string
+          name: string
+          parent_id: string | null
+          sort_order: number
+          source_system: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          affects_stock?: boolean
+          company_id: string
+          created_at?: string | null
+          group_type?: Database["public"]["Enums"]["ledger_group_type"]
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          level?: number
+          materialized_path?: string
+          name: string
+          parent_id?: string | null
+          sort_order?: number
+          source_system?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          affects_stock?: boolean
+          company_id?: string
+          created_at?: string | null
+          group_type?: Database["public"]["Enums"]["ledger_group_type"]
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          level?: number
+          materialized_path?: string
+          name?: string
+          parent_id?: string | null
+          sort_order?: number
+          source_system?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_groups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_groups_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_import_sessions: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          duplicate_groups: number | null
+          duplicate_ledgers: number | null
+          error_log: Json | null
+          file_name: string | null
+          file_size: number | null
+          groups_failed: number | null
+          groups_imported: number | null
+          id: string
+          ledgers_failed: number | null
+          ledgers_imported: number | null
+          name: string
+          source_system: string
+          status: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          duplicate_groups?: number | null
+          duplicate_ledgers?: number | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          groups_failed?: number | null
+          groups_imported?: number | null
+          id?: string
+          ledgers_failed?: number | null
+          ledgers_imported?: number | null
+          name: string
+          source_system?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          duplicate_groups?: number | null
+          duplicate_ledgers?: number | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          groups_failed?: number | null
+          groups_imported?: number | null
+          id?: string
+          ledgers_failed?: number | null
+          ledgers_imported?: number | null
+          name?: string
+          source_system?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_import_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_roles: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_primary: boolean
+          ledger_id: string
+          metadata: Json | null
+          priority: number
+          role_type: Database["public"]["Enums"]["ledger_role_type"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean
+          ledger_id: string
+          metadata?: Json | null
+          priority?: number
+          role_type: Database["public"]["Enums"]["ledger_role_type"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean
+          ledger_id?: string
+          metadata?: Json | null
+          priority?: number
+          role_type?: Database["public"]["Enums"]["ledger_role_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_roles_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_roles_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledgers: {
+        Row: {
+          address: Json | null
+          alias: string | null
+          balance_type: Database["public"]["Enums"]["balance_type"]
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
+          billing_address: Json | null
+          city: string | null
+          company_id: string
+          contact_person: string | null
+          country: string | null
+          created_at: string | null
+          current_balance: number
+          email: string | null
+          gst_number: string | null
+          gst_registration_type: string | null
+          id: string
+          import_metadata: Json | null
+          is_active: boolean
+          ledger_code: string | null
+          ledger_group_id: string | null
+          mobile: string | null
+          name: string
+          opening_balance: number
+          pan_number: string | null
+          party_type: string | null
+          phone: string | null
+          pincode: string | null
+          shipping_address: Json | null
+          source_group_name: string | null
+          source_ledger_name: string | null
+          source_system: string | null
+          state: string | null
+          tax_id: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: Json | null
+          alias?: string | null
+          balance_type?: Database["public"]["Enums"]["balance_type"]
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          billing_address?: Json | null
+          city?: string | null
+          company_id: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          current_balance?: number
+          email?: string | null
+          gst_number?: string | null
+          gst_registration_type?: string | null
+          id?: string
+          import_metadata?: Json | null
+          is_active?: boolean
+          ledger_code?: string | null
+          ledger_group_id?: string | null
+          mobile?: string | null
+          name: string
+          opening_balance?: number
+          pan_number?: string | null
+          party_type?: string | null
+          phone?: string | null
+          pincode?: string | null
+          shipping_address?: Json | null
+          source_group_name?: string | null
+          source_ledger_name?: string | null
+          source_system?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: Json | null
+          alias?: string | null
+          balance_type?: Database["public"]["Enums"]["balance_type"]
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          billing_address?: Json | null
+          city?: string | null
+          company_id?: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          current_balance?: number
+          email?: string | null
+          gst_number?: string | null
+          gst_registration_type?: string | null
+          id?: string
+          import_metadata?: Json | null
+          is_active?: boolean
+          ledger_code?: string | null
+          ledger_group_id?: string | null
+          mobile?: string | null
+          name?: string
+          opening_balance?: number
+          pan_number?: string | null
+          party_type?: string | null
+          phone?: string | null
+          pincode?: string | null
+          shipping_address?: Json | null
+          source_group_name?: string | null
+          source_ledger_name?: string | null
+          source_system?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledgers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledgers_ledger_group_id_fkey"
+            columns: ["ledger_group_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manufacturers: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          source_system: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          source_system?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          source_system?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manufacturers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opening_balances: {
         Row: {
           balance_type: string
@@ -1988,6 +2542,7 @@ export type Database = {
           id: string
           is_active: boolean
           manufacturer: string
+          manufacturer_id: string | null
           max_stock_level: number
           min_stock_level: number
           mrp: number
@@ -2024,6 +2579,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           manufacturer: string
+          manufacturer_id?: string | null
           max_stock_level?: number
           min_stock_level?: number
           mrp: number
@@ -2060,6 +2616,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           manufacturer?: string
+          manufacturer_id?: string | null
           max_stock_level?: number
           min_stock_level?: number
           mrp?: number
@@ -2086,6 +2643,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_manufacturer_id_fkey"
+            columns: ["manufacturer_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturers"
             referencedColumns: ["id"]
           },
         ]
@@ -2732,6 +3296,459 @@ export type Database = {
           },
         ]
       }
+      staging_batches: {
+        Row: {
+          batch_number: string | null
+          company_id: string
+          created_at: string | null
+          expiry_date: string | null
+          godown_name: string | null
+          id: string
+          manufacturing_date: string | null
+          mapped_product_id: string | null
+          mapped_supplier_id: string | null
+          mrp: number | null
+          product_name: string
+          purchase_price: number | null
+          quantity: number | null
+          resolved: boolean | null
+          row_index: number
+          session_id: string
+          source_data: Json | null
+          supplier_name: string | null
+          validation_errors: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          company_id: string
+          created_at?: string | null
+          expiry_date?: string | null
+          godown_name?: string | null
+          id?: string
+          manufacturing_date?: string | null
+          mapped_product_id?: string | null
+          mapped_supplier_id?: string | null
+          mrp?: number | null
+          product_name: string
+          purchase_price?: number | null
+          quantity?: number | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id: string
+          source_data?: Json | null
+          supplier_name?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          company_id?: string
+          created_at?: string | null
+          expiry_date?: string | null
+          godown_name?: string | null
+          id?: string
+          manufacturing_date?: string | null
+          mapped_product_id?: string | null
+          mapped_supplier_id?: string | null
+          mrp?: number | null
+          product_name?: string
+          purchase_price?: number | null
+          quantity?: number | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id?: string
+          source_data?: Json | null
+          supplier_name?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_batches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_batches_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "import_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_ledger_groups: {
+        Row: {
+          affects_stock: boolean | null
+          company_id: string
+          created_at: string | null
+          group_type: string | null
+          id: string
+          level: number | null
+          mapped_group_id: string | null
+          materialized_path: string | null
+          name: string
+          parent_name: string | null
+          resolved: boolean | null
+          row_index: number
+          session_id: string
+          source_data: Json | null
+          validation_errors: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          affects_stock?: boolean | null
+          company_id: string
+          created_at?: string | null
+          group_type?: string | null
+          id?: string
+          level?: number | null
+          mapped_group_id?: string | null
+          materialized_path?: string | null
+          name: string
+          parent_name?: string | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id: string
+          source_data?: Json | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          affects_stock?: boolean | null
+          company_id?: string
+          created_at?: string | null
+          group_type?: string | null
+          id?: string
+          level?: number | null
+          mapped_group_id?: string | null
+          materialized_path?: string | null
+          name?: string
+          parent_name?: string | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id?: string
+          source_data?: Json | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_ledger_groups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_ledger_groups_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_import_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_ledgers: {
+        Row: {
+          address: string | null
+          alias: string | null
+          balance_type: string | null
+          bank_account_number: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
+          city: string | null
+          company_id: string
+          contact_person: string | null
+          country: string | null
+          created_at: string | null
+          email: string | null
+          gst_number: string | null
+          id: string
+          ledger_code: string | null
+          mapped_group_id: string | null
+          mapped_ledger_id: string | null
+          name: string
+          opening_balance: number | null
+          pan_number: string | null
+          parent_group_name: string | null
+          phone: string | null
+          pincode: string | null
+          resolved: boolean | null
+          role_types: string[] | null
+          row_index: number
+          session_id: string
+          source_data: Json | null
+          state: string | null
+          validation_errors: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          address?: string | null
+          alias?: string | null
+          balance_type?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          city?: string | null
+          company_id: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          ledger_code?: string | null
+          mapped_group_id?: string | null
+          mapped_ledger_id?: string | null
+          name: string
+          opening_balance?: number | null
+          pan_number?: string | null
+          parent_group_name?: string | null
+          phone?: string | null
+          pincode?: string | null
+          resolved?: boolean | null
+          role_types?: string[] | null
+          row_index?: number
+          session_id: string
+          source_data?: Json | null
+          state?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          address?: string | null
+          alias?: string | null
+          balance_type?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          city?: string | null
+          company_id?: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          ledger_code?: string | null
+          mapped_group_id?: string | null
+          mapped_ledger_id?: string | null
+          name?: string
+          opening_balance?: number | null
+          pan_number?: string | null
+          parent_group_name?: string | null
+          phone?: string | null
+          pincode?: string | null
+          resolved?: boolean | null
+          role_types?: string[] | null
+          row_index?: number
+          session_id?: string
+          source_data?: Json | null
+          state?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_ledgers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_ledgers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_import_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_products: {
+        Row: {
+          category: string | null
+          company_id: string
+          composition: string | null
+          created_at: string | null
+          drug_schedule: string | null
+          generic_name: string | null
+          gst_percentage: number | null
+          hsn_code: string | null
+          id: string
+          manufacturer_name: string | null
+          mapped_manufacturer_id: string | null
+          mrp: number | null
+          name: string
+          opening_balance: number | null
+          opening_value: number | null
+          purchase_price: number | null
+          resolved: boolean | null
+          row_index: number
+          sale_price: number | null
+          session_id: string
+          source_data: Json | null
+          strength: string | null
+          unit: string | null
+          validation_errors: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          category?: string | null
+          company_id: string
+          composition?: string | null
+          created_at?: string | null
+          drug_schedule?: string | null
+          generic_name?: string | null
+          gst_percentage?: number | null
+          hsn_code?: string | null
+          id?: string
+          manufacturer_name?: string | null
+          mapped_manufacturer_id?: string | null
+          mrp?: number | null
+          name: string
+          opening_balance?: number | null
+          opening_value?: number | null
+          purchase_price?: number | null
+          resolved?: boolean | null
+          row_index?: number
+          sale_price?: number | null
+          session_id: string
+          source_data?: Json | null
+          strength?: string | null
+          unit?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          category?: string | null
+          company_id?: string
+          composition?: string | null
+          created_at?: string | null
+          drug_schedule?: string | null
+          generic_name?: string | null
+          gst_percentage?: number | null
+          hsn_code?: string | null
+          id?: string
+          manufacturer_name?: string | null
+          mapped_manufacturer_id?: string | null
+          mrp?: number | null
+          name?: string
+          opening_balance?: number | null
+          opening_value?: number | null
+          purchase_price?: number | null
+          resolved?: boolean | null
+          row_index?: number
+          sale_price?: number | null
+          session_id?: string
+          source_data?: Json | null
+          strength?: string | null
+          unit?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_products_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "import_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_suppliers: {
+        Row: {
+          address: string | null
+          company_id: string
+          contact_person: string | null
+          created_at: string | null
+          drug_license_number: string | null
+          email: string | null
+          gst_number: string | null
+          id: string
+          name: string
+          pan_number: string | null
+          parent_group_name: string | null
+          phone: string | null
+          resolved: boolean | null
+          row_index: number
+          session_id: string
+          source_data: Json | null
+          state: string | null
+          validation_errors: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          contact_person?: string | null
+          created_at?: string | null
+          drug_license_number?: string | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          name: string
+          pan_number?: string | null
+          parent_group_name?: string | null
+          phone?: string | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id: string
+          source_data?: Json | null
+          state?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          contact_person?: string | null
+          created_at?: string | null
+          drug_license_number?: string | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          name?: string
+          pan_number?: string | null
+          parent_group_name?: string | null
+          phone?: string | null
+          resolved?: boolean | null
+          row_index?: number
+          session_id?: string
+          source_data?: Json | null
+          state?: string | null
+          validation_errors?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_suppliers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_suppliers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "import_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_invoice_formats: {
         Row: {
           column_coordinates: Json | null
@@ -3115,7 +4132,65 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ledgers_with_roles: {
+        Row: {
+          address: Json | null
+          alias: string | null
+          balance_type: Database["public"]["Enums"]["balance_type"] | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
+          billing_address: Json | null
+          city: string | null
+          company_id: string | null
+          contact_person: string | null
+          country: string | null
+          created_at: string | null
+          current_balance: number | null
+          email: string | null
+          gst_number: string | null
+          gst_registration_type: string | null
+          id: string | null
+          import_metadata: Json | null
+          is_active: boolean | null
+          ledger_code: string | null
+          ledger_group_id: string | null
+          mobile: string | null
+          name: string | null
+          opening_balance: number | null
+          pan_number: string | null
+          party_type: string | null
+          phone: string | null
+          pincode: string | null
+          primary_role: Database["public"]["Enums"]["ledger_role_type"] | null
+          roles: Database["public"]["Enums"]["ledger_role_type"][] | null
+          shipping_address: Json | null
+          source_group_name: string | null
+          source_ledger_name: string | null
+          source_system: string | null
+          state: string | null
+          tax_id: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledgers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledgers_ledger_group_id_fkey"
+            columns: ["ledger_group_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_user_to_company: {
@@ -3171,6 +4246,14 @@ export type Database = {
         Args: { distance: number }
         Returns: number
       }
+      create_ledger_roles_from_staging: {
+        Args: {
+          p_company_id: string
+          p_ledger_id: string
+          p_role_types: string[]
+        }
+        Returns: undefined
+      }
       deduct_batch_quantity:
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }
@@ -3215,6 +4298,18 @@ export type Database = {
         Returns: string
       }
       get_fy_name: { Args: { _date: string }; Returns: string }
+      get_ledger_group_ancestors: {
+        Args: { p_group_id: string }
+        Returns: {
+          id: string
+        }[]
+      }
+      get_ledger_group_descendants: {
+        Args: { p_group_id: string }
+        Returns: {
+          id: string
+        }[]
+      }
       get_next_invoice_number: {
         Args: { _company_id: string; _prefix?: string }
         Returns: string
@@ -3298,6 +4393,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      seed_default_ledger_groups: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       suggest_column_mappings: {
@@ -3331,6 +4430,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "pharmacist" | "staff" | "super_admin"
+      balance_type: "debit" | "credit"
       drug_schedule:
         | "none"
         | "schedule_h"
@@ -3338,6 +4438,33 @@ export type Database = {
         | "schedule_x"
         | "narcotic"
       fy_status: "active" | "closed" | "archived"
+      ledger_group_type:
+        | "assets"
+        | "liabilities"
+        | "income"
+        | "expenses"
+        | "capital"
+        | "bank"
+        | "cash"
+        | "tax"
+        | "sundry_debtors"
+        | "sundry_creditors"
+        | "loan"
+        | "investment"
+        | "other"
+      ledger_role_type:
+        | "customer"
+        | "supplier"
+        | "manufacturer"
+        | "distributor"
+        | "employee"
+        | "doctor"
+        | "bank"
+        | "tax"
+        | "expense"
+        | "income"
+        | "asset"
+        | "liability"
       order_status:
         | "pending"
         | "confirmed"
@@ -3472,6 +4599,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "pharmacist", "staff", "super_admin"],
+      balance_type: ["debit", "credit"],
       drug_schedule: [
         "none",
         "schedule_h",
@@ -3480,6 +4608,35 @@ export const Constants = {
         "narcotic",
       ],
       fy_status: ["active", "closed", "archived"],
+      ledger_group_type: [
+        "assets",
+        "liabilities",
+        "income",
+        "expenses",
+        "capital",
+        "bank",
+        "cash",
+        "tax",
+        "sundry_debtors",
+        "sundry_creditors",
+        "loan",
+        "investment",
+        "other",
+      ],
+      ledger_role_type: [
+        "customer",
+        "supplier",
+        "manufacturer",
+        "distributor",
+        "employee",
+        "doctor",
+        "bank",
+        "tax",
+        "expense",
+        "income",
+        "asset",
+        "liability",
+      ],
       order_status: [
         "pending",
         "confirmed",

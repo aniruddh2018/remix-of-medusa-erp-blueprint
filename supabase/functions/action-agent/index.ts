@@ -693,7 +693,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const action = body?.action as string | undefined;
 
-  const { data: profile } = await admin.from("profiles").select("company_id").eq("id", user.id).maybeSingle();
+  const { data: profile } = await admin.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
   const company_id = profile?.company_id;
   if (!company_id) return json({ error: "No company on profile" }, 400);
 

@@ -24,6 +24,7 @@ export async function parseMargWorkbook(file: File): Promise<MargRow[]> {
 
   let currentSalt = '';
   let currentSchedule: ParsedItem['schedule'] = 'none';
+  let headerSeen = false;
   const out: MargRow[] = [];
 
   for (let i = 0; i < grid.length; i++) {
@@ -31,19 +32,25 @@ export async function parseMargWorkbook(file: File): Promise<MargRow[]> {
     if (!row || row.every((c) => c == null || c === '')) continue;
     const [c0, c1, c2, c3, c4, c5] = row;
 
+    // Detect column-header row (SNo. | ITEM | DESCRIPTION | RATE | M.R.P. | TAX %)
+    if (typeof c0 === 'string' && /^SNo\.?$/i.test(c0.trim())) {
+      headerSeen = true;
+      continue;
+    }
+    if (typeof c1 === 'string' && /^I\s*T\s*E\s*M$/i.test(c1.trim())) {
+      headerSeen = true;
+      continue;
+    }
     if (typeof c0 === 'string' && SKIP_FIRST_COL.test(c0.trim())) continue;
-    if (typeof c0 === 'string' && /^SNo\.?$/i.test(c0.trim())) continue;
-    // Column-header row also has 'I T E M' / 'D E S C R I P T I O N'
-    if (typeof c1 === 'string' && /^I\s*T\s*E\s*M$/i.test(c1.trim())) continue;
 
     const isNumeric =
       typeof c0 === 'number' ||
       (typeof c0 === 'string' && /^\d+$/.test(c0.trim()));
 
-    // Salt-group header (text in col 0, rest empty)
+    // Salt-group header (text in col 0, rest empty) — only valid after column header row
     if (!isNumeric && typeof c0 === 'string' && c1 == null && c2 == null) {
+      if (!headerSeen) continue;
       const text = c0.trim();
-      // ignore decorative banners like "AKANSHA PHARMACY"
       if (text.length < 3) continue;
       const { salt, schedule } = parseSaltHeader(text);
       if (salt && salt.length >= 2 && /^[A-Z0-9 ()\-./+&]+$/i.test(salt)) {
@@ -52,6 +59,7 @@ export async function parseMargWorkbook(file: File): Promise<MargRow[]> {
       }
       continue;
     }
+
 
     if (!isNumeric) continue;
 

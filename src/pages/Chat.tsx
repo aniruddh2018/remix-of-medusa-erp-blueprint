@@ -129,8 +129,12 @@ export default function Chat() {
                   <p className="text-sm whitespace-pre-wrap">{m.text}</p>
                 </Card>
               ) : (
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                <>
+                  {m.thinking && m.thinking.length > 0 && <ThinkingPanel steps={m.thinking} />}
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                </>
               )}
+
               {m.pendingActionId && m.pendingTool && (
                 <PendingActionCard
                   pendingActionId={m.pendingActionId}

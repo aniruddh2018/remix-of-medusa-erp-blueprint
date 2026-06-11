@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, Send, User } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronRight, Loader2, Send, User, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PendingActionCard, type PendingActionStatus } from "@/components/chat/PendingActionCard";
 
+interface ThinkingStep {
+  step: number;
+  type: "reasoning" | "tool_call" | string;
+  content?: string;
+  tool?: string;
+  args?: any;
+  result?: any;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -17,7 +26,9 @@ interface ChatMessage {
   pendingTool?: string;
   pendingPreview?: any;
   pendingStatus?: PendingActionStatus;
+  thinking?: ThinkingStep[];
 }
+
 
 const EXAMPLES = [
   "Add customer Raj Traders phone 9876543210",

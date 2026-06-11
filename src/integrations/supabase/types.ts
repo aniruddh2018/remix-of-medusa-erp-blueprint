@@ -14,6 +14,206 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_audit_log: {
+        Row: {
+          company_id: string | null
+          conversation_id: string | null
+          created_at: string
+          error_code: string | null
+          id: string
+          input: Json | null
+          latency_ms: number | null
+          output: Json | null
+          pending_action_id: string | null
+          raw_prompt: string | null
+          status: string
+          tool_name: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input?: Json | null
+          latency_ms?: number | null
+          output?: Json | null
+          pending_action_id?: string | null
+          raw_prompt?: string | null
+          status: string
+          tool_name: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input?: Json | null
+          latency_ms?: number | null
+          output?: Json | null
+          pending_action_id?: string | null
+          raw_prompt?: string | null
+          status?: string
+          tool_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_audit_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_audit_log_pending_action_id_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_conversations: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_messages: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          parts: Json
+          role: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          parts?: Json
+          role: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          parts?: Json
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_pending_actions: {
+        Row: {
+          client_action_id: string | null
+          company_id: string
+          conversation_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          preview: Json
+          resolved_at: string | null
+          result: Json | null
+          status: string
+          tool_name: string
+          user_id: string
+          validated_input: Json
+        }
+        Insert: {
+          client_action_id?: string | null
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          preview?: Json
+          resolved_at?: string | null
+          result?: Json | null
+          status?: string
+          tool_name: string
+          user_id: string
+          validated_input: Json
+        }
+        Update: {
+          client_action_id?: string | null
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          preview?: Json
+          resolved_at?: string | null
+          result?: Json | null
+          status?: string
+          tool_name?: string
+          user_id?: string
+          validated_input?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_pending_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_pending_actions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_conversions: {
         Row: {
           batch_id: string

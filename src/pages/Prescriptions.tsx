@@ -351,39 +351,40 @@ function DetailDialog({ rx, companyId, onClose }: {
     }
     setBusy(true);
     try {
-      // Generate a simple draft order
-      const { data: order, error: oErr } = await supabase.from("sales_orders").insert({
+      const { data: order, error: oErr } = await supabase.from("sales_orders").insert([{
         company_id: companyId,
         customer_id: rx.customer_id,
         prescription_id: rx.id,
         status: "draft",
         payment_status: "unpaid",
-        subtotal: 0, total: 0,
+        subtotal: 0,
+        total: 0,
         order_date: new Date().toISOString().slice(0, 10),
-      }).select("*").single();
+      } as any]).select("*").single();
       if (oErr) throw oErr;
-
-      const rows = approved.map((i) => ({
-        sales_order_id: order.id,
-        company_id: companyId,
-        product_id: i.product_id,
-        quantity: i.qty,
-        rate: 0, discount: 0, tax: 0, total: 0,
-      }));
-      const { error: iErr } = await supabase.from("sales_order_items").insert(rows);
-      if (iErr) throw iErr;
 
       await supabase.from("prescriptions").update({
         status: "ordered", sales_order_id: order.id,
       }).eq("id", rx.id);
 
-      toast({ title: "Draft order created", description: "Open Sales to set prices & confirm." });
+      // Stash approved items so the Sales page can pre-fill batch selection.
+      try {
+        localStorage.setItem(`rx_prefill_${order.id}`, JSON.stringify(
+          approved.map((i) => ({ product_id: i.product_id, qty: i.qty }))
+        ));
+      } catch { /* ignore quota */ }
+
+      toast({
+        title: "Draft order created",
+        description: "Open Sales → edit this draft to pick batches, rates & confirm.",
+      });
       setStatus("ordered");
       navigate("/sales");
     } catch (e: any) {
       toast({ title: "Order failed", description: e.message, variant: "destructive" });
     } finally { setBusy(false); }
   };
+
 
   const lowStock = (it: RxItem) =>
     it.product_id && (stocks[it.product_id] ?? 0) < it.qty;

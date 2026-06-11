@@ -68,10 +68,12 @@ const allOrderMenuItems: MenuItem[] = [
 ];
 
 const allComplianceMenuItems: MenuItem[] = [
+  { title: "Prescriptions", icon: Pill, path: "/prescriptions", shortcut: null },
   { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs", shortcut: null },
   { title: "Credit & Debit Notes", icon: RotateCcw, path: "/notes" },
   { title: "Accounts", icon: Wallet, path: "/accounts" },
 ];
+
 
 const allManagementMenuItems: MenuItem[] = [
   { title: "Suppliers", icon: Users, path: "/suppliers", shortcut: "Alt+6" },

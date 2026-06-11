@@ -19,9 +19,9 @@ export interface WhatsAppTemplate {
 export const DEFAULT_WA_TEMPLATES: Record<WhatsAppTemplateKey, { label: string; body: string; description: string }> = {
   invoice_sent: {
     label: "Invoice sent to customer",
-    description: "Used from Sales list — send a customer their bill summary.",
+    description: "Used from Sales list — sends a bill summary with a PDF download link.",
     body:
-      "Hello {customer},\n\nThank you for your purchase at {company}.\nInvoice: {invoice_no}\nAmount: ₹{amount}\nDate: {date}\n\nPlease let us know if you need anything else.",
+      "Hello {customer},\n\nThank you for your purchase at {company}.\nInvoice: {invoice_no}\nAmount: ₹{amount}\nDate: {date}\n\n📄 Download invoice PDF:\n{pdf_url}\n\nPlease let us know if you need anything else.",
   },
   payment_reminder: {
     label: "Payment reminder (overdue)",
@@ -31,9 +31,9 @@ export const DEFAULT_WA_TEMPLATES: Record<WhatsAppTemplateKey, { label: string; 
   },
   purchase_order: {
     label: "Purchase order to supplier",
-    description: "Used from Purchase Orders list.",
+    description: "Used from Purchase Orders list — includes a PDF link of the order.",
     body:
-      "Hello {supplier},\n\nPlease find our purchase order from {company}.\nPO No: {po_no}\nDate: {date}\nAmount: ₹{amount}\n\nKindly confirm receipt and expected delivery.",
+      "Hello {supplier},\n\nPlease find our purchase order from {company}.\nPO No: {po_no}\nDate: {date}\nAmount: ₹{amount}\n\n📄 Download PO PDF:\n{pdf_url}\n\nKindly confirm receipt and expected delivery.",
   },
   order_status: {
     label: "Order confirmation / delivery update",

@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useOverdueInvoices } from "@/hooks/useOverdueInvoices";
 import { format, differenceInDays } from "date-fns";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 export function OverdueInvoicesCard() {
   const navigate = useNavigate();

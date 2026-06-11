@@ -72,8 +72,6 @@ export function buildWhatsAppUrl(phone: string | null | undefined, message: stri
   const normalized = normalizePhoneForWhatsApp(phone);
   if (!normalized) return null;
   const text = encodeURIComponent(message);
-  // wa.me redirects to api.whatsapp.com on desktop, which is blocked by many
-  // browsers/extensions. Use web.whatsapp.com on desktop and wa.me on mobile.
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
   return isMobile
@@ -81,9 +79,30 @@ export function buildWhatsAppUrl(phone: string | null | undefined, message: stri
     : `https://web.whatsapp.com/send?phone=${normalized}&text=${text}`;
 }
 
+/** Opens WhatsApp. Tries the native app via `whatsapp://` first (works around
+ *  browsers/extensions that block wa.me / web.whatsapp.com), and falls back to
+ *  the web URL after a short delay if the app isn't installed. */
 export function openWhatsApp(phone: string | null | undefined, message: string): boolean {
-  const url = buildWhatsAppUrl(phone, message);
-  if (!url) return false;
-  window.open(url, "_blank", "noopener,noreferrer");
+  const normalized = normalizePhoneForWhatsApp(phone);
+  if (!normalized) return false;
+  const text = encodeURIComponent(message);
+  const appUrl = `whatsapp://send?phone=${normalized}&text=${text}`;
+  const webUrl = buildWhatsAppUrl(phone, message)!;
+
+  // Try the native WhatsApp app first via an iframe — silently fails if not
+  // installed, so we then open the web fallback.
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = appUrl;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch { /* noop */ }
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 600);
+  } catch {
+    window.open(webUrl, "_blank", "noopener,noreferrer");
+  }
   return true;
 }
+

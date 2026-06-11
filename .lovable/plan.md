@@ -1,94 +1,85 @@
+## Marg "List of Items" XLS → Product Auto-Import
 
-# ERP Action Agent — Implementation Plan
+Your sample is a Marg `LIST OF ITEMS` report (BIFF .xls, ~47k rows). It uses a non-tabular layout:
 
-We already have the "advisor" pieces (`ai-assistant` intent classifier, `parse-order-text`, product embeddings, `nl-query`). What's missing is the **mutation agent** with tools + guardrails + HITL approval. This plan builds it in 4 phases, reusing the current stack instead of dragging in LangGraph (overkill inside a Deno edge function — the AI SDK's `tools` + `stopWhen` + `needsApproval` give us the same state machine with less code and zero new infra).
-
----
-
-## What we're building (in one picture)
-
-```text
- User chat ──► /functions/action-agent (Edge)
-                ├─ RAG context     (company_id, role, recent entities, pgvector search)
-                ├─ AI SDK streamText + tools (Lovable AI: gemini-3-flash-preview)
-                │     tools = [search_products, search_customers, create_product,
-                │              upsert_customer, update_stock, create_sales_invoice,
-                │              record_payment, process_refund]
-                ├─ Guardrails  (Zod input schema + RBAC + business rules)
-                ├─ Mutating tools → needsApproval = true  ──► HITL "pending_action"
-                └─ Commit → DB RPC (transactional) → audit_log row
+```
+AKANSHA PHARMACY               <- header (skip)
+LIST OF ITEMS                  <- title (skip)
+SNo. | ITEM | DESCRIPTION | RATE | M.R.P. | TAX%   <- column header
+(NRX)ALPRAZOLAM                <- salt/group header (col 0 only)
+1 | ALARK   | 0.25MG  20       | 0 | 13.13 | 5
+2 | ALEEZ   | 0.5MG   1*10     | 0 | 18.75 | 5
+...
+(NRX)DIAZEPAM                  <- next group
 ```
 
-The agent is **stateless on the server**; conversation thread + approval state live in DB so reload/relogin resumes cleanly.
+The DESCRIPTION cell mixes **strength + pack** (`0.25MG 1*10`, `60 ML`, `1*500GM`, `5ML`, `0.3MG/ML 2ML`). We need to split that and derive the conversion (e.g. `1*10` ⇒ 1 strip = 10 tablets).
 
----
+### Goal
+A new "Marg List-of-Items" importer step inside the existing Data Import wizard (`src/components/data-import/*`) that:
+1. Accepts `.xls`/`.xlsx`
+2. Parses the Marg layout (salt groups + items)
+3. Extracts strength, pack, form, conversion, generic name automatically
+4. Shows a reviewable preview grid
+5. On confirm, upserts into `products` + `product_conversions` scoped to current `company_id`
 
-## Phase 1 — Foundation: tool-calling agent (replaces regex/intent classifier for mutations)
+### Parsing rules
 
-**Deliverables**
-- New edge function `supabase/functions/action-agent/index.ts` using `npm:ai` + Lovable AI Gateway (`google/gemini-3-flash-preview`, `stopWhen: stepCountIs(50)`).
-- Tools registered with Zod `inputSchema` and `execute`:
-  - read-only: `search_products`, `search_customers`, `get_product_stock`
-  - mutating: `upsert_customer`, `create_product`, `update_stock`, `create_sales_invoice`, `record_payment`, `process_refund` — all marked `needsApproval: true`.
-- Each mutating `execute` calls a **single Postgres RPC** (`agent_create_sales_invoice`, etc.) wrapped in a transaction so multi-step writes (invoice + stock decrement + ledger) succeed or fail together. Reuses existing FIFO logic in `src/utils/fifoAllocation.ts` ported into the RPC.
-- New tables (migration):
-  - `agent_conversations` (id, user_id, company_id, title, created_at)
-  - `agent_messages` (conversation_id, role, parts jsonb, tool_calls jsonb)
-  - `agent_pending_actions` (id, conversation_id, tool_name, validated_input jsonb, preview jsonb, status: 'pending'|'approved'|'rejected'|'executed'|'failed', expires_at)
-  - `agent_audit_log` (id, user_id, company_id, conversation_id, tool_name, raw_prompt, input jsonb, output jsonb, status, latency_ms)
-  - RLS scoped to `company_id` + `is_super_admin(auth.uid())`; GRANT to authenticated/service_role per the project's multi-tenancy rule.
+**Row classifier** (run top-to-bottom, keep "current salt"):
+- Skip rows where all 6 cols are NaN
+- Skip first ~8 rows + any row matching `LIST OF ITEMS`, phone/TIN/address regex, or the column header row (`SNo.` in col 0)
+- Salt-group row: col 0 is text, cols 1-5 NaN ⇒ `currentSalt = stripPrefix(text)` (strip leading `(NRX)`, `(H)`, `(SCH-H)`, `(GEN)`, etc., capture them as `schedule`)
+- Item row: col 0 numeric ⇒ parse
 
-**Client**
-- Replace `src/pages/Chat.tsx`'s `confirmDraft` single-shot flow with a generic "pending action card" that renders any tool's `preview` payload and posts Approve/Reject to `/action-agent/approve`.
-- Keep current draft UX as a fallback for legacy `create_sale_draft` until phase 2.
+**Description parser** (regex pipeline on `ITEM + " " + DESCRIPTION` collapsed whitespace):
+- `strength`: `/(\d+(?:\.\d+)?)\s*(MG|MCG|GM|G|ML|IU|%|U)(?:\s*\/\s*(\d+(?:\.\d+)?)\s*(MG|ML|G))?/i`
+- `pack`: last token, one of
+  - `N*M` → `outer=N, inner=M, conversion=M`
+  - `\d+ML` / `\d+\s*ML` → liquid, `volume_ml=N`, single unit `Bottle`
+  - `\d+GM` / `\d+G` → solid mass, `Tube`/`Pack`
+  - bare integer `10`/`20`/`30` → tablets/caps strip count, `conversion=N`
+- `form` inference:
+  - `ML` + (`DROP|SYRUP|SUSP|SOL`) → drops/syrup
+  - `ML` + strength like `MG/ML` → injection if `INJ` else syrup
+  - `GM/G` + (`CREAM|OINT|GEL|LOTION`) → cream/oint
+  - integer pack + `MG/MCG` strength → tablet (default) or capsule if name contains `CAP`
+- `brand` = `ITEM` cell (trim)
+- `generic` = `currentSalt`
+- `schedule` = captured prefix
+- `mrp` = col 4, `purchase_rate` = col 3, `gst` = col 5
 
-## Phase 2 — RAG context injection
+**Conversion table** (`product_conversions`):
+- `1*10` tablets ⇒ base unit `Tablet`, parent `Strip` (=10 Tablet), grandparent `Box` (=1 Strip) — store factor 10
+- `1*500GM` ⇒ base `Gram`, parent `Pack` (=500 Gram)
+- `5ML` syrup ⇒ base `ML`, parent `Bottle` (=5 ML)
 
-- Add `query_database_for_context` tool that does **hybrid search**: pgvector similarity on `product_embeddings` (already in place) + ILIKE fallback, filtered by RLS.
-- Before the LLM turn, prepend a compact system message with: user role, business_module, last 5 customers/products touched, current financial year. This is what stops "Add John" from creating a duplicate when John already exists.
-- Build a `resolveEntity(name, kind)` helper the agent calls before any mutate tool — returns either `{id, confidence}` or a disambiguation list the model shows the user.
+### UI / Flow
 
-## Phase 3 — Guardrails engine
+```text
+DataImportWizard
+ ├─ Step 1: Source select  → add "Marg List-of-Items (.xls)" card
+ ├─ Step 2: Parse & Preview
+ │    table cols: Salt | Brand | Strength | Form | Pack | Conv | MRP | Rate | GST | ✓
+ │    user can edit any cell inline; rows with low-confidence parse flagged amber
+ ├─ Step 3: Dedup check (existing products by brand+strength+pack within company)
+ └─ Step 4: Confirm → batch upsert products + conversions
+```
 
-- **Zod layer** — every tool input validated server-side; reject with structured error the model can re-plan from (e.g. `{code:"NEGATIVE_STOCK", suggestion:"..."}`).
-- **RBAC layer** — wrap each tool's `execute` in `requireRole(['admin','pharmacist'])`; mutating tools blocked for `staff`. Server-enforced even if the LLM hallucinates.
-- **Business rules** — central `business_rules` table already exists; add rows for: no negative stock, can't delete product with sales history, refund only within FY, price change > 20% requires Admin.
-- **HITL** — for any tool with `needsApproval: true`, the `execute` runs in **dry-run mode**: builds the change preview (delta diff, affected row count, totals) and inserts an `agent_pending_actions` row instead of committing. The chat UI renders the preview; on Approve, `/action-agent/approve` re-validates and calls the same RPC with `commit=true`.
-- **Audit** — every approve/reject/execute writes to `agent_audit_log` with prompt + tool + input + output + latency.
+### Files to add/edit
 
-## Phase 4 — Expansion + safety net
+- `src/lib/import/margListParser.ts` — pure TS parser (input: 2D array, output: `ParsedMargItem[]`)
+- `src/lib/import/descriptionExtractor.ts` — regex extractor with unit tests
+- `src/components/data-import/MargListPreview.tsx` — editable preview grid
+- Extend `src/services/dataImport.ts` with `importMargItems(items, companyId)`
+- Extend `src/components/data-import/ImportSourceSelect.tsx` (or current source step) with the new source card
+- Reuse existing `xlrd`/`xlsx` reader already used in CSV import (need to confirm — may add `xlsx` npm dep if `.xls` not yet supported; SheetJS `xlsx` handles both BIFF8 .xls and .xlsx)
 
-- Add `reorder_low_stock`, `update_customer_status`, `bulk_update_prices` (always HITL with row-count preview).
-- Rate limit: 30 mutating calls / user / hour via existing pattern in `ai-assistant`.
-- Add `/agent-history` page so users (and admins) can see what the agent did. Drives trust.
-- Wire dashboard widget showing pending approvals count.
+### Out of scope (per your message)
+- No actual data insertion of the sample file — importer only ships the pipeline; you'll upload the real file later.
+- No inventory/batch creation (this report has no batch/expiry/stock).
+- No supplier mapping.
 
----
-
-## Technical details (engineering reference)
-
-**Stack choice** — AI SDK (`npm:ai` + `@ai-sdk/openai-compatible`) over LangGraph because (a) it natively gives us interrupt-on-approval through `needsApproval`, (b) it runs cleanly in Deno without the LangGraph state-store glue, (c) consistent with `parse-order-text` already on Lovable AI Gateway. `LOVABLE_API_KEY` is the only secret needed and is auto-provisioned.
-
-**Why RPCs not table writes in tools** — Multi-table mutations (invoice → items → batch FIFO decrement → ledger entry) must be atomic. Each mutating tool calls one SECURITY DEFINER RPC that wraps the transaction; the tool layer just orchestrates and audits. Mirrors the pattern already used by `agent_create_sales_invoice`-style logic in current code.
-
-**HITL state machine** — `agent_pending_actions.status` transitions: `pending → approved → executed | failed` or `pending → rejected | expired (>15min)`. The chat UI subscribes via realtime to update card status if approved from another device.
-
-**Tool catalog growth** — Capped at ~15 tools per request. If we exceed that, follow the `ai-sdk-tool-deferral` pattern (meta `search_tools` / `invoke_tool`). Not needed in Phase 1.
-
-**Idempotency** — every mutating RPC takes a `client_action_id` (UUID generated client-side per approval click) and rejects duplicates within 24h. Stops double-commits if approval is double-clicked.
-
-**Testing** — Deno tests under `supabase/functions/action-agent/*_test.ts` covering: Zod rejection, RBAC denial for staff, dry-run preview shape, idempotency, FY guardrail. Use `supabase--test_edge_functions`.
-
----
-
-## Out of scope (deliberately)
-
-- LangGraph dependency — covered by AI SDK primitives.
-- External vector DB — staying on `pgvector` (already used by `product_embeddings`).
-- Voice input, scheduled actions, multi-step "workflows you save and replay" — future phase.
-
-## Suggested first-cut deliverable
-
-Phase 1 + the HITL piece of Phase 3 in one PR, with just three mutating tools wired (`upsert_customer`, `create_product`, `create_sales_invoice`). That gives a working, auditable, approval-gated agent end-to-end. Phases 2 and 4 then iterate without schema churn.
-
-Ready to switch to build mode and start with Phase 1 (edge function scaffold + tables + the three tools + HITL approval card) — confirm and I'll proceed.
+### Open questions
+1. Should the importer create a `drug_generics` master record for each new salt (e.g. `ALPRAZOLAM`) and link products via `generic_id`, matching your existing brand→generic mapping memory? Default: **yes**.
+2. Schedule prefixes (`NRX`, `H`, `H1`, `SCH-H`) — store on `products.schedule` column? Confirm column exists or add it.
+3. Default form when ambiguous (just a bare integer pack with no MG/ML) — default to **Tablet**, flag amber for review. OK?

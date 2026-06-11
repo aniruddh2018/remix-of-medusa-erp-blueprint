@@ -37,6 +37,7 @@ import   {
   Stethoscope,
   Zap,
   Bot,
+  Sparkles,
   Database,
   ShieldCheck,
   BookOpen,

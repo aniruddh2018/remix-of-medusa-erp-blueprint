@@ -92,7 +92,6 @@ export default function GSTFiling() {
   return (
     <div className="space-y-4">
       <PageHeader
-        icon={ReceiptText}
         title="GST Filing"
         description="Filing-ready GSTR-1, GSTR-3B, Purchase Register and HSN Summary"
       />

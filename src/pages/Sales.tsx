@@ -48,6 +48,7 @@ import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/Unit
 import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 type SalesOrder = Tables<"sales_orders">;
 type Product = Tables<"products">;

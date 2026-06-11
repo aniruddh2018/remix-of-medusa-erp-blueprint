@@ -184,6 +184,10 @@ export default function Settings() {
       {/* Invoice Format */}
       <InvoiceSettingsSection />
 
+      {/* WhatsApp Templates */}
+      <WhatsAppTemplatesSection />
+
+
       {/* Data Backup */}
       <BackupSection />
 

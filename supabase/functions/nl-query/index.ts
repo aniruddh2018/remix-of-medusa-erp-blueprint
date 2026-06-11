@@ -233,9 +233,14 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+    const anonClient = createClient(supabaseUrl, anonKey);
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    });
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
 
@@ -472,7 +477,7 @@ Remember: Always filter by company_id = '${company_id}' and add LIMIT ${maxRows}
     let error: any = null;
 
     try {
-      const queryPromise = anonClient.rpc("execute_readonly_query", {
+      const queryPromise = userClient.rpc("execute_readonly_query", {
         query_sql: validation.sanitized,
         max_rows: maxRows,
       });

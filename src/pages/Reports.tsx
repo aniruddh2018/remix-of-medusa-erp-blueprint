@@ -797,8 +797,15 @@ const Reports = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AICustomReport />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
 export default Reports;
+

@@ -11,8 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle, ShieldAlert, Boxes } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, ShoppingCart, Package, Truck, AlertCircle, ShieldAlert, Boxes, Sparkles, BarChart3 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AICustomReport } from "@/components/reports/AICustomReport";
 
 type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
 
@@ -377,8 +379,16 @@ const Reports = () => {
         </Select>
       </div>
 
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview"><BarChart3 className="h-4 w-4 mr-2" />Overview</TabsTrigger>
+          <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-2" />AI Custom Report</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
@@ -787,8 +797,15 @@ const Reports = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AICustomReport />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
 export default Reports;
+

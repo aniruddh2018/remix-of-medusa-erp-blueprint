@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.execute_readonly_query(text, integer) TO authenticated, service_role;

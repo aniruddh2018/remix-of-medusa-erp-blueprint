@@ -802,26 +802,30 @@ export default function PurchaseOrders() {
     toast({ title: "Items Imported", description: `${newItems.length} items from ${selectedChallanIds.length} challan(s).` });
   };
 
+  const buildBillFromPO = async (order: any): Promise<BillData> => {
+    const { data: items, error } = await supabase.from("purchase_order_items").select("*, products (name, strength, hsn_code, gst_percentage)").eq("purchase_order_id", order.id);
+    if (error) throw error;
+    const billItems = (items || []).map((item: any) => ({
+      product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
+      batch_number: "-", hsn_code: item.products?.hsn_code || "",
+      quantity: item.quantity, unit_price: Number(item.unit_price),
+      gst_percentage: Number(item.gst_percentage), discount_percentage: Number(item.discount_percentage),
+      total_price: Number(item.total_price),
+    }));
+    const subtotal = billItems.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity * (1 - i.discount_percentage / 100), 0);
+    return {
+      type: "purchase", invoice_number: order.invoice_number || order.challan_number || order.order_number,
+      date: order.order_date, supplier_name: order.suppliers?.name || "-", items: billItems, subtotal,
+      gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
+      freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
+      other_charges: Number(order.other_charges), total_amount: Number(order.total_amount),
+    };
+  };
+
   const handleBillAction = async (order: any, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
     try {
-      const { data: items, error } = await supabase.from("purchase_order_items").select("*, products (name, strength, hsn_code, gst_percentage)").eq("purchase_order_id", order.id);
-      if (error) throw error;
-      const billItems = (items || []).map((item: any) => ({
-        product_name: `${item.products?.name || ""}${item.products?.strength ? ` ${item.products.strength}` : ""}`,
-        batch_number: "-", hsn_code: item.products?.hsn_code || "",
-        quantity: item.quantity, unit_price: Number(item.unit_price),
-        gst_percentage: Number(item.gst_percentage), discount_percentage: Number(item.discount_percentage),
-        total_price: Number(item.total_price),
-      }));
-      const subtotal = billItems.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity * (1 - i.discount_percentage / 100), 0);
-      const billData: BillData = {
-        type: "purchase", invoice_number: order.invoice_number || order.challan_number || order.order_number,
-        date: order.order_date, supplier_name: order.suppliers?.name || "-", items: billItems, subtotal,
-        gst_amount: Number(order.gst_amount), discount_amount: Number(order.discount_amount),
-        freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
-        other_charges: Number(order.other_charges), total_amount: Number(order.total_amount),
-      };
+      const billData = await buildBillFromPO(order);
       if (action === "print") printBill(billData);
       else if (action === "pdf") downloadBillPDF(billData);
       else if (action === "html") downloadBillHTML(billData);

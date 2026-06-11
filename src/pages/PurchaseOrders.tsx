@@ -1555,6 +1555,7 @@ export default function PurchaseOrders() {
                                     amount: Number(order.total_amount).toFixed(2),
                                     date: format(new Date(order.order_date), "dd/MM/yyyy"),
                                   }}
+                                  bill={() => buildBillFromPO(order)}
                                   iconOnly
                                   size="icon"
                                   className="h-7 w-7"

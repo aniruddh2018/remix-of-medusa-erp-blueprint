@@ -83,3 +83,49 @@ DataImportWizard
 1. Should the importer create a `drug_generics` master record for each new salt (e.g. `ALPRAZOLAM`) and link products via `generic_id`, matching your existing brand→generic mapping memory? Default: **yes**.
 2. Schedule prefixes (`NRX`, `H`, `H1`, `SCH-H`) — store on `products.schedule` column? Confirm column exists or add it.
 3. Default form when ambiguous (just a bare integer pack with no MG/ML) — default to **Tablet**, flag amber for review. OK?
+
+---
+
+## Marg Enrichment — Sheet 2 (Manufacturer/Company Data Merge)
+
+### Goal
+After importing products from the Marg "List of Items" (Sheet 1), import a **second sheet** containing manufacturer/company data and intelligently merge it with existing products.
+
+### Expected Second Sheet Layout
+Contains at least `ITEM` (brand name) plus manufacturer/company columns, e.g.:
+- `ITEM` → matches brand from Sheet 1
+- `COMPANY` / `MANUFACTURER` / `MFG BY` → manufacturer name
+- May also contain: `HSN_CODE`, `SCHEDULE`, `PACKING` (alternative), `RATE`, `MRP`, `GST%`
+
+### Merge Strategy
+
+**1. Matching Logic**
+- Primary key: `ITEM` name + `strength` + `pack_size` (same composite used during Sheet 1 import)
+- Fallback: fuzzy name match (Levenshtein ≥ 0.85) on `ITEM` alone if exact composite misses
+- Display unmatched rows as "New Products to Create"
+
+**2. Field-Level Merge Rules**
+- **Manufacturer**: Overwrite only if current is `"Unknown"` / blank / null; otherwise flag conflict for review
+- **HSN / Schedule / Generic**: Fill if empty; never silently overwrite non-empty values
+- **Rate / MRP / GST**: Never auto-overwrite financial data — show side-by-side diff for manual confirm
+- **Packing / Strength**: Flag conflict if differs from Sheet 1; prefer Sheet 1 (more granular) unless user overrides
+
+**3. Conflict Resolution UI**
+- Three buckets in preview grid:
+  - **Auto-merged** (green) — safe fills only, no conflicts
+  - **Conflicts** (amber) — fields that differ or need manual review; inline accept-new / keep-old / edit per cell
+  - **New Products** (blue) — unmatched rows, offer create-as-new with prefilled data
+
+### Files to Add/Edit
+- `src/lib/import/margEnrichmentParser.ts` — parser for Sheet 2 layout (detects manufacturer column, normalizes company names)
+- `src/components/data-import/MargEnrichmentImport.tsx` — wizard tab: Upload → Match Preview (3 buckets) → Confirm Merge
+- Extend `src/services/margImport.ts` with `enrichMargItems(items, companyId)` — handles batch upsert with conflict-safe rules
+- Extend `src/pages/DataImport.tsx` — add "Marg Enrichment" tab alongside "Marg Items"
+
+### Out of Scope
+- No fuzzy learning from user resolutions in this phase (can be added later)
+- No automatic manufacturer master table creation — store manufacturer as plain text on `products.manufacturer`
+- No supplier linkage (manufacturer ≠ supplier in this flow)
+
+### Status
+**Planned for later implementation.** Tackle after Sheet 1 importer is fully working in production.

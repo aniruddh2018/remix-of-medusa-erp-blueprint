@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -51,9 +53,10 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Prescriptions() {
-  const { user, profile } = useAuth() as any;
+  const { user } = useAuth() as any;
+  const { companyId } = useBusiness() as any;
   const navigate = useNavigate();
-  const companyId = profile?.company_id;
+
   const [list, setList] = useState<Rx[]>([]);
   const [loading, setLoading] = useState(false);
   const [openDetail, setOpenDetail] = useState<Rx | null>(null);

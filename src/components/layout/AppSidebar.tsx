@@ -53,6 +53,7 @@ interface MenuItem {
 const allMainMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard", shortcut: "Alt+1" },
   { title: "Automation Chat", icon: Bot, path: "/chat", shortcut: null },
+  { title: "Action Agent", icon: Sparkles, path: "/agent", shortcut: null },
   { title: "Query Engine", icon: Database, path: "/query", shortcut: null },
   { title: "Products", icon: Package, path: "/products", shortcut: "Alt+5" },
   { title: "Inventory", icon: Boxes, path: "/inventory", shortcut: "Alt+6" },

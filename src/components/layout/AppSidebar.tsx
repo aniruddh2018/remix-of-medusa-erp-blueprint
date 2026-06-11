@@ -41,6 +41,7 @@ import   {
   Database,
   ShieldCheck,
   BookOpen,
+  ReceiptText,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -72,6 +73,7 @@ const allComplianceMenuItems: MenuItem[] = [
   { title: "Scheduled Drugs", icon: Pill, path: "/scheduled-drugs", shortcut: null },
   { title: "Credit & Debit Notes", icon: RotateCcw, path: "/notes" },
   { title: "Accounts", icon: Wallet, path: "/accounts" },
+  { title: "GST Filing", icon: ReceiptText, path: "/gst-filing" },
 ];
 
 

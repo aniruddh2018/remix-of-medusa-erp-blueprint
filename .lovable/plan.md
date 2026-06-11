@@ -1,131 +1,124 @@
-## Marg "List of Items" XLS → Product Auto-Import
+# Filing-Ready GST Reports
 
-Your sample is a Marg `LIST OF ITEMS` report (BIFF .xls, ~47k rows). It uses a non-tabular layout:
+A new **GST Filing** workspace that turns your sales, purchases, credit/debit notes into reports you can upload directly to the GST portal — or hand to your CA.
 
-```
-AKANSHA PHARMACY               <- header (skip)
-LIST OF ITEMS                  <- title (skip)
-SNo. | ITEM | DESCRIPTION | RATE | M.R.P. | TAX%   <- column header
-(NRX)ALPRAZOLAM                <- salt/group header (col 0 only)
-1 | ALARK   | 0.25MG  20       | 0 | 13.13 | 5
-2 | ALEEZ   | 0.5MG   1*10     | 0 | 18.75 | 5
-...
-(NRX)DIAZEPAM                  <- next group
-```
+## What you'll get
 
-The DESCRIPTION cell mixes **strength + pack** (`0.25MG 1*10`, `60 ML`, `1*500GM`, `5ML`, `0.3MG/ML 2ML`). We need to split that and derive the conversion (e.g. `1*10` ⇒ 1 strip = 10 tablets).
+A new tab in **Accounts → GST Filing** (separate from the existing summary view) with:
 
-### Goal
-A new "Marg List-of-Items" importer step inside the existing Data Import wizard (`src/components/data-import/*`) that:
-1. Accepts `.xls`/`.xlsx`
-2. Parses the Marg layout (salt groups + items)
-3. Extracts strength, pack, form, conversion, generic name automatically
-4. Shows a reviewable preview grid
-5. On confirm, upserts into `products` + `product_conversions` scoped to current `company_id`
+### 1. Period selector
+- **Monthly** (default) — pick month + year
+- **Quarterly** (for QRMP filers) — pick Q1/Q2/Q3/Q4 + FY
+- Auto-detects financial year from existing financial year tables.
 
-### Parsing rules
+### 2. Four report tabs
 
-**Row classifier** (run top-to-bottom, keep "current salt"):
-- Skip rows where all 6 cols are NaN
-- Skip first ~8 rows + any row matching `LIST OF ITEMS`, phone/TIN/address regex, or the column header row (`SNo.` in col 0)
-- Salt-group row: col 0 is text, cols 1-5 NaN ⇒ `currentSalt = stripPrefix(text)` (strip leading `(NRX)`, `(H)`, `(SCH-H)`, `(GEN)`, etc., capture them as `schedule`)
-- Item row: col 0 numeric ⇒ parse
+**GSTR-1 (Outward supplies)** — built from `sales_orders` + `credit_notes`
+- B2B (registered customers, GSTIN present) — invoice-wise
+- B2CL (B2C Large — unregistered, value > ₹2.5L, inter-state) — invoice-wise
+- B2CS (B2C Small) — rate-wise summary
+- CDNR (Credit/Debit notes to registered)
+- CDNUR (Credit notes to unregistered)
+- HSN summary
+- Document series summary
 
-**Description parser** (regex pipeline on `ITEM + " " + DESCRIPTION` collapsed whitespace):
-- `strength`: `/(\d+(?:\.\d+)?)\s*(MG|MCG|GM|G|ML|IU|%|U)(?:\s*\/\s*(\d+(?:\.\d+)?)\s*(MG|ML|G))?/i`
-- `pack`: last token, one of
-  - `N*M` → `outer=N, inner=M, conversion=M`
-  - `\d+ML` / `\d+\s*ML` → liquid, `volume_ml=N`, single unit `Bottle`
-  - `\d+GM` / `\d+G` → solid mass, `Tube`/`Pack`
-  - bare integer `10`/`20`/`30` → tablets/caps strip count, `conversion=N`
-- `form` inference:
-  - `ML` + (`DROP|SYRUP|SUSP|SOL`) → drops/syrup
-  - `ML` + strength like `MG/ML` → injection if `INJ` else syrup
-  - `GM/G` + (`CREAM|OINT|GEL|LOTION`) → cream/oint
-  - integer pack + `MG/MCG` strength → tablet (default) or capsule if name contains `CAP`
-- `brand` = `ITEM` cell (trim)
-- `generic` = `currentSalt`
-- `schedule` = captured prefix
-- `mrp` = col 4, `purchase_rate` = col 3, `gst` = col 5
+**GSTR-3B (Summary)** — auto-computed
+- 3.1 Outward taxable supplies (taxable, IGST, CGST, SGST, cess)
+- 3.1.1 Supplies u/s 9(5) (skipped if not applicable)
+- 4. Eligible ITC (from purchases)
+- 5. Exempt / nil-rated / non-GST inward
+- 6.1 Tax payable & paid
+- Single-screen, GSTN-form-aligned
 
-**Conversion table** (`product_conversions`):
-- `1*10` tablets ⇒ base unit `Tablet`, parent `Strip` (=10 Tablet), grandparent `Box` (=1 Strip) — store factor 10
-- `1*500GM` ⇒ base `Gram`, parent `Pack` (=500 Gram)
-- `5ML` syrup ⇒ base `ML`, parent `Bottle` (=5 ML)
+**GSTR-2 / Purchase Register** — built from `purchase_orders` + `debit_notes`
+- Supplier-wise inward supplies with GSTIN
+- Rate-wise ITC breakup
+- Export for reconciliation with GSTR-2B
 
-### UI / Flow
+**HSN-wise Summary** — both outward and inward
+- HSN, description, UQC, total qty, taxable value, IGST, CGST, SGST, cess
+- Sales (Table 12 of GSTR-1) and Purchase variant
 
-```text
-DataImportWizard
- ├─ Step 1: Source select  → add "Marg List-of-Items (.xls)" card
- ├─ Step 2: Parse & Preview
- │    table cols: Salt | Brand | Strength | Form | Pack | Conv | MRP | Rate | GST | ✓
- │    user can edit any cell inline; rows with low-confidence parse flagged amber
- ├─ Step 3: Dedup check (existing products by brand+strength+pack within company)
- └─ Step 4: Confirm → batch upsert products + conversions
-```
+### 3. Export formats (every report)
+- **GSTN JSON** — schema-compliant, ready to upload to gst.gov.in portal
+- **Excel** — matches GST offline utility template (so your CA can open it in the official tool)
+- **CSV** — generic spreadsheet
+- **PDF** — print-ready review copy with company header, GSTIN, period
 
-### Files to add/edit
+## Prerequisites (one-time backend changes)
 
-- `src/lib/import/margListParser.ts` — pure TS parser (input: 2D array, output: `ParsedMargItem[]`)
-- `src/lib/import/descriptionExtractor.ts` — regex extractor with unit tests
-- `src/components/data-import/MargListPreview.tsx` — editable preview grid
-- Extend `src/services/dataImport.ts` with `importMargItems(items, companyId)`
-- Extend `src/components/data-import/ImportSourceSelect.tsx` (or current source step) with the new source card
-- Reuse existing `xlrd`/`xlsx` reader already used in CSV import (need to confirm — may add `xlsx` npm dep if `.xls` not yet supported; SheetJS `xlsx` handles both BIFF8 .xls and .xlsx)
+The current schema is missing a few fields required for filing. We'll add:
 
-### Out of scope (per your message)
-- No actual data insertion of the sample file — importer only ships the pipeline; you'll upload the real file later.
-- No inventory/batch creation (this report has no batch/expiry/stock).
-- No supplier mapping.
+- `companies.state_code` (2-digit GST state code, e.g. "27" for Maharashtra) + `companies.gstin` (alias of existing `gst_number`)
+- `customers.state_code` + `customers.gstin` (already has `gst_number`)
+- `suppliers.state_code`
+- `sales_orders.place_of_supply` (state code; defaults to customer's state, falls back to company's state)
+- `sales_orders.is_interstate` (computed/stored — drives IGST vs CGST+SGST split)
+- `purchase_orders.place_of_supply`, `purchase_orders.is_interstate`, `purchase_orders.supplier_invoice_date`
 
-### Open questions
-1. Should the importer create a `drug_generics` master record for each new salt (e.g. `ALPRAZOLAM`) and link products via `generic_id`, matching your existing brand→generic mapping memory? Default: **yes**.
-2. Schedule prefixes (`NRX`, `H`, `H1`, `SCH-H`) — store on `products.schedule` column? Confirm column exists or add it.
-3. Default form when ambiguous (just a bare integer pack with no MG/ML) — default to **Tablet**, flag amber for review. OK?
+A small one-time backfill UI in Settings → GST will let you set your company's state and bulk-update existing customers/suppliers by GSTIN prefix (first 2 chars of GSTIN = state code).
 
----
+## UI placement
 
-## Marg Enrichment — Sheet 2 (Manufacturer/Company Data Merge)
+- New top-level item in sidebar: **GST Filing** (separate from Accounts), under the Reports group
+- Or live as a 5th tab inside `/accounts` next to "GST Summary" — call your preference
 
-### Goal
-After importing products from the Marg "List of Items" (Sheet 1), import a **second sheet** containing manufacturer/company data and intelligently merge it with existing products.
+## Technical details
 
-### Expected Second Sheet Layout
-Contains at least `ITEM` (brand name) plus manufacturer/company columns, e.g.:
-- `ITEM` → matches brand from Sheet 1
-- `COMPANY` / `MANUFACTURER` / `MFG BY` → manufacturer name
-- May also contain: `HSN_CODE`, `SCHEDULE`, `PACKING` (alternative), `RATE`, `MRP`, `GST%`
+**New files**
+- `src/pages/GSTFiling.tsx` — main page with period selector + tab layout
+- `src/services/gst/gstr1.ts` — builds B2B/B2CL/B2CS/CDNR/HSN buckets
+- `src/services/gst/gstr3b.ts` — summary aggregator
+- `src/services/gst/purchaseRegister.ts` — inward supplies
+- `src/services/gst/hsnSummary.ts` — HSN aggregator (shared)
+- `src/services/gst/exporters/gstnJson.ts` — GSTN portal JSON schema
+- `src/services/gst/exporters/gstExcel.ts` — offline utility xlsx (uses existing `xlsx` lib pattern)
+- `src/services/gst/exporters/gstCsv.ts`
+- `src/services/gst/exporters/gstPdf.ts` — opens-in-window pattern like existing `scheduledRegisterPdf.ts`
+- `src/components/gst/GSTPeriodPicker.tsx`
+- `src/components/gst/BackfillStateCodesDialog.tsx`
 
-### Merge Strategy
+**Touched files**
+- `src/App.tsx` — add `/gst-filing` route
+- `src/components/layout/AppSidebar.tsx` — add nav item (visible only for pharmacy / pharmacy_b2b / b2b_electronics / general_trading — i.e. all GST businesses)
+- `src/contexts/BusinessContext.tsx` — add `/gst-filing` to `visiblePages`
+- `src/pages/Settings.tsx` — add "GST Setup" section with state code + backfill
 
-**1. Matching Logic**
-- Primary key: `ITEM` name + `strength` + `pack_size` (same composite used during Sheet 1 import)
-- Fallback: fuzzy name match (Levenshtein ≥ 0.85) on `ITEM` alone if exact composite misses
-- Display unmatched rows as "New Products to Create"
+**DB migration (single migration)**
+- ALTER TABLE adds for the columns listed above
+- All numeric defaults; no breaking changes
+- RLS unchanged (inherits company_id scope)
 
-**2. Field-Level Merge Rules**
-- **Manufacturer**: Overwrite only if current is `"Unknown"` / blank / null; otherwise flag conflict for review
-- **HSN / Schedule / Generic**: Fill if empty; never silently overwrite non-empty values
-- **Rate / MRP / GST**: Never auto-overwrite financial data — show side-by-side diff for manual confirm
-- **Packing / Strength**: Flag conflict if differs from Sheet 1; prefer Sheet 1 (more granular) unless user overrides
+**Inter-state logic**
+- Compare `place_of_supply` state code with `companies.state_code`
+- Same → CGST + SGST (rate split 50/50)
+- Different → IGST (full rate)
 
-**3. Conflict Resolution UI**
-- Three buckets in preview grid:
-  - **Auto-merged** (green) — safe fills only, no conflicts
-  - **Conflicts** (amber) — fields that differ or need manual review; inline accept-new / keep-old / edit per cell
-  - **New Products** (blue) — unmatched rows, offer create-as-new with prefilled data
+**Inclusive/exclusive GST** already handled in `BusinessContext.gstInclusive` — reused for back-calculating taxable values.
 
-### Files to Add/Edit
-- `src/lib/import/margEnrichmentParser.ts` — parser for Sheet 2 layout (detects manufacturer column, normalizes company names)
-- `src/components/data-import/MargEnrichmentImport.tsx` — wizard tab: Upload → Match Preview (3 buckets) → Confirm Merge
-- Extend `src/services/margImport.ts` with `enrichMargItems(items, companyId)` — handles batch upsert with conflict-safe rules
-- Extend `src/pages/DataImport.tsx` — add "Marg Enrichment" tab alongside "Marg Items"
+**Reuses existing patterns**
+- React Query for data fetching (matches `Accounts.tsx`)
+- `xlsx` lib already in deps (used in data-import)
+- PDF-via-window-print pattern from `scheduledRegisterPdf.ts`
+- Company info pulled from `companies` table (matches invoice flow)
 
-### Out of Scope
-- No fuzzy learning from user resolutions in this phase (can be added later)
-- No automatic manufacturer master table creation — store manufacturer as plain text on `products.manufacturer`
-- No supplier linkage (manufacturer ≠ supplier in this flow)
+## Out of scope (for this round)
+- E-invoice IRN generation
+- E-way bill JSON
+- GSTR-9 annual return
+- GSTR-2B auto-reconciliation (just the register, not the matching engine)
+- Direct API submission to GSTN (you'll upload the JSON manually on the portal)
 
-### Status
-**Planned for later implementation.** Tackle after Sheet 1 importer is fully working in production.
+These can be added later once filing flow is validated.
+
+## Build order
+1. DB migration + state-code backfill UI
+2. GSTR-1 builder + CSV/PDF (smallest happy-path)
+3. GSTN JSON exporter for GSTR-1
+4. Excel offline utility format
+5. GSTR-3B summary
+6. Purchase register
+7. HSN summary (shared)
+8. QA with a real month of data
+
+Ready to start with step 1 (migration) once you approve.

@@ -338,8 +338,11 @@ export type Database = {
           gst_number: string | null
           id: string
           is_active: boolean
+          legal_name: string | null
           name: string
           phone: string | null
+          state_code: string | null
+          state_name: string | null
           updated_at: string
         }
         Insert: {
@@ -351,8 +354,11 @@ export type Database = {
           gst_number?: string | null
           id?: string
           is_active?: boolean
+          legal_name?: string | null
           name: string
           phone?: string | null
+          state_code?: string | null
+          state_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -364,8 +370,11 @@ export type Database = {
           gst_number?: string | null
           id?: string
           is_active?: boolean
+          legal_name?: string | null
           name?: string
           phone?: string | null
+          state_code?: string | null
+          state_name?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -554,15 +563,19 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit_note_number: string
+          customer_gstin: string | null
           customer_name: string
           customer_phone: string | null
           deleted: boolean
           device_id: string | null
           gst_amount: number
           id: string
+          is_interstate: boolean
+          note_type: string
           notes: string | null
           original_invoice_id: string | null
           original_invoice_number: string
+          place_of_supply: string | null
           reason: string
           status: string
           total_amount: number
@@ -574,15 +587,19 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_note_number: string
+          customer_gstin?: string | null
           customer_name: string
           customer_phone?: string | null
           deleted?: boolean
           device_id?: string | null
           gst_amount?: number
           id?: string
+          is_interstate?: boolean
+          note_type?: string
           notes?: string | null
           original_invoice_id?: string | null
           original_invoice_number: string
+          place_of_supply?: string | null
           reason: string
           status?: string
           total_amount?: number
@@ -594,15 +611,19 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_note_number?: string
+          customer_gstin?: string | null
           customer_name?: string
           customer_phone?: string | null
           deleted?: boolean
           device_id?: string | null
           gst_amount?: number
           id?: string
+          is_interstate?: boolean
+          note_type?: string
           notes?: string | null
           original_invoice_id?: string | null
           original_invoice_number?: string
+          place_of_supply?: string | null
           reason?: string
           status?: string
           total_amount?: number
@@ -692,6 +713,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          state_code: string | null
           total_purchases: number
           updated_at: string
           version: number
@@ -708,6 +730,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          state_code?: string | null
           total_purchases?: number
           updated_at?: string
           version?: number
@@ -724,6 +747,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          state_code?: string | null
           total_purchases?: number
           updated_at?: string
           version?: number
@@ -875,11 +899,15 @@ export type Database = {
           device_id: string | null
           gst_amount: number
           id: string
+          is_interstate: boolean
+          note_type: string
           notes: string | null
           original_order_id: string | null
           original_order_number: string
+          place_of_supply: string | null
           reason: string
           status: string
+          supplier_gstin: string | null
           supplier_id: string | null
           supplier_name: string
           total_amount: number
@@ -895,11 +923,15 @@ export type Database = {
           device_id?: string | null
           gst_amount?: number
           id?: string
+          is_interstate?: boolean
+          note_type?: string
           notes?: string | null
           original_order_id?: string | null
           original_order_number: string
+          place_of_supply?: string | null
           reason: string
           status?: string
+          supplier_gstin?: string | null
           supplier_id?: string | null
           supplier_name: string
           total_amount?: number
@@ -915,11 +947,15 @@ export type Database = {
           device_id?: string | null
           gst_amount?: number
           id?: string
+          is_interstate?: boolean
+          note_type?: string
           notes?: string | null
           original_order_id?: string | null
           original_order_number?: string
+          place_of_supply?: string | null
           reason?: string
           status?: string
+          supplier_gstin?: string | null
           supplier_id?: string | null
           supplier_name?: string
           total_amount?: number
@@ -3412,13 +3448,18 @@ export type Database = {
           id: string
           invoice_number: string | null
           is_challan: boolean | null
+          is_interstate: boolean
           ledger_id: string | null
           notes: string | null
           order_date: string
           order_number: string
           other_charges: number
+          place_of_supply: string | null
           status: Database["public"]["Enums"]["order_status"]
+          supplier_gstin: string | null
           supplier_id: string
+          supplier_invoice_date: string | null
+          supplier_invoice_number: string | null
           total_amount: number
           updated_at: string
           version: number
@@ -3439,13 +3480,18 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           is_challan?: boolean | null
+          is_interstate?: boolean
           ledger_id?: string | null
           notes?: string | null
           order_date?: string
           order_number: string
           other_charges?: number
+          place_of_supply?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          supplier_gstin?: string | null
           supplier_id: string
+          supplier_invoice_date?: string | null
+          supplier_invoice_number?: string | null
           total_amount?: number
           updated_at?: string
           version?: number
@@ -3466,13 +3512,18 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           is_challan?: boolean | null
+          is_interstate?: boolean
           ledger_id?: string | null
           notes?: string | null
           order_date?: string
           order_number?: string
           other_charges?: number
+          place_of_supply?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          supplier_gstin?: string | null
           supplier_id?: string
+          supplier_invoice_date?: string | null
+          supplier_invoice_number?: string | null
           total_amount?: number
           updated_at?: string
           version?: number
@@ -3748,11 +3799,13 @@ export type Database = {
           handling_charges: number
           id: string
           invoice_number: string
+          is_interstate: boolean
           ledger_id: string | null
           notes: string | null
           other_charges: number
           payment_method: string | null
           payment_status: string
+          place_of_supply: string | null
           prescription_date: string | null
           prescription_duration_days: number | null
           prescription_id: string | null
@@ -3791,11 +3844,13 @@ export type Database = {
           handling_charges?: number
           id?: string
           invoice_number: string
+          is_interstate?: boolean
           ledger_id?: string | null
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
           payment_status?: string
+          place_of_supply?: string | null
           prescription_date?: string | null
           prescription_duration_days?: number | null
           prescription_id?: string | null
@@ -3834,11 +3889,13 @@ export type Database = {
           handling_charges?: number
           id?: string
           invoice_number?: string
+          is_interstate?: boolean
           ledger_id?: string | null
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
           payment_status?: string
+          place_of_supply?: string | null
           prescription_date?: string | null
           prescription_duration_days?: number | null
           prescription_id?: string | null
@@ -4507,6 +4564,7 @@ export type Database = {
           is_active: boolean
           name: string
           phone: string | null
+          state_code: string | null
           updated_at: string
           version: number
         }
@@ -4524,6 +4582,7 @@ export type Database = {
           is_active?: boolean
           name: string
           phone?: string | null
+          state_code?: string | null
           updated_at?: string
           version?: number
         }
@@ -4541,6 +4600,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           phone?: string | null
+          state_code?: string | null
           updated_at?: string
           version?: number
         }
@@ -5216,6 +5276,7 @@ export type Database = {
       get_user_company_id:
         | { Args: never; Returns: string }
         | { Args: { _user_id: string }; Returns: string }
+      gstin_state_code: { Args: { gstin: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

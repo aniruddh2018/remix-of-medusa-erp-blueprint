@@ -34,6 +34,7 @@ interface Customer {
   version: number;
   device_id: string | null;
   deleted: boolean;
+  state_code: string | null;
   currentBalance?: number;
   roles?: string[];
 }

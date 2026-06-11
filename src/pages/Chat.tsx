@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, Send, User } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronRight, Loader2, Send, User, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PendingActionCard, type PendingActionStatus } from "@/components/chat/PendingActionCard";
 
+interface ThinkingStep {
+  step: number;
+  type: "reasoning" | "tool_call" | string;
+  content?: string;
+  tool?: string;
+  args?: any;
+  result?: any;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -17,7 +26,9 @@ interface ChatMessage {
   pendingTool?: string;
   pendingPreview?: any;
   pendingStatus?: PendingActionStatus;
+  thinking?: ThinkingStep[];
 }
+
 
 const EXAMPLES = [
   "Add customer Raj Traders phone 9876543210",
@@ -63,8 +74,10 @@ export default function Chat() {
         pendingTool: data?.pending_tool || undefined,
         pendingPreview: data?.pending_preview || undefined,
         pendingStatus: data?.pending_action_id ? "pending" : undefined,
+        thinking: Array.isArray(data?.thinking) ? data.thinking : undefined,
       };
       setMessages(m => [...m, reply]);
+
     } catch (e: any) {
       toast({ title: "Assistant error", description: e?.message || String(e), variant: "destructive" });
       setMessages(m => [...m, { id: crypto.randomUUID(), role: "assistant", text: `⚠️ ${e?.message || "Failed"}` }]);
@@ -116,8 +129,12 @@ export default function Chat() {
                   <p className="text-sm whitespace-pre-wrap">{m.text}</p>
                 </Card>
               ) : (
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                <>
+                  {m.thinking && m.thinking.length > 0 && <ThinkingPanel steps={m.thinking} />}
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                </>
               )}
+
               {m.pendingActionId && m.pendingTool && (
                 <PendingActionCard
                   pendingActionId={m.pendingActionId}
@@ -178,3 +195,57 @@ export default function Chat() {
     </div>
   );
 }
+
+function ThinkingPanel({ steps }: { steps: ThinkingStep[] }) {
+  const [open, setOpen] = useState(false);
+  const toolCount = steps.filter(s => s.type === "tool_call").length;
+  const summary =
+    steps.find(s => s.type === "reasoning")?.content?.slice(0, 80) ||
+    (toolCount > 0 ? `Called ${toolCount} tool${toolCount > 1 ? "s" : ""}` : "Thought briefly");
+  return (
+    <div className="mb-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        <Brain className="h-3.5 w-3.5" />
+        <span className="font-medium">Thinking</span>
+        <span className="truncate text-left flex-1">— {summary}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-2 pt-1 space-y-2 border-t border-muted-foreground/20">
+          {steps.map((s, i) => (
+            <div key={i} className="text-xs">
+              {s.type === "reasoning" ? (
+                <div className="flex gap-1.5">
+                  <Brain className="h-3.5 w-3.5 mt-0.5 text-primary/70 flex-shrink-0" />
+                  <div className="whitespace-pre-wrap text-foreground/80">{s.content}</div>
+                </div>
+              ) : s.type === "tool_call" ? (
+                <div className="flex gap-1.5">
+                  <Wrench className="h-3.5 w-3.5 mt-0.5 text-primary/70 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono font-medium text-foreground">{s.tool}</div>
+                    {s.args && Object.keys(s.args).length > 0 && (
+                      <pre className="mt-0.5 text-[10px] bg-background/60 rounded px-1.5 py-1 overflow-x-auto">
+                        {JSON.stringify(s.args, null, 2)}
+                      </pre>
+                    )}
+                    {s.result !== undefined && (
+                      <pre className="mt-0.5 text-[10px] bg-background/60 rounded px-1.5 py-1 overflow-x-auto text-muted-foreground">
+                        → {typeof s.result === "string" ? s.result : JSON.stringify(s.result, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

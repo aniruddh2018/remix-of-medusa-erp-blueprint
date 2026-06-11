@@ -41,6 +41,7 @@ import   {
   Database,
   ShieldCheck,
   BookOpen,
+  ReceiptText,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 

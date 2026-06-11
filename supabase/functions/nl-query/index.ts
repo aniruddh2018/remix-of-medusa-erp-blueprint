@@ -179,7 +179,7 @@ async function getDatabaseSchema(supabase: any, companyId: string): Promise<stri
   const schema = [
     "## Queryable Tables:",
     "",
-    "sales_orders (id, invoice_number, customer_name, customer_id, total_amount, gst_amount, status, payment_status, created_at, company_id)",
+    "sales_orders (id, invoice_number, customer_name, customer_id, total_amount, gst_amount, discount_amount, amount_paid, due_date, status, payment_status, created_at, company_id)",
     "sales_order_items (id, sales_order_id, product_id, product_name, quantity, rate, gst_percentage, total, company_id)",
     "customers (id, name, phone, email, address, gst_number, company_id, created_at)",
     "suppliers (id, name, phone, email, address, gst_number, company_id)",
@@ -197,7 +197,10 @@ async function getDatabaseSchema(supabase: any, companyId: string): Promise<stri
     `5. Add LIMIT clause to limit results`,
     `6. Use meaningful column aliases`,
     `7. Join tables using foreign keys when needed`,
+    `8. Outstanding balance on a sales_order = (total_amount - COALESCE(amount_paid, 0)). There is NO crm_total_amount, outstanding_amount, or balance column — always compute it.`,
+    `9. Only use columns listed above. Never invent column names.`,
   ].join("\n");
+
 
   return schema;
 }

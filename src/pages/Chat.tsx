@@ -74,8 +74,10 @@ export default function Chat() {
         pendingTool: data?.pending_tool || undefined,
         pendingPreview: data?.pending_preview || undefined,
         pendingStatus: data?.pending_action_id ? "pending" : undefined,
+        thinking: Array.isArray(data?.thinking) ? data.thinking : undefined,
       };
       setMessages(m => [...m, reply]);
+
     } catch (e: any) {
       toast({ title: "Assistant error", description: e?.message || String(e), variant: "destructive" });
       setMessages(m => [...m, { id: crypto.randomUUID(), role: "assistant", text: `⚠️ ${e?.message || "Failed"}` }]);

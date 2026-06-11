@@ -12,6 +12,7 @@ import { BackupSection } from "@/components/BackupSection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
+import { GSTSetupSection } from "@/components/settings/GSTSetupSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,

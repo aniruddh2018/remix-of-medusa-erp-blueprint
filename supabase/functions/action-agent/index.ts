@@ -908,5 +908,7 @@ STRICT RULES — follow these every turn:
     pending_action_id,
     pending_tool,
     pending_preview,
+    thinking,
   });
 });
+

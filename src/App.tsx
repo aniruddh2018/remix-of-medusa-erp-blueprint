@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { FocusProvider } from "@/contexts/FocusContext";
@@ -33,7 +33,6 @@ import MigrationDashboard from "./pages/MigrationDashboard";
 import ScanInvoice from "./pages/ScanInvoice";
 import CounterSales from "./pages/CounterSales";
 import Chat from "./pages/Chat";
-import ActionAgent from "./pages/ActionAgent";
 import QueryEngine from "./pages/QueryEngine";
 import Portfolio from "./pages/Portfolio";
 import LandingPage from "./pages/LandingPage";
@@ -80,7 +79,7 @@ const App = () => (
       
                 <Route path="/counter-sales" element={<CounterSales />} />
                 <Route path="/chat" element={<Chat />} />
-                <Route path="/agent" element={<ActionAgent />} />
+                <Route path="/agent" element={<Navigate to="/chat" replace />} />
                 <Route path="/query" element={<QueryEngine />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />

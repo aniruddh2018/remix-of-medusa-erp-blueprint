@@ -35,7 +35,9 @@ import CounterSales from "./pages/CounterSales";
 import Chat from "./pages/Chat";
 import QueryEngine from "./pages/QueryEngine";
 import Portfolio from "./pages/Portfolio";
+import Prescriptions from "./pages/Prescriptions";
 import LandingPage from "./pages/LandingPage";
+
 import NotFound from "./pages/NotFound";
 
 
@@ -78,8 +80,10 @@ const App = () => (
                 <Route path="/scan-invoice" element={<ScanInvoice />} />
       
                 <Route path="/counter-sales" element={<CounterSales />} />
+                <Route path="/prescriptions" element={<Prescriptions />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/agent" element={<Navigate to="/chat" replace />} />
+
                 <Route path="/query" element={<QueryEngine />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/accounts" element={<Accounts />} />

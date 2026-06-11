@@ -46,6 +46,7 @@ import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/Unit
 import { convertToBase } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 type PurchaseOrder = Tables<"purchase_orders">;
 type Supplier = Tables<"suppliers">;

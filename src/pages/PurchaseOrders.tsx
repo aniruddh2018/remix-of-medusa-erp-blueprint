@@ -46,6 +46,7 @@ import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/Unit
 import { convertToBase } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 type PurchaseOrder = Tables<"purchase_orders">;
 type Supplier = Tables<"suppliers">;
@@ -1490,6 +1491,7 @@ export default function PurchaseOrders() {
                         const isPaid = balance <= 0.01;
                         const isPartial = paid > 0 && !isPaid;
                         const supplierName = (order.suppliers as any)?.name || "-";
+                        const supplierPhone = (suppliers as any[] | undefined)?.find((s) => s.id === order.supplier_id)?.phone ?? null;
                         return (
                           <TableRow key={order.id} tabIndex={0} data-kb-row
                             onKeyDown={e => {
@@ -1540,6 +1542,20 @@ export default function PurchaseOrders() {
                                     <DropdownMenuItem onClick={() => handleBillAction(order, "csv")}><FileSpreadsheet className="h-4 w-4 mr-2" /> CSV</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
+                                <WhatsAppButton
+                                  phone={supplierPhone}
+                                  templateKey="purchase_order"
+                                  vars={{
+                                    supplier: supplierName,
+                                    po_no: (order as any).invoice_number || order.order_number,
+                                    amount: Number(order.total_amount).toFixed(2),
+                                    date: format(new Date(order.order_date), "dd/MM/yyyy"),
+                                  }}
+                                  iconOnly
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  label="Send PO on WhatsApp"
+                                />
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditOrderId(order.id); setEditOrderDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>
                                 {order.status !== "delivered" && order.status !== "cancelled" && (
                                   <>

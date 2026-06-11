@@ -1,0 +1,82 @@
+/**
+ * WhatsApp click-to-chat helpers.
+ * No API/SDK — opens https://wa.me/<phone>?text=<message>.
+ */
+
+export type WhatsAppTemplateKey =
+  | "invoice_sent"
+  | "payment_reminder"
+  | "purchase_order"
+  | "order_status";
+
+export interface WhatsAppTemplate {
+  id?: string;
+  template_key: WhatsAppTemplateKey;
+  body: string;
+  enabled: boolean;
+}
+
+export const DEFAULT_WA_TEMPLATES: Record<WhatsAppTemplateKey, { label: string; body: string; description: string }> = {
+  invoice_sent: {
+    label: "Invoice sent to customer",
+    description: "Used from Sales list — send a customer their bill summary.",
+    body:
+      "Hello {customer},\n\nThank you for your purchase at {company}.\nInvoice: {invoice_no}\nAmount: ₹{amount}\nDate: {date}\n\nPlease let us know if you need anything else.",
+  },
+  payment_reminder: {
+    label: "Payment reminder (overdue)",
+    description: "Used from the Overdue Invoices card.",
+    body:
+      "Hello {customer},\n\nThis is a gentle reminder from {company} for invoice {invoice_no} dated {date}.\nOutstanding balance: ₹{balance} ({days_overdue} day(s) overdue).\n\nKindly arrange the payment at your earliest convenience. Thank you.",
+  },
+  purchase_order: {
+    label: "Purchase order to supplier",
+    description: "Used from Purchase Orders list.",
+    body:
+      "Hello {supplier},\n\nPlease find our purchase order from {company}.\nPO No: {po_no}\nDate: {date}\nAmount: ₹{amount}\n\nKindly confirm receipt and expected delivery.",
+  },
+  order_status: {
+    label: "Order confirmation / delivery update",
+    description: "Used from Sales list — confirmation or delivery status.",
+    body:
+      "Hello {customer},\n\nYour order {invoice_no} with {company} is *{status}*.\nAmount: ₹{amount}\n\nThanks for shopping with us!",
+  },
+};
+
+/** Render `{var}` placeholders. Unknown vars are left as-is. */
+export function renderWhatsAppTemplate(
+  body: string,
+  vars: Record<string, string | number | null | undefined>,
+): string {
+  return body.replace(/\{(\w+)\}/g, (_, key) => {
+    const v = vars[key];
+    if (v === null || v === undefined || v === "") return `{${key}}`;
+    return String(v);
+  });
+}
+
+/** Strip everything except digits, drop leading 0s. Returns null if invalid. */
+export function normalizePhoneForWhatsApp(phone: string | null | undefined, defaultCountryCode = "91"): string | null {
+  if (!phone) return null;
+  let digits = String(phone).replace(/\D/g, "");
+  if (!digits) return null;
+  // If 10-digit Indian mobile (no country code), prepend default.
+  if (digits.length === 10) digits = defaultCountryCode + digits;
+  // Strip leading zeros
+  digits = digits.replace(/^0+/, "");
+  if (digits.length < 8 || digits.length > 15) return null;
+  return digits;
+}
+
+export function buildWhatsAppUrl(phone: string | null | undefined, message: string): string | null {
+  const normalized = normalizePhoneForWhatsApp(phone);
+  if (!normalized) return null;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
+export function openWhatsApp(phone: string | null | undefined, message: string): boolean {
+  const url = buildWhatsAppUrl(phone, message);
+  if (!url) return false;
+  window.open(url, "_blank", "noopener,noreferrer");
+  return true;
+}

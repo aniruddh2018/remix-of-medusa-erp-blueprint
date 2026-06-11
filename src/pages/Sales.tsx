@@ -48,6 +48,7 @@ import { UnitSelector, type UnitSelectorHandle } from "@/components/billing/Unit
 import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 type SalesOrder = Tables<"sales_orders">;
 type Product = Tables<"products">;
@@ -1570,6 +1571,21 @@ export default function Sales() {
                                     <DropdownMenuItem onClick={() => handleBillAction(order, "csv")}><FileSpreadsheet className="h-4 w-4 mr-2" /> CSV</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
+                                <WhatsAppButton
+                                  phone={order.customer_phone}
+                                  templateKey="invoice_sent"
+                                  vars={{
+                                    customer: order.customer_name,
+                                    invoice_no: order.invoice_number,
+                                    amount: Number(order.total_amount).toFixed(2),
+                                    date: format(new Date(order.sale_date), "dd/MM/yyyy"),
+                                    status: order.status,
+                                  }}
+                                  iconOnly
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  label="Send invoice on WhatsApp"
+                                />
                                 {(isAdmin || isPharmacist) && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditSaleId(order.id); setEditDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>}
                                 {isAdmin && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setDeleteTarget(order); setDeleteConfirmText(""); setDeleteDialogOpen(true); }}><Trash2 className="h-3 w-3" /></Button>}
                               </div>

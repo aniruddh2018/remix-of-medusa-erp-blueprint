@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useOverdueInvoices } from "@/hooks/useOverdueInvoices";
 import { format, differenceInDays } from "date-fns";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 export function OverdueInvoicesCard() {
   const navigate = useNavigate();
@@ -34,20 +35,38 @@ export function OverdueInvoicesCard() {
             const days = differenceInDays(new Date(), new Date(inv.due_date));
             const balance = Number(inv.total_amount) - Number(inv.amount_paid || 0);
             return (
-              <button
+              <div
                 key={inv.id}
-                onClick={() => navigate("/sales")}
                 className="w-full flex items-center justify-between gap-2 rounded-md bg-background p-2 text-left text-xs hover:bg-muted transition-colors"
               >
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => navigate("/sales")}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <div className="font-medium truncate">{inv.customer_name}</div>
                   <div className="text-muted-foreground">{inv.invoice_number} • Due {format(new Date(inv.due_date), "dd MMM")}</div>
-                </div>
+                </button>
                 <div className="text-right shrink-0">
                   <div className="font-mono font-semibold text-destructive">₹{balance.toFixed(0)}</div>
                   <div className="text-[10px] text-muted-foreground">{days}d overdue</div>
                 </div>
-              </button>
+                <WhatsAppButton
+                  phone={inv.customer_phone}
+                  templateKey="payment_reminder"
+                  vars={{
+                    customer: inv.customer_name,
+                    invoice_no: inv.invoice_number,
+                    balance: balance.toFixed(2),
+                    days_overdue: days,
+                    date: format(new Date(inv.due_date), "dd/MM/yyyy"),
+                  }}
+                  iconOnly
+                  size="icon"
+                  className="h-7 w-7"
+                  label="Send payment reminder"
+                />
+              </div>
             );
           })}
         </div>

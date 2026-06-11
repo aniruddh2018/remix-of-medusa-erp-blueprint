@@ -4459,6 +4459,44 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          body: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       ledger_balances_with_names: {

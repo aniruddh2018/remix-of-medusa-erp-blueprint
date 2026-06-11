@@ -10,9 +10,9 @@ import { useWhatsAppTemplates } from "@/hooks/useWhatsAppTemplates";
 import { DEFAULT_WA_TEMPLATES, type WhatsAppTemplateKey } from "@/lib/whatsapp";
 
 const PLACEHOLDER_HELP: Record<WhatsAppTemplateKey, string> = {
-  invoice_sent: "{customer} {invoice_no} {amount} {date} {company}",
+  invoice_sent: "{customer} {invoice_no} {amount} {date} {company} {pdf_url}",
   payment_reminder: "{customer} {invoice_no} {balance} {days_overdue} {date} {company}",
-  purchase_order: "{supplier} {po_no} {amount} {date} {company}",
+  purchase_order: "{supplier} {po_no} {amount} {date} {company} {pdf_url}",
   order_status: "{customer} {invoice_no} {amount} {status} {company}",
 };
 

@@ -118,7 +118,6 @@ export default function ActionAgent() {
       <PageHeader
         title="ERP Action Agent"
         description="Tell the agent what to change. Mutations require your approval before they hit the database."
-        icon={<Bot className="h-5 w-5" />}
       />
 
       <Card className="border-primary/20">

@@ -11,6 +11,7 @@ import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock, B
 import { BackupSection } from "@/components/BackupSection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
+import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,

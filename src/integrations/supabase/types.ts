@@ -2773,6 +2773,150 @@ export type Database = {
           },
         ]
       }
+      prescription_items: {
+        Row: {
+          ai_dosage: string | null
+          ai_duration: string | null
+          ai_name: string | null
+          ai_strength: string | null
+          approved: boolean
+          company_id: string
+          confidence: number | null
+          created_at: string
+          id: string
+          prescription_id: string
+          product_id: string | null
+          qty: number
+          remarks: string | null
+          stock_available: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_dosage?: string | null
+          ai_duration?: string | null
+          ai_name?: string | null
+          ai_strength?: string | null
+          approved?: boolean
+          company_id: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          prescription_id: string
+          product_id?: string | null
+          qty?: number
+          remarks?: string | null
+          stock_available?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_dosage?: string | null
+          ai_duration?: string | null
+          ai_name?: string | null
+          ai_strength?: string | null
+          approved?: boolean
+          company_id?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          prescription_id?: string
+          product_id?: string | null
+          qty?: number
+          remarks?: string | null
+          stock_available?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_items_prescription_id_fkey"
+            columns: ["prescription_id"]
+            isOneToOne: false
+            referencedRelation: "prescriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prescriptions: {
+        Row: {
+          ai_confidence: number | null
+          ai_raw: Json | null
+          company_id: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          image_url: string | null
+          notes: string | null
+          ocr_text: string | null
+          rejection_reason: string | null
+          sales_order_id: string | null
+          source: string
+          status: string
+          updated_at: string
+          uploaded_by: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          ai_confidence?: number | null
+          ai_raw?: Json | null
+          company_id: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          ocr_text?: string | null
+          rejection_reason?: string | null
+          sales_order_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          ai_confidence?: number | null
+          ai_raw?: Json | null
+          company_id?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          ocr_text?: string | null
+          rejection_reason?: string | null
+          sales_order_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescriptions_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_conversions: {
         Row: {
           company_id: string
@@ -3611,6 +3755,7 @@ export type Database = {
           payment_status: string
           prescription_date: string | null
           prescription_duration_days: number | null
+          prescription_id: string | null
           prescription_image_url: string | null
           prescription_number: string | null
           reminder_enabled: boolean
@@ -3653,6 +3798,7 @@ export type Database = {
           payment_status?: string
           prescription_date?: string | null
           prescription_duration_days?: number | null
+          prescription_id?: string | null
           prescription_image_url?: string | null
           prescription_number?: string | null
           reminder_enabled?: boolean
@@ -3695,6 +3841,7 @@ export type Database = {
           payment_status?: string
           prescription_date?: string | null
           prescription_duration_days?: number | null
+          prescription_id?: string | null
           prescription_image_url?: string | null
           prescription_number?: string | null
           reminder_enabled?: boolean
@@ -3746,6 +3893,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "party_transaction_history"
             referencedColumns: ["ledger_id"]
+          },
+          {
+            foreignKeyName: "sales_orders_prescription_id_fkey"
+            columns: ["prescription_id"]
+            isOneToOne: false
+            referencedRelation: "prescriptions"
+            referencedColumns: ["id"]
           },
         ]
       }

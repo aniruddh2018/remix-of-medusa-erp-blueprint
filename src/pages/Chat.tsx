@@ -84,8 +84,7 @@ export default function Chat() {
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
       <PageHeader
         title="Automation Chat"
-        subtitle="AI assistant — ask, confirm, done"
-        icon={Bot}
+        description="AI assistant — ask, confirm, done"
       />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">

@@ -59,7 +59,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/prescriptions", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
   pharmacy_b2b: {
     type: "pharmacy_b2b",
@@ -85,7 +85,7 @@ const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       { value: "bottle", label: "Bottle" }, { value: "box", label: "Box" },
       { value: "tube", label: "Tube" }, { value: "vial", label: "Vial" }, { value: "amp", label: "Ampoule" },
     ],
-    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
+    visiblePages: ["/dashboard", "/chat", "/products", "/inventory", "/expiry", "/prescriptions", "/scheduled-drugs", "/purchase-orders", "/sales", "/counter-sales", "/scan-invoice", "/suppliers", "/customers", "/doctors", "/reports", "/audit-logs", "/admin", "/notes", "/accounts", "/settings"],
   },
   b2b_electronics: {
     type: "b2b_electronics",

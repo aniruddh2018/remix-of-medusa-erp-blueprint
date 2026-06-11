@@ -1491,6 +1491,7 @@ export default function PurchaseOrders() {
                         const isPaid = balance <= 0.01;
                         const isPartial = paid > 0 && !isPaid;
                         const supplierName = (order.suppliers as any)?.name || "-";
+                        const supplierPhone = (suppliers as any[] | undefined)?.find((s) => s.id === order.supplier_id)?.phone ?? null;
                         return (
                           <TableRow key={order.id} tabIndex={0} data-kb-row
                             onKeyDown={e => {

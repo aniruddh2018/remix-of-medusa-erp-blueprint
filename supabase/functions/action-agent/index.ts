@@ -808,6 +808,7 @@ STRICT RULES — follow these every turn:
   let pending_action_id: string | null = null;
   let pending_preview: any = null;
   let pending_tool: string | null = null;
+  const thinking: Array<{ step: number; type: string; content?: string; tool?: string; args?: any; result?: any }> = [];
 
   for (let step = 0; step < MAX_STEPS; step++) {
     let resp: any;
@@ -824,6 +825,9 @@ STRICT RULES — follow these every turn:
     if (!msg) break;
 
     const toolCalls = msg.tool_calls as any[] | undefined;
+    if (msg.content) {
+      thinking.push({ step, type: "reasoning", content: msg.content });
+    }
     if (!toolCalls || toolCalls.length === 0) {
       assistantText = msg.content || "";
       break;
@@ -867,6 +871,8 @@ STRICT RULES — follow these every turn:
         toolResult = { error: `Unknown tool: ${name}` };
       }
 
+      thinking.push({ step, type: "tool_call", tool: name, args, result: toolResult });
+
       llmMessages.push({
         role: "tool", tool_call_id: call.id, content: JSON.stringify(toolResult),
       });
@@ -885,6 +891,7 @@ STRICT RULES — follow these every turn:
       break;
     }
   }
+
 
   if (!assistantText) assistantText = "I couldn't produce a response. Try rephrasing.";
 

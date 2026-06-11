@@ -1577,6 +1577,7 @@ export default function Sales() {
                                     date: format(new Date(order.sale_date), "dd/MM/yyyy"),
                                     status: order.status,
                                   }}
+                                  bill={() => buildBillFromOrder(order)}
                                   iconOnly
                                   size="icon"
                                   className="h-7 w-7"

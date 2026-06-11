@@ -71,7 +71,14 @@ export function normalizePhoneForWhatsApp(phone: string | null | undefined, defa
 export function buildWhatsAppUrl(phone: string | null | undefined, message: string): string | null {
   const normalized = normalizePhoneForWhatsApp(phone);
   if (!normalized) return null;
-  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+  const text = encodeURIComponent(message);
+  // wa.me redirects to api.whatsapp.com on desktop, which is blocked by many
+  // browsers/extensions. Use web.whatsapp.com on desktop and wa.me on mobile.
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  return isMobile
+    ? `https://wa.me/${normalized}?text=${text}`
+    : `https://web.whatsapp.com/send?phone=${normalized}&text=${text}`;
 }
 
 export function openWhatsApp(phone: string | null | undefined, message: string): boolean {

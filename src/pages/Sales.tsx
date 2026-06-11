@@ -853,66 +853,62 @@ export default function Sales() {
     focusProductSearch();
   }, [clearDraft, settings]);
 
+  // ── Build BillData from a sales order (shared by print/PDF/CSV/WhatsApp) ──
+  const buildBillFromOrder = async (order: SalesOrder): Promise<BillData & { __tpl: InvoiceTemplateData }> => {
+    const { data: items, error } = await supabase.from("sales_order_items").select("*, products (name, strength, hsn_code, gst_percentage, unit), inventory_batches (batch_number, expiry_date)").eq("sales_order_id", order.id);
+    if (error) throw error;
+    const billItems = (items || []).map((item: any) => {
+      const product = item.products as any;
+      const batch = item.inventory_batches as any;
+      return {
+        product_name: `${product?.name || ""}${product?.strength ? ` ${product.strength}` : ""}`,
+        batch_number: batch?.batch_number || "-",
+        hsn_code: product?.hsn_code || "",
+        quantity: item.quantity,
+        free_quantity: item.free_quantity || 0,
+        unit: product?.unit || "pcs",
+        unit_price: Number(item.unit_price),
+        gst_percentage: Number(item.gst_percentage),
+        discount_percentage: Number(item.discount_percentage),
+        total_price: Number(item.total_price),
+        expiry_date: batch?.expiry_date,
+      };
+    });
+    const subtotal = billItems.reduce((s, i) => s + i.unit_price * i.quantity * (1 - i.discount_percentage / 100), 0);
+    const recalcGst = billItems.reduce((s, i) => {
+      const afterDiscount = i.unit_price * i.quantity * (1 - i.discount_percentage / 100);
+      if (gstInclusive) {
+        return s + (afterDiscount - afterDiscount / (1 + i.gst_percentage / 100));
+      }
+      return s + (afterDiscount * i.gst_percentage / 100);
+    }, 0);
+    const base: BillData = {
+      type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone || undefined,
+      customer_address: order.customer_address || undefined,
+      customer_gstin: (order as any).customer_gstin || (order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined),
+      items: billItems, subtotal,
+      gst_amount: recalcGst, discount_amount: Number(order.discount_amount),
+      freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
+      delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
+      total_amount: Number(order.total_amount),
+      payment_method: order.payment_method || "cash",
+      notes: order.notes || undefined,
+    };
+    const tpl: InvoiceTemplateData = { ...base, gstInclusive } as InvoiceTemplateData;
+    return Object.assign(base, { __tpl: tpl });
+  };
+
   // ── Bill action ──
   const handleBillAction = async (order: SalesOrder, action: "print" | "pdf" | "html" | "csv") => {
     setBillLoadingId(order.id);
     try {
-      const { data: items, error } = await supabase.from("sales_order_items").select("*, products (name, strength, hsn_code, gst_percentage, unit), inventory_batches (batch_number, expiry_date)").eq("sales_order_id", order.id);
-      if (error) throw error;
-
-      const billItems = (items || []).map(item => {
-        const product = item.products as any;
-        const batch = item.inventory_batches as any;
-        return {
-          product_name: `${product?.name || ""}${product?.strength ? ` ${product.strength}` : ""}`,
-          batch_number: batch?.batch_number || "-",
-          hsn_code: product?.hsn_code || "",
-          quantity: item.quantity,
-          free_quantity: item.free_quantity || 0,
-          unit: product?.unit || "pcs",
-          unit_price: Number(item.unit_price),
-          gst_percentage: Number(item.gst_percentage),
-          discount_percentage: Number(item.discount_percentage),
-          total_price: Number(item.total_price),
-          expiry_date: batch?.expiry_date,
-        };
-      });
-
-      const subtotal = billItems.reduce((s, i) => s + i.unit_price * i.quantity * (1 - i.discount_percentage / 100), 0);
-
-      // Recalculate GST from items (fixes old bills with wrong GST)
-      const recalcGst = billItems.reduce((s, i) => {
-        const afterDiscount = i.unit_price * i.quantity * (1 - i.discount_percentage / 100);
-        if (gstInclusive) {
-          return s + (afterDiscount - afterDiscount / (1 + i.gst_percentage / 100));
-        }
-        return s + (afterDiscount * i.gst_percentage / 100);
-      }, 0);
-
+      const billData = await buildBillFromOrder(order);
       if (action === "csv") {
-        const billData: BillData = {
-          type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
-          customer_name: order.customer_name, items: billItems, subtotal,
-          gst_amount: recalcGst, discount_amount: Number(order.discount_amount),
-          freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
-          delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
-          total_amount: Number(order.total_amount),
-        };
         downloadBillCSV(billData);
       } else {
-        const tplData: InvoiceTemplateData = {
-          type: "sale", invoice_number: order.invoice_number, date: order.sale_date,
-          customer_name: order.customer_name, customer_phone: order.customer_phone || undefined,
-          customer_address: order.customer_address || undefined,
-          customer_gstin: (order as any).customer_gstin || (order.customer_id ? customers?.find(c => c.id === order.customer_id)?.gst_number || undefined : undefined),
-          items: billItems, subtotal,
-          gst_amount: recalcGst, discount_amount: Number(order.discount_amount),
-          freight_charges: Number(order.freight_charges), handling_charges: Number(order.handling_charges),
-          delivery_charges: Number(order.delivery_charges), other_charges: Number(order.other_charges),
-          total_amount: Number(order.total_amount), payment_method: order.payment_method || "cash",
-          notes: order.notes || undefined,
-          gstInclusive,
-        };
+        const tplData = billData.__tpl;
         if (action === "print") printConfigurableInvoice(tplData, settings);
         else if (action === "pdf") downloadConfigurableInvoicePDF(tplData, settings);
         else downloadConfigurableInvoiceHTML(tplData, settings);
@@ -1581,6 +1577,7 @@ export default function Sales() {
                                     date: format(new Date(order.sale_date), "dd/MM/yyyy"),
                                     status: order.status,
                                   }}
+                                  bill={() => buildBillFromOrder(order)}
                                   iconOnly
                                   size="icon"
                                   className="h-7 w-7"

@@ -178,6 +178,9 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* GST Filing Setup */}
+      <GSTSetupSection />
+
       {/* Form & Rules Configuration */}
       <FormConfigEditor />
 

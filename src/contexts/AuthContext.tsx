@@ -153,11 +153,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isPharmacist,
         isSuperAdmin,
-        hasPin: false,
-        refreshPinStatus: () => {},
-        offlineMode: false,
-        offlineSession: null,
-        hydrateFromOfflineSession: () => {},
       }}
     >
       {children}

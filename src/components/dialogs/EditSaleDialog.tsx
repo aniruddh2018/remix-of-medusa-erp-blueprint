@@ -502,6 +502,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         .from("sales_orders")
         .update({
           invoice_number: invoiceNumber,
+          sale_date: saleDate || undefined,
           customer_id: customerId,
           customer_name: customerName,
           customer_phone: customerPhone || null,

@@ -64,5 +64,5 @@ export function useAutoLedgerBackfill() {
         // Do NOT set the flag — let it retry next login.
       }
     })();
-  }, [user, companyId, offlineMode]);
+  }, [user, companyId]);
 }

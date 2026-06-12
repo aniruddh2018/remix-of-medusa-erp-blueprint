@@ -4701,6 +4701,106 @@ export type Database = {
           },
         ]
       }
+      twilio_messages: {
+        Row: {
+          body: string | null
+          channel: string
+          company_id: string
+          created_at: string
+          direction: string
+          error_code: string | null
+          error_message: string | null
+          from_number: string | null
+          id: string
+          message_sid: string | null
+          metadata: Json
+          related_invoice_id: string | null
+          status: string | null
+          template_key: string | null
+          to_number: string
+        }
+        Insert: {
+          body?: string | null
+          channel: string
+          company_id: string
+          created_at?: string
+          direction: string
+          error_code?: string | null
+          error_message?: string | null
+          from_number?: string | null
+          id?: string
+          message_sid?: string | null
+          metadata?: Json
+          related_invoice_id?: string | null
+          status?: string | null
+          template_key?: string | null
+          to_number: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string
+          company_id?: string
+          created_at?: string
+          direction?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_number?: string | null
+          id?: string
+          message_sid?: string | null
+          metadata?: Json
+          related_invoice_id?: string | null
+          status?: string | null
+          template_key?: string | null
+          to_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twilio_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      twilio_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          sms_from: string | null
+          updated_at: string
+          whatsapp_from: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sms_from?: string | null
+          updated_at?: string
+          whatsapp_from?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sms_from?: string | null
+          updated_at?: string
+          whatsapp_from?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twilio_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unit_master: {
         Row: {
           company_id: string | null

@@ -231,16 +231,18 @@ async function upsertSlice(
     from: (t: string) => {
       upsert: (
         rows: Record<string, unknown>[],
-        opts: { onConflict: string; count: "exact" },
+        opts: { onConflict: string; count: "exact"; ignoreDuplicates: boolean },
       ) => Promise<{ error: PgError | null; count: number | null }>;
     };
   };
   try {
+    // ignoreDuplicates: existing rows (possibly belonging to another company)
+    // are skipped instead of triggering an UPDATE that would fail RLS.
     const { error, count } = await client
       .from(table)
-      .upsert(payload, { onConflict: "id", count: "exact" });
+      .upsert(payload, { onConflict: "id", count: "exact", ignoreDuplicates: true });
     if (!error) {
-      tr.inserted += count ?? payload.length;
+      tr.inserted += count ?? 0;
       return;
     }
     // Try to recover from unknown-column errors by stripping the column and retrying.

@@ -11,7 +11,6 @@
  * applies and the data is scoped to the current user's company_id.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 
 /** Tables we are willing to write into during recovery. */
 export const RECOVERY_TABLES = [

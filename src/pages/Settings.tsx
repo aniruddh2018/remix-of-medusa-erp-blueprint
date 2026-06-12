@@ -196,6 +196,9 @@ export default function Settings() {
       {/* Data Backup */}
       <BackupSection />
 
+      {/* Offline Recovery — upload a backup .sql or legacy offline .json to restore */}
+      <OfflineRecoverySection />
+
       {/* Save */}
       {hasChanges && (
         <div className="sticky bottom-4">

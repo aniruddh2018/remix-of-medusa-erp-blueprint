@@ -107,11 +107,21 @@ export function OfflineRecoverySection() {
               ))}
             </div>
             {result.tables.some((t) => t.errors.length > 0) && (
-              <div className="text-xs text-destructive flex items-start gap-1 pt-1">
-                <AlertTriangle className="h-3 w-3 mt-0.5" />
-                <span>
-                  Some rows failed — open the browser console for details, or check that the file matches your current company.
-                </span>
+              <div className="text-xs text-destructive space-y-1 pt-1">
+                <div className="flex items-start gap-1">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>Some rows failed. First errors:</span>
+                </div>
+                <ul className="pl-5 list-disc space-y-0.5 font-mono text-[11px]">
+                  {result.tables
+                    .filter((t) => t.errors.length > 0)
+                    .slice(0, 5)
+                    .map((t) => (
+                      <li key={t.table}>
+                        <span className="font-semibold">{t.table}:</span> {t.errors[0]}
+                      </li>
+                    ))}
+                </ul>
               </div>
             )}
           </div>

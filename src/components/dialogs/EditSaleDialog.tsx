@@ -83,6 +83,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerFormSeed, setCustomerFormSeed] = useState<Record<string, any>>({});
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [saleDate, setSaleDate] = useState("");
   const [status, setStatus] = useState<string>("confirmed");
   const [freightCharges, setFreightCharges] = useState(0);
   const [handlingCharges, setHandlingCharges] = useState(0);
@@ -232,6 +233,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       setPaymentMethod(sale.payment_method || "cash");
       setNotes(sale.notes || "");
       setStatus(sale.status);
+      setSaleDate(sale.sale_date || "");
       setFreightCharges(Number(sale.freight_charges) || 0);
       setHandlingCharges(Number(sale.handling_charges) || 0);
       setDeliveryCharges(Number(sale.delivery_charges) || 0);
@@ -500,6 +502,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         .from("sales_orders")
         .update({
           invoice_number: invoiceNumber,
+          sale_date: saleDate || undefined,
           customer_id: customerId,
           customer_name: customerName,
           customer_phone: customerPhone || null,
@@ -631,7 +634,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         ) : (
           <div className="space-y-4">
             {/* Header row: Invoice / Customer / Payment / Status */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Invoice #</Label>
                 {isAdmin ? (
@@ -665,6 +668,17 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                 ) : (
                   <div className="font-mono text-sm p-2 bg-muted rounded border h-10 flex items-center">{invoiceNumber || "Loading..."}</div>
                 )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Sale Date *</Label>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  disabled={!isAdmin && !isPharmacist}
+                  className="h-10"
+                  data-enter-nav-include="true"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer *</Label>

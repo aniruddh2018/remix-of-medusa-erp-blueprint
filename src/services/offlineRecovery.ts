@@ -225,7 +225,7 @@ export async function runRecovery(
       // Force the current company so cross-tenant data can't be replayed.
       .map((r) => ({ ...r, company_id: opts.companyId }))
       // Skip soft-deleted rows from the offline cache.
-      .filter((r) => r.deleted !== true && r.deleted !== "true");
+      .filter((r) => (r as { deleted?: unknown }).deleted !== true && (r as { deleted?: unknown }).deleted !== "true");
 
     const tr: TableResult = {
       table,

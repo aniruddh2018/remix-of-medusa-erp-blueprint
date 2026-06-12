@@ -237,8 +237,16 @@ export async function runRecovery(
     for (let j = 0; j < rows.length; j += batchSize) {
       const slice = rows.slice(j, j + batchSize);
       try {
-        const { error, count } = await (supabase
-          .from(table as keyof Database["public"]["Tables"]) as never)
+        const client = supabase as unknown as {
+          from: (t: string) => {
+            upsert: (
+              rows: Record<string, unknown>[],
+              opts: { onConflict: string; count: "exact" },
+            ) => Promise<{ error: { message: string } | null; count: number | null }>;
+          };
+        };
+        const { error, count } = await client
+          .from(table)
           .upsert(slice, { onConflict: "id", count: "exact" });
         if (error) {
           tr.errors.push(error.message);

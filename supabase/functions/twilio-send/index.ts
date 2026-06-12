@@ -73,10 +73,16 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: uc } = await admin
-      .from("user_companies").select("company_id")
-      .eq("user_id", userData.user.id).limit(1).maybeSingle();
-    const companyId = uc?.company_id;
+    const { data: prof } = await admin
+      .from("profiles").select("company_id")
+      .eq("id", userData.user.id).maybeSingle();
+    let companyId = prof?.company_id as string | undefined;
+    if (!companyId) {
+      const { data: uc } = await admin
+        .from("user_companies").select("company_id")
+        .eq("user_id", userData.user.id).limit(1).maybeSingle();
+      companyId = uc?.company_id;
+    }
     if (!companyId) {
       return new Response(JSON.stringify({ error: "No company for user" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },

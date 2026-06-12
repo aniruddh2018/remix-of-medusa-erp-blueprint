@@ -98,6 +98,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    const DEFAULT_TEMPLATES: Record<string, string> = {
+      invoice_sent:
+        "Hello {customer},\n\nThank you for your purchase at {company}.\nInvoice: {invoice_no}\nAmount: ₹{amount}\nDate: {date}\n\n📄 Download invoice PDF:\n{pdf_url}\n\nPlease let us know if you need anything else.",
+      payment_reminder:
+        "Hello {customer},\n\nThis is a gentle reminder from {company} for invoice {invoice_no} dated {date}.\nOutstanding balance: ₹{balance} ({days_overdue} day(s) overdue).\n\nKindly arrange the payment at your earliest convenience. Thank you.",
+      purchase_order:
+        "Hello {supplier},\n\nPlease find our purchase order from {company}.\nPO No: {po_no}\nDate: {date}\nAmount: ₹{amount}\n\n📄 Download PO PDF:\n{pdf_url}\n\nKindly confirm receipt and expected delivery.",
+      order_status:
+        "Hello {customer},\n\nYour order {invoice_no} with {company} is *{status}*.\nAmount: ₹{amount}\n\nThanks for shopping with us!",
+    };
+
     let body = payload.body ?? "";
     if (!body && payload.templateKey) {
       const { data: tpl } = await admin
@@ -108,7 +119,13 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (tpl?.body) body = render(tpl.body, payload.vars ?? {});
+      const tplBody = tpl?.body || DEFAULT_TEMPLATES[payload.templateKey] || "";
+      if (tplBody) {
+        // Include company name fallback for {company} placeholder.
+        const { data: comp } = await admin
+          .from("companies").select("name").eq("id", companyId).maybeSingle();
+        body = render(tplBody, { company: comp?.name ?? "", ...(payload.vars ?? {}) });
+      }
     }
     if (!body) {
       return new Response(JSON.stringify({ error: "Message body is empty" }), {

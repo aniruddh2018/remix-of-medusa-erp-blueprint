@@ -193,6 +193,11 @@ export default function Settings() {
       {/* WhatsApp Templates */}
       <WhatsAppTemplatesSection />
 
+      {/* Twilio SMS / WhatsApp */}
+      <TwilioSection />
+
+
+
 
       {/* Data Backup */}
       <BackupSection />

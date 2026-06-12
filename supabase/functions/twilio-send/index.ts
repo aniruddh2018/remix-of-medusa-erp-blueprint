@@ -197,7 +197,13 @@ Deno.serve(async (req) => {
     });
 
     if (!twResp.ok) {
-      return new Response(JSON.stringify({ error: twData?.message || "Twilio request failed", details: twData }), {
+      const isMissingSendPermission = twData?.code === 70051 && String(twData?.message ?? "").includes("messages/create");
+      return new Response(JSON.stringify({
+        error: isMissingSendPermission
+          ? "Twilio connected, but this API key does not have permission to send SMS/WhatsApp messages. Update the Twilio connection with messaging send permission."
+          : twData?.message || "Twilio request failed",
+        details: twData,
+      }), {
         status: twResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

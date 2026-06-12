@@ -83,6 +83,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerFormSeed, setCustomerFormSeed] = useState<Record<string, any>>({});
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [saleDate, setSaleDate] = useState("");
   const [status, setStatus] = useState<string>("confirmed");
   const [freightCharges, setFreightCharges] = useState(0);
   const [handlingCharges, setHandlingCharges] = useState(0);

@@ -74,14 +74,30 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: prof } = await admin
-      .from("profiles").select("company_id")
-      .eq("id", userData.user.id).maybeSingle();
+      .from("profiles")
+      .select("company_id")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
     let companyId = prof?.company_id as string | undefined;
     if (!companyId) {
-      const { data: uc } = await admin
-        .from("user_companies").select("company_id")
-        .eq("user_id", userData.user.id).limit(1).maybeSingle();
-      companyId = uc?.company_id;
+      const { data: userCompanies } = await admin
+        .from("user_companies")
+        .select("company_id")
+        .eq("user_id", userData.user.id);
+      const companyIds = (userCompanies ?? [])
+        .map((row) => row.company_id)
+        .filter(Boolean) as string[];
+      if (companyIds.length > 0) {
+        const { data: configuredSetting } = await admin
+          .from("twilio_settings")
+          .select("company_id")
+          .in("company_id", companyIds)
+          .eq("enabled", true)
+          .not("sms_from", "is", null)
+          .limit(1)
+          .maybeSingle();
+        companyId = configuredSetting?.company_id ?? companyIds[0];
+      }
     }
     if (!companyId) {
       return new Response(JSON.stringify({ error: "No company for user" }), {

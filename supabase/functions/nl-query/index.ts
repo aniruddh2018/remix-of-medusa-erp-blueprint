@@ -43,7 +43,6 @@ const ALLOWED_TABLES = [
   "inventory_batches",
   "payments",
   "purchase_orders",
-  "purchase_orders",
   "companies",
   "audit_logs",
   "doctors",

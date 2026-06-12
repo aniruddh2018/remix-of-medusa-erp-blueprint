@@ -634,7 +634,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
         ) : (
           <div className="space-y-4">
             {/* Header row: Invoice / Customer / Payment / Status */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Invoice #</Label>
                 {isAdmin ? (

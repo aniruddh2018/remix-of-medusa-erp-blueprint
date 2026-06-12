@@ -43,7 +43,6 @@ const ALLOWED_TABLES = [
   "inventory_batches",
   "payments",
   "purchase_orders",
-  "payments_sales",
   "companies",
   "audit_logs",
   "doctors",
@@ -185,9 +184,8 @@ async function getDatabaseSchema(supabase: any, companyId: string): Promise<stri
     "suppliers (id, name, phone, email, address, gst_number, company_id)",
     "products (id, name, generic_name, strength, manufacturer, mrp, sale_price, purchase_price, gst_percentage, hsn_code, unit, company_id)",
     "inventory_batches (id, product_id, batch_number, expiry_date, quantity, loose_quantity, purchase_price, company_id)",
-    "payments (id, amount, party_name, party_type, payment_type, payment_method, reference_id, created_at, company_id)",
+    "payments (id, amount, party_name, party_type, payment_type, payment_method, reference_type, reference_id, payment_date, created_at, company_id) -- reference_type in ('sales_order','purchase_order','credit_note','debit_note'); reference_id points to that row's id",
     "purchase_orders (id, invoice_number, supplier_id, supplier_name, total_amount, status, created_at, company_id)",
-    "payments_sales (id, sales_order_id, payment_id, amount_applied, created_at)",
     "",
     `## IMPORTANT RULES:`,
     `1. ALWAYS include: WHERE company_id = '${companyId}'`,
@@ -198,6 +196,7 @@ async function getDatabaseSchema(supabase: any, companyId: string): Promise<stri
     `6. Use meaningful column aliases`,
     `7. Join tables using foreign keys when needed`,
     `8. Outstanding balance on a sales_order = (total_amount - COALESCE(amount_paid, 0)). There is NO crm_total_amount, outstanding_amount, or balance column — always compute it.`,
+    `9b. To list payments for a sales_order, join: payments py ON py.reference_type = 'sales_order' AND py.reference_id = so.id. There is NO payments_sales join table.`,
     `9. Only use columns listed above. Never invent column names.`,
   ].join("\n");
 

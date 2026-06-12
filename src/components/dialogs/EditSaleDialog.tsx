@@ -670,6 +670,17 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
                 )}
               </div>
               <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Sale Date *</Label>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  disabled={!isAdmin && !isPharmacist}
+                  className="h-10"
+                  data-enter-nav-include="true"
+                />
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer *</Label>
                 <PartySearchInput
                   parties={customers as PartyRecord[] | undefined}

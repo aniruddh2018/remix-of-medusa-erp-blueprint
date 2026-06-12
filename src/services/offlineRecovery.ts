@@ -220,7 +220,7 @@ export async function runRecovery(
       (r): r is Record<string, unknown> =>
         !!r && typeof r === "object" && !Array.isArray(r),
     );
-    const rows = rawRows
+    const rows: Record<string, unknown>[] = rawRows
       .map(cleanRow)
       // Force the current company so cross-tenant data can't be replayed.
       .map((r) => ({ ...r, company_id: opts.companyId }))

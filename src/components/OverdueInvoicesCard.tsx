@@ -67,6 +67,21 @@ export function OverdueInvoicesCard() {
                   className="h-7 w-7"
                   label="Send payment reminder"
                 />
+                <SmsButton
+                  phone={inv.customer_phone}
+                  templateKey="payment_reminder"
+                  vars={{
+                    customer: inv.customer_name,
+                    invoice_no: inv.invoice_number,
+                    balance: balance.toFixed(2),
+                    days_overdue: days,
+                    date: format(new Date(inv.due_date), "dd/MM/yyyy"),
+                  }}
+                  iconOnly
+                  size="icon"
+                  className="h-7 w-7"
+                  label="Send SMS reminder"
+                />
               </div>
             );
           })}

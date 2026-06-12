@@ -233,6 +233,7 @@ export function EditSaleDialog({ open, onOpenChange, saleId }: EditSaleDialogPro
       setPaymentMethod(sale.payment_method || "cash");
       setNotes(sale.notes || "");
       setStatus(sale.status);
+      setSaleDate(sale.sale_date || "");
       setFreightCharges(Number(sale.freight_charges) || 0);
       setHandlingCharges(Number(sale.handling_charges) || 0);
       setDeliveryCharges(Number(sale.delivery_charges) || 0);

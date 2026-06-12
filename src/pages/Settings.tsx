@@ -13,6 +13,7 @@ import { OfflineRecoverySection } from "@/components/OfflineRecoverySection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
+import { TwilioSection } from "@/components/settings/TwilioSection";
 import { GSTSetupSection } from "@/components/settings/GSTSetupSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {

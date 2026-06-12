@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock, Briefcase } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
+import { OfflineRecoverySection } from "@/components/OfflineRecoverySection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
@@ -194,6 +195,9 @@ export default function Settings() {
 
       {/* Data Backup */}
       <BackupSection />
+
+      {/* Offline Recovery — upload a backup .sql or legacy offline .json to restore */}
+      <OfflineRecoverySection />
 
       {/* Save */}
       {hasChanges && (

@@ -1,6 +1,10 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { runLegacyOfflineDump } from "./lib/legacyOfflineDump";
+
+// One-time export of any data left in the (now removed) offline Dexie DB.
+void runLegacyOfflineDump();
 
 createRoot(document.getElementById("root")!).render(<App />);
 

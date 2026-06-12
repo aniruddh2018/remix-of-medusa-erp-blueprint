@@ -16,12 +16,6 @@ interface AuthContextType {
   isAdmin: boolean;
   isPharmacist: boolean;
   isSuperAdmin: boolean;
-  // Offline auth (optional — populated only when offline features are wired)
-  hasPin?: boolean;
-  refreshPinStatus?: () => void;
-  offlineMode?: boolean;
-  offlineSession?: { company_id?: string | null } | null;
-  hydrateFromOfflineSession?: (session: unknown) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -159,11 +153,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isPharmacist,
         isSuperAdmin,
-        hasPin: false,
-        refreshPinStatus: () => {},
-        offlineMode: false,
-        offlineSession: null,
-        hydrateFromOfflineSession: () => {},
       }}
     >
       {children}

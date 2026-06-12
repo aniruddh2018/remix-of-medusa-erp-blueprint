@@ -22,12 +22,12 @@ const FLAG_PREFIX = "ledger_backfill_done:";
 const BACKFILL_VERSION = "v1";
 
 export function useAutoLedgerBackfill() {
-  const { user, offlineMode } = useAuth();
+  const { user } = useAuth();
   const { companyId } = useBusiness();
   const startedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user || !companyId || offlineMode) return;
+    if (!user || !companyId) return;
 
     const flagKey = `${FLAG_PREFIX}${companyId}:${BACKFILL_VERSION}`;
     if (localStorage.getItem(flagKey) === "1") return;
@@ -64,5 +64,5 @@ export function useAutoLedgerBackfill() {
         // Do NOT set the flag — let it retry next login.
       }
     })();
-  }, [user, companyId, offlineMode]);
+  }, [user, companyId]);
 }

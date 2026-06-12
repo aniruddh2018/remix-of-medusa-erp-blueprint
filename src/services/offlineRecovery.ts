@@ -233,30 +233,20 @@ export async function runRecovery(
       errors: [],
     };
 
+    // Track columns we discover the DB rejects, so we strip them in future retries.
+    const droppedCols = new Set<string>();
+
     for (let j = 0; j < rows.length; j += batchSize) {
       const slice = rows.slice(j, j + batchSize);
-      try {
-        const client = supabase as unknown as {
-          from: (t: string) => {
-            upsert: (
-              rows: Record<string, unknown>[],
-              opts: { onConflict: string; count: "exact" },
-            ) => Promise<{ error: { message: string } | null; count: number | null }>;
-          };
-        };
-        const { error, count } = await client
-          .from(table)
-          .upsert(slice, { onConflict: "id", count: "exact" });
-        if (error) {
-          tr.errors.push(error.message);
-        } else {
-          tr.inserted += count ?? slice.length;
-        }
-      } catch (e) {
-        tr.errors.push(e instanceof Error ? e.message : String(e));
-      }
+      await upsertSlice(table, slice, tr, droppedCols, /*allowPerRow=*/ true);
     }
 
+    if (droppedCols.size) {
+      console.warn(`[recovery] ${table}: stripped unknown columns`, [...droppedCols]);
+    }
+    if (tr.errors.length) {
+      console.warn(`[recovery] ${table}: ${tr.inserted}/${tr.attempted}. Sample errors:`, tr.errors.slice(0, 3));
+    }
     result.tables.push(tr);
     result.totalInserted += tr.inserted;
     result.totalAttempted += tr.attempted;

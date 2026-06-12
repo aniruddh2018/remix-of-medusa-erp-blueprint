@@ -49,6 +49,7 @@ import { resolveConversion } from "@/services/unitConversion";
 import type { Tables } from "@/integrations/supabase/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { SmsButton } from "@/components/SmsButton";
 
 type SalesOrder = Tables<"sales_orders">;
 type Product = Tables<"products">;
@@ -1582,6 +1583,22 @@ export default function Sales() {
                                   size="icon"
                                   className="h-7 w-7"
                                   label="Send invoice on WhatsApp"
+                                />
+                                <SmsButton
+                                  phone={order.customer_phone}
+                                  templateKey="invoice_sent"
+                                  vars={{
+                                    customer: order.customer_name,
+                                    invoice_no: order.invoice_number,
+                                    amount: Number(order.total_amount).toFixed(2),
+                                    date: format(new Date(order.sale_date), "dd/MM/yyyy"),
+                                    status: order.status,
+                                  }}
+                                  relatedInvoiceId={order.id}
+                                  iconOnly
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  label="Send invoice via SMS"
                                 />
                                 {(isAdmin || isPharmacist) && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditSaleId(order.id); setEditDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>}
                                 {isAdmin && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setDeleteTarget(order); setDeleteConfirmText(""); setDeleteDialogOpen(true); }}><Trash2 className="h-3 w-3" /></Button>}

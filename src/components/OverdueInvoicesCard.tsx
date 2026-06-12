@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useOverdueInvoices } from "@/hooks/useOverdueInvoices";
 import { format, differenceInDays } from "date-fns";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { SmsButton } from "@/components/SmsButton";
 
 export function OverdueInvoicesCard() {
   const navigate = useNavigate();
@@ -65,6 +66,21 @@ export function OverdueInvoicesCard() {
                   size="icon"
                   className="h-7 w-7"
                   label="Send payment reminder"
+                />
+                <SmsButton
+                  phone={inv.customer_phone}
+                  templateKey="payment_reminder"
+                  vars={{
+                    customer: inv.customer_name,
+                    invoice_no: inv.invoice_number,
+                    balance: balance.toFixed(2),
+                    days_overdue: days,
+                    date: format(new Date(inv.due_date), "dd/MM/yyyy"),
+                  }}
+                  iconOnly
+                  size="icon"
+                  className="h-7 w-7"
+                  label="Send SMS reminder"
                 />
               </div>
             );

@@ -188,6 +188,83 @@ export async function detectAndParse(file: File): Promise<{
   return { source: "sql", tables: parseSqlDump(text) };
 }
 
+// ─── Upsert helpers ──────────────────────────────────────────────────────────
+
+interface PgError {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}
+
+/** Extract a column name from a PostgREST / Postgres error message. */
+function extractBadColumn(err: PgError): string | null {
+  const blob = `${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""}`;
+  // PostgREST: "Could not find the 'foo' column of 'bar' in the schema cache"
+  let m = blob.match(/Could not find the '([^']+)' column/i);
+  if (m) return m[1];
+  // Postgres: column "foo" of relation "bar" does not exist
+  m = blob.match(/column "([^"]+)"(?: of relation "[^"]+")? does not exist/i);
+  if (m) return m[1];
+  return null;
+}
+
+function stripCols(rows: Record<string, unknown>[], cols: Set<string>) {
+  if (cols.size === 0) return rows;
+  return rows.map((r) => {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(r)) if (!cols.has(k)) out[k] = v;
+    return out;
+  });
+}
+
+async function upsertSlice(
+  table: string,
+  slice: Record<string, unknown>[],
+  tr: TableResult,
+  droppedCols: Set<string>,
+  allowPerRow: boolean,
+): Promise<void> {
+  if (slice.length === 0) return;
+  const payload = stripCols(slice, droppedCols);
+  const client = supabase as unknown as {
+    from: (t: string) => {
+      upsert: (
+        rows: Record<string, unknown>[],
+        opts: { onConflict: string; count: "exact" },
+      ) => Promise<{ error: PgError | null; count: number | null }>;
+    };
+  };
+  try {
+    const { error, count } = await client
+      .from(table)
+      .upsert(payload, { onConflict: "id", count: "exact" });
+    if (!error) {
+      tr.inserted += count ?? payload.length;
+      return;
+    }
+    // Try to recover from unknown-column errors by stripping the column and retrying.
+    const bad = extractBadColumn(error);
+    if (bad && !droppedCols.has(bad)) {
+      droppedCols.add(bad);
+      console.warn(`[recovery] ${table}: dropping unknown column "${bad}" and retrying`);
+      return upsertSlice(table, slice, tr, droppedCols, allowPerRow);
+    }
+    console.error(`[recovery] ${table} upsert error`, error);
+    // Fall back to per-row inserts so a single bad row doesn't kill the whole batch.
+    if (allowPerRow && slice.length > 1) {
+      for (const row of slice) {
+        await upsertSlice(table, [row], tr, droppedCols, false);
+      }
+      return;
+    }
+    tr.errors.push(error.message || JSON.stringify(error));
+  } catch (e) {
+    console.error(`[recovery] ${table} exception`, e);
+    tr.errors.push(e instanceof Error ? e.message : String(e));
+  }
+}
+
 export interface RecoveryOptions {
   companyId: string;
   /** Called after each table finishes. */

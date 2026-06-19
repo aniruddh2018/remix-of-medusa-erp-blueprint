@@ -178,7 +178,7 @@ export function generateConfigurableInvoice(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${data.type === "sale" ? "Invoice" : "Purchase Order"} - ${data.invoice_number}</title>
+  <title>${data.type === "quotation" ? "Quotation" : data.type === "sale" ? "Invoice" : "Purchase Order"} - ${data.invoice_number}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; padding:${isThermal ? '4px' : '20px'}; background:#fff; color:#333; font-size:${font.body}; }
@@ -197,10 +197,11 @@ export function generateConfigurableInvoice(
       ${settings.company_gstin ? `<div style="font-size:${font.small};color:#666;">GSTIN: ${settings.company_gstin}</div>` : ''}
     </div>
     <div style="text-align:right;">
-      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}${isGstInclusive ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
+      <div style="font-size:${font.header};color:#666;">${data.type === "quotation" ? "QUOTATION" : (isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER"))}${isGstInclusive && data.type !== "quotation" ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
       <div style="font-size:${font.small};color:#888;margin-top:4px;">${data.invoice_number}</div>
       <div style="font-size:${font.small};color:#888;">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
-      ${data.payment_method ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}
+      ${data.type === "quotation" && data.valid_till ? `<div style="font-size:${font.small};color:#888;">Valid Till: ${format(new Date(data.valid_till), "dd MMM yyyy")}</div>` : ''}
+      ${data.payment_method && data.type !== "quotation" ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}
       ${settings.show_salesperson && data.salesperson ? `<div style="font-size:${font.small};color:#888;">Salesperson: ${data.salesperson}</div>` : ''}
     </div>
   </div>

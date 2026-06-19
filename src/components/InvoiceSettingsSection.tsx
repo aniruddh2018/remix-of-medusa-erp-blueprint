@@ -35,6 +35,7 @@ export function InvoiceSettingsSection() {
     company_gstin: "",
     company_state: "",
     invoice_prefix: "INV-",
+    quotation_prefix: "QT-",
     terms_and_conditions: "Thanks for doing business with us!",
     show_ship_to: true,
     show_due_date: true,
@@ -100,6 +101,7 @@ export function InvoiceSettingsSection() {
         company_gstin: s.company_gstin || "",
         company_state: s.company_state || "",
         invoice_prefix: s.invoice_prefix || "INV-",
+        quotation_prefix: s.quotation_prefix || "QT-",
         terms_and_conditions: s.terms_and_conditions || "",
         show_ship_to: s.show_ship_to ?? true,
         show_due_date: s.show_due_date ?? true,
@@ -209,6 +211,10 @@ export function InvoiceSettingsSection() {
                 <div className="space-y-2">
                   <Label>Invoice Number Prefix</Label>
                   <Input value={form.invoice_prefix} onChange={e => setForm(f => ({ ...f, invoice_prefix: e.target.value }))} placeholder="INV-" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Quotation Number Prefix</Label>
+                  <Input value={form.quotation_prefix} onChange={e => setForm(f => ({ ...f, quotation_prefix: e.target.value }))} placeholder="QT-" />
                 </div>
               </div>
               <div className="space-y-2 mt-4">

@@ -15,6 +15,7 @@ export interface FullInvoiceSettings {
   logo_url: string;
   logo_alignment: string;
   invoice_prefix: string;
+  quotation_prefix: string;
   invoice_format: string;
   terms_and_conditions: string;
   // Sections
@@ -78,6 +79,7 @@ const DEFAULTS: FullInvoiceSettings = {
   logo_url: "",
   logo_alignment: "left",
   invoice_prefix: "INV-",
+  quotation_prefix: "QT-",
   invoice_format: "standard",
   terms_and_conditions: "Thanks for doing business with us!",
   show_ship_to: true,

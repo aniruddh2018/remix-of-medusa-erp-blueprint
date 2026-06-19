@@ -15,6 +15,7 @@ import Expiry from "./pages/Expiry";
 import ScheduledDrugs from "./pages/ScheduledDrugs";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import Sales from "./pages/Sales";
+import Quotations from "./pages/Quotations";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
 import Doctors from "./pages/Doctors";
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/scheduled-drugs" element={<ScheduledDrugs />} />
                 <Route path="/purchase-orders" element={<PurchaseOrders />} />
                 <Route path="/sales" element={<Sales />} />
+                <Route path="/quotations" element={<Quotations />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/doctors" element={<Doctors />} />

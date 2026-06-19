@@ -334,6 +334,55 @@ export default function Quotations() {
     navigate("/sales");
   }, [navigate, toast]);
 
+  // Map a Quotation row → InvoiceTemplateData shared with the invoice renderer
+  const buildTemplateData = useCallback((q: Quotation): InvoiceTemplateData => {
+    const items = (Array.isArray(q.items) ? (q.items as unknown as CartItem[]) : []).map(i => ({
+      product_name: i.product_name,
+      batch_number: i.batch_number,
+      hsn_code: i.hsn_code,
+      quantity: i.quantity,
+      free_quantity: i.free_quantity,
+      unit: i.sold_unit || i.base_unit,
+      unit_price: i.unit_price,
+      gst_percentage: i.gst_percentage,
+      discount_percentage: i.discount_percentage,
+      total_price: i.total_price,
+      expiry_date: i.expiry_date,
+    }));
+    return {
+      type: "quotation",
+      invoice_number: q.quotation_number,
+      date: q.quotation_date,
+      valid_till: q.valid_till || undefined,
+      customer_name: q.customer_name,
+      customer_phone: q.customer_phone || undefined,
+      customer_address: q.customer_address || undefined,
+      customer_gstin: q.customer_gstin || undefined,
+      items,
+      subtotal: Number(q.subtotal),
+      gst_amount: Number(q.gst_amount),
+      discount_amount: Number(q.discount_amount),
+      freight_charges: Number(q.freight_charges),
+      handling_charges: Number(q.handling_charges),
+      delivery_charges: Number(q.delivery_charges),
+      other_charges: Number(q.other_charges),
+      total_amount: Number(q.total_amount),
+      notes: q.notes || undefined,
+      terms: q.terms || undefined,
+      gstInclusive,
+    };
+  }, [gstInclusive]);
+
+  const printQuotation = useCallback((q: Quotation) => {
+    printConfigurableInvoice(buildTemplateData(q), settings);
+  }, [buildTemplateData, settings]);
+
+  const downloadQuotationHtml = useCallback((q: Quotation) => {
+    downloadConfigurableInvoiceHTML(buildTemplateData(q), settings);
+  }, [buildTemplateData, settings]);
+
+
+
   const filtered = useMemo(() => {
     if (!quotations) return [];
     const q = search.trim().toLowerCase();

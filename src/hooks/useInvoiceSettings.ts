@@ -15,6 +15,7 @@ export interface FullInvoiceSettings {
   logo_url: string;
   logo_alignment: string;
   invoice_prefix: string;
+  quotation_prefix: string;
   invoice_format: string;
   terms_and_conditions: string;
   // Sections

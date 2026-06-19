@@ -473,20 +473,20 @@ export default function Quotations() {
                       placeholder="Search product..."
                     />
                   </div>
-                  <div className="col-span-3 md:col-span-1">
+                  <div className="col-span-3 md:col-span-1" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}>
                     <Input type="number" min={1} value={itemQty || ""} onChange={e => setItemQty(Number(e.target.value) || 0)} placeholder="Qty" />
                   </div>
-                  <div className="col-span-3 md:col-span-2">
+                  <div className="col-span-3 md:col-span-2" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}>
                     <Input type="number" min={0} step={0.01} value={itemRate || ""} onChange={e => setItemRate(Number(e.target.value) || 0)} placeholder="Rate" />
                   </div>
-                  <div className="col-span-3 md:col-span-1">
+                  <div className="col-span-3 md:col-span-1" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}>
                     <Input type="number" min={0} max={28} value={itemGst || ""} onChange={e => setItemGst(Number(e.target.value) || 0)} placeholder="GST%" />
                   </div>
-                  <div className="col-span-3 md:col-span-1">
+                  <div className="col-span-3 md:col-span-1" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}>
                     <Input type="number" min={0} max={100} value={itemDisc || ""} onChange={e => setItemDisc(Number(e.target.value) || 0)} placeholder="Disc%" />
                   </div>
                   <div className="col-span-12 md:col-span-2">
-                    <Button onClick={addItem} className="w-full"><Plus className="h-4 w-4 mr-1" />Add</Button>
+                    <Button type="button" onClick={addItem} className="w-full"><Plus className="h-4 w-4 mr-1" />Add</Button>
                   </div>
                 </div>
               </div>

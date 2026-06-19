@@ -255,6 +255,8 @@ export function generateConfigurableInvoice(
 
   ${data.notes ? `<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:${font.small};"><strong>Notes:</strong> ${data.notes}</div>` : ''}
 
+  ${data.type === "quotation" && data.terms ? `<div style="margin-top:8px;padding:8px;background:#fafafa;border-left:3px solid #0d9488;font-size:${font.small};"><strong>Terms:</strong> ${data.terms}</div>` : ''}
+
   ${settings.terms_and_conditions ? `<div style="margin-top:8px;font-size:${font.small};color:#888;">${settings.terms_and_conditions}</div>` : ''}
 
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #ddd;text-align:center;font-size:${font.small};color:#888;">

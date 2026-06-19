@@ -1832,6 +1832,7 @@ export type Database = {
           prescription_check: Json
           print_alignment: string
           print_font_size: string
+          quotation_prefix: string
           show_amount_in_words: boolean | null
           show_batch_column: boolean
           show_customer_gstin: boolean | null
@@ -1888,6 +1889,7 @@ export type Database = {
           prescription_check?: Json
           print_alignment?: string
           print_font_size?: string
+          quotation_prefix?: string
           show_amount_in_words?: boolean | null
           show_batch_column?: boolean
           show_customer_gstin?: boolean | null
@@ -1944,6 +1946,7 @@ export type Database = {
           prescription_check?: Json
           print_alignment?: string
           print_font_size?: string
+          quotation_prefix?: string
           show_amount_in_words?: boolean | null
           show_batch_column?: boolean
           show_customer_gstin?: boolean | null
@@ -3679,6 +3682,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      quotations: {
+        Row: {
+          bill_discount_flat: number
+          bill_discount_percent: number
+          company_id: string
+          converted_at: string | null
+          converted_sale_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_gstin: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          delivery_charges: number
+          discount_amount: number
+          doctor_id: string | null
+          doctor_name: string | null
+          freight_charges: number
+          gst_amount: number
+          handling_charges: number
+          id: string
+          items: Json
+          notes: string | null
+          other_charges: number
+          quotation_date: string
+          quotation_number: string
+          status: Database["public"]["Enums"]["quotation_status"]
+          subtotal: number
+          terms: string | null
+          total_amount: number
+          updated_at: string
+          valid_till: string | null
+        }
+        Insert: {
+          bill_discount_flat?: number
+          bill_discount_percent?: number
+          company_id: string
+          converted_at?: string | null
+          converted_sale_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_gstin?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          delivery_charges?: number
+          discount_amount?: number
+          doctor_id?: string | null
+          doctor_name?: string | null
+          freight_charges?: number
+          gst_amount?: number
+          handling_charges?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          other_charges?: number
+          quotation_date?: string
+          quotation_number: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          subtotal?: number
+          terms?: string | null
+          total_amount?: number
+          updated_at?: string
+          valid_till?: string | null
+        }
+        Update: {
+          bill_discount_flat?: number
+          bill_discount_percent?: number
+          company_id?: string
+          converted_at?: string | null
+          converted_sale_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_gstin?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          delivery_charges?: number
+          discount_amount?: number
+          doctor_id?: string | null
+          doctor_name?: string | null
+          freight_charges?: number
+          gst_amount?: number
+          handling_charges?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          other_charges?: number
+          quotation_date?: string
+          quotation_number?: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          subtotal?: number
+          terms?: string | null
+          total_amount?: number
+          updated_at?: string
+          valid_till?: string | null
+        }
+        Relationships: []
       }
       sales_order_items: {
         Row: {
@@ -5570,6 +5675,13 @@ export type Database = {
         | "shipped"
         | "delivered"
         | "cancelled"
+      quotation_status:
+        | "draft"
+        | "sent"
+        | "accepted"
+        | "expired"
+        | "converted"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5748,6 +5860,14 @@ export const Constants = {
         "shipped",
         "delivered",
         "cancelled",
+      ],
+      quotation_status: [
+        "draft",
+        "sent",
+        "accepted",
+        "expired",
+        "converted",
+        "rejected",
       ],
     },
   },

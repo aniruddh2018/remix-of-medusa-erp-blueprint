@@ -284,7 +284,7 @@ export function downloadConfigurableInvoiceHTML(data: InvoiceTemplateData, setti
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${data.type === "sale" ? "invoice" : "purchase"}_${data.invoice_number}.html`;
+  a.download = `${data.type === "quotation" ? "quotation" : data.type === "sale" ? "invoice" : "purchase"}_${data.invoice_number}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }

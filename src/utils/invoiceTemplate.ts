@@ -209,8 +209,8 @@ export function generateConfigurableInvoice(
   <!-- Customer/Supplier -->
   <div style="display:flex;justify-content:space-between;margin-bottom:${isThermal ? '8px' : '16px'};">
     <div>
-      <div style="font-size:${font.small};color:#888;text-transform:uppercase;margin-bottom:4px;">${data.type === "sale" ? "Bill To" : "Supplier"}</div>
-      <div style="font-weight:bold;">${data.type === "sale" ? data.customer_name : data.supplier_name}</div>
+      <div style="font-size:${font.small};color:#888;text-transform:uppercase;margin-bottom:4px;">${data.type === "purchase" ? "Supplier" : data.type === "quotation" ? "Quote For" : "Bill To"}</div>
+      <div style="font-weight:bold;">${data.type === "purchase" ? data.supplier_name : data.customer_name}</div>
       ${data.customer_phone ? `<div style="font-size:${font.small};">Ph: ${data.customer_phone}</div>` : ''}
       ${data.customer_address ? `<div style="font-size:${font.small};">${data.customer_address}</div>` : ''}
       ${settings.show_customer_gstin && data.customer_gstin ? `<div style="font-size:${font.small};">GSTIN: ${data.customer_gstin}</div>` : ''}

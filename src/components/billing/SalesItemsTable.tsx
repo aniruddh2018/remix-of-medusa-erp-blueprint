@@ -115,13 +115,17 @@ export function SalesItemsTable({
                 )}
                 {settings.show_expiry_column && (
                   <TableCell className="py-1" data-kb-cell>
-                    <Badge
-                      variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"}
-                      className={`text-[10px] py-0 gap-0.5 ${isNearExpiry ? "animate-pulse" : ""}`}
-                    >
-                      {isNearExpiry && <Clock className="h-2.5 w-2.5" />}
-                      {format(new Date(item.expiry_date), "MM/yy")}
-                    </Badge>
+                    {hasValidExpiry ? (
+                      <Badge
+                        variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"}
+                        className={`text-[10px] py-0 gap-0.5 ${isNearExpiry ? "animate-pulse" : ""}`}
+                      >
+                        {isNearExpiry && <Clock className="h-2.5 w-2.5" />}
+                        {format(expiryDateObj as Date, "MM/yy")}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                 )}
                 <TableCell className="py-1" data-kb-cell>

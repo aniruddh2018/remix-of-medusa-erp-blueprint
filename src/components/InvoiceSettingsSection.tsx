@@ -35,6 +35,7 @@ export function InvoiceSettingsSection() {
     company_gstin: "",
     company_state: "",
     invoice_prefix: "INV-",
+    quotation_prefix: "QT-",
     terms_and_conditions: "Thanks for doing business with us!",
     show_ship_to: true,
     show_due_date: true,

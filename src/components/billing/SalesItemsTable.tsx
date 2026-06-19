@@ -81,9 +81,11 @@ export function SalesItemsTable({
             const totalNeeded = item.quantity + (item.free_quantity || 0);
             const isInsufficient = item.max_quantity > 0 && totalNeeded > item.max_quantity;
             const isNoStock = !item.batch_id;
-            const daysUntilExpiry = differenceInDays(new Date(item.expiry_date), new Date());
-            const isNearExpiry = daysUntilExpiry <= 60;
-            const isVeryNearExpiry = daysUntilExpiry <= 30;
+            const expiryDateObj = item.expiry_date ? new Date(item.expiry_date) : null;
+            const hasValidExpiry = !!expiryDateObj && !isNaN(expiryDateObj.getTime());
+            const daysUntilExpiry = hasValidExpiry ? differenceInDays(expiryDateObj as Date, new Date()) : Infinity;
+            const isNearExpiry = hasValidExpiry && daysUntilExpiry <= 60;
+            const isVeryNearExpiry = hasValidExpiry && daysUntilExpiry <= 30;
 
             return (
               <TableRow

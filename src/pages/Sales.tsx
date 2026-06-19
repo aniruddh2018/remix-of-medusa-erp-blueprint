@@ -786,6 +786,19 @@ export default function Sales() {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] });
       toast({ title: "Sale completed", description: "Invoice generated successfully." });
+      // If this sale originated from a quotation, mark the quotation as converted.
+      const quotationId = convertingQuotationRef.current;
+      if (quotationId && order) {
+        convertingQuotationRef.current = null;
+        supabase
+          .from("quotations")
+          .update({ status: "converted", converted_sale_id: order.id, converted_at: new Date().toISOString() })
+          .eq("id", quotationId)
+          .then(({ error }) => {
+            if (error) console.error("Failed to mark quotation converted:", error);
+            else queryClient.invalidateQueries({ queryKey: ["quotations"] });
+          });
+      }
       // Open post-sale payment dialog
       if (order) {
         setPostSaleDialog({

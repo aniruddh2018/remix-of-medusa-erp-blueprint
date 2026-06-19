@@ -16,7 +16,7 @@ interface TemplateItem {
 }
 
 interface InvoiceTemplateData {
-  type: "sale" | "purchase";
+  type: "sale" | "purchase" | "quotation";
   invoice_number: string;
   date: string;
   customer_name?: string;
@@ -37,6 +37,10 @@ interface InvoiceTemplateData {
   notes?: string;
   salesperson?: string;
   gstInclusive?: boolean;
+  /** Quotation-only: valid till date (ISO yyyy-mm-dd) shown in header */
+  valid_till?: string;
+  /** Quotation-only: terms text shown above the standard T&C footer */
+  terms?: string;
 }
 
 function numberToWords(num: number): string {

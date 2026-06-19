@@ -212,6 +212,10 @@ export function InvoiceSettingsSection() {
                   <Label>Invoice Number Prefix</Label>
                   <Input value={form.invoice_prefix} onChange={e => setForm(f => ({ ...f, invoice_prefix: e.target.value }))} placeholder="INV-" />
                 </div>
+                <div className="space-y-2">
+                  <Label>Quotation Number Prefix</Label>
+                  <Input value={form.quotation_prefix} onChange={e => setForm(f => ({ ...f, quotation_prefix: e.target.value }))} placeholder="QT-" />
+                </div>
               </div>
               <div className="space-y-2 mt-4">
                 <Label>Company Address</Label>

@@ -101,6 +101,7 @@ export function InvoiceSettingsSection() {
         company_gstin: s.company_gstin || "",
         company_state: s.company_state || "",
         invoice_prefix: s.invoice_prefix || "INV-",
+        quotation_prefix: s.quotation_prefix || "QT-",
         terms_and_conditions: s.terms_and_conditions || "",
         show_ship_to: s.show_ship_to ?? true,
         show_due_date: s.show_due_date ?? true,

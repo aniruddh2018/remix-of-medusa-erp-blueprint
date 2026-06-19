@@ -81,9 +81,11 @@ export function SalesItemsTable({
             const totalNeeded = item.quantity + (item.free_quantity || 0);
             const isInsufficient = item.max_quantity > 0 && totalNeeded > item.max_quantity;
             const isNoStock = !item.batch_id;
-            const daysUntilExpiry = differenceInDays(new Date(item.expiry_date), new Date());
-            const isNearExpiry = daysUntilExpiry <= 60;
-            const isVeryNearExpiry = daysUntilExpiry <= 30;
+            const expiryDateObj = item.expiry_date ? new Date(item.expiry_date) : null;
+            const hasValidExpiry = !!expiryDateObj && !isNaN(expiryDateObj.getTime());
+            const daysUntilExpiry = hasValidExpiry ? differenceInDays(expiryDateObj as Date, new Date()) : Infinity;
+            const isNearExpiry = hasValidExpiry && daysUntilExpiry <= 60;
+            const isVeryNearExpiry = hasValidExpiry && daysUntilExpiry <= 30;
 
             return (
               <TableRow
@@ -113,13 +115,17 @@ export function SalesItemsTable({
                 )}
                 {settings.show_expiry_column && (
                   <TableCell className="py-1" data-kb-cell>
-                    <Badge
-                      variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"}
-                      className={`text-[10px] py-0 gap-0.5 ${isNearExpiry ? "animate-pulse" : ""}`}
-                    >
-                      {isNearExpiry && <Clock className="h-2.5 w-2.5" />}
-                      {format(new Date(item.expiry_date), "MM/yy")}
-                    </Badge>
+                    {hasValidExpiry ? (
+                      <Badge
+                        variant={isVeryNearExpiry ? "destructive" : isNearExpiry ? "secondary" : "outline"}
+                        className={`text-[10px] py-0 gap-0.5 ${isNearExpiry ? "animate-pulse" : ""}`}
+                      >
+                        {isNearExpiry && <Clock className="h-2.5 w-2.5" />}
+                        {format(expiryDateObj as Date, "MM/yy")}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                 )}
                 <TableCell className="py-1" data-kb-cell>

@@ -541,6 +541,20 @@ export default function Quotations() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={resetForm}>Clear</Button>
+                {editingId && (() => {
+                  const current = quotations?.find(x => x.id === editingId);
+                  if (!current) return null;
+                  return (
+                    <>
+                      <Button variant="outline" onClick={() => printQuotation(current)}>
+                        <Printer className="h-4 w-4 mr-1" />Print
+                      </Button>
+                      <Button variant="outline" onClick={() => downloadQuotationHtml(current)}>
+                        <Download className="h-4 w-4 mr-1" />Download
+                      </Button>
+                    </>
+                  );
+                })()}
                 <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                   {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {editingId ? "Update Quotation" : "Save Quotation"}

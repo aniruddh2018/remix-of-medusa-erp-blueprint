@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Trash2, Send, Search, Loader2, ArrowRightLeft, Pencil } from "lucide-react";
+import { FileText, Plus, Trash2, Send, Search, Loader2, ArrowRightLeft, Pencil, Printer, Download } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";

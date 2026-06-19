@@ -133,6 +133,36 @@ export default function Sales() {
   const [postSaleDialog, setPostSaleDialog] = useState<null | { id: string; invoice_number: string; customer_name: string; total_amount: number }>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
+  const convertingQuotationRef = useRef<string | null>(null);
+
+  // ── Hydrate from a "Convert to Invoice" quotation prefill (sessionStorage) ──
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("quotation_prefill");
+      if (!raw) return;
+      sessionStorage.removeItem("quotation_prefill");
+      const p = JSON.parse(raw);
+      if (p.quotation_id) convertingQuotationRef.current = p.quotation_id;
+      if (Array.isArray(p.cart)) setCart(p.cart);
+      if (p.customer_name) setCustomerName(p.customer_name);
+      if (p.customer_phone) setCustomerPhone(p.customer_phone);
+      if (p.customer_address) setCustomerAddress(p.customer_address);
+      if (p.customer_gstin) setCustomerGstin(p.customer_gstin);
+      if (p.customer_id) setSelectedCustomerId(p.customer_id);
+      if (p.doctor) setDoctor(p.doctor);
+      if (p.notes) setNotes(p.notes);
+      if (typeof p.freight_charges === "number") setFreightCharges(p.freight_charges);
+      if (typeof p.handling_charges === "number") setHandlingCharges(p.handling_charges);
+      if (typeof p.delivery_charges === "number") setDeliveryCharges(p.delivery_charges);
+      if (typeof p.other_charges === "number") setOtherCharges(p.other_charges);
+      if (typeof p.bill_discount_percent === "number") setBillDiscountPercent(p.bill_discount_percent);
+      if (typeof p.bill_discount_flat === "number") setBillDiscountFlat(p.bill_discount_flat);
+      toast({ title: "Quotation loaded", description: `Review batches & save to convert ${p.quotation_number || "quotation"} into an invoice.` });
+    } catch (e) {
+      console.error("quotation prefill failed", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Queries ──
   const { data: customers } = useQuery({

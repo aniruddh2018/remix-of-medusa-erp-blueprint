@@ -23,6 +23,7 @@ import { PartySearchInput, type PartyRecord, type PartySearchHandle } from "@/co
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;

@@ -607,6 +607,12 @@ export default function Quotations() {
                                 <Send className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button size="sm" variant="ghost" onClick={() => printQuotation(q)} title="Print / Save as PDF">
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => downloadQuotationHtml(q)} title="Download HTML">
+                              <Download className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => loadQuotation(q)} title="Edit">
                               <Pencil className="h-4 w-4" />
                             </Button>

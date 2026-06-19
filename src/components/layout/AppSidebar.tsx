@@ -64,6 +64,7 @@ const allMainMenuItems: MenuItem[] = [
 const allOrderMenuItems: MenuItem[] = [
   { title: "Purchase Orders", icon: ShoppingCart, path: "/purchase-orders", shortcut: "Alt+4" },
   { title: "Sales Orders", icon: FileText, path: "/sales", shortcut: "Alt+2" },
+  { title: "Quotations", icon: FileText, path: "/quotations", shortcut: null },
   { title: "Counter Sales", icon: Zap, path: "/counter-sales", shortcut: "Alt+3" },
   { title: "Scan Invoice", icon: ScanLine, path: "/scan-invoice", shortcut: null },
 ];

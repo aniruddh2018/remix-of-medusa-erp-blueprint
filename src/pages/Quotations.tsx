@@ -346,7 +346,7 @@ export default function Quotations() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Quotations" description="Create quotes and convert them into sales invoices" icon={FileText} />
+      <PageHeader title="Quotations" description="Create quotes and convert them into sales invoices" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

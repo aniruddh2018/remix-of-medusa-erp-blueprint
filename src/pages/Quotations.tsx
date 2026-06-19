@@ -540,7 +540,7 @@ export default function Quotations() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={resetForm}>Clear</Button>
+                <Button type="button" variant="outline" onClick={resetForm}>Clear</Button>
                 {editingId && (() => {
                   const current = quotations?.find(x => x.id === editingId);
                   if (!current) return null;
@@ -555,7 +555,7 @@ export default function Quotations() {
                     </>
                   );
                 })()}
-                <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                   {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {editingId ? "Update Quotation" : "Save Quotation"}
                 </Button>
@@ -570,7 +570,7 @@ export default function Quotations() {
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input className="pl-8" placeholder="Search by number, customer, phone..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <Button variant="outline" onClick={() => { resetForm(); setActiveTab("create"); }}>
+            <Button type="button" variant="outline" onClick={() => { resetForm(); setActiveTab("create"); }}>
               <Plus className="h-4 w-4 mr-1" />New
             </Button>
           </div>

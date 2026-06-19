@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Trash2, Send, Search, Loader2, ArrowRightLeft, Pencil } from "lucide-react";
+import { FileText, Plus, Trash2, Send, Search, Loader2, ArrowRightLeft, Pencil, Printer, Download } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
@@ -23,6 +23,7 @@ import { PartySearchInput, type PartyRecord, type PartySearchHandle } from "@/co
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
+import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
@@ -333,6 +334,55 @@ export default function Quotations() {
     navigate("/sales");
   }, [navigate, toast]);
 
+  // Map a Quotation row → InvoiceTemplateData shared with the invoice renderer
+  const buildTemplateData = useCallback((q: Quotation): InvoiceTemplateData => {
+    const items = (Array.isArray(q.items) ? (q.items as unknown as CartItem[]) : []).map(i => ({
+      product_name: i.product_name,
+      batch_number: i.batch_number,
+      hsn_code: i.hsn_code,
+      quantity: i.quantity,
+      free_quantity: i.free_quantity,
+      unit: i.sold_unit || i.base_unit,
+      unit_price: i.unit_price,
+      gst_percentage: i.gst_percentage,
+      discount_percentage: i.discount_percentage,
+      total_price: i.total_price,
+      expiry_date: i.expiry_date,
+    }));
+    return {
+      type: "quotation",
+      invoice_number: q.quotation_number,
+      date: q.quotation_date,
+      valid_till: q.valid_till || undefined,
+      customer_name: q.customer_name,
+      customer_phone: q.customer_phone || undefined,
+      customer_address: q.customer_address || undefined,
+      customer_gstin: q.customer_gstin || undefined,
+      items,
+      subtotal: Number(q.subtotal),
+      gst_amount: Number(q.gst_amount),
+      discount_amount: Number(q.discount_amount),
+      freight_charges: Number(q.freight_charges),
+      handling_charges: Number(q.handling_charges),
+      delivery_charges: Number(q.delivery_charges),
+      other_charges: Number(q.other_charges),
+      total_amount: Number(q.total_amount),
+      notes: q.notes || undefined,
+      terms: q.terms || undefined,
+      gstInclusive,
+    };
+  }, [gstInclusive]);
+
+  const printQuotation = useCallback((q: Quotation) => {
+    printConfigurableInvoice(buildTemplateData(q), settings);
+  }, [buildTemplateData, settings]);
+
+  const downloadQuotationHtml = useCallback((q: Quotation) => {
+    downloadConfigurableInvoiceHTML(buildTemplateData(q), settings);
+  }, [buildTemplateData, settings]);
+
+
+
   const filtered = useMemo(() => {
     if (!quotations) return [];
     const q = search.trim().toLowerCase();
@@ -491,6 +541,20 @@ export default function Quotations() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={resetForm}>Clear</Button>
+                {editingId && (() => {
+                  const current = quotations?.find(x => x.id === editingId);
+                  if (!current) return null;
+                  return (
+                    <>
+                      <Button variant="outline" onClick={() => printQuotation(current)}>
+                        <Printer className="h-4 w-4 mr-1" />Print
+                      </Button>
+                      <Button variant="outline" onClick={() => downloadQuotationHtml(current)}>
+                        <Download className="h-4 w-4 mr-1" />Download
+                      </Button>
+                    </>
+                  );
+                })()}
                 <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                   {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {editingId ? "Update Quotation" : "Save Quotation"}
@@ -557,6 +621,12 @@ export default function Quotations() {
                                 <Send className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button size="sm" variant="ghost" onClick={() => printQuotation(q)} title="Print / Save as PDF">
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => downloadQuotationHtml(q)} title="Download HTML">
+                              <Download className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => loadQuotation(q)} title="Edit">
                               <Pencil className="h-4 w-4" />
                             </Button>

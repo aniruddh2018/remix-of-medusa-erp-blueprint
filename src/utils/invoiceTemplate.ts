@@ -16,7 +16,7 @@ interface TemplateItem {
 }
 
 interface InvoiceTemplateData {
-  type: "sale" | "purchase";
+  type: "sale" | "purchase" | "quotation";
   invoice_number: string;
   date: string;
   customer_name?: string;
@@ -37,6 +37,10 @@ interface InvoiceTemplateData {
   notes?: string;
   salesperson?: string;
   gstInclusive?: boolean;
+  /** Quotation-only: valid till date (ISO yyyy-mm-dd) shown in header */
+  valid_till?: string;
+  /** Quotation-only: terms text shown above the standard T&C footer */
+  terms?: string;
 }
 
 function numberToWords(num: number): string {
@@ -174,7 +178,7 @@ export function generateConfigurableInvoice(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${data.type === "sale" ? "Invoice" : "Purchase Order"} - ${data.invoice_number}</title>
+  <title>${data.type === "quotation" ? "Quotation" : data.type === "sale" ? "Invoice" : "Purchase Order"} - ${data.invoice_number}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; padding:${isThermal ? '4px' : '20px'}; background:#fff; color:#333; font-size:${font.body}; }
@@ -193,10 +197,11 @@ export function generateConfigurableInvoice(
       ${settings.company_gstin ? `<div style="font-size:${font.small};color:#666;">GSTIN: ${settings.company_gstin}</div>` : ''}
     </div>
     <div style="text-align:right;">
-      <div style="font-size:${font.header};color:#666;">${isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER")}${isGstInclusive ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
+      <div style="font-size:${font.header};color:#666;">${data.type === "quotation" ? "QUOTATION" : (isNoGst ? "BILL OF SUPPLY" : (data.type === "sale" ? "TAX INVOICE" : "PURCHASE ORDER"))}${isGstInclusive && data.type !== "quotation" ? ' <span style="font-size:' + font.small + ';color:#888;">(GST Inclusive)</span>' : ''}</div>
       <div style="font-size:${font.small};color:#888;margin-top:4px;">${data.invoice_number}</div>
       <div style="font-size:${font.small};color:#888;">Date: ${format(new Date(data.date), "dd MMM yyyy")}</div>
-      ${data.payment_method ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}
+      ${data.type === "quotation" && data.valid_till ? `<div style="font-size:${font.small};color:#888;">Valid Till: ${format(new Date(data.valid_till), "dd MMM yyyy")}</div>` : ''}
+      ${data.payment_method && data.type !== "quotation" ? `<div style="font-size:${font.small};color:#888;">Payment: ${data.payment_method}</div>` : ''}
       ${settings.show_salesperson && data.salesperson ? `<div style="font-size:${font.small};color:#888;">Salesperson: ${data.salesperson}</div>` : ''}
     </div>
   </div>
@@ -204,8 +209,8 @@ export function generateConfigurableInvoice(
   <!-- Customer/Supplier -->
   <div style="display:flex;justify-content:space-between;margin-bottom:${isThermal ? '8px' : '16px'};">
     <div>
-      <div style="font-size:${font.small};color:#888;text-transform:uppercase;margin-bottom:4px;">${data.type === "sale" ? "Bill To" : "Supplier"}</div>
-      <div style="font-weight:bold;">${data.type === "sale" ? data.customer_name : data.supplier_name}</div>
+      <div style="font-size:${font.small};color:#888;text-transform:uppercase;margin-bottom:4px;">${data.type === "purchase" ? "Supplier" : data.type === "quotation" ? "Quote For" : "Bill To"}</div>
+      <div style="font-weight:bold;">${data.type === "purchase" ? data.supplier_name : data.customer_name}</div>
       ${data.customer_phone ? `<div style="font-size:${font.small};">Ph: ${data.customer_phone}</div>` : ''}
       ${data.customer_address ? `<div style="font-size:${font.small};">${data.customer_address}</div>` : ''}
       ${settings.show_customer_gstin && data.customer_gstin ? `<div style="font-size:${font.small};">GSTIN: ${data.customer_gstin}</div>` : ''}
@@ -250,6 +255,8 @@ export function generateConfigurableInvoice(
 
   ${data.notes ? `<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:${font.small};"><strong>Notes:</strong> ${data.notes}</div>` : ''}
 
+  ${data.type === "quotation" && data.terms ? `<div style="margin-top:8px;padding:8px;background:#fafafa;border-left:3px solid #0d9488;font-size:${font.small};"><strong>Terms:</strong> ${data.terms}</div>` : ''}
+
   ${settings.terms_and_conditions ? `<div style="margin-top:8px;font-size:${font.small};color:#888;">${settings.terms_and_conditions}</div>` : ''}
 
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #ddd;text-align:center;font-size:${font.small};color:#888;">
@@ -277,7 +284,7 @@ export function downloadConfigurableInvoiceHTML(data: InvoiceTemplateData, setti
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${data.type === "sale" ? "invoice" : "purchase"}_${data.invoice_number}.html`;
+  a.download = `${data.type === "quotation" ? "quotation" : data.type === "sale" ? "invoice" : "purchase"}_${data.invoice_number}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }

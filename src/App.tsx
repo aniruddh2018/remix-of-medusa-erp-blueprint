@@ -15,6 +15,7 @@ import Expiry from "./pages/Expiry";
 import ScheduledDrugs from "./pages/ScheduledDrugs";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import Sales from "./pages/Sales";
+import Quotations from "./pages/Quotations";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
 import Doctors from "./pages/Doctors";

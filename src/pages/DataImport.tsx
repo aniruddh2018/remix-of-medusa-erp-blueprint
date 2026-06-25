@@ -23,6 +23,8 @@ import { ImportHistory as ImportHistoryTab } from "@/components/data-import/Impo
 import { TemplateSelector } from "@/components/data-import/TemplateSelector";
 import { MargListImport } from "@/components/data-import/MargListImport";
 import { MargMasterImport } from "@/components/data-import/MargMasterImport";
+import { MargSalesImport } from "@/components/data-import/MargSalesImport";
+import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 
 import {
   detectSchemaClient,
@@ -45,7 +47,7 @@ export default function DataImport() {
   const company = companyId ? { id: companyId } : null;
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"import" | "marg" | "marg-master" | "history">("import");
+  const [activeTab, setActiveTab] = useState<"import" | "marg" | "marg-master" | "marg-sales" | "marg-purchase" | "history">("import");
   const [isImporting, setIsImporting] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
   const [detectedErp, setDetectedErp] = useState<string | null>(null);
@@ -366,12 +368,14 @@ export default function DataImport() {
     <div className="space-y-6">
       <PageHeader title="Data Import" description="Import data from CSV, Excel, or JSON files" />
 
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as "import" | "marg" | "marg-master" | "history")}>
+      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as typeof activeTab)}>
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="import" className="flex items-center gap-2"><Upload className="w-4 h-4" />Import</TabsTrigger>
             <TabsTrigger value="marg" className="flex items-center gap-2"><FileCode className="w-4 h-4" />Marg Items</TabsTrigger>
             <TabsTrigger value="marg-master" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Master CSV</TabsTrigger>
+            <TabsTrigger value="marg-sales" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Sales History</TabsTrigger>
+            <TabsTrigger value="marg-purchase" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Purchase History</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2"><History className="w-4 h-4" />History</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-3">
@@ -550,6 +554,15 @@ export default function DataImport() {
         <TabsContent value="marg-master" className="mt-4">
           <MargMasterImport />
         </TabsContent>
+
+        <TabsContent value="marg-sales" className="mt-4">
+          <MargSalesImport />
+        </TabsContent>
+
+        <TabsContent value="marg-purchase" className="mt-4">
+          <MargPurchaseImport />
+        </TabsContent>
+
 
         <TabsContent value="history" className="mt-4">
           <Card>

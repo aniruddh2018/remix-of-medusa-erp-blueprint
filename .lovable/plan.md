@@ -1,61 +1,98 @@
-# Twilio Integration Plan
+# MARG Transaction History Importer
 
-## Goal
-Enable the ERP to **send SMS and WhatsApp messages via Twilio** (invoices, payment reminders, status updates) and **receive inbound SMS/WhatsApp replies** logged to the database — everywhere the current wa.me click-to-chat button exists, plus a bulk-send screen in Settings.
+Extend Data Import with two new importers that bring legacy MARG history into MedikaRP so users see real customers, invoices and stock flow from day one.
 
-## What gets built
+## Scope
 
-### 1. Connector + secrets
-- Link the **Twilio** connector via `standard_connectors--connect`. This exposes `TWILIO_API_KEY` (gateway connection key) + `LOVABLE_API_KEY` automatically — no manual SID/auth-token entry.
-- Ask the user for two extras the connector doesn't provide:
-  - `TWILIO_SMS_FROM` — Twilio phone number in E.164 (e.g. `+15017122661`)
-  - `TWILIO_WHATSAPP_FROM` — WhatsApp sender (e.g. `whatsapp:+14155238886` sandbox or approved number)
+1. **Sales History Import** (build now) — from MARG `REPORT_7.XLS` (Bill Wise Sales Statement).
+2. **Purchase History Import** (placeholder, build later) — same wizard skeleton, parser stubbed until a sample file is shared.
 
-### 2. Backend (edge functions)
-- **`twilio-send`** (POST, auth required) — body `{ channel: "sms" | "whatsapp", to, templateKey, vars, pdfUrl? }`. Renders the existing WhatsApp template, posts to `https://connector-gateway.lovable.dev/twilio/Messages.json` via Lovable gateway with `application/x-www-form-urlencoded`, returns `{ sid, status }`. Logs to `twilio_messages` table.
-- **`twilio-inbound`** (POST, `verify_jwt = false`, public) — Twilio webhook. Parses `From`, `Body`, `MessageSid`, `NumMedia`. Looks up the company by destination number, stores row in `twilio_messages` (direction=`inbound`). Returns empty TwiML `<Response/>`.
-- **`twilio-bulk-send`** (POST, auth) — iterates a list of `{ to, vars }`, calls `twilio-send` internally, returns aggregated result.
+Both share the same UX: upload → parse → preview with stats → choose target company → confirm → batch insert → result summary with error list.
 
-### 3. Database (`twilio_messages`)
-Columns: `id`, `company_id`, `direction` (`outbound`/`inbound`), `channel` (`sms`/`whatsapp`), `to_number`, `from_number`, `body`, `template_key`, `message_sid`, `status`, `error_code`, `error_message`, `related_invoice_id` (nullable FK), `metadata jsonb`, `created_at`.
-RLS: company-scoped read/insert for `authenticated`; full access for `service_role` (edge functions write inbound rows). GRANTs included.
+## Sales file structure (verified against REPORT_7-2.XLS)
 
-### 4. Frontend
+```text
+Row type            | Col 0           | Col 1                                       | Col 2
+--------------------+-----------------+---------------------------------------------+-----------
+Shop header (×4)    | shop / address  | -                                           | -
+Column header       | BILL NO.        | DESCRIPTION                                 | BILL VALUE
+Date marker         | 01-04-2026      | -                                           | -
+Bill header         | A000001         | "<phone> <customer name>" + " CASH/CREDIT"  | 1150
+Item line (×N)      | -               | "sn  drugcode  NAME  pack  qty  rate"       | "exp batch"
+Blank separator     | -               | -                                           | -
+... next bill ...
+```
 
-| Location | Component | Action |
-|---|---|---|
-| Overdue Invoices card | `OverdueInvoicesCard.tsx` | Add SMS icon button next to WhatsApp button |
-| Sales list rows | wherever `WhatsAppButton` is used in sales | Add sibling `SmsButton` |
-| Settings page | new `TwilioSection.tsx` | Show connection status, FROM-number inputs (saved as user-managed secrets), inbound webhook URL to paste into Twilio console, link to a bulk-send dialog and recent message log |
-| Settings page | new `BulkSendDialog.tsx` | Pick template, pick recipient set (all overdue customers / all credit customers / paste list), preview, send |
+- **Bill no.** `A000001` — sequential per FY.
+- **Date** rows act as section breaks (`DD-MM-YYYY`).
+- **Customer field** holds `phone + name` (or `CASH`, `ONL <amt>`); payment mode is the trailing `CASH/CREDIT` token; bill value is the grand total.
+- **Item line** description is whitespace-padded fixed columns: `serial | drug_code | name | pack(1*10 / 10'S / 200ML) | qty(strip:loose like 1:4) | rate`. Column 2 holds `MM/YY` expiry and an optional batch number.
 
-New shared pieces:
-- `src/components/SmsButton.tsx` — mirror of `WhatsAppButton` but calls `twilio-send` with `channel: "sms"`.
-- `src/hooks/useTwilioSend.ts` — react-query mutation wrapping `supabase.functions.invoke('twilio-send', …)`.
-- `src/hooks/useTwilioMessages.ts` — list inbound/outbound history for a company.
+## Mapping to MedikaRP tables
 
-### 5. Webhook URL surfaced to user
-The Twilio inbound webhook URL is:
-`https://moxccblenxbdadzakogw.supabase.co/functions/v1/twilio-inbound`
-Settings UI shows it with a copy button and step-by-step ("Paste into Twilio Console → Phone Numbers → Messaging → A message comes in → Webhook").
+| Source                | Target table          | Notes                                                                       |
+|-----------------------|-----------------------|-----------------------------------------------------------------------------|
+| Bill header           | `sales_orders`        | invoice_number, sale_date (current date marker), customer_id, total_amount, payment_mode, payment_status (paid if CASH else pending) |
+| Customer phone+name   | `customers`           | Auto-create when phone is present; reuse if matched on phone within company |
+| Item lines            | `sales_order_items`   | Resolve `product_id` by name (fall back to fuzzy match on `brand`)          |
+|                       |                       | quantity = strips * conversion + loose units (use `product_conversions`)    |
+|                       |                       | rate = parsed rate; line_total computed                                     |
+| Expiry / batch        | `inventory_batches` *(optional toggle)* | Only created if user opts "also create batches", marked as `legacy_import` |
 
-## Out of scope (explicit)
-- Replacing the existing `wa.me` click-to-chat button — kept as a fallback.
-- Per-user OAuth (Twilio is workspace-owned credentials, correct for ERP).
-- Rate limiting / SMS pumping protection — will recommend enabling it in Twilio console; not enforced client-side.
-- Two-way conversation UI (inbound is logged only; no chat thread view yet).
+Stock movement: historical sales **do not** decrement live inventory by default. Toggle `affect_inventory` (default OFF) — when ON, the importer writes matching `inventory_transactions` of type `legacy_sale` so reports balance.
 
-## Order of execution
-1. Connect Twilio connector (interactive).
-2. Ask user for `TWILIO_SMS_FROM` and `TWILIO_WHATSAPP_FROM` via `add_secret`.
-3. DB migration (`twilio_messages` table + grants + RLS).
-4. Edge functions `twilio-send`, `twilio-inbound`, `twilio-bulk-send`.
-5. Frontend buttons + Settings section.
-6. Give user the webhook URL to paste into Twilio Console.
+## File / code layout
 
-## Technical notes
-- All Twilio calls go through `connector-gateway.lovable.dev/twilio/...` — never `api.twilio.com` directly. Account SID is auto-injected by the gateway.
-- Body uses `URLSearchParams`, not JSON.
-- WhatsApp `To` and `From` must be prefixed `whatsapp:+<E164>`.
-- Phone normalization reuses `normalizePhoneForWhatsApp` from `src/lib/whatsapp.ts`.
-- Templates reuse `whatsapp_templates` table — same body works for SMS (placeholders re-rendered server-side).
+```text
+src/services/margSalesParse.ts     # pure parser: File -> ParsedBill[]
+src/services/margSalesImport.ts    # ParsedBill[] + companyId -> InsertResult
+                                   #   - resolves products (cached by name)
+                                   #   - resolves/creates customers (cached by phone)
+                                   #   - batches sales_orders + items inserts
+src/components/data-import/
+   MargSalesImport.tsx             # 5-step UI (upload → preview → options → run → done)
+   MargPurchaseImport.tsx          # stub: "Coming soon — drop a sample file"
+src/pages/DataImport.tsx           # add two tabs: "MARG Sales", "MARG Purchases"
+```
+
+## UI flow (Sales)
+
+1. **Upload** `.xls/.xlsx` (REPORT_7).
+2. **Parse in browser** with `xlsx` (already installed). Show stats: total bills, total items, date range, distinct customers, unmatched product count.
+3. **Preview table**: first 50 bills, expandable to show items, with a red badge on items whose product couldn't be auto-resolved.
+4. **Options**:
+   - Target company (super admin dropdown / active company).
+   - Default customer when phone is missing (default = "Walk-in").
+   - Skip duplicate invoice numbers (default ON — checks `sales_orders.invoice_number` + company).
+   - Create missing products? (default OFF — skip line; show count).
+   - Affect live inventory? (default OFF).
+5. **Run**: batched insert (200 bills/batch) with progress bar, per-row fallback on failure, same defensive pattern as `margMasterImport.ts`.
+6. **Done**: counts (bills inserted / skipped duplicates / failed, items inserted, customers created, products unmatched). Downloadable CSV of unmatched lines so the user can fix and re-run.
+
+## Parser rules
+
+- Walk rows top-down keeping `activeDate` (last `DD-MM-YYYY` cell) and `currentBill`.
+- New bill when col 0 matches `/^[A-Z]\d{5,}$/`.
+- Item line when col 0 is blank, col 1 non-blank, and starts with `\d+\s+\d+\s+`.
+- Pack parser: `1*10` → strip×count; `10'S` → loose units; `200ML` → liquid volume — used purely to compute qty from `strip:loose`.
+- Qty parser: `"1:4"` → strips=1, loose=4 → total = strips × conversion + loose (conversion looked up from product; fallback 10 for TAB/CAP, 1 otherwise).
+- Batch col: split `"10/26 TC24-169"` → expiry `10/2026`, batch `TC24-169`.
+- Blank row ends the bill.
+
+## Product resolution
+
+In-memory `Map<UPPER(name), product_id>` pre-loaded per company. On miss, try `ilike` on `name` and `brand`. Cache results to avoid repeat queries. Unresolved → either skip the line (default) or stash in a downloadable `unmatched.csv`.
+
+## Purchase History (later)
+
+Same wizard skeleton already present in `MargPurchaseImport.tsx`. When the user shares a sample MARG purchase report we'll fill in:
+
+- Parser → `ParsedPurchase[]` with supplier, invoice no., date, items, batches, expiry, rates.
+- Importer → `purchase_orders` + `purchase_order_items` + `inventory_batches` (purchase **does** create batches; option to also create `inventory_transactions` of type `legacy_purchase`).
+- Supplier resolution by GSTIN/phone/name with auto-create.
+
+## Out of scope
+
+- Editing imported invoices (use existing sales edit flow).
+- GST recomputation for legacy bills — store rates as-is; bills marked `is_legacy_import = true` so reports can exclude them when needed.
+- No new schema: reuses existing `sales_orders`, `sales_order_items`, `customers`, `inventory_batches`, `inventory_transactions`. Only adds a boolean column `is_legacy_import` to `sales_orders` and `purchase_orders` (single migration).

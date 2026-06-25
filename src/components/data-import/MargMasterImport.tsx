@@ -14,40 +14,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Upload, Loader2, CheckCircle2, AlertTriangle, FileSpreadsheet, Download } from "lucide-react";
 import {
   importMargMasterRows,
   type MargMasterImportResult,
   type MargMasterRow,
 } from "@/services/margMasterImport";
+import { mergeMargFiles, mergedRowsToCsv, type MergeResult } from "@/services/margMerge";
 
-type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
-
-const REQUIRED_COLS = ["mrp"]; // name comes from clean_name OR original_name
-const EXPECTED_COLS = [
-  "clean_name",
-  "original_name",
-  "manufacturer",
-  "composition",
-  "form",
-  "strength",
-  "base_unit",
-  "secondary_unit",
-  "conversion",
-  "mrp",
-  "rate",
-  "gst_percent",
-];
+type Stage = "idle" | "merging" | "parsing" | "preview" | "importing" | "done";
 
 export function MargMasterImport() {
   const { isSuperAdmin } = useAuth();
   const { companyId: activeCompanyId } = useBusiness();
   const { toast } = useToast();
 
+  const [mode, setMode] = useState<"auto" | "csv">("auto");
   const [stage, setStage] = useState<Stage>("idle");
+  const [manufacturerFile, setManufacturerFile] = useState<File | null>(null);
+  const [compositionFile, setCompositionFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [rows, setRows] = useState<MargMasterRow[]>([]);
-  const [missingCols, setMissingCols] = useState<string[]>([]);
+  const [mergeStats, setMergeStats] = useState<MergeResult["stats"] | null>(null);
   const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([]);
   const [targetCompanyId, setTargetCompanyId] = useState<string>("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -69,7 +58,30 @@ export function MargMasterImport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin, activeCompanyId]);
 
-  const handleFile = useCallback(
+  const runMerge = useCallback(async () => {
+    if (!manufacturerFile || !compositionFile) return;
+    setStage("merging");
+    try {
+      const res = await mergeMargFiles(manufacturerFile, compositionFile);
+      setRows(res.rows);
+      setMergeStats(res.stats);
+      setFileName(`${manufacturerFile.name} + ${compositionFile.name}`);
+      setStage("preview");
+      toast({
+        title: "Merged",
+        description: `${res.stats.merged.toLocaleString()} products built from both files`,
+      });
+    } catch (err) {
+      toast({
+        title: "Merge failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+      setStage("idle");
+    }
+  }, [manufacturerFile, compositionFile, toast]);
+
+  const handleCsv = useCallback(
     (file: File) => {
       setStage("parsing");
       setFileName(file.name);
@@ -77,10 +89,8 @@ export function MargMasterImport() {
         header: true,
         skipEmptyLines: true,
         complete: (res) => {
-          const headers = (res.meta.fields ?? []).map((h) => h.trim().toLowerCase());
-          const missing = REQUIRED_COLS.filter((c) => !headers.includes(c));
-          setMissingCols(missing);
           setRows(res.data);
+          setMergeStats(null);
           setStage("preview");
           toast({
             title: "Parsed",
@@ -114,13 +124,26 @@ export function MargMasterImport() {
     });
   }, [rows, targetCompanyId, toast]);
 
+  const downloadMerged = useCallback(() => {
+    const csv = mergedRowsToCsv(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "product_master_merged_v3.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [rows]);
+
   const reset = () => {
     setStage("idle");
     setRows([]);
     setResult(null);
     setFileName("");
-    setMissingCols([]);
     setProgress({ done: 0, total: 0 });
+    setManufacturerFile(null);
+    setCompositionFile(null);
+    setMergeStats(null);
   };
 
   return (
@@ -128,45 +151,81 @@ export function MargMasterImport() {
       {stage === "idle" && (
         <Card>
           <CardHeader>
-            <CardTitle>MARG Master CSV Importer</CardTitle>
+            <CardTitle>MARG Master Importer</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Upload the merged MARG master CSV (columns:{" "}
-              <code className="text-xs">{EXPECTED_COLS.join(", ")}</code>).
-              <br />
-              Conversion is read as <strong>1 secondary_unit = conversion × base_unit</strong> — e.g.{" "}
-              base <code>TAB</code> + secondary <code>STRIP</code> + conversion <code>10</code> means{" "}
-              <strong>1 STRIP = 10 TAB</strong>.
-            </p>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as "auto" | "csv")}>
+              <TabsList>
+                <TabsTrigger value="auto" className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4" /> Auto-merge from MARG files
+                </TabsTrigger>
+                <TabsTrigger value="csv" className="flex items-center gap-2">
+                  <Upload className="w-4 h-4" /> Upload pre-merged CSV
+                </TabsTrigger>
+              </TabsList>
 
-            <label
-              htmlFor="marg-master-file"
-              className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-10 cursor-pointer hover:bg-muted/40"
-            >
-              <Upload className="w-8 h-8 text-muted-foreground" />
-              <span className="font-medium">Click to upload CSV</span>
-              <span className="text-xs text-muted-foreground">UTF-8 CSV, no row limit</span>
-              <input
-                id="marg-master-file"
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                }}
-              />
-            </label>
+              <TabsContent value="auto" className="space-y-3 pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Drop the two MARG exports — we'll merge them in your browser
+                  and produce the same structured product list (with manufacturer,
+                  composition, form, strength and unit conversion) automatically.
+                </p>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <FileSlot
+                    label="Manufacturer-grouped file"
+                    hint="e.g. Book2.xlsx — grouped by company / manufacturer"
+                    file={manufacturerFile}
+                    onPick={setManufacturerFile}
+                  />
+                  <FileSlot
+                    label="Composition-grouped file"
+                    hint="e.g. REPORT_1-2.XLS — grouped by drug / composition"
+                    file={compositionFile}
+                    onPick={setCompositionFile}
+                  />
+                </div>
+                <Button
+                  onClick={runMerge}
+                  disabled={!manufacturerFile || !compositionFile}
+                >
+                  Merge files
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="csv" className="space-y-3 pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Already have a merged v3 CSV? Upload it directly.
+                </p>
+                <label
+                  htmlFor="marg-master-file"
+                  className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-10 cursor-pointer hover:bg-muted/40"
+                >
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <span className="font-medium">Click to upload CSV</span>
+                  <input
+                    id="marg-master-file"
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleCsv(f);
+                    }}
+                  />
+                </label>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
 
-      {stage === "parsing" && (
+      {(stage === "parsing" || stage === "merging") && (
         <Card>
           <CardContent className="flex items-center gap-3 py-10">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Parsing {fileName}…</span>
+            <span>
+              {stage === "merging" ? "Merging MARG files…" : `Parsing ${fileName}…`}
+            </span>
           </CardContent>
         </Card>
       )}
@@ -184,12 +243,17 @@ export function MargMasterImport() {
               </span>
             </div>
 
-            {missingCols.length > 0 && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  Missing required columns: {missingCols.join(", ")}
-                </AlertDescription>
-              </Alert>
+            {mergeStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <Stat label="File A items" value={mergeStats.fileA_items} tone="muted" />
+                <Stat label="File B items" value={mergeStats.fileB_items} tone="muted" />
+                <Stat label="With manufacturer" value={mergeStats.withManufacturer} tone="muted" />
+                <Stat label="With composition" value={mergeStats.withComposition} tone="muted" />
+                <Stat label="With strength" value={mergeStats.withStrength} tone="muted" />
+                <Stat label="With conversion" value={mergeStats.withConversion} tone="muted" />
+                <Stat label="Only in A" value={mergeStats.onlyInA} tone="muted" />
+                <Stat label="Only in B" value={mergeStats.onlyInB} tone="muted" />
+              </div>
             )}
 
             <div className="space-y-2">
@@ -256,13 +320,18 @@ export function MargMasterImport() {
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" onClick={reset}>
                 Cancel
               </Button>
+              {mergeStats && (
+                <Button variant="outline" onClick={downloadMerged}>
+                  <Download className="w-4 h-4 mr-1" /> Download merged CSV
+                </Button>
+              )}
               <Button
                 onClick={handleImport}
-                disabled={!targetCompanyId || missingCols.length > 0 || rows.length === 0}
+                disabled={!targetCompanyId || rows.length === 0}
               >
                 Import {rows.length.toLocaleString()} rows
               </Button>
@@ -325,6 +394,46 @@ export function MargMasterImport() {
         </Card>
       )}
     </div>
+  );
+}
+
+function FileSlot({
+  label,
+  hint,
+  file,
+  onPick,
+}: {
+  label: string;
+  hint: string;
+  file: File | null;
+  onPick: (f: File) => void;
+}) {
+  const id = `slot-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  return (
+    <label
+      htmlFor={id}
+      className="flex flex-col gap-1 border-2 border-dashed rounded-lg p-4 cursor-pointer hover:bg-muted/40"
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
+      <span className="text-xs mt-2 truncate">
+        {file ? (
+          <span className="text-green-600">✓ {file.name}</span>
+        ) : (
+          <span className="text-muted-foreground">No file chosen</span>
+        )}
+      </span>
+      <input
+        id={id}
+        type="file"
+        accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+        }}
+      />
+    </label>
   );
 }
 

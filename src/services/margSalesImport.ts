@@ -287,7 +287,18 @@ export async function importMargSales(
       }
       existingInvoices.add(bill.invoice_number);
 
-      const itemPayloads: Array<Record<string, unknown>> = [];
+      type ItemPayload = {
+        sales_order_id: string;
+        company_id: string;
+        product_id: string;
+        batch_id: string;
+        quantity: number;
+        unit_price: number;
+        gst_percentage: number;
+        discount_percentage: number;
+        total_price: number;
+      };
+      const itemPayloads: ItemPayload[] = [];
       for (const r of resolvedItems) {
         const batchNo = r.item.batch_number || "LEGACY";
         const batchId = await getOrCreateBatch(

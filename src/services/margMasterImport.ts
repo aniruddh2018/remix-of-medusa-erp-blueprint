@@ -97,7 +97,34 @@ export async function importMargMasterRows(
   }
 
   // 2. Build insert payloads (skip duplicates + invalid rows).
-  type Pending = { payload: Record<string, unknown>; conv: { from: string; to: string; factor: number } | null };
+  type ProductInsert = {
+    company_id: string;
+    name: string;
+    brand: string;
+    manufacturer: string;
+    generic_name: string | null;
+    composition: string | null;
+    strength: string | null;
+    form: string | null;
+    unit: string;
+    base_unit: string;
+    mrp: number;
+    sale_price: number;
+    purchase_price: number;
+    gst_percentage: number;
+    drug_schedule: "none";
+    batch_tracking_enabled: boolean;
+    expiry_required: boolean;
+    is_active: boolean;
+  };
+  type ConversionInsert = {
+    company_id: string;
+    product_id: string;
+    from_unit: string;
+    to_unit: string;
+    conversion_factor: number;
+  };
+  type Pending = { payload: ProductInsert; conv: { from: string; to: string; factor: number } | null };
   const pending: Pending[] = [];
   for (const r of rows) {
     const name = str(r.clean_name) || str(r.original_name);

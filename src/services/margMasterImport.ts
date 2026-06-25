@@ -150,7 +150,7 @@ export async function importMargMasterRows(
     const secUnit = str(r.secondary_unit).toUpperCase();
     const conv = num(r.conversion);
 
-    const payload: Record<string, unknown> = {
+    const payload: ProductInsert = {
       company_id: companyId,
       name,
       brand: name,
@@ -227,7 +227,7 @@ export async function importMargMasterRows(
           d.id as string,
         );
       }
-      const convPayload: Array<Record<string, unknown>> = [];
+      const convPayload: ConversionInsert[] = [];
       for (const item of slice) {
         if (!item.conv) continue;
         const k = [

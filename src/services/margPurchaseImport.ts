@@ -115,19 +115,12 @@ async function upsertBatch(
   const key = `${productId}|${batchNumber}`;
   const cached = cache.get(key);
   if (cached) {
-    // increment qty on subsequent purchases of the same batch in this run
-    const { error } = await supabase.rpc("increment_batch_qty" as never, {
-      p_batch_id: cached.id, p_qty: qty, p_loose: looseQty,
-    } as never).then(r => ({ error: r.error })).catch(() => ({ error: null }));
-    if (error) {
-      // fallback: read+update
-      const { data: row } = await supabase.from("inventory_batches")
-        .select("quantity,loose_quantity").eq("id", cached.id).single();
-      await supabase.from("inventory_batches").update({
-        quantity: (row?.quantity ?? 0) + qty,
-        loose_quantity: (row?.loose_quantity ?? 0) + looseQty,
-      }).eq("id", cached.id);
-    }
+    const { data: row } = await supabase.from("inventory_batches")
+      .select("quantity,loose_quantity").eq("id", cached.id).single();
+    await supabase.from("inventory_batches").update({
+      quantity: (row?.quantity ?? 0) + qty,
+      loose_quantity: (row?.loose_quantity ?? 0) + looseQty,
+    }).eq("id", cached.id);
     counters.updated++;
     return cached.id;
   }

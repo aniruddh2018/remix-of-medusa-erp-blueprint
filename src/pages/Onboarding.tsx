@@ -51,10 +51,11 @@ export default function Onboarding() {
       navigate("/auth", { replace: true });
       return;
     }
-    if (!needsOnboarding) {
+    // If already onboarded and we're not mid-migration, kick to dashboard
+    if (!needsOnboarding && step !== "migrate") {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, authLoading, businessLoading, needsOnboarding, navigate]);
+  }, [user, authLoading, businessLoading, needsOnboarding, navigate, step]);
 
   const handleComplete = async () => {
     if (!selectedType || !name.trim() || !user) return;

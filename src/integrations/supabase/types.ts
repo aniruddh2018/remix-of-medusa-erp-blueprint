@@ -1760,8 +1760,10 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          format: string | null
           id: string
           last_number: number
+          padding: number
           prefix: string
           updated_at: string
           year: number
@@ -1769,8 +1771,10 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          format?: string | null
           id?: string
           last_number?: number
+          padding?: number
           prefix?: string
           updated_at?: string
           year: number
@@ -1778,8 +1782,10 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          format?: string | null
           id?: string
           last_number?: number
+          padding?: number
           prefix?: string
           updated_at?: string
           year?: number
@@ -5586,6 +5592,10 @@ export type Database = {
       seed_default_ledger_groups: {
         Args: { p_company_id: string }
         Returns: undefined
+      }
+      seed_invoice_sequence_from_history: {
+        Args: { _company_id: string }
+        Returns: Json
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

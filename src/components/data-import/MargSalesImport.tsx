@@ -285,6 +285,20 @@ export function MargSalesImport() {
               </Button>
             )}
 
+            {result.sequenceSeed?.seeded && (
+              <Alert>
+                <AlertDescription className="text-xs">
+                  <div className="font-medium">Invoice numbering continued from MARG</div>
+                  <div className="mt-1">
+                    Detected series <span className="font-mono">{result.sequenceSeed.sample}</span> · last used
+                    <strong> #{result.sequenceSeed.last_number}</strong>. New bills will follow the same format
+                    (<span className="font-mono">{result.sequenceSeed.format}</span>) starting at
+                    <strong> #{(result.sequenceSeed.last_number ?? 0) + 1}</strong>.
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {result.errors.length > 0 && (
               <Alert variant="destructive">
                 <AlertDescription>

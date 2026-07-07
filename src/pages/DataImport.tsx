@@ -377,6 +377,7 @@ export default function DataImport() {
             <TabsTrigger value="marg-master" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Master CSV</TabsTrigger>
             <TabsTrigger value="marg-sales" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Sales History</TabsTrigger>
             <TabsTrigger value="marg-purchase" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Purchase History</TabsTrigger>
+            <TabsTrigger value="marg-stock" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Stock</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2"><History className="w-4 h-4" />History</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-3">

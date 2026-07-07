@@ -70,8 +70,8 @@ export default function Onboarding() {
       if (!data) throw new Error("Onboarding did not return a company ID");
 
       toast({ title: "Welcome!", description: `${BUSINESS_CONFIGS[selectedType].label} ERP is ready.` });
-      // Force full reload so all contexts re-fetch cleanly
-      window.location.href = "/";
+      // Advance to optional MARG migration step instead of hard-reloading.
+      setStep("migrate");
     } catch (err: any) {
       console.error("Onboarding error:", err);
       toast({

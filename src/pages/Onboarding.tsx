@@ -39,7 +39,7 @@ export default function Onboarding() {
   const { needsOnboarding, isLoading: businessLoading } = useBusiness();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [step, setStep] = useState<"company" | "type">("company");
+  const [step, setStep] = useState<"company" | "type" | "migrate">("company");
   const [name, setName] = useState("");
   const [selectedType, setSelectedType] = useState<BusinessType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

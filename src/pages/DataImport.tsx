@@ -26,6 +26,7 @@ import { MargMasterImport } from "@/components/data-import/MargMasterImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargStockImport } from "@/components/data-import/MargStockImport";
+import { ExistingDataGuard } from "@/components/data-import/ExistingDataGuard";
 
 import {
   detectSchemaClient,
@@ -554,19 +555,27 @@ export default function DataImport() {
         </TabsContent>
 
         <TabsContent value="marg-master" className="mt-4">
-          <MargMasterImport />
+          <ExistingDataGuard companyId={company?.id} scope="products">
+            <MargMasterImport />
+          </ExistingDataGuard>
         </TabsContent>
 
         <TabsContent value="marg-sales" className="mt-4">
-          <MargSalesImport />
+          <ExistingDataGuard companyId={company?.id} scope="sales">
+            <MargSalesImport />
+          </ExistingDataGuard>
         </TabsContent>
 
         <TabsContent value="marg-purchase" className="mt-4">
-          <MargPurchaseImport />
+          <ExistingDataGuard companyId={company?.id} scope="purchase">
+            <MargPurchaseImport />
+          </ExistingDataGuard>
         </TabsContent>
 
         <TabsContent value="marg-stock" className="mt-4">
-          <MargStockImport />
+          <ExistingDataGuard companyId={company?.id} scope="stock">
+            <MargStockImport />
+          </ExistingDataGuard>
         </TabsContent>
 
 

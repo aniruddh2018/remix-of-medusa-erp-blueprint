@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Pill, Cpu, ShoppingBag, ArrowRight, Loader2, CheckCircle2, Briefcase } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { MargMigrationStep } from "@/components/data-import/MargMigrationStep";
 
 const businessOptions: { type: BusinessType; icon: React.ElementType; description: string }[] = [
   {
@@ -39,7 +40,7 @@ export default function Onboarding() {
   const { needsOnboarding, isLoading: businessLoading } = useBusiness();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [step, setStep] = useState<"company" | "type">("company");
+  const [step, setStep] = useState<"company" | "type" | "migrate">("company");
   const [name, setName] = useState("");
   const [selectedType, setSelectedType] = useState<BusinessType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,10 +52,11 @@ export default function Onboarding() {
       navigate("/auth", { replace: true });
       return;
     }
-    if (!needsOnboarding) {
+    // If already onboarded and we're not mid-migration, kick to dashboard
+    if (!needsOnboarding && step !== "migrate") {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, authLoading, businessLoading, needsOnboarding, navigate]);
+  }, [user, authLoading, businessLoading, needsOnboarding, navigate, step]);
 
   const handleComplete = async () => {
     if (!selectedType || !name.trim() || !user) return;
@@ -69,8 +71,8 @@ export default function Onboarding() {
       if (!data) throw new Error("Onboarding did not return a company ID");
 
       toast({ title: "Welcome!", description: `${BUSINESS_CONFIGS[selectedType].label} ERP is ready.` });
-      // Force full reload so all contexts re-fetch cleanly
-      window.location.href = "/";
+      // Advance to optional MARG migration step instead of hard-reloading.
+      setStep("migrate");
     } catch (err: any) {
       console.error("Onboarding error:", err);
       toast({
@@ -90,6 +92,10 @@ export default function Onboarding() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (step === "migrate") {
+    return <MargMigrationStep onFinish={() => { window.location.href = "/dashboard"; }} />;
   }
 
   return (

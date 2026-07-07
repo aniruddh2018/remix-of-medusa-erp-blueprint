@@ -1,98 +1,87 @@
-# MARG Transaction History Importer
 
-Extend Data Import with two new importers that bring legacy MARG history into MedikaRP so users see real customers, invoices and stock flow from day one.
+# MARG Import in Company Creation + Existing-Data Guard
 
-## Scope
+## Goals
+1. New companies get an optional "Migrate from MARG" step right after business-type selection, with a **Skip for now** button.
+2. `/data-import` stays available from the sidebar (already is) so users can run/resume the migration later.
+3. When importing MARG data into a company that already has products/batches/purchases/sales, show a **preflight warning with typed-confirmation** gate before any writes.
 
-1. **Sales History Import** (build now) — from MARG `REPORT_7.XLS` (Bill Wise Sales Statement).
-2. **Purchase History Import** (placeholder, build later) — same wizard skeleton, parser stubbed until a sample file is shared.
+## Scope of changes
 
-Both share the same UX: upload → parse → preview with stats → choose target company → confirm → batch insert → result summary with error list.
+### 1. Onboarding wizard — add MARG step
+File: `src/pages/Onboarding.tsx`
 
-## Sales file structure (verified against REPORT_7-2.XLS)
+- Extend `step` state: `"company" | "type" | "migrate"`.
+- After `complete_onboarding` succeeds, instead of hard-redirecting to `/`, set the returned `companyId` into local state and advance to `step="migrate"` (don't reload yet — BusinessContext will still say `needsOnboarding=false` after refetch, but we stay on this page).
+- New `MigrateStep` panel renders the four sub-stages sequentially (reusing existing components):
+  1. Products — `<MargMasterImport />`
+  2. Stock — `<MargStockImport />`
+  3. Purchase History — `<MargPurchaseImport />`
+  4. Sales History — `<MargSalesImport />`
+  - Each sub-stage has **Skip this step** and **Continue** buttons. A small stepper at the top shows 1/4 · 2/4 · 3/4 · 4/4.
+  - "Skip all & go to dashboard" button always visible in the header.
+- On finish (or full skip): `window.location.href = "/dashboard"`.
 
-```text
-Row type            | Col 0           | Col 1                                       | Col 2
---------------------+-----------------+---------------------------------------------+-----------
-Shop header (×4)    | shop / address  | -                                           | -
-Column header       | BILL NO.        | DESCRIPTION                                 | BILL VALUE
-Date marker         | 01-04-2026      | -                                           | -
-Bill header         | A000001         | "<phone> <customer name>" + " CASH/CREDIT"  | 1150
-Item line (×N)      | -               | "sn  drugcode  NAME  pack  qty  rate"       | "exp batch"
-Blank separator     | -               | -                                           | -
-... next bill ...
-```
+Since the existing importers already resolve `companyId` from `BusinessContext`, and BusinessContext will have the new company after `complete_onboarding`, no prop drilling is needed — we just need to trigger a context refetch before rendering the migrate step (call the existing refresh path in BusinessContext, or briefly `await` a re-query).
 
-- **Bill no.** `A000001` — sequential per FY.
-- **Date** rows act as section breaks (`DD-MM-YYYY`).
-- **Customer field** holds `phone + name` (or `CASH`, `ONL <amt>`); payment mode is the trailing `CASH/CREDIT` token; bill value is the grand total.
-- **Item line** description is whitespace-padded fixed columns: `serial | drug_code | name | pack(1*10 / 10'S / 200ML) | qty(strip:loose like 1:4) | rate`. Column 2 holds `MM/YY` expiry and an optional batch number.
+### 2. Sidebar entry point
+`/data-import` is already reachable from the sidebar — no change. Add a small banner on `/data-import` "Coming from a new company? Follow the tabs left→right: Products → Stock → Purchase → Sales."
 
-## Mapping to MedikaRP tables
+### 3. Existing-data preflight guard
+New file: `src/components/data-import/ExistingDataGuard.tsx`
 
-| Source                | Target table          | Notes                                                                       |
-|-----------------------|-----------------------|-----------------------------------------------------------------------------|
-| Bill header           | `sales_orders`        | invoice_number, sale_date (current date marker), customer_id, total_amount, payment_mode, payment_status (paid if CASH else pending) |
-| Customer phone+name   | `customers`           | Auto-create when phone is present; reuse if matched on phone within company |
-| Item lines            | `sales_order_items`   | Resolve `product_id` by name (fall back to fuzzy match on `brand`)          |
-|                       |                       | quantity = strips * conversion + loose units (use `product_conversions`)    |
-|                       |                       | rate = parsed rate; line_total computed                                     |
-| Expiry / batch        | `inventory_batches` *(optional toggle)* | Only created if user opts "also create batches", marked as `legacy_import` |
+A small wrapper shown by each MARG importer **before** the file-drop UI when the target company is not empty. It:
 
-Stock movement: historical sales **do not** decrement live inventory by default. Toggle `affect_inventory` (default OFF) — when ON, the importer writes matching `inventory_transactions` of type `legacy_sale` so reports balance.
+- Runs one query per relevant table scoped to `company_id`:
+  - Products importer → counts `products`
+  - Stock importer → counts `inventory_batches` with `quantity > 0`
+  - Purchase importer → counts `purchase_orders`
+  - Sales importer → counts `sales_orders`
+- If all counts are 0 → renders children directly (no prompt).
+- Otherwise renders a warning card:
+  ```
+  This company already has:
+  • 1,204 products
+  • 87 batches with stock
+  • 43 purchase bills
+  • 12 sales bills
+  Importing will MERGE — duplicate bill numbers are skipped,
+  matching products are updated, batches accumulate quantities.
+  Type the company name to confirm:  [_________]  [Proceed]
+  ```
+- Only after typed confirmation matches `companies.name` (case-insensitive trim) does it render children.
+- No wipe/delete path — merge-only, matching the user's choice.
 
-## File / code layout
+Wire it into `MargMasterImport`, `MargStockImport`, `MargPurchaseImport`, `MargSalesImport` (wrap the top-level Card).
 
-```text
-src/services/margSalesParse.ts     # pure parser: File -> ParsedBill[]
-src/services/margSalesImport.ts    # ParsedBill[] + companyId -> InsertResult
-                                   #   - resolves products (cached by name)
-                                   #   - resolves/creates customers (cached by phone)
-                                   #   - batches sales_orders + items inserts
-src/components/data-import/
-   MargSalesImport.tsx             # 5-step UI (upload → preview → options → run → done)
-   MargPurchaseImport.tsx          # stub: "Coming soon — drop a sample file"
-src/pages/DataImport.tsx           # add two tabs: "MARG Sales", "MARG Purchases"
-```
+### 4. Merge semantics (already implemented, documented here for clarity)
+The existing importers already behave as merge:
+- Purchase: `skipDuplicateBills` default true (by `order_number`); `upsertBatch` accumulates quantity.
+- Stock: opens a `STOCK-OPENING-<date>` batch per product; `overrideExisting` toggle already lets user zero prior batches — leave as-is, off by default when re-importing.
+- Sales: unchanged.
+- Master (products): upsert by name.
 
-## UI flow (Sales)
+No behavior change required in the import services — the guard only *warns* and gates.
 
-1. **Upload** `.xls/.xlsx` (REPORT_7).
-2. **Parse in browser** with `xlsx` (already installed). Show stats: total bills, total items, date range, distinct customers, unmatched product count.
-3. **Preview table**: first 50 bills, expandable to show items, with a red badge on items whose product couldn't be auto-resolved.
-4. **Options**:
-   - Target company (super admin dropdown / active company).
-   - Default customer when phone is missing (default = "Walk-in").
-   - Skip duplicate invoice numbers (default ON — checks `sales_orders.invoice_number` + company).
-   - Create missing products? (default OFF — skip line; show count).
-   - Affect live inventory? (default OFF).
-5. **Run**: batched insert (200 bills/batch) with progress bar, per-row fallback on failure, same defensive pattern as `margMasterImport.ts`.
-6. **Done**: counts (bills inserted / skipped duplicates / failed, items inserted, customers created, products unmatched). Downloadable CSV of unmatched lines so the user can fix and re-run.
+## Technical details
 
-## Parser rules
+- `ExistingDataGuard` props:
+  ```ts
+  { companyId: string; scope: "products" | "stock" | "purchase" | "sales"; children: ReactNode }
+  ```
+- Skip button in onboarding sets a flag `localStorage["marg_migration_deferred"] = "1"` so the dashboard can show a one-time reminder toast ("Finish MARG import in Data Import") — nice-to-have.
+- No DB migrations, no RLS changes, no new tables.
 
-- Walk rows top-down keeping `activeDate` (last `DD-MM-YYYY` cell) and `currentBill`.
-- New bill when col 0 matches `/^[A-Z]\d{5,}$/`.
-- Item line when col 0 is blank, col 1 non-blank, and starts with `\d+\s+\d+\s+`.
-- Pack parser: `1*10` → strip×count; `10'S` → loose units; `200ML` → liquid volume — used purely to compute qty from `strip:loose`.
-- Qty parser: `"1:4"` → strips=1, loose=4 → total = strips × conversion + loose (conversion looked up from product; fallback 10 for TAB/CAP, 1 otherwise).
-- Batch col: split `"10/26 TC24-169"` → expiry `10/2026`, batch `TC24-169`.
-- Blank row ends the bill.
-
-## Product resolution
-
-In-memory `Map<UPPER(name), product_id>` pre-loaded per company. On miss, try `ilike` on `name` and `brand`. Cache results to avoid repeat queries. Unresolved → either skip the line (default) or stash in a downloadable `unmatched.csv`.
-
-## Purchase History (later)
-
-Same wizard skeleton already present in `MargPurchaseImport.tsx`. When the user shares a sample MARG purchase report we'll fill in:
-
-- Parser → `ParsedPurchase[]` with supplier, invoice no., date, items, batches, expiry, rates.
-- Importer → `purchase_orders` + `purchase_order_items` + `inventory_batches` (purchase **does** create batches; option to also create `inventory_transactions` of type `legacy_purchase`).
-- Supplier resolution by GSTIN/phone/name with auto-create.
+## Files touched
+- `src/pages/Onboarding.tsx` (add migrate step)
+- `src/components/data-import/ExistingDataGuard.tsx` (new)
+- `src/components/data-import/MargMasterImport.tsx` (wrap)
+- `src/components/data-import/MargStockImport.tsx` (wrap)
+- `src/components/data-import/MargPurchaseImport.tsx` (wrap)
+- `src/components/data-import/MargSalesImport.tsx` (wrap)
+- `src/pages/DataImport.tsx` (small helper banner + ensure tab order Products→Stock→Purchase→Sales)
 
 ## Out of scope
-
-- Editing imported invoices (use existing sales edit flow).
-- GST recomputation for legacy bills — store rates as-is; bills marked `is_legacy_import = true` so reports can exclude them when needed.
-- No new schema: reuses existing `sales_orders`, `sales_order_items`, `customers`, `inventory_batches`, `inventory_transactions`. Only adds a boolean column `is_legacy_import` to `sales_orders` and `purchase_orders` (single migration).
+- Wipe/delete flows (user rejected).
+- Any schema changes.
+- Auto-detection of MARG file format on onboarding (user picks files per sub-stage).

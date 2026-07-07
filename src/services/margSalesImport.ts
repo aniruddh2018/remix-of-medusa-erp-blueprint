@@ -359,6 +359,19 @@ export async function importMargSales(
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 100);
+  // Seed invoice sequence so future bills continue the MARG series.
+  if (result.billsInserted > 0) {
+    try {
+      const { data, error } = await supabase.rpc(
+        "seed_invoice_sequence_from_history",
+        { _company_id: opts.companyId },
+      );
+      if (!error && data) result.sequenceSeed = data as unknown as SequenceSeedInfo;
+    } catch {
+      // non-fatal — user can re-seed later from settings
+    }
+  }
+
   return result;
 }
 

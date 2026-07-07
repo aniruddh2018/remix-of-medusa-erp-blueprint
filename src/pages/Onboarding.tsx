@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Pill, Cpu, ShoppingBag, ArrowRight, Loader2, CheckCircle2, Briefcase } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { MargMigrationStep } from "@/components/data-import/MargMigrationStep";
 
 const businessOptions: { type: BusinessType; icon: React.ElementType; description: string }[] = [
   {

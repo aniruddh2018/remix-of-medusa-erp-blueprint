@@ -565,6 +565,11 @@ export default function DataImport() {
           <MargPurchaseImport />
         </TabsContent>
 
+        <TabsContent value="marg-stock" className="mt-4">
+          <MargStockImport />
+        </TabsContent>
+
+
 
         <TabsContent value="history" className="mt-4">
           <Card>

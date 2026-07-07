@@ -25,6 +25,7 @@ import { MargListImport } from "@/components/data-import/MargListImport";
 import { MargMasterImport } from "@/components/data-import/MargMasterImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
+import { MargStockImport } from "@/components/data-import/MargStockImport";
 
 import {
   detectSchemaClient,
@@ -47,7 +48,7 @@ export default function DataImport() {
   const company = companyId ? { id: companyId } : null;
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"import" | "marg" | "marg-master" | "marg-sales" | "marg-purchase" | "history">("import");
+  const [activeTab, setActiveTab] = useState<"import" | "marg" | "marg-master" | "marg-sales" | "marg-purchase" | "marg-stock" | "history">("import");
   const [isImporting, setIsImporting] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
   const [detectedErp, setDetectedErp] = useState<string | null>(null);
@@ -376,6 +377,7 @@ export default function DataImport() {
             <TabsTrigger value="marg-master" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Master CSV</TabsTrigger>
             <TabsTrigger value="marg-sales" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Sales History</TabsTrigger>
             <TabsTrigger value="marg-purchase" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Purchase History</TabsTrigger>
+            <TabsTrigger value="marg-stock" className="flex items-center gap-2"><FileCode className="w-4 h-4" />MARG Stock</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2"><History className="w-4 h-4" />History</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-3">
@@ -562,6 +564,11 @@ export default function DataImport() {
         <TabsContent value="marg-purchase" className="mt-4">
           <MargPurchaseImport />
         </TabsContent>
+
+        <TabsContent value="marg-stock" className="mt-4">
+          <MargStockImport />
+        </TabsContent>
+
 
 
         <TabsContent value="history" className="mt-4">

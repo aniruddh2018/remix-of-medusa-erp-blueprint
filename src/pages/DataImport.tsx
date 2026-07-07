@@ -25,6 +25,7 @@ import { MargListImport } from "@/components/data-import/MargListImport";
 import { MargMasterImport } from "@/components/data-import/MargMasterImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
+import { MargStockImport } from "@/components/data-import/MargStockImport";
 
 import {
   detectSchemaClient,

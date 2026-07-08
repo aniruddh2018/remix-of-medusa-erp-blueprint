@@ -153,6 +153,10 @@ export function AppSidebar() {
   const complianceItems = filterItems(allComplianceMenuItems, visiblePages);
   const managementItems = filterItems(allManagementMenuItems, visiblePages);
   const adminItems = filterItems(allAdminMenuItems, visiblePages);
+  // Always expose Financial Year to admins even if not in visiblePages config.
+  if (isAdmin && !adminItems.some((i) => i.path === "/financial-year")) {
+    adminItems.push({ title: "Financial Year", icon: CalendarClock, path: "/financial-year" });
+  }
 
   const handleSignOut = async () => {
     try {

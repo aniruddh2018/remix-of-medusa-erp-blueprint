@@ -88,12 +88,12 @@ const allAdminMenuItems: MenuItem[] = [
   { title: "Reports", icon: BarChart3, path: "/reports" },
   { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
+  { title: "Data Import", icon: Upload, path: "/data-import" },
   { title: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const superAdminMenuItems: MenuItem[] = [
   { title: "Super Admin", icon: Shield, path: "/super-admin" },
-  { title: "Data Import", icon: Upload, path: "/data-import" },
   { title: "Migration Engine", icon: Database, path: "/migration" },
 ];
 

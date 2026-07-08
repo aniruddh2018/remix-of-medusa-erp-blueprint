@@ -21,11 +21,12 @@ type ProgressFn = (done: number, total: number) => void;
 
 const UP = (s: string) => s.toUpperCase().trim();
 
-function pick<T extends Record<string, unknown>>(
+function pick<T extends object>(
   existing: T,
   updates: Partial<T>,
   overwrite: boolean,
 ): Partial<T> {
+  const rec = existing as unknown as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(updates)) {
     if (v == null || v === "") continue;

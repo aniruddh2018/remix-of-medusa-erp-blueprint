@@ -73,7 +73,7 @@ export function MargStockImport() {
     setResult(r); setStage("done");
     toast({
       title: "Stock import finished",
-      description: `${r.productsMatched} matched · ${r.batchesOpened} opening batches · ${r.batchesZeroed} zeroed`,
+      description: `${r.productsMatched} products · ${r.batchesOpened} new batches · ${r.batchesUpdated} updated · ${r.batchesZeroed} zeroed`,
     });
   }, [parsed, targetCompanyId, override, updatePrices, asOfDate, toast]);
 
@@ -129,10 +129,20 @@ export function MargStockImport() {
 
       {stage === "preview" && parsed && (
         <Card>
-          <CardHeader><CardTitle className="text-base">{fileName}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              {fileName}
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${parsed.format === "detailed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                {parsed.format === "detailed" ? "batch + expiry detected" : "legacy (no batch info)"}
+              </span>
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <Stat label="Rows" value={parsed.stats.totalRows} />
+              <Stat label="Batch rows" value={parsed.stats.totalRows} />
+              <Stat label="Distinct products" value={parsed.stats.distinctProducts} />
+              <Stat label="With expiry" value={parsed.stats.batchesWithExpiry} tone={parsed.stats.batchesWithExpiry ? "success" : "muted"} />
+              <Stat label="Suppliers" value={parsed.stats.distinctSuppliers} />
               <Stat label="Manufacturers" value={parsed.stats.distinctManufacturers} />
               <Stat label="Stock value" value={parsed.stats.totalStockValue} />
               <Stat label="Zero-qty rows" value={parsed.stats.zeroQtyRows} />
@@ -154,13 +164,14 @@ export function MargStockImport() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Stock as-of date</label>
+                <label className="text-sm font-medium">Fallback as-of date</label>
                 <Input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className="max-w-xs" />
+                <p className="text-[11px] text-muted-foreground">Used only when a row has no Rec./Inv. date.</p>
               </div>
               <div className="space-y-2 pt-4">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={override} onCheckedChange={(v) => setOverride(!!v)} />
-                  Override — zero out other batches for matched products
+                  Override — zero existing batches for matched products first
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={updatePrices} onCheckedChange={(v) => setUpdatePrices(!!v)} />
@@ -169,29 +180,31 @@ export function MargStockImport() {
               </div>
             </div>
 
-            <div className="border rounded-md overflow-auto max-h-[40vh]">
+            <div className="border rounded-md overflow-auto max-h-[45vh]">
               <table className="w-full text-xs">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr className="text-left">
-                    <th className="p-2">Code</th><th className="p-2">Name</th>
-                    <th className="p-2">Unit</th><th className="p-2 text-right">Qty</th>
-                    <th className="p-2 text-right">Rate</th>
+                    <th className="p-2">Code</th>
+                    <th className="p-2">Name</th>
+                    <th className="p-2">Batch</th>
+                    <th className="p-2">Expiry</th>
+                    <th className="p-2 text-right">Qty</th>
                     <th className="p-2 text-right">MRP</th>
-                    <th className="p-2 text-right">Value</th>
-                    <th className="p-2">Mfr</th>
+                    <th className="p-2 text-right">Rate</th>
+                    <th className="p-2">Supplier</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {parsed.rows.slice(0, 50).map((r) => (
-                    <tr key={r.code} className="border-t">
+                  {parsed.rows.slice(0, 50).map((r, i) => (
+                    <tr key={`${r.code}-${i}`} className="border-t">
                       <td className="p-2 font-mono">{r.code}</td>
                       <td className="p-2">{r.name}</td>
-                      <td className="p-2">{r.unit}</td>
+                      <td className="p-2 font-mono">{r.batch_number || <span className="text-muted-foreground">—</span>}</td>
+                      <td className="p-2">{r.expiry_date || <span className="text-muted-foreground">—</span>}</td>
                       <td className="p-2 text-right">{r.qtyRaw}</td>
-                      <td className="p-2 text-right">{r.purchase_price.toFixed(2)}</td>
                       <td className="p-2 text-right">{r.mrp.toFixed(2)}</td>
-                      <td className="p-2 text-right">{r.stock_value.toFixed(2)}</td>
-                      <td className="p-2">{r.manufacturer}</td>
+                      <td className="p-2 text-right">{r.purchase_price.toFixed(2)}</td>
+                      <td className="p-2 truncate max-w-[160px]">{r.supplier_name}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -206,7 +219,7 @@ export function MargStockImport() {
             <div className="flex gap-2">
               <Button variant="outline" onClick={reset}>Cancel</Button>
               <Button onClick={handleImport} disabled={!targetCompanyId || parsed.rows.length === 0}>
-                Import {parsed.rows.length.toLocaleString()} stock rows
+                Import {parsed.rows.length.toLocaleString()} batch rows
               </Button>
             </div>
           </CardContent>
@@ -238,8 +251,10 @@ export function MargStockImport() {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Stat label="Products matched" value={result.productsMatched} tone="success" />
-              <Stat label="Opening batches" value={result.batchesOpened} tone="success" />
+              <Stat label="New batches" value={result.batchesOpened} tone="success" />
+              <Stat label="Batches updated" value={result.batchesUpdated} />
               <Stat label="Batches zeroed" value={result.batchesZeroed} />
+              <Stat label="Suppliers linked" value={result.suppliersLinked} />
               <Stat label="Products updated" value={result.productsUpdated} />
               <Stat label="Unmatched" value={result.productsSkippedNoMatch} tone={result.productsSkippedNoMatch ? "error" : "muted"} />
               <Stat label="Errors" value={result.errors.length} tone={result.errors.length ? "error" : "muted"} />

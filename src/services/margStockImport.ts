@@ -1,11 +1,26 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedStockRow } from "./margStockParse";
 
+/**
+ * MARG Stock Importer — batch-aware.
+ *
+ * For DETAILED format (one row per real batch), each row becomes an
+ * inventory_batches record with proper batch_number, expiry, mfg date,
+ * supplier link, received date, MRP and purchase price.
+ *
+ * For LEGACY format (aggregated per product) it falls back to a single
+ * synthetic "STOCK-OPENING-YYYYMMDD" batch per product, matching the
+ * previous behaviour.
+ */
+
 export interface StockImportOptions {
   companyId: string;
-  overrideExisting?: boolean; // default true — zero out other batches for matched products
-  updateProductPrices?: boolean; // default true — refresh mrp / sale_price / purchase_price
-  asOfDate?: string; // ISO yyyy-mm-dd — used as received_date on the opening batch
+  /** Zero out all existing batches for matched products before writing new ones. */
+  overrideExisting?: boolean;
+  /** Refresh product mrp / sale_price / purchase_price from the file. */
+  updateProductPrices?: boolean;
+  /** Fallback date used when a row has no received/invoice date. */
+  asOfDate?: string;
 }
 
 export interface StockImportResult {
@@ -13,8 +28,10 @@ export interface StockImportResult {
   productsMatched: number;
   productsSkippedNoMatch: number;
   batchesOpened: number;
+  batchesUpdated: number;
   batchesZeroed: number;
   productsUpdated: number;
+  suppliersLinked: number;
   unmatched: { code: string; name: string }[];
   errors: string[];
 }
@@ -50,6 +67,22 @@ async function preloadProducts(companyId: string) {
   return map;
 }
 
+async function preloadSuppliers(companyId: string) {
+  const map = new Map<string, string>();
+  let from = 0; const PAGE = 1000;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("suppliers").select("id,name")
+      .eq("company_id", companyId)
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    for (const s of data) map.set(UPPER(s.name), s.id as string);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return map;
+}
+
 function inferConversion(packSize: string | null | undefined, baseUnit: string | null | undefined): number {
   const p = (packSize ?? "").trim();
   const m1 = p.match(/(\d+)\s*\*\s*(\d+)/);
@@ -62,17 +95,32 @@ function inferConversion(packSize: string | null | undefined, baseUnit: string |
   return 1;
 }
 
-/** MARG qty like 29.7 → 29 strips + 7 loose (out of conv=10). */
+/** Try to infer pack size from the product name suffix (e.g. "1*10", "1*15"). */
+function inferPackFromName(name: string): number | null {
+  const m = name.match(/(\d+)\s*\*\s*(\d+)/);
+  if (m) return parseInt(m[2], 10) || null;
+  return null;
+}
+
+/** MARG qty like 29.7 with pack 10 → 29 strips + 7 loose. Uses fractional digits. */
 function splitQty(raw: number, conv: number): { strips: number; loose: number } {
-  if (raw <= 0) return { strips: 0, loose: 0 };
-  const strips = Math.floor(raw);
-  const frac = raw - strips;
-  const loose = Math.round(frac * (conv > 0 ? conv * 10 : 10) / 10 * (conv > 0 ? 1 : 1));
-  // Simpler & robust: fractional digit interpreted as loose count out of pack.
-  // 29.7 with conv 10 → loose 7. 0.21 with conv 100 → loose 21.
-  const decStr = raw.toString().split(".")[1] ?? "";
-  const decNum = decStr ? parseInt(decStr.padEnd(String(conv).length - 1, "0").slice(0, String(conv).length - 1), 10) : 0;
-  return { strips, loose: Number.isFinite(decNum) ? decNum : loose };
+  if (!Number.isFinite(raw)) return { strips: 0, loose: 0 };
+  const negative = raw < 0;
+  const abs = Math.abs(raw);
+  const strips = Math.floor(abs);
+  const decStr = abs.toString().split(".")[1] ?? "";
+  const packDigits = String(Math.max(conv, 1)).length; // pack 10 -> 1 digit, 100 -> 2
+  const takeDigits = Math.max(1, packDigits - 1);
+  const decNum = decStr ? parseInt(decStr.padEnd(takeDigits, "0").slice(0, takeDigits), 10) : 0;
+  const s = negative ? -strips : strips;
+  const l = negative ? -decNum : decNum;
+  return { strips: s, loose: Number.isFinite(l) ? l : 0 };
+}
+
+/** Generate a stable synthetic batch number when the file has none. */
+function fallbackBatchNo(code: string, receivedDate: string | null | undefined, idx: number): string {
+  const d = (receivedDate ?? "").replace(/-/g, "");
+  return `NB-${code}-${d || "NA"}-${idx}`;
 }
 
 export async function importMargStock(
@@ -85,17 +133,29 @@ export async function importMargStock(
     productsMatched: 0,
     productsSkippedNoMatch: 0,
     batchesOpened: 0,
+    batchesUpdated: 0,
     batchesZeroed: 0,
     productsUpdated: 0,
+    suppliersLinked: 0,
     unmatched: [],
     errors: [],
   };
   const override = opts.overrideExisting ?? true;
   const updatePrices = opts.updateProductPrices ?? true;
   const asOf = opts.asOfDate ?? new Date().toISOString().slice(0, 10);
-  const openingBatchNo = `${OPENING_PREFIX}${asOf.replace(/-/g, "")}`;
 
-  const products = await preloadProducts(opts.companyId);
+  const [products, suppliers] = await Promise.all([
+    preloadProducts(opts.companyId),
+    preloadSuppliers(opts.companyId),
+  ]);
+
+  // Track products we've already zeroed (once per import, not per row).
+  const zeroedProducts = new Set<string>();
+  // Track products we've already price-updated (once per product with latest row).
+  const pricedProducts = new Set<string>();
+  // Track occurrences of same (product, batch) to disambiguate blank batch numbers.
+  const rowIdxByKey = new Map<string, number>();
+
   let done = 0;
 
   for (const row of rows) {
@@ -108,58 +168,76 @@ export async function importMargStock(
       }
       result.productsMatched++;
 
-      const conv = inferConversion(p.pack_size, p.base_unit);
-      const { strips, loose } = splitQty(row.qtyRaw, conv);
-
-      if (override) {
+      // Zero out existing batches once per matched product when override is on.
+      if (override && !zeroedProducts.has(p.id)) {
         const { data: others } = await supabase.from("inventory_batches")
-          .select("id").eq("product_id", p.id).eq("company_id", opts.companyId)
-          .neq("batch_number", openingBatchNo);
+          .select("id").eq("product_id", p.id).eq("company_id", opts.companyId);
         if (others && others.length > 0) {
           await supabase.from("inventory_batches")
             .update({ quantity: 0, loose_quantity: 0 })
-            .in("id", others.map(o => o.id));
+            .in("id", others.map((o) => o.id));
           result.batchesZeroed += others.length;
         }
+        zeroedProducts.add(p.id);
       }
+
+      const conv = inferPackFromName(row.name) ?? inferConversion(p.pack_size, p.base_unit);
+      const { strips, loose } = splitQty(row.qtyRaw, conv);
+
+      // Build the batch number. If MARG gives none, fall back to a synthetic
+      // one keyed by received date + row index so multiple no-batch rows for
+      // the same product don't collide.
+      const idxKey = `${p.id}|${row.batch_number || "NOBATCH"}|${row.received_date ?? ""}`;
+      const seen = rowIdxByKey.get(idxKey) ?? 0;
+      rowIdxByKey.set(idxKey, seen + 1);
+      const batchNo = row.batch_number && row.batch_number.trim()
+        ? (seen === 0 ? row.batch_number.trim() : `${row.batch_number.trim()}-${seen + 1}`)
+        : fallbackBatchNo(row.code, row.received_date ?? asOf, seen);
+
+      const supplierId = row.supplier_name ? suppliers.get(UPPER(row.supplier_name)) ?? null : null;
+      if (supplierId) result.suppliersLinked++;
+
+      const patch = {
+        company_id: opts.companyId,
+        product_id: p.id,
+        batch_number: batchNo,
+        quantity: strips,
+        loose_quantity: loose,
+        mrp: row.mrp || 0,
+        purchase_price: row.purchase_price || row.cost_price || 0,
+        expiry_date: row.expiry_date,
+        manufacturing_date: row.mfg_date,
+        received_date: row.received_date ?? asOf,
+        supplier_id: supplierId,
+        pack_size: conv > 1 ? conv : null,
+      };
 
       const { data: existing } = await supabase.from("inventory_batches")
         .select("id").eq("product_id", p.id).eq("company_id", opts.companyId)
-        .eq("batch_number", openingBatchNo).maybeSingle();
+        .eq("batch_number", batchNo).maybeSingle();
 
       if (existing?.id) {
-        await supabase.from("inventory_batches").update({
-          quantity: strips, loose_quantity: loose,
-          mrp: row.mrp || undefined,
-          purchase_price: row.purchase_price || undefined,
-        }).eq("id", existing.id);
+        await supabase.from("inventory_batches").update(patch).eq("id", existing.id);
+        result.batchesUpdated++;
       } else {
-        const { error: bErr } = await supabase.from("inventory_batches").insert({
-          company_id: opts.companyId,
-          product_id: p.id,
-          batch_number: openingBatchNo,
-          quantity: strips,
-          loose_quantity: loose,
-          mrp: row.mrp || 0,
-          purchase_price: row.purchase_price || 0,
-          received_date: asOf,
-        });
+        const { error: bErr } = await supabase.from("inventory_batches").insert(patch);
         if (bErr) {
-          result.errors.push(`${row.name}: batch ${bErr.message}`);
+          result.errors.push(`${row.name} [${batchNo}]: ${bErr.message}`);
           done++; continue;
         }
         result.batchesOpened++;
       }
 
-      if (updatePrices) {
-        const patch: Record<string, number> = {};
-        if (row.mrp) patch.mrp = row.mrp;
-        if (row.sale_price) patch.sale_price = row.sale_price;
-        if (row.purchase_price) patch.purchase_price = row.purchase_price;
-        if (Object.keys(patch).length > 0) {
-          await supabase.from("products").update(patch).eq("id", p.id);
+      if (updatePrices && !pricedProducts.has(p.id)) {
+        const priceUpdate: Record<string, number> = {};
+        if (row.mrp) priceUpdate.mrp = row.mrp;
+        if (row.sale_price) priceUpdate.sale_price = row.sale_price;
+        if (row.purchase_price) priceUpdate.purchase_price = row.purchase_price;
+        if (Object.keys(priceUpdate).length > 0) {
+          await supabase.from("products").update(priceUpdate).eq("id", p.id);
           result.productsUpdated++;
         }
+        pricedProducts.add(p.id);
       }
     } catch (err) {
       result.errors.push(`${row.name}: ${err instanceof Error ? err.message : String(err)}`);
@@ -176,3 +254,6 @@ export function stockUnmatchedToCsv(items: StockImportResult["unmatched"]): stri
   for (const r of items) lines.push(`"${r.code}","${r.name.replace(/"/g, '""')}"`);
   return lines.join("\n");
 }
+
+/** Legacy opening-batch prefix kept for downstream callers/tests. */
+export const STOCK_OPENING_PREFIX = OPENING_PREFIX;

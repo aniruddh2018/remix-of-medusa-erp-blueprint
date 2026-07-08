@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUnloadGuard } from "@/hooks/useUnloadGuard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,6 +33,7 @@ export function MargMasterImport() {
 
   const [mode, setMode] = useState<"auto" | "csv">("auto");
   const [stage, setStage] = useState<Stage>("idle");
+  useUnloadGuard(stage === "importing");
   const [manufacturerFile, setManufacturerFile] = useState<File | null>(null);
   const [compositionFile, setCompositionFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");

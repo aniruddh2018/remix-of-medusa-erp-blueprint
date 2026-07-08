@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { bulkSyncCustomersToLedgers } from "@/services/ledgerBridge";
 import type { ParsedBill, ParsedBillItem } from "./margSalesParse";
 
 export interface SalesImportOptions {
@@ -371,6 +372,19 @@ export async function importMargSales(
       // non-fatal — user can re-seed later from settings
     }
   }
+
+  // Publish all customers (new + existing) as ledgers so they show on the
+  // Customers page and their bills become browsable through the customer view.
+  if (result.customersCreated > 0 || result.billsInserted > 0) {
+    try {
+      await bulkSyncCustomersToLedgers(opts.companyId);
+    } catch (err) {
+      result.errors.push(
+        `ledger sync: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
 
   return result;
 }

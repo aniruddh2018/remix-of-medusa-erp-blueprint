@@ -30,7 +30,7 @@ function pick<T extends object>(
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(updates)) {
     if (v == null || v === "") continue;
-    if (overwrite || existing[k] == null || existing[k] === "") out[k] = v;
+    if (overwrite || rec[k] == null || rec[k] === "") out[k] = v;
   }
   return out as Partial<T>;
 }

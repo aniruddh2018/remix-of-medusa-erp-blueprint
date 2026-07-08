@@ -42,6 +42,7 @@ import   {
   ShieldCheck,
   BookOpen,
   ReceiptText,
+  CalendarClock,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -89,6 +90,7 @@ const allAdminMenuItems: MenuItem[] = [
   { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Data Import", icon: Upload, path: "/data-import" },
+  { title: "Financial Year", icon: CalendarClock, path: "/financial-year" },
   { title: "Settings", icon: Settings, path: "/settings" },
 ];
 
@@ -151,6 +153,10 @@ export function AppSidebar() {
   const complianceItems = filterItems(allComplianceMenuItems, visiblePages);
   const managementItems = filterItems(allManagementMenuItems, visiblePages);
   const adminItems = filterItems(allAdminMenuItems, visiblePages);
+  // Always expose Financial Year to admins even if not in visiblePages config.
+  if (isAdmin && !adminItems.some((i) => i.path === "/financial-year")) {
+    adminItems.push({ title: "Financial Year", icon: CalendarClock, path: "/financial-year" });
+  }
 
   const handleSignOut = async () => {
     try {

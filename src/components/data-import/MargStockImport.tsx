@@ -73,7 +73,7 @@ export function MargStockImport() {
     setResult(r); setStage("done");
     toast({
       title: "Stock import finished",
-      description: `${r.productsMatched} matched · ${r.batchesOpened} opening batches · ${r.batchesZeroed} zeroed`,
+      description: `${r.productsMatched} products · ${r.batchesOpened} new batches · ${r.batchesUpdated} updated · ${r.batchesZeroed} zeroed`,
     });
   }, [parsed, targetCompanyId, override, updatePrices, asOfDate, toast]);
 

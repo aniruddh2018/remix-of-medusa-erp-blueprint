@@ -5126,24 +5126,44 @@ export type Database = {
     Views: {
       ledger_balances_with_names: {
         Row: {
+          address: Json | null
           alias: string | null
           balance_type: Database["public"]["Enums"]["balance_type"] | null
+          billing_address: Json | null
+          city: string | null
           closing_balance: number | null
           closing_balance_type:
             | Database["public"]["Enums"]["balance_type"]
             | null
           company_id: string | null
+          contact_person: string | null
+          country: string | null
+          created_at: string | null
           current_balance: number | null
+          email: string | null
           financial_year: string | null
           group_name: string | null
           group_type: Database["public"]["Enums"]["ledger_group_type"] | null
+          gst_number: string | null
           id: string | null
+          import_metadata: Json | null
+          is_active: boolean | null
           ledger_code: string | null
+          mobile: string | null
           name: string | null
           opening_balance: number | null
+          pan_number: string | null
+          party_type: string | null
+          phone: string | null
+          pincode: string | null
           roles: string[] | null
+          shipping_address: Json | null
+          source_system: string | null
+          state: string | null
           total_credit: number | null
           total_debit: number | null
+          updated_at: string | null
+          website: string | null
         }
         Relationships: [
           {

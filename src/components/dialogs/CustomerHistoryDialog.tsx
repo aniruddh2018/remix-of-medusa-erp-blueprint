@@ -48,7 +48,7 @@ export function CustomerHistoryDialog({
         .order("created_at", { ascending: false })
         .limit(limit);
       if (customerId) {
-        q = q.eq("customer_id", customerId);
+        q = q.or(`customer_id.eq.${customerId},ledger_id.eq.${customerId}`);
       } else if (customerName) {
         q = q.eq("customer_name", customerName);
       } else {

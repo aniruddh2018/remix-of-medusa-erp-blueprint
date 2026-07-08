@@ -42,6 +42,7 @@ import   {
   ShieldCheck,
   BookOpen,
   ReceiptText,
+  CalendarClock,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -89,6 +90,7 @@ const allAdminMenuItems: MenuItem[] = [
   { title: "Audit Logs", icon: History, path: "/audit-logs" },
   { title: "User Management", icon: Shield, path: "/admin" },
   { title: "Data Import", icon: Upload, path: "/data-import" },
+  { title: "Financial Year", icon: CalendarClock, path: "/financial-year" },
   { title: "Settings", icon: Settings, path: "/settings" },
 ];
 

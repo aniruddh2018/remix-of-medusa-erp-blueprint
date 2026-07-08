@@ -568,6 +568,7 @@ export type Database = {
           customer_phone: string | null
           deleted: boolean
           device_id: string | null
+          financial_year_id: string | null
           gst_amount: number
           id: string
           is_interstate: boolean
@@ -592,6 +593,7 @@ export type Database = {
           customer_phone?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           gst_amount?: number
           id?: string
           is_interstate?: boolean
@@ -616,6 +618,7 @@ export type Database = {
           customer_phone?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           gst_amount?: number
           id?: string
           is_interstate?: boolean
@@ -636,6 +639,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -897,6 +907,7 @@ export type Database = {
           debit_note_number: string
           deleted: boolean
           device_id: string | null
+          financial_year_id: string | null
           gst_amount: number
           id: string
           is_interstate: boolean
@@ -921,6 +932,7 @@ export type Database = {
           debit_note_number: string
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           gst_amount?: number
           id?: string
           is_interstate?: boolean
@@ -945,6 +957,7 @@ export type Database = {
           debit_note_number?: string
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           gst_amount?: number
           id?: string
           is_interstate?: boolean
@@ -968,6 +981,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_notes_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -1560,7 +1580,9 @@ export type Database = {
           deleted: boolean
           device_id: string | null
           expiry_date: string | null
+          financial_year_id: string | null
           id: string
+          is_carry_forward: boolean
           loose_quantity: number
           manufacturing_date: string | null
           mrp: number
@@ -1580,7 +1602,9 @@ export type Database = {
           deleted?: boolean
           device_id?: string | null
           expiry_date?: string | null
+          financial_year_id?: string | null
           id?: string
+          is_carry_forward?: boolean
           loose_quantity?: number
           manufacturing_date?: string | null
           mrp: number
@@ -1600,7 +1624,9 @@ export type Database = {
           deleted?: boolean
           device_id?: string | null
           expiry_date?: string | null
+          financial_year_id?: string | null
           id?: string
+          is_carry_forward?: boolean
           loose_quantity?: number
           manufacturing_date?: string | null
           mrp?: number
@@ -1619,6 +1645,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_batches_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -1645,6 +1678,7 @@ export type Database = {
           created_by: string | null
           deleted: boolean
           device_id: string | null
+          financial_year_id: string | null
           id: string
           notes: string | null
           product_id: string
@@ -1663,6 +1697,7 @@ export type Database = {
           created_by?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           id?: string
           notes?: string | null
           product_id: string
@@ -1681,6 +1716,7 @@ export type Database = {
           created_by?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           id?: string
           notes?: string | null
           product_id?: string
@@ -1692,7 +1728,15 @@ export type Database = {
           updated_at?: string
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_scan_queue: {
         Row: {
@@ -1760,6 +1804,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          financial_year_id: string | null
           format: string | null
           id: string
           last_number: number
@@ -1771,6 +1816,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          financial_year_id?: string | null
           format?: string | null
           id?: string
           last_number?: number
@@ -1782,6 +1828,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          financial_year_id?: string | null
           format?: string | null
           id?: string
           last_number?: number
@@ -1796,6 +1843,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_sequences_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -2078,6 +2132,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           date: string
+          financial_year_id: string | null
           id: string
           narration: string
           reference_id: string | null
@@ -2090,6 +2145,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           date?: string
+          financial_year_id?: string | null
           id?: string
           narration?: string
           reference_id?: string | null
@@ -2102,6 +2158,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           date?: string
+          financial_year_id?: string | null
           id?: string
           narration?: string
           reference_id?: string | null
@@ -2115,6 +2172,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_vouchers_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -2717,6 +2781,7 @@ export type Database = {
           created_by: string | null
           deleted: boolean
           device_id: string | null
+          financial_year_id: string | null
           id: string
           ledger_id: string | null
           notes: string | null
@@ -2741,6 +2806,7 @@ export type Database = {
           created_by?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           id?: string
           ledger_id?: string | null
           notes?: string | null
@@ -2765,6 +2831,7 @@ export type Database = {
           created_by?: string | null
           deleted?: boolean
           device_id?: string | null
+          financial_year_id?: string | null
           id?: string
           ledger_id?: string | null
           notes?: string | null
@@ -2786,6 +2853,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -2894,6 +2968,7 @@ export type Database = {
           company_id: string
           created_at: string
           customer_id: string | null
+          financial_year_id: string | null
           id: string
           image_url: string | null
           notes: string | null
@@ -2913,6 +2988,7 @@ export type Database = {
           company_id: string
           created_at?: string
           customer_id?: string | null
+          financial_year_id?: string | null
           id?: string
           image_url?: string | null
           notes?: string | null
@@ -2932,6 +3008,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           customer_id?: string | null
+          financial_year_id?: string | null
           id?: string
           image_url?: string | null
           notes?: string | null
@@ -2951,6 +3028,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescriptions_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -3451,6 +3535,7 @@ export type Database = {
           device_id: string | null
           discount_amount: number
           expected_delivery_date: string | null
+          financial_year_id: string | null
           freight_charges: number
           gst_amount: number
           handling_charges: number
@@ -3483,6 +3568,7 @@ export type Database = {
           device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
+          financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -3515,6 +3601,7 @@ export type Database = {
           device_id?: string | null
           discount_amount?: number
           expected_delivery_date?: string | null
+          financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -3550,6 +3637,13 @@ export type Database = {
             columns: ["converted_from_challan_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -3905,6 +3999,7 @@ export type Database = {
           doctor_name: string | null
           doctor_registration_number: string | null
           due_date: string | null
+          financial_year_id: string | null
           freight_charges: number
           gst_amount: number
           handling_charges: number
@@ -3950,6 +4045,7 @@ export type Database = {
           doctor_name?: string | null
           doctor_registration_number?: string | null
           due_date?: string | null
+          financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -3995,6 +4091,7 @@ export type Database = {
           doctor_name?: string | null
           doctor_registration_number?: string | null
           due_date?: string | null
+          financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
           handling_charges?: number
@@ -4032,6 +4129,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
           {
@@ -5354,7 +5458,20 @@ export type Database = {
           transactions_moved: number
         }[]
       }
+      can_manage_financial_year: {
+        Args: { _company: string; _user: string }
+        Returns: boolean
+      }
       claim_next_scan_job: { Args: never; Returns: Json }
+      close_and_open_financial_year: {
+        Args: {
+          p_company_id: string
+          p_new_end: string
+          p_new_name: string
+          p_new_start: string
+        }
+        Returns: Json
+      }
       close_financial_year: {
         Args: { p_company_id: string; p_financial_year: string }
         Returns: {
@@ -5387,6 +5504,15 @@ export type Database = {
           p_role_types: string[]
         }
         Returns: undefined
+      }
+      create_previous_financial_year: {
+        Args: {
+          p_company_id: string
+          p_end_date: string
+          p_name: string
+          p_start_date: string
+        }
+        Returns: Json
       }
       deduct_batch_quantity:
         | { Args: { _batch_id: string; _quantity: number }; Returns: number }

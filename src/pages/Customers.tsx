@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, CreditCard, BookOpen } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, Building2, IndianRupee, CreditCard, BookOpen, History } from "lucide-react";
 import { format } from "date-fns";
 import { CustomerOutstandingDialog } from "@/components/dialogs/CustomerOutstandingDialog";
+import { CustomerHistoryDialog } from "@/components/dialogs/CustomerHistoryDialog";
 import { CustomerFormDialog } from "@/components/forms/CustomerFormDialog";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { CreditCustomersTab } from "@/components/CreditCustomersTab";
@@ -47,6 +48,7 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [outstandingCustomer, setOutstandingCustomer] = useState<Customer | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
@@ -308,12 +310,16 @@ export default function Customers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
+                        <Button variant="ghost" size="icon" title="Purchase history" onClick={() => setHistoryCustomer(customer)}>
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Edit" onClick={() => handleEdit(customer)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
+                          title="Delete"
                           onClick={() => {
                             if (confirm("Delete this customer?")) {
                               deleteMutation.mutate(customer.id);
@@ -364,6 +370,9 @@ export default function Customers() {
                     )}
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" title="Purchase history" onClick={() => setHistoryCustomer(customer)}>
+                      <History className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -429,6 +438,15 @@ export default function Customers() {
         onOpenChange={(open) => !open && setOutstandingCustomer(null)}
         customerId={outstandingCustomer?.id || null}
         customerName={outstandingCustomer?.name || ""}
+      />
+
+      <CustomerHistoryDialog
+        open={!!historyCustomer}
+        onOpenChange={(open) => !open && setHistoryCustomer(null)}
+        customerId={null}
+        customerName={historyCustomer?.name || ""}
+        companyId={companyId ?? null}
+        onRepeatItem={() => {}}
       />
     </div>
   );

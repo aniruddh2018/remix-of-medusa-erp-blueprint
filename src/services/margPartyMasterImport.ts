@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { bulkSyncCustomersToLedgers, bulkSyncSuppliersToLedgers } from "@/services/ledgerBridge";
 import type { ParsedParty } from "./margPartyMasterParse";
 
 export interface PartyImportOptions {
@@ -172,5 +173,17 @@ export async function importMargParties(
     if (done % 25 === 0) onProgress?.(done, parties.length);
   }
   onProgress?.(parties.length, parties.length);
+
+  // Publish updated/new customers and suppliers as ledgers so they surface on
+  // Customers/Suppliers pages with their contact details.
+  try {
+    await Promise.all([
+      bulkSyncCustomersToLedgers(opts.companyId),
+      bulkSyncSuppliersToLedgers(opts.companyId),
+    ]);
+  } catch (err) {
+    result.errors.push(`ledger sync: ${err instanceof Error ? err.message : String(err)}`);
+  }
   return result;
 }
+

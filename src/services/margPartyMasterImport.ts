@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { bulkSyncCustomersToLedgers, bulkSyncSuppliersToLedgers } from "@/services/ledgerBridge";
 import type { ParsedParty } from "./margPartyMasterParse";
 
 export interface PartyImportOptions {

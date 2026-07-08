@@ -251,8 +251,10 @@ export function MargStockImport() {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Stat label="Products matched" value={result.productsMatched} tone="success" />
-              <Stat label="Opening batches" value={result.batchesOpened} tone="success" />
+              <Stat label="New batches" value={result.batchesOpened} tone="success" />
+              <Stat label="Batches updated" value={result.batchesUpdated} />
               <Stat label="Batches zeroed" value={result.batchesZeroed} />
+              <Stat label="Suppliers linked" value={result.suppliersLinked} />
               <Stat label="Products updated" value={result.productsUpdated} />
               <Stat label="Unmatched" value={result.productsSkippedNoMatch} tone={result.productsSkippedNoMatch ? "error" : "muted"} />
               <Stat label="Errors" value={result.errors.length} tone={result.errors.length ? "error" : "muted"} />

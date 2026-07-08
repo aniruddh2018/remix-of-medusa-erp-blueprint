@@ -364,7 +364,7 @@ export default function DataImport() {
     }
   }, [wizard]);
 
-  if (!authLoading && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  // Data Import is available to all authenticated users (scoped per company).
 
   return (
     <div className="space-y-6">

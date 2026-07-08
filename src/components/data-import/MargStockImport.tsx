@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUnloadGuard } from "@/hooks/useUnloadGuard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,6 +27,7 @@ export function MargStockImport() {
   const { toast } = useToast();
 
   const [stage, setStage] = useState<Stage>("idle");
+  useUnloadGuard(stage === "importing");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState<StockParseResult | null>(null);
   const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([]);

@@ -439,6 +439,15 @@ export default function Customers() {
         customerId={outstandingCustomer?.id || null}
         customerName={outstandingCustomer?.name || ""}
       />
+
+      <CustomerHistoryDialog
+        open={!!historyCustomer}
+        onOpenChange={(open) => !open && setHistoryCustomer(null)}
+        customerId={null}
+        customerName={historyCustomer?.name || ""}
+        companyId={companyId ?? null}
+        onRepeatItem={() => {}}
+      />
     </div>
   );
 }

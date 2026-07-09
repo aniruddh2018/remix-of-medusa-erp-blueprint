@@ -299,6 +299,33 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshFinancialYears = useCallback(async () => {
+    if (!companyId) { setFinancialYears([]); return; }
+    try {
+      const years = await listFinancialYears(companyId);
+      setFinancialYears(years);
+      setActiveFyIdState((current) => {
+        if (current && years.some((y) => y.id === current)) return current;
+        const active = years.find((y) => y.status === "active");
+        return active?.id ?? years[0]?.id ?? null;
+      });
+    } catch (err) {
+      console.error("[Business] refreshFinancialYears failed:", err);
+    }
+  }, [companyId]);
+
+  useEffect(() => { refreshFinancialYears(); }, [refreshFinancialYears]);
+
+  const setActiveFinancialYearId = useCallback((id: string | null) => {
+    setActiveFyIdState(id);
+    try {
+      if (id) localStorage.setItem(FY_STORAGE_KEY, id);
+      else localStorage.removeItem(FY_STORAGE_KEY);
+    } catch { /* ignore */ }
+  }, []);
+
+  const activeFinancialYear = financialYears.find((y) => y.id === activeFinancialYearId) ?? null;
+
   const config = BUSINESS_CONFIGS[businessType] || BUSINESS_CONFIGS.pharmacy;
 
   return (
@@ -314,6 +341,11 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         setCompanyName,
         gstInclusive,
         setGstInclusive,
+        financialYears,
+        activeFinancialYearId,
+        activeFinancialYear,
+        setActiveFinancialYearId,
+        refreshFinancialYears,
       }}
     >
       {children}

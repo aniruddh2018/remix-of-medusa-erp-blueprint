@@ -1459,6 +1459,132 @@ export type Database = {
           },
         ]
       }
+      fy_import_rows: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_type: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          import_session_id: string
+          raw_data: Json
+          resolved_financial_year_id: string | null
+          source_row_number: number | null
+          status: Database["public"]["Enums"]["import_row_status"]
+          transaction_date: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          entity_type: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id?: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_import_session_id_fkey"
+            columns: ["import_session_id"]
+            isOneToOne: false
+            referencedRelation: "fy_import_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_resolved_financial_year_id_fkey"
+            columns: ["resolved_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fy_import_sessions: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          error_log: Json | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          import_summary: Json | null
+          name: string
+          parse_summary: Json | null
+          source_system: string
+          staging_summary: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          import_summary?: Json | null
+          name?: string
+          parse_summary?: Json | null
+          source_system?: string
+          staging_summary?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          error_log?: Json | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          import_summary?: Json | null
+          name?: string
+          parse_summary?: Json | null
+          source_system?: string
+          staging_summary?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gst_tax_structures: {
         Row: {
           cess_rate: number | null
@@ -1579,7 +1705,7 @@ export type Database = {
             foreignKeyName: "import_jobs_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "import_sessions"
+            referencedRelation: "fy_import_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1637,132 +1763,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "import_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_rows: {
-        Row: {
-          company_id: string
-          created_at: string
-          entity_type: string
-          error_code: string | null
-          error_message: string | null
-          id: string
-          import_session_id: string
-          raw_data: Json
-          resolved_financial_year_id: string | null
-          source_row_number: number | null
-          status: Database["public"]["Enums"]["import_row_status"]
-          transaction_date: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          entity_type: string
-          error_code?: string | null
-          error_message?: string | null
-          id?: string
-          import_session_id: string
-          raw_data?: Json
-          resolved_financial_year_id?: string | null
-          source_row_number?: number | null
-          status?: Database["public"]["Enums"]["import_row_status"]
-          transaction_date?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          entity_type?: string
-          error_code?: string | null
-          error_message?: string | null
-          id?: string
-          import_session_id?: string
-          raw_data?: Json
-          resolved_financial_year_id?: string | null
-          source_row_number?: number | null
-          status?: Database["public"]["Enums"]["import_row_status"]
-          transaction_date?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_rows_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "import_rows_import_session_id_fkey"
-            columns: ["import_session_id"]
-            isOneToOne: false
-            referencedRelation: "import_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "import_rows_resolved_financial_year_id_fkey"
-            columns: ["resolved_financial_year_id"]
-            isOneToOne: false
-            referencedRelation: "financial_years"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      import_sessions: {
-        Row: {
-          company_id: string
-          created_at: string | null
-          error_log: Json | null
-          file_name: string | null
-          file_size: number | null
-          id: string
-          import_summary: Json | null
-          name: string
-          parse_summary: Json | null
-          source_system: string
-          staging_summary: Json | null
-          status: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string
-          import_summary?: Json | null
-          name?: string
-          parse_summary?: Json | null
-          source_system?: string
-          staging_summary?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string | null
-          error_log?: Json | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string
-          import_summary?: Json | null
-          name?: string
-          parse_summary?: Json | null
-          source_system?: string
-          staging_summary?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "import_sessions_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -4831,7 +4831,7 @@ export type Database = {
             foreignKeyName: "staging_batches_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "import_sessions"
+            referencedRelation: "fy_import_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -5119,7 +5119,7 @@ export type Database = {
             foreignKeyName: "staging_products_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "import_sessions"
+            referencedRelation: "fy_import_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -5200,7 +5200,7 @@ export type Database = {
             foreignKeyName: "staging_suppliers_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "import_sessions"
+            referencedRelation: "fy_import_sessions"
             referencedColumns: ["id"]
           },
         ]

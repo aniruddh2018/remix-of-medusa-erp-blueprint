@@ -1459,6 +1459,135 @@ export type Database = {
           },
         ]
       }
+      fy_import_rows: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_type: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          import_session_id: string
+          raw_data: Json
+          resolved_financial_year_id: string | null
+          source_row_number: number | null
+          status: Database["public"]["Enums"]["import_row_status"]
+          transaction_date: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          entity_type: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id?: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fy_import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fy_import_rows_import_session_id_fkey"
+            columns: ["import_session_id"]
+            isOneToOne: false
+            referencedRelation: "fy_import_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fy_import_rows_resolved_financial_year_id_fkey"
+            columns: ["resolved_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fy_import_sessions: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          entity_type: string
+          file_name: string | null
+          id: string
+          import_mode: string
+          invalid_rows: number
+          review_rows: number
+          source: string
+          status: string
+          summary: Json
+          total_rows: number
+          valid_rows: number
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type: string
+          file_name?: string | null
+          id?: string
+          import_mode?: string
+          invalid_rows?: number
+          review_rows?: number
+          source: string
+          status?: string
+          summary?: Json
+          total_rows?: number
+          valid_rows?: number
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          file_name?: string | null
+          id?: string
+          import_mode?: string
+          invalid_rows?: number
+          review_rows?: number
+          source?: string
+          status?: string
+          summary?: Json
+          total_rows?: number
+          valid_rows?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fy_import_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gst_tax_structures: {
         Row: {
           cess_rate: number | null

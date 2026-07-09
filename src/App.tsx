@@ -40,6 +40,7 @@ import Prescriptions from "./pages/Prescriptions";
 import LandingPage from "./pages/LandingPage";
 import GSTFiling from "./pages/GSTFiling";
 import FinancialYearManagement from "./pages/FinancialYearManagement";
+import FinancialYearAdmin from "./pages/FinancialYearAdmin";
 
 import NotFound from "./pages/NotFound";
 
@@ -95,6 +96,7 @@ const App = () => (
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/financial-year" element={<FinancialYearManagement />} />
+                <Route path="/financial-year/admin" element={<FinancialYearAdmin />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

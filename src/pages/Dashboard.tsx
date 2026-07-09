@@ -251,7 +251,7 @@ export default function Dashboard() {
       href: "/scheduled-drugs",
     }] : []),
     {
-      title: "Today's Sales",
+      title: todayInFy ? "Today's Sales" : `Sales (${activeFinancialYear?.name ?? "FY"})`,
       value: `₹${stats.todaySales.toLocaleString()}`,
       icon: DollarSign,
       color: "text-success",

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { listFinancialYears, type FinancialYear } from "@/services/financialYearService";
 
 export type BusinessType = "pharmacy" | "pharmacy_b2b" | "b2b_electronics" | "general_trading";
 
@@ -152,9 +153,16 @@ interface BusinessContextType {
   setCompanyName: (name: string) => Promise<void>;
   gstInclusive: boolean;
   setGstInclusive: (value: boolean) => Promise<void>;
+  financialYears: FinancialYear[];
+  activeFinancialYearId: string | null;
+  activeFinancialYear: FinancialYear | null;
+  setActiveFinancialYearId: (id: string | null) => void;
+  refreshFinancialYears: () => Promise<void>;
 }
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
+
+const FY_STORAGE_KEY = "medikarp.activeFinancialYearId";
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, roles } = useAuth();
@@ -165,6 +173,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [companyName, setCompanyNameState] = useState("");
   const [gstInclusive, setGstInclusiveState] = useState(false);
+  const [financialYears, setFinancialYears] = useState<FinancialYear[]>([]);
+  const [activeFinancialYearId, setActiveFyIdState] = useState<string | null>(() => {
+    try { return localStorage.getItem(FY_STORAGE_KEY); } catch { return null; }
+  });
 
   useEffect(() => {
     // Wait for auth to finish loading (including roles) before deciding
@@ -287,6 +299,33 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshFinancialYears = useCallback(async () => {
+    if (!companyId) { setFinancialYears([]); return; }
+    try {
+      const years = await listFinancialYears(companyId);
+      setFinancialYears(years);
+      setActiveFyIdState((current) => {
+        if (current && years.some((y) => y.id === current)) return current;
+        const active = years.find((y) => y.status === "active");
+        return active?.id ?? years[0]?.id ?? null;
+      });
+    } catch (err) {
+      console.error("[Business] refreshFinancialYears failed:", err);
+    }
+  }, [companyId]);
+
+  useEffect(() => { refreshFinancialYears(); }, [refreshFinancialYears]);
+
+  const setActiveFinancialYearId = useCallback((id: string | null) => {
+    setActiveFyIdState(id);
+    try {
+      if (id) localStorage.setItem(FY_STORAGE_KEY, id);
+      else localStorage.removeItem(FY_STORAGE_KEY);
+    } catch { /* ignore */ }
+  }, []);
+
+  const activeFinancialYear = financialYears.find((y) => y.id === activeFinancialYearId) ?? null;
+
   const config = BUSINESS_CONFIGS[businessType] || BUSINESS_CONFIGS.pharmacy;
 
   return (
@@ -302,6 +341,11 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         setCompanyName,
         gstInclusive,
         setGstInclusive,
+        financialYears,
+        activeFinancialYearId,
+        activeFinancialYear,
+        setActiveFinancialYearId,
+        refreshFinancialYears,
       }}
     >
       {children}

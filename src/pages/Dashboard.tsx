@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { format, addDays, isBefore } from "date-fns";
 import { OverdueInvoicesCard } from "@/components/OverdueInvoicesCard";
+import { FinancialYearSwitcher } from "@/components/FinancialYearSwitcher";
 
 interface DashboardStats {
   totalProducts: number;
@@ -65,7 +66,11 @@ export default function Dashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYear, activeFinancialYearId } = useBusiness();
+  const fyStart = activeFinancialYear?.start_date ?? null;
+  const fyEnd = activeFinancialYear?.end_date ?? null;
+  const todayISO = new Date().toISOString().split("T")[0];
+  const todayInFy = !!(fyStart && fyEnd && todayISO >= fyStart && todayISO <= fyEnd);
 
   useEffect(() => {
     // Safety timeout to prevent infinite loading
@@ -148,19 +153,34 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch pending orders, today's sales, and customers in parallel
+        // Fetch pending orders, sales, and customers in parallel — scoped to active FY
         const today = new Date().toISOString().split("T")[0];
+        const salesInFyToday = todayInFy;
+        let salesQuery = supabase
+          .from("sales_orders")
+          .select("total_amount")
+          .eq("company_id", companyId);
+        if (activeFinancialYearId) {
+          salesQuery = salesQuery.eq("financial_year_id", activeFinancialYearId);
+        }
+        if (salesInFyToday) {
+          salesQuery = salesQuery.eq("sale_date", today);
+        } else if (fyStart && fyEnd) {
+          salesQuery = salesQuery.gte("sale_date", fyStart).lte("sale_date", fyEnd);
+        }
+
+        let pendingQuery = supabase
+          .from("purchase_orders")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending")
+          .eq("company_id", companyId);
+        if (activeFinancialYearId) {
+          pendingQuery = pendingQuery.eq("financial_year_id", activeFinancialYearId);
+        }
+
         const [pendingResult, salesResult, customersResult] = await Promise.all([
-          supabase
-            .from("purchase_orders")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "pending")
-            .eq("company_id", companyId),
-          supabase
-            .from("sales_orders")
-            .select("total_amount")
-            .eq("sale_date", today)
-            .eq("company_id", companyId),
+          pendingQuery,
+          salesQuery,
           supabase
             .from("customers")
             .select("*", { count: "exact", head: true })
@@ -168,6 +188,7 @@ export default function Dashboard() {
         ]);
 
         const todayTotal = salesResult.data?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
+
 
         setStats({
           totalProducts: productsCount || 0,
@@ -191,7 +212,7 @@ export default function Dashboard() {
     fetchDashboardData();
 
     return () => clearTimeout(safetyTimer);
-  }, [config, companyId]);
+  }, [config, companyId, activeFinancialYearId, fyStart, fyEnd, todayInFy]);
 
   // Build stat cards dynamically based on business config
   const statCards = [
@@ -230,7 +251,7 @@ export default function Dashboard() {
       href: "/scheduled-drugs",
     }] : []),
     {
-      title: "Today's Sales",
+      title: todayInFy ? "Today's Sales" : `Sales (${activeFinancialYear?.name ?? "FY"})`,
       value: `₹${stats.todaySales.toLocaleString()}`,
       icon: DollarSign,
       color: "text-success",
@@ -288,6 +309,7 @@ export default function Dashboard() {
       <PageHeader 
         title="Dashboard" 
         description={`Welcome back! Here's your ${config.label} overview.`}
+        actions={<FinancialYearSwitcher />}
       />
 
       {/* Stats Grid - Responsive */}

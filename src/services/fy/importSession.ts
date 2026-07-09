@@ -24,7 +24,7 @@ export async function createImportSession(input: {
   userId?: string;
 }) {
   const { data, error } = await supabase
-    .from("import_sessions")
+    .from("fy_import_sessions")
     .insert({
       company_id: input.companyId,
       source: input.source,
@@ -79,14 +79,14 @@ export async function stageRows(
   // Chunk to avoid payload limits
   const CHUNK = 500;
   for (let i = 0; i < payload.length; i += CHUNK) {
-    const { error } = await supabase.from("import_rows").insert(payload.slice(i, i + CHUNK));
+    const { error } = await supabase.from("fy_import_rows").insert(payload.slice(i, i + CHUNK));
     if (error) throw error;
   }
 }
 
 export async function summarizeSession(sessionId: string) {
   const { data, error } = await supabase
-    .from("import_rows")
+    .from("fy_import_rows")
     .select("status, resolved_financial_year_id")
     .eq("import_session_id", sessionId);
   if (error) throw error;
@@ -102,7 +102,7 @@ export async function summarizeSession(sessionId: string) {
 
   const total = rows.length;
   await supabase
-    .from("import_sessions")
+    .from("fy_import_sessions")
     .update({
       total_rows: total,
       valid_rows: byStatus["VALIDATED"] ?? 0,
@@ -117,7 +117,7 @@ export async function summarizeSession(sessionId: string) {
 
 export async function listSessions(companyId: string) {
   const { data, error } = await supabase
-    .from("import_sessions")
+    .from("fy_import_sessions")
     .select("*")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
@@ -126,6 +126,6 @@ export async function listSessions(companyId: string) {
 }
 
 export async function deleteSession(sessionId: string) {
-  const { error } = await supabase.from("import_sessions").delete().eq("id", sessionId);
+  const { error } = await supabase.from("fy_import_sessions").delete().eq("id", sessionId);
   if (error) throw error;
 }

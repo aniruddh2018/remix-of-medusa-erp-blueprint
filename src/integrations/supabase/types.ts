@@ -334,6 +334,7 @@ export type Database = {
           business_type: string
           created_at: string
           email: string | null
+          fiscal_year_start_month: number
           gst_inclusive: boolean
           gst_number: string | null
           id: string
@@ -350,6 +351,7 @@ export type Database = {
           business_type?: string
           created_at?: string
           email?: string | null
+          fiscal_year_start_month?: number
           gst_inclusive?: boolean
           gst_number?: string | null
           id?: string
@@ -366,6 +368,7 @@ export type Database = {
           business_type?: string
           created_at?: string
           email?: string | null
+          fiscal_year_start_month?: number
           gst_inclusive?: boolean
           gst_number?: string | null
           id?: string
@@ -1101,6 +1104,60 @@ export type Database = {
           },
         ]
       }
+      document_sequences: {
+        Row: {
+          company_id: string
+          created_at: string
+          current_number: number
+          document_type: string
+          financial_year_id: string
+          id: string
+          padding: number
+          prefix: string
+          suffix: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          current_number?: number
+          document_type: string
+          financial_year_id: string
+          id?: string
+          padding?: number
+          prefix?: string
+          suffix?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          current_number?: number
+          document_type?: string
+          financial_year_id?: string
+          id?: string
+          padding?: number
+          prefix?: string
+          suffix?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_sequences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_sequences_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_audit_logs: {
         Row: {
           action: string
@@ -1148,38 +1205,162 @@ export type Database = {
           },
         ]
       }
+      financial_year_close_jobs: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          initiated_by: string | null
+          source_financial_year_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["fy_close_status"]
+          target_financial_year_id: string | null
+          validation_report: Json
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          source_financial_year_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["fy_close_status"]
+          target_financial_year_id?: string | null
+          validation_report?: Json
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          source_financial_year_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["fy_close_status"]
+          target_financial_year_id?: string | null
+          validation_report?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_year_close_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_year_close_jobs_source_financial_year_id_fkey"
+            columns: ["source_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_year_close_jobs_target_financial_year_id_fkey"
+            columns: ["target_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_year_unlocks: {
+        Row: {
+          approved_by: string
+          company_id: string
+          expires_at: string
+          financial_year_id: string
+          id: string
+          opened_at: string
+          opened_by: string | null
+          reason: string
+          revoked_at: string | null
+        }
+        Insert: {
+          approved_by: string
+          company_id: string
+          expires_at: string
+          financial_year_id: string
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          reason: string
+          revoked_at?: string | null
+        }
+        Update: {
+          approved_by?: string
+          company_id?: string
+          expires_at?: string
+          financial_year_id?: string
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          reason?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_year_unlocks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_year_unlocks_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_years: {
         Row: {
+          activated_at: string | null
           closed_at: string | null
           closed_by: string | null
           company_id: string
           created_at: string
+          created_by: string | null
           end_date: string
+          fiscal_year_start_month: number
           id: string
+          is_locked: boolean
           name: string
           start_date: string
           status: Database["public"]["Enums"]["fy_status"]
           updated_at: string
         }
         Insert: {
+          activated_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           company_id: string
           created_at?: string
+          created_by?: string | null
           end_date: string
+          fiscal_year_start_month?: number
           id?: string
+          is_locked?: boolean
           name: string
           start_date: string
           status?: Database["public"]["Enums"]["fy_status"]
           updated_at?: string
         }
         Update: {
+          activated_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           company_id?: string
           created_at?: string
+          created_by?: string | null
           end_date?: string
+          fiscal_year_start_month?: number
           id?: string
+          is_locked?: boolean
           name?: string
           start_date?: string
           status?: Database["public"]["Enums"]["fy_status"]
@@ -1460,6 +1641,73 @@ export type Database = {
           },
         ]
       }
+      import_rows: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_type: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          import_session_id: string
+          raw_data: Json
+          resolved_financial_year_id: string | null
+          source_row_number: number | null
+          status: Database["public"]["Enums"]["import_row_status"]
+          transaction_date: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          entity_type: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          import_session_id?: string
+          raw_data?: Json
+          resolved_financial_year_id?: string | null
+          source_row_number?: number | null
+          status?: Database["public"]["Enums"]["import_row_status"]
+          transaction_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_import_session_id_fkey"
+            columns: ["import_session_id"]
+            isOneToOne: false
+            referencedRelation: "import_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_resolved_financial_year_id_fkey"
+            columns: ["resolved_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_sessions: {
         Row: {
           company_id: string
@@ -1666,6 +1914,134 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          batch_id: string | null
+          company_id: string
+          created_at: string
+          financial_year_id: string
+          id: string
+          movement_date: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          narration: string | null
+          product_id: string
+          quantity_in: number
+          quantity_out: number
+          rate: number
+          transaction_id: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          company_id: string
+          created_at?: string
+          financial_year_id: string
+          id?: string
+          movement_date: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          narration?: string | null
+          product_id: string
+          quantity_in?: number
+          quantity_out?: number
+          rate?: number
+          transaction_id?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          company_id?: string
+          created_at?: string
+          financial_year_id?: string
+          id?: string
+          movement_date?: string
+          movement_type?: Database["public"]["Enums"]["movement_type"]
+          narration?: string | null
+          product_id?: string
+          quantity_in?: number
+          quantity_out?: number
+          rate?: number
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_opening_balances: {
+        Row: {
+          batch_id: string | null
+          company_id: string
+          created_at: string
+          financial_year_id: string
+          id: string
+          opening_quantity: number
+          opening_value: number
+          product_id: string
+          source_financial_year_id: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          company_id: string
+          created_at?: string
+          financial_year_id: string
+          id?: string
+          opening_quantity?: number
+          opening_value?: number
+          product_id: string
+          source_financial_year_id?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          company_id?: string
+          created_at?: string
+          financial_year_id?: string
+          id?: string
+          opening_quantity?: number
+          opening_value?: number
+          product_id?: string
+          source_financial_year_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_opening_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_opening_balances_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_opening_balances_source_financial_year_id_fkey"
+            columns: ["source_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -2342,6 +2718,67 @@ export type Database = {
           },
         ]
       }
+      ledger_entries: {
+        Row: {
+          company_id: string
+          created_at: string
+          credit: number
+          debit: number
+          entry_date: string
+          financial_year_id: string
+          id: string
+          ledger_account_id: string
+          narration: string | null
+          transaction_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          entry_date: string
+          financial_year_id: string
+          id?: string
+          ledger_account_id: string
+          narration?: string | null
+          transaction_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          entry_date?: string
+          financial_year_id?: string
+          id?: string
+          ledger_account_id?: string
+          narration?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_entries_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_entries_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ledger_groups: {
         Row: {
           affects_stock: boolean
@@ -2472,6 +2909,64 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_opening_balances: {
+        Row: {
+          amount: number
+          balance_type: string
+          company_id: string
+          created_at: string
+          financial_year_id: string
+          id: string
+          ledger_account_id: string
+          source: string
+          source_financial_year_id: string | null
+        }
+        Insert: {
+          amount?: number
+          balance_type: string
+          company_id: string
+          created_at?: string
+          financial_year_id: string
+          id?: string
+          ledger_account_id: string
+          source?: string
+          source_financial_year_id?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_type?: string
+          company_id?: string
+          created_at?: string
+          financial_year_id?: string
+          id?: string
+          ledger_account_id?: string
+          source?: string
+          source_financial_year_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_opening_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_opening_balances_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_opening_balances_source_financial_year_id_fkey"
+            columns: ["source_financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
             referencedColumns: ["id"]
           },
         ]
@@ -3544,6 +4039,7 @@ export type Database = {
           is_challan: boolean | null
           is_interstate: boolean
           ledger_id: string | null
+          legacy_invoice_number: string | null
           notes: string | null
           order_date: string
           order_number: string
@@ -3577,6 +4073,7 @@ export type Database = {
           is_challan?: boolean | null
           is_interstate?: boolean
           ledger_id?: string | null
+          legacy_invoice_number?: string | null
           notes?: string | null
           order_date?: string
           order_number: string
@@ -3610,6 +4107,7 @@ export type Database = {
           is_challan?: boolean | null
           is_interstate?: boolean
           ledger_id?: string | null
+          legacy_invoice_number?: string | null
           notes?: string | null
           order_date?: string
           order_number?: string
@@ -4007,6 +4505,7 @@ export type Database = {
           invoice_number: string
           is_interstate: boolean
           ledger_id: string | null
+          legacy_invoice_number: string | null
           notes: string | null
           other_charges: number
           payment_method: string | null
@@ -4053,6 +4552,7 @@ export type Database = {
           invoice_number: string
           is_interstate?: boolean
           ledger_id?: string | null
+          legacy_invoice_number?: string | null
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
@@ -4099,6 +4599,7 @@ export type Database = {
           invoice_number?: string
           is_interstate?: boolean
           ledger_id?: string | null
+          legacy_invoice_number?: string | null
           notes?: string | null
           other_charges?: number
           payment_method?: string | null
@@ -4916,6 +5417,66 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          financial_year_id: string
+          id: string
+          narration: string | null
+          posting_status: string
+          reference_id: string
+          reference_type: string
+          source: string
+          transaction_date: string
+          transaction_type: Database["public"]["Enums"]["txn_type"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          financial_year_id: string
+          id?: string
+          narration?: string | null
+          posting_status?: string
+          reference_id: string
+          reference_type: string
+          source?: string
+          transaction_date: string
+          transaction_type: Database["public"]["Enums"]["txn_type"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          financial_year_id?: string
+          id?: string
+          narration?: string | null
+          posting_status?: string
+          reference_id?: string
+          reference_type?: string
+          source?: string
+          transaction_date?: string
+          transaction_type?: Database["public"]["Enums"]["txn_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_financial_year_id_fkey"
+            columns: ["financial_year_id"]
+            isOneToOne: false
+            referencedRelation: "financial_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       twilio_messages: {
         Row: {
           body: string | null
@@ -5641,6 +6202,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_financial_year_writable: {
+        Args: { _fy_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       learn_column_mapping: {
         Args: {
@@ -5668,6 +6233,10 @@ export type Database = {
           target_name: string
           transactions_moved: number
         }[]
+      }
+      next_document_number: {
+        Args: { _company_id: string; _doc_type: string; _fy_id: string }
+        Returns: string
       }
       normalize_product_text: { Args: { input_text: string }; Returns: string }
       parse_product_text: { Args: { input_text: string }; Returns: Json }
@@ -5715,6 +6284,10 @@ export type Database = {
           _to_unit: string
         }
         Returns: Json
+      }
+      resolve_financial_year: {
+        Args: { _company_id: string; _tx_date: string }
+        Returns: string
       }
       resolve_party_ledger: {
         Args: {
@@ -5792,7 +6365,19 @@ export type Database = {
         | "schedule_h1"
         | "schedule_x"
         | "narcotic"
-      fy_status: "active" | "closed" | "archived"
+      fy_close_status:
+        | "PENDING"
+        | "VALIDATING"
+        | "PROCESSING"
+        | "COMPLETED"
+        | "FAILED"
+      fy_status: "draft" | "active" | "closed" | "archived"
+      import_row_status:
+        | "PENDING"
+        | "VALIDATED"
+        | "NEEDS_REVIEW"
+        | "IMPORTED"
+        | "FAILED"
       journal_reference_type:
         | "sales_order"
         | "purchase_order"
@@ -5825,6 +6410,17 @@ export type Database = {
         | "income"
         | "asset"
         | "liability"
+      movement_type:
+        | "PURCHASE"
+        | "SALE"
+        | "SALE_RETURN"
+        | "PURCHASE_RETURN"
+        | "OPENING_STOCK"
+        | "STOCK_ADJUSTMENT"
+        | "EXPIRY"
+        | "DAMAGE"
+        | "TRANSFER_IN"
+        | "TRANSFER_OUT"
       order_status:
         | "pending"
         | "confirmed"
@@ -5838,6 +6434,18 @@ export type Database = {
         | "expired"
         | "converted"
         | "rejected"
+      txn_type:
+        | "SALE"
+        | "PURCHASE"
+        | "SALE_RETURN"
+        | "PURCHASE_RETURN"
+        | "PAYMENT"
+        | "RECEIPT"
+        | "JOURNAL"
+        | "CREDIT_NOTE"
+        | "DEBIT_NOTE"
+        | "STOCK_ADJUSTMENT"
+        | "OPENING_BALANCE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5974,7 +6582,21 @@ export const Constants = {
         "schedule_x",
         "narcotic",
       ],
-      fy_status: ["active", "closed", "archived"],
+      fy_close_status: [
+        "PENDING",
+        "VALIDATING",
+        "PROCESSING",
+        "COMPLETED",
+        "FAILED",
+      ],
+      fy_status: ["draft", "active", "closed", "archived"],
+      import_row_status: [
+        "PENDING",
+        "VALIDATED",
+        "NEEDS_REVIEW",
+        "IMPORTED",
+        "FAILED",
+      ],
       journal_reference_type: [
         "sales_order",
         "purchase_order",
@@ -6010,6 +6632,18 @@ export const Constants = {
         "asset",
         "liability",
       ],
+      movement_type: [
+        "PURCHASE",
+        "SALE",
+        "SALE_RETURN",
+        "PURCHASE_RETURN",
+        "OPENING_STOCK",
+        "STOCK_ADJUSTMENT",
+        "EXPIRY",
+        "DAMAGE",
+        "TRANSFER_IN",
+        "TRANSFER_OUT",
+      ],
       order_status: [
         "pending",
         "confirmed",
@@ -6024,6 +6658,19 @@ export const Constants = {
         "expired",
         "converted",
         "rejected",
+      ],
+      txn_type: [
+        "SALE",
+        "PURCHASE",
+        "SALE_RETURN",
+        "PURCHASE_RETURN",
+        "PAYMENT",
+        "RECEIPT",
+        "JOURNAL",
+        "CREDIT_NOTE",
+        "DEBIT_NOTE",
+        "STOCK_ADJUSTMENT",
+        "OPENING_BALANCE",
       ],
     },
   },

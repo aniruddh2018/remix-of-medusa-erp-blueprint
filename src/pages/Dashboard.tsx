@@ -309,6 +309,7 @@ export default function Dashboard() {
       <PageHeader 
         title="Dashboard" 
         description={`Welcome back! Here's your ${config.label} overview.`}
+        actions={<FinancialYearSwitcher />}
       />
 
       {/* Stats Grid - Responsive */}

@@ -66,7 +66,11 @@ export default function Dashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYear, activeFinancialYearId } = useBusiness();
+  const fyStart = activeFinancialYear?.start_date ?? null;
+  const fyEnd = activeFinancialYear?.end_date ?? null;
+  const todayISO = new Date().toISOString().split("T")[0];
+  const todayInFy = !!(fyStart && fyEnd && todayISO >= fyStart && todayISO <= fyEnd);
 
   useEffect(() => {
     // Safety timeout to prevent infinite loading

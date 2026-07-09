@@ -1,0 +1,4 @@
+
+REVOKE EXECUTE ON FUNCTION public.next_document_number(UUID,UUID,TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.resolve_financial_year(UUID,DATE) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.is_financial_year_writable(UUID,UUID) FROM PUBLIC;

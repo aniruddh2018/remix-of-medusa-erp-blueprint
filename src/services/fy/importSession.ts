@@ -59,21 +59,33 @@ export async function stageRows(
     }),
   );
 
-  const payload = resolved.map(({ r, fyId }) => ({
+  type RowInsert = {
+    import_session_id: string;
+    company_id: string;
+    entity_type: string;
+    source_row_number: number | null;
+    transaction_date: string | null;
+    resolved_financial_year_id: string | null;
+    status: "PENDING" | "VALIDATED" | "NEEDS_REVIEW" | "IMPORTED" | "FAILED";
+    error_code: string | null;
+    error_message: string | null;
+    raw_data: unknown;
+  };
+  const payload: RowInsert[] = resolved.map(({ r, fyId }) => ({
     import_session_id: sessionId,
     company_id: companyId,
     entity_type: entityType,
     source_row_number: r.source_row_number ?? null,
     transaction_date: r.transaction_date ?? null,
     resolved_financial_year_id: fyId,
-    status: fyId ? "VALIDATED" : (r.transaction_date ? "NEEDS_REVIEW" : "NEEDS_REVIEW"),
+    status: fyId ? "VALIDATED" : "NEEDS_REVIEW",
     error_code: fyId ? null : (r.transaction_date ? "FY_NOT_FOUND" : "MISSING_DATE"),
     error_message: fyId
       ? null
       : r.transaction_date
         ? `No Financial Year covers ${r.transaction_date}`
         : "Row has no transaction date",
-    raw_data: r.raw_data,
+    raw_data: r.raw_data as unknown,
   }));
 
   // Chunk to avoid payload limits

@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { format, addDays, isBefore } from "date-fns";
 import { OverdueInvoicesCard } from "@/components/OverdueInvoicesCard";
+import { FinancialYearSwitcher } from "@/components/FinancialYearSwitcher";
 
 interface DashboardStats {
   totalProducts: number;

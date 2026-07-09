@@ -153,19 +153,34 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch pending orders, today's sales, and customers in parallel
+        // Fetch pending orders, sales, and customers in parallel — scoped to active FY
         const today = new Date().toISOString().split("T")[0];
+        const salesInFyToday = todayInFy;
+        let salesQuery = supabase
+          .from("sales_orders")
+          .select("total_amount")
+          .eq("company_id", companyId);
+        if (activeFinancialYearId) {
+          salesQuery = salesQuery.eq("financial_year_id", activeFinancialYearId);
+        }
+        if (salesInFyToday) {
+          salesQuery = salesQuery.eq("sale_date", today);
+        } else if (fyStart && fyEnd) {
+          salesQuery = salesQuery.gte("sale_date", fyStart).lte("sale_date", fyEnd);
+        }
+
+        let pendingQuery = supabase
+          .from("purchase_orders")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending")
+          .eq("company_id", companyId);
+        if (activeFinancialYearId) {
+          pendingQuery = pendingQuery.eq("financial_year_id", activeFinancialYearId);
+        }
+
         const [pendingResult, salesResult, customersResult] = await Promise.all([
-          supabase
-            .from("purchase_orders")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "pending")
-            .eq("company_id", companyId),
-          supabase
-            .from("sales_orders")
-            .select("total_amount")
-            .eq("sale_date", today)
-            .eq("company_id", companyId),
+          pendingQuery,
+          salesQuery,
           supabase
             .from("customers")
             .select("*", { count: "exact", head: true })
@@ -173,6 +188,7 @@ export default function Dashboard() {
         ]);
 
         const todayTotal = salesResult.data?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
+
 
         setStats({
           totalProducts: productsCount || 0,

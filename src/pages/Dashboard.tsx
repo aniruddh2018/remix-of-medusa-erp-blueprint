@@ -212,7 +212,7 @@ export default function Dashboard() {
     fetchDashboardData();
 
     return () => clearTimeout(safetyTimer);
-  }, [config, companyId]);
+  }, [config, companyId, activeFinancialYearId, fyStart, fyEnd, todayInFy]);
 
   // Build stat cards dynamically based on business config
   const statCards = [

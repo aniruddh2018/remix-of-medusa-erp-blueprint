@@ -153,9 +153,16 @@ interface BusinessContextType {
   setCompanyName: (name: string) => Promise<void>;
   gstInclusive: boolean;
   setGstInclusive: (value: boolean) => Promise<void>;
+  financialYears: FinancialYear[];
+  activeFinancialYearId: string | null;
+  activeFinancialYear: FinancialYear | null;
+  setActiveFinancialYearId: (id: string | null) => void;
+  refreshFinancialYears: () => Promise<void>;
 }
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
+
+const FY_STORAGE_KEY = "medikarp.activeFinancialYearId";
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, roles } = useAuth();
@@ -166,6 +173,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [companyName, setCompanyNameState] = useState("");
   const [gstInclusive, setGstInclusiveState] = useState(false);
+  const [financialYears, setFinancialYears] = useState<FinancialYear[]>([]);
+  const [activeFinancialYearId, setActiveFyIdState] = useState<string | null>(() => {
+    try { return localStorage.getItem(FY_STORAGE_KEY); } catch { return null; }
+  });
 
   useEffect(() => {
     // Wait for auth to finish loading (including roles) before deciding

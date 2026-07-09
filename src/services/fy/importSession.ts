@@ -69,7 +69,7 @@ export async function stageRows(
     status: "PENDING" | "VALIDATED" | "NEEDS_REVIEW" | "IMPORTED" | "FAILED";
     error_code: string | null;
     error_message: string | null;
-    raw_data: unknown;
+    raw_data: any;
   };
   const payload: RowInsert[] = resolved.map(({ r, fyId }) => ({
     import_session_id: sessionId,
@@ -85,7 +85,7 @@ export async function stageRows(
       : r.transaction_date
         ? `No Financial Year covers ${r.transaction_date}`
         : "Row has no transaction date",
-    raw_data: r.raw_data as unknown,
+    raw_data: r.raw_data as any,
   }));
 
   // Chunk to avoid payload limits

@@ -248,7 +248,7 @@ export async function applyReconciliation(plan: ReconcilePlan): Promise<ApplyRes
             })
             .eq("id", existing.id);
         } else {
-          const { error } = await supabase.from("inventory_batches").insert({
+          const insertRow = {
             company_id: plan.companyId,
             product_id: line.product_id,
             batch_number: batchNo,
@@ -257,7 +257,10 @@ export async function applyReconciliation(plan: ReconcilePlan): Promise<ApplyRes
             received_date: fy.end_date,
             is_carry_forward: true,
             financial_year_id: fy.id,
-          });
+          };
+          const { error } = await supabase
+            .from("inventory_batches")
+            .insert(insertRow as never);
           if (error) { res.errors.push(`${line.product_name}: ${error.message}`); continue; }
         }
         res.openingBatchesCreated++;

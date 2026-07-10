@@ -200,6 +200,42 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
                 </Table>
               )}
             </TabsContent>
+
+            <TabsContent value="openings">
+              {openings?.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">No opening balances recorded</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Financial Year</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Carried From</TableHead>
+                      <TableHead className="text-right">Opening Qty</TableHead>
+                      <TableHead className="text-right">Opening Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {openings?.map((o: any) => (
+                      <TableRow key={o.id}>
+                        <TableCell className="font-medium">
+                          {o.financial_year?.name || "—"}
+                          <Badge variant="outline" className="ml-2 text-xs">Opening</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {o.financial_year?.start_date
+                            ? `${format(new Date(o.financial_year.start_date), "dd/MM/yyyy")} – ${format(new Date(o.financial_year.end_date), "dd/MM/yyyy")}`
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm">{o.source_financial_year?.name || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-right font-mono">{Number(o.opening_quantity).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">₹{Number(o.opening_value).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
           </Tabs>
         )}
       </DialogContent>

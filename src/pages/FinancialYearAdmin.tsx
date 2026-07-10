@@ -137,7 +137,19 @@ export default function FinancialYearAdmin() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Financial Year — Admin</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Financial Year — Admin</h1>
+        <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+          <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <Label htmlFor="mig-mode" className="font-medium cursor-pointer">Migration Mode</Label>
+            <div className="text-xs text-muted-foreground">
+              {migrationMode ? "ON — historical import & reconciliation available" : "OFF — turn on only while importing/exporting MARG data"}
+            </div>
+          </div>
+          <Switch id="mig-mode" checked={migrationMode} onCheckedChange={setMigrationMode} />
+        </div>
+      </div>
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Wand2 className="h-4 w-4" /> Backfill legacy data</CardTitle></CardHeader>

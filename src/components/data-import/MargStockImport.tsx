@@ -235,7 +235,7 @@ export function MargStockImport() {
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={reset}>Cancel</Button>
-              <Button onClick={handleImport} disabled={!targetCompanyId || parsed.rows.length === 0}>
+              <Button onClick={handleImport} disabled={!targetCompanyId || parsed.rows.length === 0 || fyBlocked}>
                 Import {parsed.rows.length.toLocaleString()} batch rows
               </Button>
             </div>

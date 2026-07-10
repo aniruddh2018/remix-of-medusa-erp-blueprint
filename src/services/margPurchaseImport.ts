@@ -113,6 +113,7 @@ async function upsertBatch(
   mrp: number, purchasePrice: number, receivedDate: string,
   cache: Map<string, { id: string; existed: boolean }>,
   counters: { created: number; updated: number },
+  fyId?: string | null,
 ): Promise<string | null> {
   const key = `${productId}|${batchNumber}`;
   const cached = cache.get(key);
@@ -242,6 +243,7 @@ export async function importMargPurchases(
           await upsertBatch(
             r.p.id, opts.companyId, supplierId, batchNo, total, 0,
             r.it.rate, r.it.rate, bill.bill_date, batchCache, batchCounters,
+            opts.financialYearId ?? null,
           );
         }
         const qty = Math.max(1, paid);

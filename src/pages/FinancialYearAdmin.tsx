@@ -275,6 +275,15 @@ export default function FinancialYearAdmin() {
           )}
         </CardContent>
       </Card>
+      ) : (
+        <Alert>
+          <ArrowLeftRight className="h-4 w-4" />
+          <AlertTitle>Migration Mode is off</AlertTitle>
+          <AlertDescription>
+            Turn on Migration Mode above to run stock reconciliation and opening-balance allocation. Keep it off during normal day-to-day operations.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader><CardTitle>Active FY unlocks</CardTitle></CardHeader>

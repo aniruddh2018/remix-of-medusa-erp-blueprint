@@ -212,6 +212,7 @@ export async function importMargStock(
         received_date: row.received_date ?? asOf,
         supplier_id: supplierId,
         pack_size: conv > 1 ? conv : null,
+        financial_year_id: opts.financialYearId ?? null,
       };
 
       const { data: existing } = await supabase.from("inventory_batches")

@@ -17,12 +17,13 @@ import {
   importMargPurchases, purchaseUnmatchedToCsv,
   type PurchaseImportResult,
 } from "@/services/margPurchaseImport";
+import { FyImportBadge } from "@/components/data-import/FyImportBadge";
 
 type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 
 export function MargPurchaseImport() {
   const { isSuperAdmin } = useAuth();
-  const { companyId: activeCompanyId } = useBusiness();
+  const { companyId: activeCompanyId, activeFinancialYearId } = useBusiness();
   const { toast } = useToast();
 
   const [stage, setStage] = useState<Stage>("idle");
@@ -75,7 +76,12 @@ export function MargPurchaseImport() {
     setProgress({ done: 0, total: parsed.bills.length });
     const r = await importMargPurchases(
       parsed.bills,
-      { companyId: targetCompanyId, skipDuplicateBills: skipDup, seedInventory: seedInv },
+      {
+        companyId: targetCompanyId,
+        financialYearId: activeFinancialYearId,
+        skipDuplicateBills: skipDup,
+        seedInventory: seedInv,
+      },
       (done, total) => setProgress({ done, total }),
     );
     setResult(r); setStage("done");
@@ -83,7 +89,7 @@ export function MargPurchaseImport() {
       title: "Purchase import finished",
       description: `${r.billsInserted} bills · ${r.itemsInserted} items · ${r.batchesCreated} batches`,
     });
-  }, [parsed, targetCompanyId, skipDup, seedInv, toast]);
+  }, [parsed, targetCompanyId, skipDup, seedInv, activeFinancialYearId, toast]);
 
   const downloadUnmatched = useCallback(() => {
     if (!result) return;

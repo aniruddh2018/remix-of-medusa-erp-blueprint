@@ -109,6 +109,7 @@ export function MargStockImport() {
 
   return (
     <div className="space-y-4">
+      <FyImportBadge requireActive />
       {stage === "idle" && (
         <Card>
           <CardHeader><CardTitle>MARG Stock Importer</CardTitle></CardHeader>

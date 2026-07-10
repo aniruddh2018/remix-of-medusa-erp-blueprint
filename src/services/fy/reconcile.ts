@@ -131,8 +131,8 @@ export async function computeReconciliation(companyId: string): Promise<Reconcil
 
   // 2. Aggregate past-FY purchase and sale quantities.
   const [purchased, sold] = await Promise.all([
-    aggregateLines("purchase_order_items", "purchase_orders", companyId, pastFyIds),
-    aggregateLines("sales_order_items", "sales_orders", companyId, pastFyIds),
+    aggregatePurchaseQty(companyId, pastFyIds),
+    aggregateSalesQty(companyId, pastFyIds),
   ]);
 
   // 3. Product names for display.

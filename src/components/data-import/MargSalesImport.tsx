@@ -17,12 +17,13 @@ import {
   importMargSales, unmatchedToCsv,
   type SalesImportResult,
 } from "@/services/margSalesImport";
+import { FyImportBadge } from "@/components/data-import/FyImportBadge";
 
 type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 
 export function MargSalesImport() {
   const { isSuperAdmin } = useAuth();
-  const { companyId: activeCompanyId } = useBusiness();
+  const { companyId: activeCompanyId, activeFinancialYearId } = useBusiness();
   const { toast } = useToast();
 
   const [stage, setStage] = useState<Stage>("idle");
@@ -77,7 +78,11 @@ export function MargSalesImport() {
     setProgress({ done: 0, total: parsed.bills.length });
     const r = await importMargSales(
       parsed.bills,
-      { companyId: targetCompanyId, skipDuplicateInvoices: skipDup },
+      {
+        companyId: targetCompanyId,
+        financialYearId: activeFinancialYearId,
+        skipDuplicateInvoices: skipDup,
+      },
       (done, total) => setProgress({ done, total }),
     );
     setResult(r);
@@ -86,7 +91,7 @@ export function MargSalesImport() {
       title: "Sales import finished",
       description: `${r.billsInserted} bills · ${r.itemsInserted} items`,
     });
-  }, [parsed, targetCompanyId, skipDup, toast]);
+  }, [parsed, targetCompanyId, skipDup, activeFinancialYearId, toast]);
 
   const downloadUnmatched = useCallback(() => {
     if (!result) return;
@@ -109,6 +114,7 @@ export function MargSalesImport() {
 
   return (
     <div className="space-y-4">
+      <FyImportBadge />
       {stage === "idle" && (
         <Card>
           <CardHeader>

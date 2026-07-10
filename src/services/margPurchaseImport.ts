@@ -3,6 +3,8 @@ import type { ParsedPurchaseBill, ParsedPurchaseItem } from "./margPurchaseParse
 
 export interface PurchaseImportOptions {
   companyId: string;
+  /** Stamp all resulting purchase_orders + batches with this FY id (past-FY imports). */
+  financialYearId?: string | null;
   skipDuplicateBills?: boolean; // default true (by order_number)
   seedInventory?: boolean; // default true — create/update inventory_batches with qty
 }
@@ -111,6 +113,7 @@ async function upsertBatch(
   mrp: number, purchasePrice: number, receivedDate: string,
   cache: Map<string, { id: string; existed: boolean }>,
   counters: { created: number; updated: number },
+  fyId?: string | null,
 ): Promise<string | null> {
   const key = `${productId}|${batchNumber}`;
   const cached = cache.get(key);
@@ -143,6 +146,7 @@ async function upsertBatch(
     company_id: companyId, product_id: productId, supplier_id: supplierId,
     batch_number: batchNumber, quantity: qty, loose_quantity: looseQty,
     mrp, purchase_price: purchasePrice, received_date: receivedDate,
+    financial_year_id: fyId ?? null,
   }).select("id").single();
   if (error || !data) return null;
   cache.set(key, { id: data.id, existed: false });
@@ -209,6 +213,7 @@ export async function importMargPurchases(
 
       const poInsert = {
         company_id: opts.companyId,
+        financial_year_id: opts.financialYearId ?? null,
         order_number: bill.bill_no,
         order_date: bill.bill_date,
         supplier_id: supplierId,
@@ -238,6 +243,7 @@ export async function importMargPurchases(
           await upsertBatch(
             r.p.id, opts.companyId, supplierId, batchNo, total, 0,
             r.it.rate, r.it.rate, bill.bill_date, batchCache, batchCounters,
+            opts.financialYearId ?? null,
           );
         }
         const qty = Math.max(1, paid);

@@ -1,30 +1,50 @@
 import { useState } from "react";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, ChevronRight, SkipForward, Rocket } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2, ChevronRight, SkipForward, Rocket, Archive } from "lucide-react";
 import { MargMasterImport } from "@/components/data-import/MargMasterImport";
 import { MargStockImport } from "@/components/data-import/MargStockImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 
-const STEPS = [
+type StepKey = "products" | "stock" | "purchase" | "sales";
+interface Step {
+  key: StepKey;
+  label: string;
+  hint: string;
+  Component: () => JSX.Element;
+}
+
+const ALL_STEPS: Step[] = [
   { key: "products", label: "Products", hint: "Product master (name, composition, MRP, GST)", Component: MargMasterImport },
-  { key: "stock", label: "Opening Stock", hint: "Current on-hand quantities & batches", Component: MargStockImport },
+  { key: "stock", label: "Opening Stock", hint: "Current on-hand quantities & batches (current FY only)", Component: MargStockImport },
   { key: "purchase", label: "Purchase History", hint: "Past purchase bills & suppliers", Component: MargPurchaseImport },
   { key: "sales", label: "Sales History", hint: "Past sales bills & customers", Component: MargSalesImport },
-] as const;
+];
 
 interface Props {
   onFinish: () => void;
 }
 
 export function MargMigrationStep({ onFinish }: Props) {
+  const { activeFinancialYear } = useBusiness();
+  const isPastFy = !!activeFinancialYear && activeFinancialYear.status !== "active";
+
+  // In a past FY, users only import sales + purchase HISTORY. Products can also
+  // be added (safe, catalog-level). Stock is hidden — it must go into the
+  // active FY, then reconciliation derives opening balances.
+  const steps = isPastFy
+    ? ALL_STEPS.filter((s) => s.key !== "stock")
+    : ALL_STEPS;
+
   const [idx, setIdx] = useState(0);
-  const step = STEPS[idx];
+  const step = steps[Math.min(idx, steps.length - 1)];
   const Comp = step.Component;
 
   const advance = () => {
-    if (idx + 1 >= STEPS.length) {
+    if (idx + 1 >= steps.length) {
       localStorage.removeItem("marg_migration_deferred");
       onFinish();
     } else {
@@ -44,20 +64,36 @@ export function MargMigrationStep({ onFinish }: Props) {
           <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Rocket className="w-5 h-5 text-primary" /> Migrate from MARG
+                {isPastFy ? <Archive className="w-5 h-5 text-amber-600" /> : <Rocket className="w-5 h-5 text-primary" />}
+                {isPastFy ? "Historical Import Mode" : "Migrate from MARG"}
               </CardTitle>
               <CardDescription>
-                Optional — import your existing MARG data in 4 sequential steps.
-                You can skip any step and finish later from <strong>Data Import</strong>.
+                {isPastFy ? (
+                  <>
+                    You are viewing <strong>{activeFinancialYear?.name}</strong>. Only <strong>sales</strong> and
+                    <strong> purchase</strong> history can be imported here — stock lives in the current FY.
+                  </>
+                ) : (
+                  <>Optional — import your existing MARG data. You can skip any step and finish later from <strong>Data Import</strong>.</>
+                )}
               </CardDescription>
             </div>
             <Button variant="ghost" onClick={skipAll}>
               Skip all & go to dashboard <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {isPastFy && (
+              <Alert>
+                <AlertDescription className="text-xs">
+                  After importing purchase history for all past years and current stock for the active year,
+                  run <strong>Reconciliation</strong> from Financial Year Admin — any leftover stock will be posted
+                  as opening balances on {activeFinancialYear?.end_date}.
+                </AlertDescription>
+              </Alert>
+            )}
             <ol className="flex flex-wrap gap-2">
-              {STEPS.map((s, i) => (
+              {steps.map((s, i) => (
                 <li
                   key={s.key}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${
@@ -82,14 +118,14 @@ export function MargMigrationStep({ onFinish }: Props) {
         <Card>
           <CardContent className="flex flex-col md:flex-row items-center justify-between gap-3 py-4">
             <div className="text-sm text-muted-foreground">
-              Step {idx + 1} of {STEPS.length} — {step.label}
+              Step {idx + 1} of {steps.length} — {step.label}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={advance}>
                 <SkipForward className="w-4 h-4 mr-1" /> Skip this step
               </Button>
               <Button onClick={advance}>
-                {idx + 1 === STEPS.length ? "Finish & go to dashboard" : "Continue"}
+                {idx + 1 === steps.length ? "Finish & go to dashboard" : "Continue"}
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>

@@ -15,6 +15,8 @@ import type { ParsedStockRow } from "./margStockParse";
 
 export interface StockImportOptions {
   companyId: string;
+  /** Current/active FY id — batches are stamped with this. Stock import is only meaningful in the active FY. */
+  financialYearId?: string | null;
   /** Zero out all existing batches for matched products before writing new ones. */
   overrideExisting?: boolean;
   /** Refresh product mrp / sale_price / purchase_price from the file. */
@@ -210,6 +212,7 @@ export async function importMargStock(
         received_date: row.received_date ?? asOf,
         supplier_id: supplierId,
         pack_size: conv > 1 ? conv : null,
+        financial_year_id: opts.financialYearId ?? null,
       };
 
       const { data: existing } = await supabase.from("inventory_batches")

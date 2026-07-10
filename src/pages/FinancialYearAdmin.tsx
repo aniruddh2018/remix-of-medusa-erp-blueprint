@@ -3,12 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useMigrationMode } from "@/hooks/useMigrationMode";
 import { listActiveUnlocks, revokeUnlock, type FyUnlock } from "@/services/fy/unlock";
-import { Loader2, ShieldAlert, Play, Wand2, Scale } from "lucide-react";
+import { Loader2, ShieldAlert, Play, Wand2, Scale, ArrowLeftRight } from "lucide-react";
 import { computeReconciliation, applyReconciliation, type ReconcilePlan } from "@/services/fy/reconcile";
 
 type Stats = { sales: number; purchases: number; payments: number; skipped: number; missing_fy: number };
@@ -21,6 +24,8 @@ export default function FinancialYearAdmin() {
   const { companyId, financialYears, refreshFinancialYears } = useBusiness();
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin") || roles.includes("super_admin");
+
+  const { enabled: migrationMode, setEnabled: setMigrationMode } = useMigrationMode(companyId);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -132,7 +137,19 @@ export default function FinancialYearAdmin() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Financial Year — Admin</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Financial Year — Admin</h1>
+        <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+          <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <Label htmlFor="mig-mode" className="font-medium cursor-pointer">Migration Mode</Label>
+            <div className="text-xs text-muted-foreground">
+              {migrationMode ? "ON — historical import & reconciliation available" : "OFF — turn on only while importing/exporting MARG data"}
+            </div>
+          </div>
+          <Switch id="mig-mode" checked={migrationMode} onCheckedChange={setMigrationMode} />
+        </div>
+      </div>
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Wand2 className="h-4 w-4" /> Backfill legacy data</CardTitle></CardHeader>
@@ -181,6 +198,7 @@ export default function FinancialYearAdmin() {
         </CardContent>
       </Card>
 
+      {migrationMode ? (
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Scale className="h-4 w-4" /> Stock reconciliation (opening balances)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -257,6 +275,15 @@ export default function FinancialYearAdmin() {
           )}
         </CardContent>
       </Card>
+      ) : (
+        <Alert>
+          <ArrowLeftRight className="h-4 w-4" />
+          <AlertTitle>Migration Mode is off</AlertTitle>
+          <AlertDescription>
+            Turn on Migration Mode above to run stock reconciliation and opening-balance allocation. Keep it off during normal day-to-day operations.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader><CardTitle>Active FY unlocks</CardTitle></CardHeader>

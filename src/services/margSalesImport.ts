@@ -4,6 +4,8 @@ import type { ParsedBill, ParsedBillItem } from "./margSalesParse";
 
 export interface SalesImportOptions {
   companyId: string;
+  /** Stamp all resulting sales_orders with this FY id (past-FY imports). */
+  financialYearId?: string | null;
   defaultCustomerName?: string;
   skipDuplicateInvoices?: boolean; // default true
   affectInventory?: boolean; // default false — write inventory_transactions
@@ -271,6 +273,7 @@ export async function importMargSales(
 
       const orderInsert = {
         company_id: opts.companyId,
+        financial_year_id: opts.financialYearId ?? null,
         invoice_number: bill.invoice_number,
         sale_date: bill.bill_date,
         customer_id: customerId,

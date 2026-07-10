@@ -182,6 +182,71 @@ export default function FinancialYearAdmin() {
       </Card>
 
       <Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Scale className="h-4 w-4" /> Stock reconciliation (opening balances)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Compares imported on-hand stock against past-FY purchase/sales history. Any leftover quantity
+            is posted as an OPENING batch dated to the earliest past FY's end. Sales/purchase history is never modified.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={busy !== null} onClick={runReconcilePreview}>
+              {busy === "recon-preview" && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Preview
+            </Button>
+            <Button disabled={busy !== null || !reconPlan || reconPlan.lines.length === 0} onClick={runReconcileApply}>
+              {busy === "recon-apply" && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Apply reconciliation
+            </Button>
+          </div>
+          {reconPlan && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                <Stat label="Products" value={reconPlan.totals.products} />
+                <Stat label="Opening qty" value={reconPlan.totals.total_opening_qty} />
+                <Stat label="Shortfall qty" value={reconPlan.totals.total_shortfall_qty} />
+                <Stat label="Unmatched batches" value={reconPlan.totals.unmatched_batches} />
+              </div>
+              {!reconPlan.earliestPastFy && (
+                <Alert variant="destructive">
+                  <AlertDescription>No past financial year found. Create one before applying.</AlertDescription>
+                </Alert>
+              )}
+              <div className="border rounded max-h-72 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 sticky top-0">
+                    <tr className="text-left">
+                      <th className="p-2">Product</th>
+                      <th className="p-2 text-right">On hand</th>
+                      <th className="p-2 text-right">Purchased</th>
+                      <th className="p-2 text-right">Sold</th>
+                      <th className="p-2 text-right">Opening</th>
+                      <th className="p-2 text-right">Shortfall</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconPlan.lines.slice(0, 200).map((l) => (
+                      <tr key={l.product_id} className="border-t">
+                        <td className="p-2">{l.product_name}</td>
+                        <td className="p-2 text-right">{l.on_hand_qty}</td>
+                        <td className="p-2 text-right">{l.purchased_qty}</td>
+                        <td className="p-2 text-right">{l.sold_qty}</td>
+                        <td className="p-2 text-right font-medium">{l.opening_qty}</td>
+                        <td className={`p-2 text-right ${l.shortfall_qty ? "text-destructive" : ""}`}>{l.shortfall_qty || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {reconPlan.lines.length > 200 && (
+                  <div className="p-2 text-xs text-center text-muted-foreground border-t">
+                    Showing first 200 of {reconPlan.lines.length}.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Active FY unlocks</CardTitle></CardHeader>
         <CardContent>
           {unlocks.length === 0 ? (

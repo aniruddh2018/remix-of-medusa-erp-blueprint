@@ -182,7 +182,6 @@ export default function FinancialYearAdmin() {
       </Card>
 
       <Card>
-      <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Scale className="h-4 w-4" /> Stock reconciliation (opening balances)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">

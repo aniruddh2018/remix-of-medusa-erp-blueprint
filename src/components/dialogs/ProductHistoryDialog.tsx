@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { format } from "date-fns";
 
 interface ProductHistoryDialogProps {

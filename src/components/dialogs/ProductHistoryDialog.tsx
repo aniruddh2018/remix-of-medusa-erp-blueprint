@@ -51,10 +51,29 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
     enabled: !!productId && open,
   });
 
-  const isLoading = salesLoading || purchaseLoading;
+  const { data: openings, isLoading: openingsLoading } = useQuery({
+    queryKey: ["product-opening-balances", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      const { data } = await supabase
+        .from("inventory_opening_balances")
+        .select(`
+          id, opening_quantity, opening_value, created_at,
+          financial_year:financial_years!inventory_opening_balances_financial_year_id_fkey(name, start_date, end_date),
+          source_financial_year:financial_years!inventory_opening_balances_source_financial_year_id_fkey(name)
+        `)
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!productId && open,
+  });
+
+  const isLoading = salesLoading || purchaseLoading || openingsLoading;
 
   const totalSold = salesHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
   const totalPurchased = purchaseHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
+  const totalOpening = openings?.reduce((s, o) => s + Number(o.opening_quantity || 0), 0) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

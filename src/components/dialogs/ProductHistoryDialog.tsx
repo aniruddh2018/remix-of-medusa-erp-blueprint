@@ -82,7 +82,7 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
           <DialogTitle>{productName} — Transaction History</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
             <TrendingDown className="h-5 w-5 text-primary" />
             <div>
@@ -95,6 +95,13 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
             <div>
               <p className="text-lg font-bold">{totalSold}</p>
               <p className="text-xs text-muted-foreground">Total Sold</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+            <Minus className="h-5 w-5 text-info" />
+            <div>
+              <p className="text-lg font-bold">{totalOpening}</p>
+              <p className="text-xs text-muted-foreground">Opening Balance</p>
             </div>
           </div>
         </div>
@@ -112,7 +119,11 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
               <TabsTrigger value="purchases" className="flex-1">
                 Purchases ({purchaseHistory?.length || 0})
               </TabsTrigger>
+              <TabsTrigger value="openings" className="flex-1">
+                Openings ({openings?.length || 0})
+              </TabsTrigger>
             </TabsList>
+
 
             <TabsContent value="sales">
               {salesHistory?.length === 0 ? (

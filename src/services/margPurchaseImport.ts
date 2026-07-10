@@ -3,6 +3,8 @@ import type { ParsedPurchaseBill, ParsedPurchaseItem } from "./margPurchaseParse
 
 export interface PurchaseImportOptions {
   companyId: string;
+  /** Stamp all resulting purchase_orders + batches with this FY id (past-FY imports). */
+  financialYearId?: string | null;
   skipDuplicateBills?: boolean; // default true (by order_number)
   seedInventory?: boolean; // default true — create/update inventory_batches with qty
 }
@@ -143,6 +145,7 @@ async function upsertBatch(
     company_id: companyId, product_id: productId, supplier_id: supplierId,
     batch_number: batchNumber, quantity: qty, loose_quantity: looseQty,
     mrp, purchase_price: purchasePrice, received_date: receivedDate,
+    financial_year_id: fyId ?? null,
   }).select("id").single();
   if (error || !data) return null;
   cache.set(key, { id: data.id, existed: false });
@@ -209,6 +212,7 @@ export async function importMargPurchases(
 
       const poInsert = {
         company_id: opts.companyId,
+        financial_year_id: opts.financialYearId ?? null,
         order_number: bill.bill_no,
         order_date: bill.bill_date,
         supplier_id: supplierId,

@@ -25,6 +25,8 @@ export default function FinancialYearAdmin() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin") || roles.includes("super_admin");
 
+  const { enabled: migrationMode, setEnabled: setMigrationMode } = useMigrationMode(companyId);
+
   const [busy, setBusy] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [unlocks, setUnlocks] = useState<FyUnlock[]>([]);

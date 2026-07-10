@@ -8,7 +8,8 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { listActiveUnlocks, revokeUnlock, type FyUnlock } from "@/services/fy/unlock";
-import { Loader2, ShieldAlert, Play, Wand2 } from "lucide-react";
+import { Loader2, ShieldAlert, Play, Wand2, Scale } from "lucide-react";
+import { computeReconciliation, applyReconciliation, type ReconcilePlan } from "@/services/fy/reconcile";
 
 type Stats = { sales: number; purchases: number; payments: number; skipped: number; missing_fy: number };
 
@@ -24,6 +25,7 @@ export default function FinancialYearAdmin() {
   const [busy, setBusy] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [unlocks, setUnlocks] = useState<FyUnlock[]>([]);
+  const [reconPlan, setReconPlan] = useState<ReconcilePlan | null>(null);
 
   const loadUnlocks = async () => {
     if (!companyId) return;
@@ -80,6 +82,37 @@ export default function FinancialYearAdmin() {
       await refreshFinancialYears();
     } catch (e) {
       toast({ title: "Close failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally { setBusy(null); }
+  };
+
+  const runReconcilePreview = async () => {
+    if (!companyId) return;
+    setBusy("recon-preview");
+    try {
+      const plan = await computeReconciliation(companyId);
+      setReconPlan(plan);
+      toast({
+        title: "Reconciliation ready",
+        description: `${plan.totals.products} products need attention · ${plan.totals.total_opening_qty} opening qty`,
+      });
+    } catch (e) {
+      toast({ title: "Reconciliation failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally { setBusy(null); }
+  };
+
+  const runReconcileApply = async () => {
+    if (!reconPlan) return;
+    setBusy("recon-apply");
+    try {
+      const r = await applyReconciliation(reconPlan);
+      toast({
+        title: "Reconciliation applied",
+        description: `${r.openingBatchesCreated} opening batches · ${r.batchesTaggedAsOpening} tagged`,
+        variant: r.errors.length ? "destructive" : "default",
+      });
+      setReconPlan(null);
+    } catch (e) {
+      toast({ title: "Apply failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     } finally { setBusy(null); }
   };
 

@@ -3,12 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useMigrationMode } from "@/hooks/useMigrationMode";
 import { listActiveUnlocks, revokeUnlock, type FyUnlock } from "@/services/fy/unlock";
-import { Loader2, ShieldAlert, Play, Wand2, Scale } from "lucide-react";
+import { Loader2, ShieldAlert, Play, Wand2, Scale, ArrowLeftRight } from "lucide-react";
 import { computeReconciliation, applyReconciliation, type ReconcilePlan } from "@/services/fy/reconcile";
 
 type Stats = { sales: number; purchases: number; payments: number; skipped: number; missing_fy: number };

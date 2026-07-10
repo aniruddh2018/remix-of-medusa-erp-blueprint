@@ -204,10 +204,19 @@ export default function FinancialYearAdmin() {
                 <Stat label="Shortfall qty" value={reconPlan.totals.total_shortfall_qty} />
                 <Stat label="Unmatched batches" value={reconPlan.totals.unmatched_batches} />
               </div>
-              {!reconPlan.earliestPastFy && (
+              {!reconPlan.earliestFy && (
                 <Alert variant="destructive">
-                  <AlertDescription>No past financial year found. Create one before applying.</AlertDescription>
+                  <AlertDescription>No financial year found. Create one before applying.</AlertDescription>
                 </Alert>
+              )}
+              {reconPlan.totals.per_fy.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Opening allocation by FY:{" "}
+                  {reconPlan.totals.per_fy
+                    .filter((f) => f.opening_qty > 0)
+                    .map((f) => `${f.fy_name}: ${f.opening_qty}`)
+                    .join(" · ") || "—"}
+                </div>
               )}
               <div className="border rounded max-h-72 overflow-auto">
                 <table className="w-full text-xs">
@@ -217,7 +226,7 @@ export default function FinancialYearAdmin() {
                       <th className="p-2 text-right">On hand</th>
                       <th className="p-2 text-right">Purchased</th>
                       <th className="p-2 text-right">Sold</th>
-                      <th className="p-2 text-right">Opening</th>
+                      <th className="p-2">Opening by FY</th>
                       <th className="p-2 text-right">Shortfall</th>
                     </tr>
                   </thead>
@@ -226,9 +235,13 @@ export default function FinancialYearAdmin() {
                       <tr key={l.product_id} className="border-t">
                         <td className="p-2">{l.product_name}</td>
                         <td className="p-2 text-right">{l.on_hand_qty}</td>
-                        <td className="p-2 text-right">{l.purchased_qty}</td>
-                        <td className="p-2 text-right">{l.sold_qty}</td>
-                        <td className="p-2 text-right font-medium">{l.opening_qty}</td>
+                        <td className="p-2 text-right">{l.total_purchased_qty}</td>
+                        <td className="p-2 text-right">{l.total_sold_qty}</td>
+                        <td className="p-2 font-medium">
+                          {l.allocations.length === 0
+                            ? "—"
+                            : l.allocations.map((a) => `${a.fy_name}: ${a.opening_qty}`).join(", ")}
+                        </td>
                         <td className={`p-2 text-right ${l.shortfall_qty ? "text-destructive" : ""}`}>{l.shortfall_qty || "—"}</td>
                       </tr>
                     ))}

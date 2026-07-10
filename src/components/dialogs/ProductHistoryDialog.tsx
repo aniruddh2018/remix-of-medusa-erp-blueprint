@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { format } from "date-fns";
 
 interface ProductHistoryDialogProps {
@@ -51,10 +51,29 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
     enabled: !!productId && open,
   });
 
-  const isLoading = salesLoading || purchaseLoading;
+  const { data: openings, isLoading: openingsLoading } = useQuery({
+    queryKey: ["product-opening-balances", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      const { data } = await supabase
+        .from("inventory_opening_balances")
+        .select(`
+          id, opening_quantity, opening_value, created_at,
+          financial_year:financial_years!inventory_opening_balances_financial_year_id_fkey(name, start_date, end_date),
+          source_financial_year:financial_years!inventory_opening_balances_source_financial_year_id_fkey(name)
+        `)
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!productId && open,
+  });
+
+  const isLoading = salesLoading || purchaseLoading || openingsLoading;
 
   const totalSold = salesHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
   const totalPurchased = purchaseHistory?.reduce((s, i) => s + (i.quantity || 0) + (i.free_quantity || 0), 0) || 0;
+  const totalOpening = openings?.reduce((s, o) => s + Number(o.opening_quantity || 0), 0) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,7 +82,7 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
           <DialogTitle>{productName} — Transaction History</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
             <TrendingDown className="h-5 w-5 text-primary" />
             <div>
@@ -76,6 +95,13 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
             <div>
               <p className="text-lg font-bold">{totalSold}</p>
               <p className="text-xs text-muted-foreground">Total Sold</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+            <Minus className="h-5 w-5 text-info" />
+            <div>
+              <p className="text-lg font-bold">{totalOpening}</p>
+              <p className="text-xs text-muted-foreground">Opening Balance</p>
             </div>
           </div>
         </div>
@@ -93,7 +119,11 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
               <TabsTrigger value="purchases" className="flex-1">
                 Purchases ({purchaseHistory?.length || 0})
               </TabsTrigger>
+              <TabsTrigger value="openings" className="flex-1">
+                Openings ({openings?.length || 0})
+              </TabsTrigger>
             </TabsList>
+
 
             <TabsContent value="sales">
               {salesHistory?.length === 0 ? (
@@ -164,6 +194,42 @@ export function ProductHistoryDialog({ open, onOpenChange, productId, productNam
                         </TableCell>
                         <TableCell className="text-right font-mono">₹{Number(item.unit_price).toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">₹{Number(item.total_price).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="openings">
+              {openings?.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">No opening balances recorded</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Financial Year</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Carried From</TableHead>
+                      <TableHead className="text-right">Opening Qty</TableHead>
+                      <TableHead className="text-right">Opening Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {openings?.map((o: any) => (
+                      <TableRow key={o.id}>
+                        <TableCell className="font-medium">
+                          {o.financial_year?.name || "—"}
+                          <Badge variant="outline" className="ml-2 text-xs">Opening</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {o.financial_year?.start_date
+                            ? `${format(new Date(o.financial_year.start_date), "dd/MM/yyyy")} – ${format(new Date(o.financial_year.end_date), "dd/MM/yyyy")}`
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm">{o.source_financial_year?.name || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-right font-mono">{Number(o.opening_quantity).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">₹{Number(o.opening_value).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -58,40 +58,42 @@ async function loadPastFys(companyId: string) {
   return data ?? [];
 }
 
-/** Sums qty per product across the given FY ids for a given order-line table. */
-async function aggregateLines(
-  table: "purchase_order_items" | "sales_order_items",
-  headerTable: "purchase_orders" | "sales_orders",
-  companyId: string,
-  fyIds: string[],
-): Promise<Map<string, number>> {
+async function aggregatePurchaseQty(companyId: string, fyIds: string[]): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
-  if (fyIds.length === 0) return totals;
-
+  if (!fyIds.length) return totals;
   const { data: headers } = await supabase
-    .from(headerTable)
-    .select("id")
-    .eq("company_id", companyId)
-    .in("financial_year_id", fyIds);
-  const headerIds = (headers ?? []).map((h) => h.id as string);
-  if (headerIds.length === 0) return totals;
-
-  // Chunk IN clauses.
+    .from("purchase_orders").select("id")
+    .eq("company_id", companyId).in("financial_year_id", fyIds);
+  const ids = (headers ?? []).map((h) => h.id as string);
   const CHUNK = 500;
-  const qtyCols = table === "purchase_order_items"
-    ? "product_id, quantity, free_quantity"
-    : "product_id, quantity";
-  const fkCol = table === "purchase_order_items" ? "purchase_order_id" : "sales_order_id";
-
-  for (let i = 0; i < headerIds.length; i += CHUNK) {
-    const slice = headerIds.slice(i, i + CHUNK);
+  for (let i = 0; i < ids.length; i += CHUNK) {
     const { data } = await supabase
-      .from(table)
-      .select(qtyCols)
-      .in(fkCol, slice);
-    for (const row of (data ?? []) as Array<{ product_id: string; quantity: number; free_quantity?: number }>) {
+      .from("purchase_order_items")
+      .select("product_id,quantity,free_quantity")
+      .in("purchase_order_id", ids.slice(i, i + CHUNK));
+    for (const row of (data ?? []) as unknown as Array<{ product_id: string; quantity: number; free_quantity?: number }>) {
       const q = (row.quantity ?? 0) + (row.free_quantity ?? 0);
       totals.set(row.product_id, (totals.get(row.product_id) ?? 0) + q);
+    }
+  }
+  return totals;
+}
+
+async function aggregateSalesQty(companyId: string, fyIds: string[]): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  if (!fyIds.length) return totals;
+  const { data: headers } = await supabase
+    .from("sales_orders").select("id")
+    .eq("company_id", companyId).in("financial_year_id", fyIds);
+  const ids = (headers ?? []).map((h) => h.id as string);
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { data } = await supabase
+      .from("sales_order_items")
+      .select("product_id,quantity")
+      .in("sales_order_id", ids.slice(i, i + CHUNK));
+    for (const row of (data ?? []) as unknown as Array<{ product_id: string; quantity: number }>) {
+      totals.set(row.product_id, (totals.get(row.product_id) ?? 0) + (row.quantity ?? 0));
     }
   }
   return totals;

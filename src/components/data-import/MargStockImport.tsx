@@ -18,13 +18,15 @@ import {
   importMargStock, stockUnmatchedToCsv,
   type StockImportResult,
 } from "@/services/margStockImport";
+import { FyImportBadge } from "@/components/data-import/FyImportBadge";
 
 type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 
 export function MargStockImport() {
   const { isSuperAdmin } = useAuth();
-  const { companyId: activeCompanyId } = useBusiness();
+  const { companyId: activeCompanyId, activeFinancialYearId, activeFinancialYear } = useBusiness();
   const { toast } = useToast();
+  const fyBlocked = !!activeFinancialYear && activeFinancialYear.status !== "active";
 
   const [stage, setStage] = useState<Stage>("idle");
   useUnloadGuard(stage === "importing");
@@ -63,11 +65,25 @@ export function MargStockImport() {
     if (!parsed || !targetCompanyId) {
       toast({ title: "Select a target company", variant: "destructive" }); return;
     }
+    if (fyBlocked) {
+      toast({
+        title: "Stock import blocked",
+        description: "Switch to the current (active) financial year to import stock.",
+        variant: "destructive",
+      });
+      return;
+    }
     setStage("importing");
     setProgress({ done: 0, total: parsed.rows.length });
     const r = await importMargStock(
       parsed.rows,
-      { companyId: targetCompanyId, overrideExisting: override, updateProductPrices: updatePrices, asOfDate },
+      {
+        companyId: targetCompanyId,
+        financialYearId: activeFinancialYearId,
+        overrideExisting: override,
+        updateProductPrices: updatePrices,
+        asOfDate,
+      },
       (done, total) => setProgress({ done, total }),
     );
     setResult(r); setStage("done");
@@ -75,7 +91,7 @@ export function MargStockImport() {
       title: "Stock import finished",
       description: `${r.productsMatched} products · ${r.batchesOpened} new batches · ${r.batchesUpdated} updated · ${r.batchesZeroed} zeroed`,
     });
-  }, [parsed, targetCompanyId, override, updatePrices, asOfDate, toast]);
+  }, [parsed, targetCompanyId, override, updatePrices, asOfDate, fyBlocked, activeFinancialYearId, toast]);
 
   const downloadUnmatched = useCallback(() => {
     if (!result) return;

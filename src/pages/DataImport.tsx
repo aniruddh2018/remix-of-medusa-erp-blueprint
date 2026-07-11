@@ -21,14 +21,7 @@ import { ValidationPreviewStep } from "@/components/data-import/ValidationPrevie
 import { ImportExecutionStep } from "@/components/data-import/ImportExecutionStep";
 import { ImportHistory as ImportHistoryTab } from "@/components/data-import/ImportHistory";
 import { TemplateSelector } from "@/components/data-import/TemplateSelector";
-import { MargListImport } from "@/components/data-import/MargListImport";
-import { MargMasterImport } from "@/components/data-import/MargMasterImport";
-import { MargSalesImport } from "@/components/data-import/MargSalesImport";
-import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
-import { MargStockImport } from "@/components/data-import/MargStockImport";
-import { MargPartyMasterImport } from "@/components/data-import/MargPartyMasterImport";
-import { MargDoctorMapImport } from "@/components/data-import/MargDoctorMapImport";
-import { ExistingDataGuard } from "@/components/data-import/ExistingDataGuard";
+import { MargImportHierarchy } from "@/components/data-import/MargImportHierarchy";
 
 import {
   detectSchemaClient,

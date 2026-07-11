@@ -44,7 +44,7 @@ export default function DataImport() {
   const company = companyId ? { id: companyId } : null;
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"import" | "marg" | "marg-master" | "marg-sales" | "marg-purchase" | "marg-stock" | "marg-parties" | "marg-doctors" | "history">("import");
+  const [activeTab, setActiveTab] = useState<"import" | "marg" | "history">("import");
   const [isImporting, setIsImporting] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
   const [detectedErp, setDetectedErp] = useState<string | null>(null);

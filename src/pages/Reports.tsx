@@ -50,13 +50,14 @@ const Reports = () => {
 
   // Fetch sales orders
   const { data: salesOrders = [] } = useQuery({
-    queryKey: ["sales-orders-report", companyId],
+    queryKey: ["sales-orders-report", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_orders")
         .select("*")
-        .eq("company_id", companyId!)
-        .order("sale_date", { ascending: true });
+        .eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("sale_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -65,16 +66,18 @@ const Reports = () => {
 
   // Fetch sales order items with product info
   const { data: salesItems = [] } = useQuery({
-    queryKey: ["sales-items-report", companyId],
+    queryKey: ["sales-items-report", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_order_items")
         .select(`
           *,
           product:products(name, purchase_price, sale_price),
-          sales_order:sales_orders(sale_date)
+          sales_order:sales_orders!inner(sale_date, financial_year_id)
         `)
         .eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("sales_order.financial_year_id", activeFinancialYearId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -83,16 +86,17 @@ const Reports = () => {
 
   // Fetch purchase orders
   const { data: purchaseOrders = [] } = useQuery({
-    queryKey: ["purchase-orders-report", companyId],
+    queryKey: ["purchase-orders-report", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("purchase_orders")
         .select(`
           *,
           supplier:suppliers(name)
         `)
-        .eq("company_id", companyId!)
-        .order("order_date", { ascending: true });
+        .eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("order_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -116,9 +120,9 @@ const Reports = () => {
 
   // Fetch inventory batches for total value (with product + supplier for breakdowns)
   const { data: inventoryBatches = [] } = useQuery({
-    queryKey: ["inventory-batches-report", companyId],
+    queryKey: ["inventory-batches-report", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("inventory_batches")
         .select(`
           quantity, purchase_price, mrp,
@@ -127,6 +131,8 @@ const Reports = () => {
         `)
         .eq("company_id", companyId!)
         .gt("quantity", 0);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as any[];
     },

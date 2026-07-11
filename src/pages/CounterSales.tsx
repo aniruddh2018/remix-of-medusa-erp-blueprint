@@ -101,7 +101,7 @@ const makeSlot = (id: number, defaultCustomer = "", defaultPayment = "cash"): Co
 export default function CounterSales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { config, companyId, gstInclusive } = useBusiness();
+  const { config, companyId, gstInclusive, activeFinancialYearId } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);

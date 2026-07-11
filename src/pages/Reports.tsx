@@ -20,7 +20,7 @@ type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
 
 const Reports = () => {
   const { isAdmin, loading } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const navigate = useNavigate();
 
   // Redirect non-admin users

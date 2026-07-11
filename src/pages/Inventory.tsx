@@ -58,7 +58,7 @@ interface AggregatedProduct {
 }
 
 export default function Inventory() {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);

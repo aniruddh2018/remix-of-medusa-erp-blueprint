@@ -57,18 +57,19 @@ interface CreditCustomersTabProps {
 }
 
 export function CreditCustomersTab({ compact = false }: CreditCustomersTabProps) {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const [search, setSearch] = useState("");
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ["credit-customers", companyId],
+    queryKey: ["credit-customers", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_orders")
         .select("id, invoice_number, customer_id, customer_name, customer_phone, total_amount, amount_paid, payment_status, due_date, sale_date, credit_period_days")
         .eq("company_id", companyId!)
-        .in("payment_status", ["credit", "partial"])
-        .order("due_date", { ascending: true, nullsFirst: false });
+        .in("payment_status", ["credit", "partial"]);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("due_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return (data || []) as CreditInvoice[];
     },

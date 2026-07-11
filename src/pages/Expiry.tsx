@@ -79,7 +79,7 @@ export default function Expiry() {
   const fetchExpiryItems = async () => {
     if (!companyId) return;
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from("inventory_batches")
         .select(`
           id,
@@ -93,8 +93,9 @@ export default function Expiry() {
           product:products(id, name, manufacturer)
         `)
         .eq("company_id", companyId)
-        .gt("quantity", 0)
-        .order("expiry_date", { ascending: true });
+        .gt("quantity", 0);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("expiry_date", { ascending: true });
 
       if (error) throw error;
       setItems(data as any || []);

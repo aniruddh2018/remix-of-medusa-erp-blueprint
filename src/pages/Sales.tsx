@@ -60,7 +60,7 @@ const salesFlow = ["product", "unit", "qty", "free", "rate", "discount", "fefo",
 export default function Sales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { config, companyId, gstInclusive } = useBusiness();
+  const { config, companyId, gstInclusive, activeFinancialYearId } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);

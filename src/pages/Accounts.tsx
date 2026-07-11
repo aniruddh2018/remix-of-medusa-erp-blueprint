@@ -77,7 +77,7 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 export default function Accounts() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -118,15 +118,16 @@ export default function Accounts() {
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: payments } = useQuery({
-    queryKey: ["payments", startDate, endDate, companyId],
+    queryKey: ["payments", startDate, endDate, companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("payments")
         .select("*")
         .eq("company_id", companyId!)
         .gte("payment_date", startDate.split("T")[0])
-        .lte("payment_date", endDate.split("T")[0])
-        .order("payment_date", { ascending: false });
+        .lte("payment_date", endDate.split("T")[0]);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -134,13 +135,14 @@ export default function Accounts() {
   });
 
   const { data: allPayments } = useQuery({
-    queryKey: ["all-payments", companyId],
+    queryKey: ["all-payments", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("payments")
         .select("*")
-        .eq("company_id", companyId!)
-        .order("payment_date", { ascending: false });
+        .eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -148,15 +150,16 @@ export default function Accounts() {
   });
 
   const { data: salesOrders } = useQuery({
-    queryKey: ["sales-orders-accounts", startDate, endDate, companyId],
+    queryKey: ["sales-orders-accounts", startDate, endDate, companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_orders")
         .select("id, invoice_number, customer_name, total_amount, sale_date, payment_method, status")
         .eq("company_id", companyId!)
         .gte("sale_date", startDate.split("T")[0])
-        .lte("sale_date", endDate.split("T")[0])
-        .order("sale_date", { ascending: false });
+        .lte("sale_date", endDate.split("T")[0]);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("sale_date", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -164,15 +167,16 @@ export default function Accounts() {
   });
 
   const { data: purchaseOrders } = useQuery({
-    queryKey: ["purchase-orders-accounts", startDate, endDate, companyId],
+    queryKey: ["purchase-orders-accounts", startDate, endDate, companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("purchase_orders")
         .select("id, order_number, invoice_number, challan_number, total_amount, order_date, status, supplier_id")
         .eq("company_id", companyId!)
         .gte("order_date", startDate.split("T")[0])
-        .lte("order_date", endDate.split("T")[0])
-        .order("order_date", { ascending: false });
+        .lte("order_date", endDate.split("T")[0]);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("order_date", { ascending: false });
       if (error) throw error;
       return data;
     },

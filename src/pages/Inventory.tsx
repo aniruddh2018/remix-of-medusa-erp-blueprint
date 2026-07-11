@@ -58,7 +58,7 @@ interface AggregatedProduct {
 }
 
 export default function Inventory() {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,15 +73,16 @@ export default function Inventory() {
   const fetchInventory = async () => {
     if (!companyId) return;
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from("inventory_batches")
         .select(`
           *,
           product:products(id, name, manufacturer, reorder_level, base_unit, unit),
           supplier:suppliers(name)
         `)
-        .eq("company_id", companyId)
-        .order("expiry_date", { ascending: true });
+        .eq("company_id", companyId);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("expiry_date", { ascending: true });
 
       if (error) throw error;
       setInventory(data as InventoryItem[] || []);
@@ -98,7 +99,7 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchInventory();
-  }, [companyId]);
+  }, [companyId, activeFinancialYearId]);
 
   // Aggregate intelligently: convert each batch's sealed packs (using ITS OWN pack_size)
   // to base units, then add loose. Batches with different pack_size stay independent.

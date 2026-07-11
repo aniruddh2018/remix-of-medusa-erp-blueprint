@@ -58,7 +58,7 @@ const purchaseFlow = ["product", "batch", "unit", "qty", "free", "rate", "mrp", 
 export default function PurchaseOrders() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { companyId, config, gstInclusive } = useBusiness();
+  const { companyId, config, gstInclusive, activeFinancialYearId } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -219,14 +219,15 @@ export default function PurchaseOrders() {
 
   // ── Queries ──
   const { data: purchaseOrders, isLoading } = useQuery({
-    queryKey: ["purchase-orders", companyId],
+    queryKey: ["purchase-orders", companyId, activeFinancialYearId],
     queryFn: async () => {
       // Fetch purchase orders and join with ledgers for supplier name
-      const { data: orders, error } = await supabase
+      let q = supabase
         .from("purchase_orders")
         .select("*")
-        .eq("company_id", companyId!)
-        .order("created_at", { ascending: false });
+        .eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data: orders, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       
       // Fetch supplier names from ledgers
@@ -247,13 +248,15 @@ export default function PurchaseOrders() {
   });
 
   const { data: poPayments } = useQuery({
-    queryKey: ["payments-purchase", companyId],
+    queryKey: ["payments-purchase", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("payments")
         .select("reference_id, amount")
         .eq("company_id", companyId!)
         .eq("reference_type", "purchase_order");
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

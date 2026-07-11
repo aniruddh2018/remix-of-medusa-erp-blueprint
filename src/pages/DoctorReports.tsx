@@ -12,18 +12,19 @@ import { Stethoscope, Pill, Search } from "lucide-react";
 import { format } from "date-fns";
 
 export function DoctorReports() {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const [search, setSearch] = useState("");
 
   const { data: salesByDoctor = [] } = useQuery({
-    queryKey: ["doctor-sales-report", companyId],
+    queryKey: ["doctor-sales-report", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_orders")
         .select("id, invoice_number, sale_date, customer_name, doctor_name, doctor_registration_number, total_amount")
         .eq("company_id", companyId!)
-        .not("doctor_name", "is", null)
-        .order("sale_date", { ascending: false });
+        .not("doctor_name", "is", null);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("sale_date", { ascending: false });
       if (error) throw error;
       return data;
     },

@@ -60,7 +60,7 @@ const salesFlow = ["product", "unit", "qty", "free", "rate", "discount", "fefo",
 export default function Sales() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { config, companyId, gstInclusive } = useBusiness();
+  const { config, companyId, gstInclusive, activeFinancialYearId } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -241,9 +241,11 @@ export default function Sales() {
   });
 
   const { data: salesOrders, isLoading } = useQuery({
-    queryKey: ["sales-orders", companyId],
+    queryKey: ["sales-orders", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sales_orders").select("*").eq("company_id", companyId!).order("created_at", { ascending: false });
+      let q = supabase.from("sales_orders").select("*").eq("company_id", companyId!);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       return data as SalesOrder[];
     },
@@ -251,9 +253,11 @@ export default function Sales() {
   });
 
   const { data: salesPayments } = useQuery({
-    queryKey: ["payments-sales", companyId],
+    queryKey: ["payments-sales", companyId, activeFinancialYearId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("payments").select("reference_id, amount").eq("company_id", companyId!).eq("reference_type", "sales_order");
+      let q = supabase.from("payments").select("reference_id, amount").eq("company_id", companyId!).eq("reference_type", "sales_order");
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

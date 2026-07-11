@@ -16,21 +16,22 @@ export interface OverdueInvoice {
 }
 
 export function useOverdueInvoices() {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const today = format(new Date(), "yyyy-MM-dd");
 
   return useQuery({
-    queryKey: ["overdue-invoices", companyId, today],
+    queryKey: ["overdue-invoices", companyId, today, activeFinancialYearId],
     queryFn: async (): Promise<OverdueInvoice[]> => {
       if (!companyId) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_orders")
         .select("id, invoice_number, customer_name, customer_phone, total_amount, amount_paid, due_date, payment_status, reminder_enabled")
         .eq("company_id", companyId)
         .in("payment_status", ["partial", "credit"])
         .not("due_date", "is", null)
-        .lte("due_date", today)
-        .order("due_date", { ascending: true });
+        .lte("due_date", today);
+      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      const { data, error } = await q.order("due_date", { ascending: true });
       if (error) throw error;
       return (data || []) as OverdueInvoice[];
     },

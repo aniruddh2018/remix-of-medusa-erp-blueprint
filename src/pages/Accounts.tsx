@@ -77,7 +77,7 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 export default function Accounts() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);

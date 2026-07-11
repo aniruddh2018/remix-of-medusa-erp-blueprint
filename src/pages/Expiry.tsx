@@ -158,7 +158,7 @@ export default function Expiry() {
   useEffect(() => {
     fetchExpiryItems();
     fetchLossSummary();
-  }, [companyId]);
+  }, [companyId, activeFinancialYearId]);
 
   const today = new Date();
 

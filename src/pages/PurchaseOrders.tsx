@@ -58,7 +58,7 @@ const purchaseFlow = ["product", "batch", "unit", "qty", "free", "rate", "mrp", 
 export default function PurchaseOrders() {
   const { toast } = useToast();
   const { user, isAdmin, isPharmacist } = useAuth();
-  const { companyId, config, gstInclusive } = useBusiness();
+  const { companyId, config, gstInclusive, activeFinancialYearId } = useBusiness();
   const { settings, maxDiscountAllowed } = useInvoiceSettings();
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);

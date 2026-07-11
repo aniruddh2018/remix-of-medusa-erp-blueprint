@@ -63,7 +63,7 @@ interface LossRow {
 type ExpiryFilter = "all" | "expired" | "30days" | "90days" | "180days";
 
 export default function Expiry() {
-  const { companyId } = useBusiness();
+  const { companyId, activeFinancialYearId } = useBusiness();
   const { toast } = useToast();
   const [items, setItems] = useState<ExpiryItem[]>([]);
   const [loading, setLoading] = useState(true);

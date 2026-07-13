@@ -51,32 +51,32 @@ const STEPS: StepDef[] = [
     Component: MargPartyMasterImport,
   },
   {
-    key: "doctors",
-    label: "3. Doctor Mapping",
-    description: "Bill ↔ Doctor mapping for prescription reports. Optional but recommended before sales.",
-    optional: true,
-    Component: MargDoctorMapImport,
-  },
-  {
-    key: "stock",
-    label: "4. Opening Stock (current FY only)",
-    description: "Current on-hand quantities & batches. Only allowed in the active financial year.",
-    guard: "stock",
-    Component: MargStockImport,
-  },
-  {
     key: "purchase",
-    label: "5. Purchase History",
-    description: "Historical purchase bills. FIFO-consumed against stock during reconciliation.",
+    label: "3. Purchase History",
+    description: "Historical purchase bills. Builds stock via FIFO — import before sales.",
     guard: "purchase",
     Component: MargPurchaseImport,
   },
   {
     key: "sales",
-    label: "6. Sales History",
-    description: "Historical sales bills. Import last — depends on products, parties, and stock.",
+    label: "4. Sales History",
+    description: "Historical sales bills. Depends on products, parties, and purchase-built stock.",
     guard: "sales",
     Component: MargSalesImport,
+  },
+  {
+    key: "doctors",
+    label: "5. Doctor Mapping",
+    description: "Bill ↔ Doctor mapping for prescription reports. Optional, can be done anytime after sales.",
+    optional: true,
+    Component: MargDoctorMapImport,
+  },
+  {
+    key: "stock",
+    label: "6. Opening Stock (current FY only)",
+    description: "Adjust current on-hand quantities & batches. Only allowed in the active financial year.",
+    guard: "stock",
+    Component: MargStockImport,
   },
 ];
 
@@ -161,7 +161,7 @@ export function MargImportHierarchy() {
           <Alert>
             <Info className="w-4 h-4" />
             <AlertDescription className="text-xs">
-              Dependency order: <strong>Products → Parties → Doctors → Stock → Purchases → Sales</strong>.
+              Dependency order: <strong>Products → Parties → Purchases → Sales → Doctors → Stock</strong>.
               Optional steps can be skipped without blocking the next step.
             </AlertDescription>
           </Alert>

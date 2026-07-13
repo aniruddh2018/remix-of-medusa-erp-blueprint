@@ -161,7 +161,7 @@ export function MargImportHierarchy() {
           <Alert>
             <Info className="w-4 h-4" />
             <AlertDescription className="text-xs">
-              Dependency order: <strong>Products → Parties → Doctors → Stock → Purchases → Sales</strong>.
+              Dependency order: <strong>Products → Parties → Purchases → Sales → Doctors → Stock</strong>.
               Optional steps can be skipped without blocking the next step.
             </AlertDescription>
           </Alert>

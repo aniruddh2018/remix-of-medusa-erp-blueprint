@@ -160,7 +160,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
       const { data, error } = await supabase
         .from("purchase_orders")
         .select(`*, suppliers(name)`)
-        .or(`order_number.ilike.%${orderSearch}%,challan_number.ilike.%${orderSearch}%,invoice_number.ilike.%${orderSearch}%`)
+        .or(`supplier_invoice_number.ilike.%${orderSearch}%,invoice_number.ilike.%${orderSearch}%,challan_number.ilike.%${orderSearch}%,order_number.ilike.%${orderSearch}%`)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;

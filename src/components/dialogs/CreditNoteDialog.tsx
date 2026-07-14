@@ -58,7 +58,8 @@ const RETURN_REASONS = [
   "Other",
 ];
 
-export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) {
+export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNoteDialogProps) {
+  const isEditing = !!editingNote;
   const { toast } = useToast();
   const { user } = useAuth();
   const { companyId } = useBusiness();

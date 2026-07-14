@@ -16,7 +16,7 @@ import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AICustomReport } from "@/components/reports/AICustomReport";
 
-type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
+type DateRange = "7days" | "30days" | "thisMonth" | "allTime" | "custom";
 
 const Reports = () => {
   const { isAdmin, loading } = useAuth();

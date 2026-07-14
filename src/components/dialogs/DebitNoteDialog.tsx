@@ -375,7 +375,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
               <Input id="supplier-name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Enter supplier name..." autoComplete="off" />
             </div>
             <div className="space-y-1 relative">
-              <Label htmlFor="order-search">Search Purchase Order (optional)</Label>
+              <Label htmlFor="order-search">Search Supplier Bill (optional)</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -383,7 +383,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
                   ref={orderSearchRef}
                   value={orderSearch}
                   onChange={(e) => { setOrderSearch(e.target.value); setSelectedOrder(null); setReturnItems([]); }}
-                  placeholder="Order / challan / invoice number..."
+                  placeholder="Supplier bill / invoice number..."
                   className="pl-9"
                   autoComplete="off"
                 />

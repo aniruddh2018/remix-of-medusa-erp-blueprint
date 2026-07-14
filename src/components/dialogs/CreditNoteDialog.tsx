@@ -373,10 +373,10 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-destructive font-bold">CN</span> Issue Credit Note
+            <span className="text-destructive font-bold">CN</span> {isEditing ? "Edit Credit Note" : "Issue Credit Note"}
           </DialogTitle>
           <DialogDescription>
-            Customer returns goods → inventory restored → credit issued
+            {isEditing ? "Update this credit note — inventory will be re-synced." : "Customer returns goods → inventory restored → credit issued"}
           </DialogDescription>
         </DialogHeader>
 

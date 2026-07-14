@@ -31,6 +31,8 @@ const Reports = () => {
   }, [isAdmin, loading, navigate]);
 
   const [dateRange, setDateRange] = useState<DateRange>("30days");
+  const [customStart, setCustomStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [customEnd, setCustomEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
 
   // Calculate date boundaries
   const dateFilter = useMemo(() => {
@@ -42,11 +44,16 @@ const Reports = () => {
         return { start: subDays(now, 30), end: now };
       case "thisMonth":
         return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "custom":
+        return {
+          start: customStart ? parseISO(customStart) : startOfMonth(now),
+          end: customEnd ? parseISO(customEnd) : endOfMonth(now),
+        };
       case "allTime":
       default:
         return { start: new Date(2020, 0, 1), end: now };
     }
-  }, [dateRange]);
+  }, [dateRange, customStart, customEnd]);
 
   // Fetch sales orders
   const { data: salesOrders = [] } = useQuery({

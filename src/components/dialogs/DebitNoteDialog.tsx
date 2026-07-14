@@ -267,29 +267,48 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
       if (!finalReason) throw new Error("Please select a reason for the return.");
       if (returnItems.length === 0) throw new Error("Please add at least one item to return.");
       if (!debitNoteNumber.trim()) throw new Error("Debit note number is required.");
-      const suppName = supplierName.trim() || (selectedOrder as any)?.suppliers?.name || "Unknown Supplier";
+      const so = selectedOrder as (PurchaseOrder & { supplier_invoice_number?: string | null; suppliers?: { name?: string } | null }) | null;
+      const suppName = supplierName.trim() || so?.suppliers?.name || editingNote?.supplier_name || "Unknown Supplier";
+      const originalNum =
+        so?.supplier_invoice_number ||
+        so?.invoice_number ||
+        so?.challan_number ||
+        so?.order_number ||
+        editingNote?.original_order_number ||
+        "MANUAL";
 
-      const { data: dn, error: dnError } = await supabase
-        .from("debit_notes")
-        .insert({
-          debit_note_number: debitNoteNumber.trim(),
-          original_order_id: selectedOrder?.id || null,
-          original_order_number: selectedOrder?.invoice_number || selectedOrder?.challan_number || selectedOrder?.order_number || "MANUAL",
-          supplier_id: selectedOrder?.supplier_id || null,
-          supplier_name: suppName,
-          reason: finalReason,
-          notes: notes || null,
-          total_amount: totalAmount,
-          gst_amount: totalGst,
-          status: "issued",
-          created_by: user?.id || null,
-          company_id: companyId,
-        })
-        .select().single();
-      if (dnError) throw dnError;
+      if (isEditing && editingNote) {
+        await supabase.from("debit_note_items").delete().eq("debit_note_id", editingNote.id);
+      }
+
+      const notePayload = {
+        debit_note_number: debitNoteNumber.trim(),
+        original_order_id: so?.id || editingNote?.original_order_id || null,
+        original_order_number: originalNum,
+        supplier_id: so?.supplier_id || editingNote?.supplier_id || null,
+        supplier_name: suppName,
+        reason: finalReason,
+        notes: notes || null,
+        total_amount: totalAmount,
+        gst_amount: totalGst,
+        status: "issued",
+        created_by: user?.id || null,
+        company_id: companyId,
+      };
+
+      let dnId: string;
+      if (isEditing && editingNote) {
+        const { error: upErr } = await supabase.from("debit_notes").update(notePayload).eq("id", editingNote.id);
+        if (upErr) throw upErr;
+        dnId = editingNote.id;
+      } else {
+        const { data: dn, error: dnError } = await supabase.from("debit_notes").insert(notePayload).select().single();
+        if (dnError) throw dnError;
+        dnId = dn.id;
+      }
 
       const items = returnItems.map((item) => ({
-        debit_note_id: dn.id,
+        debit_note_id: dnId,
         product_id: item.product_id,
         batch_id: item.batch_id,
         product_name: item.product_name,
@@ -303,14 +322,14 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
       }));
       const { error: itemsError } = await supabase.from("debit_note_items").insert(items);
       if (itemsError) throw itemsError;
-      return dn;
+      return dnId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["debit-notes"] });
-      toast({ title: "Debit Note Issued", description: `${debitNoteNumber} created successfully.` });
+      toast({ title: isEditing ? "Debit Note Updated" : "Debit Note Issued", description: `${debitNoteNumber} saved.` });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });

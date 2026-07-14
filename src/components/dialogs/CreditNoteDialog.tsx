@@ -651,7 +651,7 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
             data-enter-nav-include="true"
           >
             {createCreditNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Issue Credit Note (Ctrl+Enter)
+            {isEditing ? "Update Credit Note (Ctrl+Enter)" : "Issue Credit Note (Ctrl+Enter)"}
           </Button>
         </DialogFooter>
       </DialogContent>

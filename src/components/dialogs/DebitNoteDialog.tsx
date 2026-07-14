@@ -186,7 +186,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
 
   const handleSelectOrder = (order: any) => {
     setSelectedOrder(order);
-    const displayNum = order.invoice_number || order.challan_number || order.order_number;
+    const displayNum = order.supplier_invoice_number || order.invoice_number || order.challan_number || order.order_number;
     setOrderSearch(displayNum);
     setSupplierName(order.suppliers?.name || "");
     setReturnItems([]);

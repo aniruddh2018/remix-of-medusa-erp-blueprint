@@ -45,6 +45,7 @@ interface ReturnItem {
 interface CreditNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingNote?: Tables<"credit_notes"> | null;
 }
 
 const RETURN_REASONS = [

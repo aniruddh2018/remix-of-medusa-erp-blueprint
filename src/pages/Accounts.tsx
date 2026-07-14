@@ -490,14 +490,23 @@ export default function Accounts() {
           <h1 className="text-2xl font-bold">Accounts</h1>
           <p className="text-muted-foreground">Payments, ledgers, outstanding balances & GST summary</p>
         </div>
-        <Select value={monthRange} onValueChange={setMonthRange}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={monthRange} onValueChange={setMonthRange}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {monthRange === "custom" && (
+            <>
+              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-40" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-40" />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}

@@ -379,17 +379,27 @@ const Reports = () => {
           title="Reports & Analytics"
           description="Business insights and performance metrics"
         />
-        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7days">Last 7 Days</SelectItem>
-            <SelectItem value="30days">Last 30 Days</SelectItem>
-            <SelectItem value="thisMonth">This Month</SelectItem>
-            <SelectItem value="allTime">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7days">Last 7 Days</SelectItem>
+              <SelectItem value="30days">Last 30 Days</SelectItem>
+              <SelectItem value="thisMonth">This Month</SelectItem>
+              <SelectItem value="allTime">All Time</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+          {dateRange === "custom" && (
+            <>
+              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-40" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-40" />
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

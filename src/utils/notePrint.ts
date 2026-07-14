@@ -13,10 +13,18 @@ interface CompanyLite {
 async function loadCompany(companyId: string): Promise<CompanyLite> {
   const { data } = await supabase
     .from("invoice_settings")
-    .select("company_name, company_address, gstin, phone, email")
+    .select("company_name, company_address, company_gstin, phone, email")
     .eq("company_id", companyId)
     .maybeSingle();
-  return (data as CompanyLite) || { company_name: "" };
+  if (!data) return { company_name: "" };
+  const d = data as Record<string, unknown>;
+  return {
+    company_name: String(d.company_name ?? ""),
+    company_address: (d.company_address as string) ?? null,
+    gstin: (d.company_gstin as string) ?? null,
+    phone: (d.phone as string) ?? null,
+    email: (d.email as string) ?? null,
+  };
 }
 
 function esc(v: unknown): string {

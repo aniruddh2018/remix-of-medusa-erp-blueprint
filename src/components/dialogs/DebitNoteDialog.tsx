@@ -88,12 +88,38 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
 
   useEffect(() => {
     if (open) {
-      setDebitNoteNumber(`DN-${Date.now()}`);
+      if (editingNote) {
+        setDebitNoteNumber(editingNote.debit_note_number);
+        setSupplierName(editingNote.supplier_name || "");
+        setOrderSearch(editingNote.original_order_number || "");
+        setReason(RETURN_REASONS.includes(editingNote.reason as string) ? editingNote.reason as string : "Other");
+        if (!RETURN_REASONS.includes(editingNote.reason as string)) setCustomReason(editingNote.reason as string || "");
+        setNotes(editingNote.notes || "");
+        supabase.from("debit_note_items").select("*").eq("debit_note_id", editingNote.id).then(({ data }) => {
+          if (data) {
+            setReturnItems(data.map((it) => ({
+              product_id: it.product_id,
+              batch_id: it.batch_id ?? null,
+              product_name: it.product_name,
+              batch_number: it.batch_number || "-",
+              original_qty: it.quantity,
+              quantity: it.quantity,
+              unit_price: Number(it.unit_price),
+              gst_percentage: Number(it.gst_percentage),
+              discount_percentage: Number(it.discount_percentage),
+              total_price: Number(it.total_price),
+            })));
+          }
+        });
+      } else {
+        setDebitNoteNumber(`DN-${Date.now()}`);
+      }
       setTimeout(() => orderSearchRef.current?.focus(), 100);
     } else {
       reset();
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingNote?.id]);
 
   // Ctrl+Enter to submit
   useEffect(() => {

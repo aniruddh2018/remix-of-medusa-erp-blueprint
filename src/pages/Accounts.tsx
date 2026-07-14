@@ -53,6 +53,7 @@ const MONTHS = [
   { label: "Last 3 Months", value: "3" },
   { label: "Last 6 Months", value: "6" },
   { label: "This Year", value: "12" },
+  { label: "Custom Range", value: "custom" },
 ];
 
 const ROLE_COLORS: Record<string, string> = {

@@ -57,7 +57,8 @@ const RETURN_REASONS = [
   "Other",
 ];
 
-export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
+export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDialogProps) {
+  const isEditing = !!editingNote;
   const { toast } = useToast();
   const { user } = useAuth();
   const { companyId } = useBusiness();

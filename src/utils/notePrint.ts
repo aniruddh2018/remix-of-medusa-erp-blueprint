@@ -22,8 +22,8 @@ async function loadCompany(companyId: string): Promise<CompanyLite> {
     company_name: String(d.company_name ?? ""),
     company_address: (d.company_address as string) ?? null,
     gstin: (d.company_gstin as string) ?? null,
-    phone: (d.phone as string) ?? null,
-    email: (d.email as string) ?? null,
+    phone: (d.company_phone as string) ?? null,
+    email: (d.company_email as string) ?? null,
   };
 }
 

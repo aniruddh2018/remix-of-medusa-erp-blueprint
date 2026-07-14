@@ -109,6 +109,11 @@ export default function Accounts() {
   // Date filter
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
+    if (monthRange === "custom") {
+      const s = customStart ? new Date(customStart) : startOfMonth(now);
+      const e = customEnd ? new Date(customEnd) : endOfMonth(now);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
     const months = parseInt(monthRange);
     if (months === 0) {
       return { startDate: startOfMonth(now).toISOString(), endDate: endOfMonth(now).toISOString() };
@@ -117,7 +122,7 @@ export default function Accounts() {
       return { startDate: new Date(now.getFullYear(), 0, 1).toISOString(), endDate: endOfMonth(now).toISOString() };
     }
     return { startDate: subMonths(startOfMonth(now), months - 1).toISOString(), endDate: endOfMonth(now).toISOString() };
-  }, [monthRange]);
+  }, [monthRange, customStart, customEnd]);
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: payments } = useQuery({

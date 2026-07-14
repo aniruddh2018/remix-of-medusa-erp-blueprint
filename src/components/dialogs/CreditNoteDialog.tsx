@@ -90,12 +90,39 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
 
   useEffect(() => {
     if (open) {
-      setCreditNoteNumber(`CN-${Date.now()}`);
+      if (editingNote) {
+        setCreditNoteNumber(editingNote.credit_note_number);
+        setCustomerName(editingNote.customer_name || "");
+        setInvoiceSearch(editingNote.original_invoice_number || "");
+        setReason(RETURN_REASONS.includes(editingNote.reason as string) ? editingNote.reason as string : "Other");
+        if (!RETURN_REASONS.includes(editingNote.reason as string)) setCustomReason(editingNote.reason as string || "");
+        setNotes(editingNote.notes || "");
+        // Load existing items
+        supabase.from("credit_note_items").select("*").eq("credit_note_id", editingNote.id).then(({ data }) => {
+          if (data) {
+            setReturnItems(data.map((it) => ({
+              product_id: it.product_id,
+              batch_id: it.batch_id || "",
+              product_name: it.product_name,
+              batch_number: it.batch_number || "-",
+              original_qty: it.quantity,
+              quantity: it.quantity,
+              unit_price: Number(it.unit_price),
+              gst_percentage: Number(it.gst_percentage),
+              discount_percentage: Number(it.discount_percentage),
+              total_price: Number(it.total_price),
+            })));
+          }
+        });
+      } else {
+        setCreditNoteNumber(`CN-${Date.now()}`);
+      }
       setTimeout(() => invoiceSearchRef.current?.focus(), 100);
     } else {
       reset();
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingNote?.id]);
 
   // Ctrl+Enter to submit
   useEffect(() => {

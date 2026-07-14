@@ -7,6 +7,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
@@ -16,7 +17,7 @@ import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AICustomReport } from "@/components/reports/AICustomReport";
 
-type DateRange = "7days" | "30days" | "thisMonth" | "allTime";
+type DateRange = "7days" | "30days" | "thisMonth" | "allTime" | "custom";
 
 const Reports = () => {
   const { isAdmin, loading } = useAuth();
@@ -31,6 +32,8 @@ const Reports = () => {
   }, [isAdmin, loading, navigate]);
 
   const [dateRange, setDateRange] = useState<DateRange>("30days");
+  const [customStart, setCustomStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [customEnd, setCustomEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
 
   // Calculate date boundaries
   const dateFilter = useMemo(() => {
@@ -42,11 +45,16 @@ const Reports = () => {
         return { start: subDays(now, 30), end: now };
       case "thisMonth":
         return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "custom":
+        return {
+          start: customStart ? parseISO(customStart) : startOfMonth(now),
+          end: customEnd ? parseISO(customEnd) : endOfMonth(now),
+        };
       case "allTime":
       default:
         return { start: new Date(2020, 0, 1), end: now };
     }
-  }, [dateRange]);
+  }, [dateRange, customStart, customEnd]);
 
   // Fetch sales orders
   const { data: salesOrders = [] } = useQuery({
@@ -372,17 +380,27 @@ const Reports = () => {
           title="Reports & Analytics"
           description="Business insights and performance metrics"
         />
-        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7days">Last 7 Days</SelectItem>
-            <SelectItem value="30days">Last 30 Days</SelectItem>
-            <SelectItem value="thisMonth">This Month</SelectItem>
-            <SelectItem value="allTime">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7days">Last 7 Days</SelectItem>
+              <SelectItem value="30days">Last 30 Days</SelectItem>
+              <SelectItem value="thisMonth">This Month</SelectItem>
+              <SelectItem value="allTime">All Time</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+          {dateRange === "custom" && (
+            <>
+              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-40" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-40" />
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

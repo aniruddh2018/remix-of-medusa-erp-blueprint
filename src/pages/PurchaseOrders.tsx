@@ -230,18 +230,23 @@ export default function PurchaseOrders() {
       const { data: orders, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       
-      // Fetch supplier names from ledgers
+      // Fetch supplier names from suppliers table (primary) and ledgers (fallback)
       const supplierIds = [...new Set((orders || []).map(o => o.supplier_id).filter(Boolean))];
-      const { data: ledgers } = supplierIds.length > 0 
-        ? await supabase.from("ledgers").select("id, name").in("id", supplierIds)
-        : { data: [] };
-      
-      const ledgerMap = new Map((ledgers || []).map(l => [l.id, l.name]));
-      
+      const [suppliersRes, ledgersRes] = supplierIds.length > 0
+        ? await Promise.all([
+            supabase.from("suppliers").select("id, name").in("id", supplierIds),
+            supabase.from("ledgers").select("id, name").in("id", supplierIds),
+          ])
+        : [{ data: [] as { id: string; name: string }[] }, { data: [] as { id: string; name: string }[] }];
+
+      const nameMap = new Map<string, string>();
+      for (const l of ledgersRes.data || []) nameMap.set(l.id, l.name);
+      for (const s of suppliersRes.data || []) nameMap.set(s.id, s.name); // suppliers wins
+
       // Attach supplier names to orders
       return (orders || []).map(order => ({
         ...order,
-        suppliers: { name: ledgerMap.get(order.supplier_id) || "Unknown" }
+        suppliers: { name: nameMap.get(order.supplier_id) || "Unknown" }
       }));
     },
     enabled: !!companyId,

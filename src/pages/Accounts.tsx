@@ -53,6 +53,7 @@ const MONTHS = [
   { label: "Last 3 Months", value: "3" },
   { label: "Last 6 Months", value: "6" },
   { label: "This Year", value: "12" },
+  { label: "Custom Range", value: "custom" },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -84,6 +85,8 @@ export default function Accounts() {
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   const [monthRange, setMonthRange] = useState("0");
+  const [customStart, setCustomStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [customEnd, setCustomEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [expandedLedger, setExpandedLedger] = useState<string | null>(null);
   const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);
   const [ledgerRoleFilter, setLedgerRoleFilter] = useState<string>("all");
@@ -106,6 +109,11 @@ export default function Accounts() {
   // Date filter
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
+    if (monthRange === "custom") {
+      const s = customStart ? new Date(customStart) : startOfMonth(now);
+      const e = customEnd ? new Date(customEnd) : endOfMonth(now);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
     const months = parseInt(monthRange);
     if (months === 0) {
       return { startDate: startOfMonth(now).toISOString(), endDate: endOfMonth(now).toISOString() };
@@ -114,7 +122,7 @@ export default function Accounts() {
       return { startDate: new Date(now.getFullYear(), 0, 1).toISOString(), endDate: endOfMonth(now).toISOString() };
     }
     return { startDate: subMonths(startOfMonth(now), months - 1).toISOString(), endDate: endOfMonth(now).toISOString() };
-  }, [monthRange]);
+  }, [monthRange, customStart, customEnd]);
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: payments } = useQuery({
@@ -482,14 +490,23 @@ export default function Accounts() {
           <h1 className="text-2xl font-bold">Accounts</h1>
           <p className="text-muted-foreground">Payments, ledgers, outstanding balances & GST summary</p>
         </div>
-        <Select value={monthRange} onValueChange={setMonthRange}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={monthRange} onValueChange={setMonthRange}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {monthRange === "custom" && (
+            <>
+              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-40" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-40" />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}

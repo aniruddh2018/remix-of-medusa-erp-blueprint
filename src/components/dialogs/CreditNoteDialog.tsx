@@ -272,29 +272,49 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
       if (!finalReason) throw new Error("Please select a reason for the return.");
       if (returnItems.length === 0) throw new Error("Please add at least one item to return.");
       if (!creditNoteNumber.trim()) throw new Error("Credit note number is required.");
-      const custName = customerName.trim() || selectedInvoice?.customer_name || "Unknown";
+      const custName = customerName.trim() || selectedInvoice?.customer_name || editingNote?.customer_name || "Unknown";
 
-      const { data: cn, error: cnError } = await supabase
-        .from("credit_notes")
-        .insert({
-          credit_note_number: creditNoteNumber.trim(),
-          original_invoice_id: selectedInvoice?.id || null,
-          original_invoice_number: selectedInvoice?.invoice_number || "MANUAL",
-          customer_name: custName,
-          customer_phone: selectedInvoice?.customer_phone || null,
-          reason: finalReason,
-          notes: notes || null,
-          total_amount: totalAmount,
-          gst_amount: totalGst,
-          status: "issued",
-          created_by: user?.id || null,
-          company_id: companyId,
-        })
-        .select().single();
-      if (cnError) throw cnError;
+      // EDIT MODE: reverse old inventory & remove old items first
+      if (isEditing && editingNote) {
+        const { data: oldItems } = await supabase
+          .from("credit_note_items").select("batch_id, quantity").eq("credit_note_id", editingNote.id);
+        for (const oi of oldItems || []) {
+          if (oi.batch_id) {
+            const { data: b } = await supabase.from("inventory_batches").select("quantity").eq("id", oi.batch_id).single();
+            if (b) await supabase.from("inventory_batches").update({ quantity: Math.max(0, (b.quantity || 0) - Number(oi.quantity)) }).eq("id", oi.batch_id);
+          }
+        }
+        await supabase.from("credit_note_items").delete().eq("credit_note_id", editingNote.id);
+      }
+
+      const notePayload = {
+        credit_note_number: creditNoteNumber.trim(),
+        original_invoice_id: selectedInvoice?.id || editingNote?.original_invoice_id || null,
+        original_invoice_number: selectedInvoice?.invoice_number || editingNote?.original_invoice_number || "MANUAL",
+        customer_name: custName,
+        customer_phone: selectedInvoice?.customer_phone || editingNote?.customer_phone || null,
+        reason: finalReason,
+        notes: notes || null,
+        total_amount: totalAmount,
+        gst_amount: totalGst,
+        status: "issued",
+        created_by: user?.id || null,
+        company_id: companyId,
+      };
+
+      let cnId: string;
+      if (isEditing && editingNote) {
+        const { error: upErr } = await supabase.from("credit_notes").update(notePayload).eq("id", editingNote.id);
+        if (upErr) throw upErr;
+        cnId = editingNote.id;
+      } else {
+        const { data: cn, error: cnError } = await supabase.from("credit_notes").insert(notePayload).select().single();
+        if (cnError) throw cnError;
+        cnId = cn.id;
+      }
 
       const items = returnItems.map((item) => ({
-        credit_note_id: cn.id,
+        credit_note_id: cnId,
         product_id: item.product_id,
         batch_id: item.batch_id || null,
         product_name: item.product_name,
@@ -314,19 +334,19 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
         if (item.batch_id) {
           const { data: batch } = await supabase.from("inventory_batches").select("quantity").eq("id", item.batch_id).single();
           if (batch) {
-            await supabase.from("inventory_batches").update({ quantity: batch.quantity + item.quantity }).eq("id", item.batch_id);
+            await supabase.from("inventory_batches").update({ quantity: (batch.quantity || 0) + item.quantity }).eq("id", item.batch_id);
           }
         }
       }
-      return cn;
+      return cnId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit-notes"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
-      toast({ title: "Credit Note Issued", description: `${creditNoteNumber} created. Inventory restored.` });
+      toast({ title: isEditing ? "Credit Note Updated" : "Credit Note Issued", description: `${creditNoteNumber} saved.` });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });

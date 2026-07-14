@@ -44,6 +44,7 @@ interface ReturnItem {
 interface DebitNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingNote?: Tables<"debit_notes"> | null;
 }
 
 const RETURN_REASONS = [

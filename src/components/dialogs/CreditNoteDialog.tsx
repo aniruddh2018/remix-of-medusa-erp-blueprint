@@ -45,6 +45,7 @@ interface ReturnItem {
 interface CreditNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingNote?: Tables<"credit_notes"> | null;
 }
 
 const RETURN_REASONS = [
@@ -57,7 +58,8 @@ const RETURN_REASONS = [
   "Other",
 ];
 
-export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) {
+export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNoteDialogProps) {
+  const isEditing = !!editingNote;
   const { toast } = useToast();
   const { user } = useAuth();
   const { companyId } = useBusiness();
@@ -88,12 +90,39 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
 
   useEffect(() => {
     if (open) {
-      setCreditNoteNumber(`CN-${Date.now()}`);
+      if (editingNote) {
+        setCreditNoteNumber(editingNote.credit_note_number);
+        setCustomerName(editingNote.customer_name || "");
+        setInvoiceSearch(editingNote.original_invoice_number || "");
+        setReason(RETURN_REASONS.includes(editingNote.reason as string) ? editingNote.reason as string : "Other");
+        if (!RETURN_REASONS.includes(editingNote.reason as string)) setCustomReason(editingNote.reason as string || "");
+        setNotes(editingNote.notes || "");
+        // Load existing items
+        supabase.from("credit_note_items").select("*").eq("credit_note_id", editingNote.id).then(({ data }) => {
+          if (data) {
+            setReturnItems(data.map((it) => ({
+              product_id: it.product_id,
+              batch_id: it.batch_id || "",
+              product_name: it.product_name,
+              batch_number: it.batch_number || "-",
+              original_qty: it.quantity,
+              quantity: it.quantity,
+              unit_price: Number(it.unit_price),
+              gst_percentage: Number(it.gst_percentage),
+              discount_percentage: Number(it.discount_percentage),
+              total_price: Number(it.total_price),
+            })));
+          }
+        });
+      } else {
+        setCreditNoteNumber(`CN-${Date.now()}`);
+      }
       setTimeout(() => invoiceSearchRef.current?.focus(), 100);
     } else {
       reset();
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingNote?.id]);
 
   // Ctrl+Enter to submit
   useEffect(() => {
@@ -243,29 +272,49 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
       if (!finalReason) throw new Error("Please select a reason for the return.");
       if (returnItems.length === 0) throw new Error("Please add at least one item to return.");
       if (!creditNoteNumber.trim()) throw new Error("Credit note number is required.");
-      const custName = customerName.trim() || selectedInvoice?.customer_name || "Unknown";
+      const custName = customerName.trim() || selectedInvoice?.customer_name || editingNote?.customer_name || "Unknown";
 
-      const { data: cn, error: cnError } = await supabase
-        .from("credit_notes")
-        .insert({
-          credit_note_number: creditNoteNumber.trim(),
-          original_invoice_id: selectedInvoice?.id || null,
-          original_invoice_number: selectedInvoice?.invoice_number || "MANUAL",
-          customer_name: custName,
-          customer_phone: selectedInvoice?.customer_phone || null,
-          reason: finalReason,
-          notes: notes || null,
-          total_amount: totalAmount,
-          gst_amount: totalGst,
-          status: "issued",
-          created_by: user?.id || null,
-          company_id: companyId,
-        })
-        .select().single();
-      if (cnError) throw cnError;
+      // EDIT MODE: reverse old inventory & remove old items first
+      if (isEditing && editingNote) {
+        const { data: oldItems } = await supabase
+          .from("credit_note_items").select("batch_id, quantity").eq("credit_note_id", editingNote.id);
+        for (const oi of oldItems || []) {
+          if (oi.batch_id) {
+            const { data: b } = await supabase.from("inventory_batches").select("quantity").eq("id", oi.batch_id).single();
+            if (b) await supabase.from("inventory_batches").update({ quantity: Math.max(0, (b.quantity || 0) - Number(oi.quantity)) }).eq("id", oi.batch_id);
+          }
+        }
+        await supabase.from("credit_note_items").delete().eq("credit_note_id", editingNote.id);
+      }
+
+      const notePayload = {
+        credit_note_number: creditNoteNumber.trim(),
+        original_invoice_id: selectedInvoice?.id || editingNote?.original_invoice_id || null,
+        original_invoice_number: selectedInvoice?.invoice_number || editingNote?.original_invoice_number || "MANUAL",
+        customer_name: custName,
+        customer_phone: selectedInvoice?.customer_phone || editingNote?.customer_phone || null,
+        reason: finalReason,
+        notes: notes || null,
+        total_amount: totalAmount,
+        gst_amount: totalGst,
+        status: "issued",
+        created_by: user?.id || null,
+        company_id: companyId,
+      };
+
+      let cnId: string;
+      if (isEditing && editingNote) {
+        const { error: upErr } = await supabase.from("credit_notes").update(notePayload).eq("id", editingNote.id);
+        if (upErr) throw upErr;
+        cnId = editingNote.id;
+      } else {
+        const { data: cn, error: cnError } = await supabase.from("credit_notes").insert(notePayload).select().single();
+        if (cnError) throw cnError;
+        cnId = cn.id;
+      }
 
       const items = returnItems.map((item) => ({
-        credit_note_id: cn.id,
+        credit_note_id: cnId,
         product_id: item.product_id,
         batch_id: item.batch_id || null,
         product_name: item.product_name,
@@ -285,19 +334,19 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
         if (item.batch_id) {
           const { data: batch } = await supabase.from("inventory_batches").select("quantity").eq("id", item.batch_id).single();
           if (batch) {
-            await supabase.from("inventory_batches").update({ quantity: batch.quantity + item.quantity }).eq("id", item.batch_id);
+            await supabase.from("inventory_batches").update({ quantity: (batch.quantity || 0) + item.quantity }).eq("id", item.batch_id);
           }
         }
       }
-      return cn;
+      return cnId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit-notes"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-batches"] });
-      toast({ title: "Credit Note Issued", description: `${creditNoteNumber} created. Inventory restored.` });
+      toast({ title: isEditing ? "Credit Note Updated" : "Credit Note Issued", description: `${creditNoteNumber} saved.` });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
@@ -324,10 +373,10 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-destructive font-bold">CN</span> Issue Credit Note
+            <span className="text-destructive font-bold">CN</span> {isEditing ? "Edit Credit Note" : "Issue Credit Note"}
           </DialogTitle>
           <DialogDescription>
-            Customer returns goods → inventory restored → credit issued
+            {isEditing ? "Update this credit note — inventory will be re-synced." : "Customer returns goods → inventory restored → credit issued"}
           </DialogDescription>
         </DialogHeader>
 
@@ -602,7 +651,7 @@ export function CreditNoteDialog({ open, onOpenChange }: CreditNoteDialogProps) 
             data-enter-nav-include="true"
           >
             {createCreditNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Issue Credit Note (Ctrl+Enter)
+            {isEditing ? "Update Credit Note (Ctrl+Enter)" : "Issue Credit Note (Ctrl+Enter)"}
           </Button>
         </DialogFooter>
       </DialogContent>

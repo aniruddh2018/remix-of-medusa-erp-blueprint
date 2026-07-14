@@ -44,6 +44,7 @@ interface ReturnItem {
 interface DebitNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingNote?: Tables<"debit_notes"> | null;
 }
 
 const RETURN_REASONS = [
@@ -56,7 +57,8 @@ const RETURN_REASONS = [
   "Other",
 ];
 
-export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
+export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDialogProps) {
+  const isEditing = !!editingNote;
   const { toast } = useToast();
   const { user } = useAuth();
   const { companyId } = useBusiness();
@@ -86,12 +88,38 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
 
   useEffect(() => {
     if (open) {
-      setDebitNoteNumber(`DN-${Date.now()}`);
+      if (editingNote) {
+        setDebitNoteNumber(editingNote.debit_note_number);
+        setSupplierName(editingNote.supplier_name || "");
+        setOrderSearch(editingNote.original_order_number || "");
+        setReason(RETURN_REASONS.includes(editingNote.reason as string) ? editingNote.reason as string : "Other");
+        if (!RETURN_REASONS.includes(editingNote.reason as string)) setCustomReason(editingNote.reason as string || "");
+        setNotes(editingNote.notes || "");
+        supabase.from("debit_note_items").select("*").eq("debit_note_id", editingNote.id).then(({ data }) => {
+          if (data) {
+            setReturnItems(data.map((it) => ({
+              product_id: it.product_id,
+              batch_id: it.batch_id ?? null,
+              product_name: it.product_name,
+              batch_number: it.batch_number || "-",
+              original_qty: it.quantity,
+              quantity: it.quantity,
+              unit_price: Number(it.unit_price),
+              gst_percentage: Number(it.gst_percentage),
+              discount_percentage: Number(it.discount_percentage),
+              total_price: Number(it.total_price),
+            })));
+          }
+        });
+      } else {
+        setDebitNoteNumber(`DN-${Date.now()}`);
+      }
       setTimeout(() => orderSearchRef.current?.focus(), 100);
     } else {
       reset();
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingNote?.id]);
 
   // Ctrl+Enter to submit
   useEffect(() => {
@@ -132,7 +160,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       const { data, error } = await supabase
         .from("purchase_orders")
         .select(`*, suppliers(name)`)
-        .or(`order_number.ilike.%${orderSearch}%,challan_number.ilike.%${orderSearch}%,invoice_number.ilike.%${orderSearch}%`)
+        .or(`supplier_invoice_number.ilike.%${orderSearch}%,invoice_number.ilike.%${orderSearch}%,challan_number.ilike.%${orderSearch}%,order_number.ilike.%${orderSearch}%`)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
@@ -158,7 +186,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
 
   const handleSelectOrder = (order: any) => {
     setSelectedOrder(order);
-    const displayNum = order.invoice_number || order.challan_number || order.order_number;
+    const displayNum = order.supplier_invoice_number || order.invoice_number || order.challan_number || order.order_number;
     setOrderSearch(displayNum);
     setSupplierName(order.suppliers?.name || "");
     setReturnItems([]);
@@ -239,29 +267,48 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       if (!finalReason) throw new Error("Please select a reason for the return.");
       if (returnItems.length === 0) throw new Error("Please add at least one item to return.");
       if (!debitNoteNumber.trim()) throw new Error("Debit note number is required.");
-      const suppName = supplierName.trim() || (selectedOrder as any)?.suppliers?.name || "Unknown Supplier";
+      const so = selectedOrder as (PurchaseOrder & { supplier_invoice_number?: string | null; suppliers?: { name?: string } | null }) | null;
+      const suppName = supplierName.trim() || so?.suppliers?.name || editingNote?.supplier_name || "Unknown Supplier";
+      const originalNum =
+        so?.supplier_invoice_number ||
+        so?.invoice_number ||
+        so?.challan_number ||
+        so?.order_number ||
+        editingNote?.original_order_number ||
+        "MANUAL";
 
-      const { data: dn, error: dnError } = await supabase
-        .from("debit_notes")
-        .insert({
-          debit_note_number: debitNoteNumber.trim(),
-          original_order_id: selectedOrder?.id || null,
-          original_order_number: selectedOrder?.invoice_number || selectedOrder?.challan_number || selectedOrder?.order_number || "MANUAL",
-          supplier_id: selectedOrder?.supplier_id || null,
-          supplier_name: suppName,
-          reason: finalReason,
-          notes: notes || null,
-          total_amount: totalAmount,
-          gst_amount: totalGst,
-          status: "issued",
-          created_by: user?.id || null,
-          company_id: companyId,
-        })
-        .select().single();
-      if (dnError) throw dnError;
+      if (isEditing && editingNote) {
+        await supabase.from("debit_note_items").delete().eq("debit_note_id", editingNote.id);
+      }
+
+      const notePayload = {
+        debit_note_number: debitNoteNumber.trim(),
+        original_order_id: so?.id || editingNote?.original_order_id || null,
+        original_order_number: originalNum,
+        supplier_id: so?.supplier_id || editingNote?.supplier_id || null,
+        supplier_name: suppName,
+        reason: finalReason,
+        notes: notes || null,
+        total_amount: totalAmount,
+        gst_amount: totalGst,
+        status: "issued",
+        created_by: user?.id || null,
+        company_id: companyId,
+      };
+
+      let dnId: string;
+      if (isEditing && editingNote) {
+        const { error: upErr } = await supabase.from("debit_notes").update(notePayload).eq("id", editingNote.id);
+        if (upErr) throw upErr;
+        dnId = editingNote.id;
+      } else {
+        const { data: dn, error: dnError } = await supabase.from("debit_notes").insert(notePayload).select().single();
+        if (dnError) throw dnError;
+        dnId = dn.id;
+      }
 
       const items = returnItems.map((item) => ({
-        debit_note_id: dn.id,
+        debit_note_id: dnId,
         product_id: item.product_id,
         batch_id: item.batch_id,
         product_name: item.product_name,
@@ -275,14 +322,14 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       }));
       const { error: itemsError } = await supabase.from("debit_note_items").insert(items);
       if (itemsError) throw itemsError;
-      return dn;
+      return dnId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["debit-notes"] });
-      toast({ title: "Debit Note Issued", description: `${debitNoteNumber} created successfully.` });
+      toast({ title: isEditing ? "Debit Note Updated" : "Debit Note Issued", description: `${debitNoteNumber} saved.` });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
@@ -309,7 +356,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-warning font-bold">DN</span> Issue Debit Note
+            <span className="text-warning font-bold">DN</span> {isEditing ? "Edit Debit Note" : "Issue Debit Note"}
           </DialogTitle>
           <DialogDescription>
             Pharmacy returns goods to supplier → debit note issued
@@ -328,7 +375,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
               <Input id="supplier-name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Enter supplier name..." autoComplete="off" />
             </div>
             <div className="space-y-1 relative">
-              <Label htmlFor="order-search">Search Purchase Order (optional)</Label>
+              <Label htmlFor="order-search">Search Supplier Bill (optional)</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -336,7 +383,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
                   ref={orderSearchRef}
                   value={orderSearch}
                   onChange={(e) => { setOrderSearch(e.target.value); setSelectedOrder(null); setReturnItems([]); }}
-                  placeholder="Order / challan / invoice number..."
+                  placeholder="Supplier bill / invoice number..."
                   className="pl-9"
                   autoComplete="off"
                 />
@@ -347,7 +394,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
                   {!searchLoading && matchedOrders?.length === 0 && <div className="p-3 text-sm text-muted-foreground">No orders found</div>}
                   {matchedOrders?.map((order: any) => (
                     <button key={order.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm focus:bg-accent outline-none" onClick={() => handleSelectOrder(order)}>
-                      <span className="font-medium">{order.invoice_number || order.challan_number || order.order_number}</span>
+                      <span className="font-medium">{order.supplier_invoice_number || order.invoice_number || order.challan_number || order.order_number}</span>
                       <span className="text-muted-foreground ml-2">— {order.suppliers?.name || "Unknown"}</span>
                       <span className="text-muted-foreground ml-2">₹{Number(order.total_amount).toFixed(2)}</span>
                     </button>
@@ -360,7 +407,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
           {/* Selected order info */}
           {selectedOrder && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm flex flex-wrap gap-4">
-              <span><strong>Order:</strong> {selectedOrder.invoice_number || selectedOrder.challan_number || selectedOrder.order_number}</span>
+              <span><strong>Bill #:</strong> {(selectedOrder as { supplier_invoice_number?: string }).supplier_invoice_number || selectedOrder.invoice_number || selectedOrder.challan_number || selectedOrder.order_number}</span>
               <span><strong>Supplier:</strong> {(selectedOrder as any).suppliers?.name || "-"}</span>
               <Badge variant="outline">₹{Number(selectedOrder.total_amount).toFixed(2)}</Badge>
             </div>
@@ -576,7 +623,7 @@ export function DebitNoteDialog({ open, onOpenChange }: DebitNoteDialogProps) {
             data-enter-nav-include="true"
           >
             {createDebitNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Issue Debit Note (Ctrl+Enter)
+            {isEditing ? "Update Debit Note (Ctrl+Enter)" : "Issue Debit Note (Ctrl+Enter)"}
           </Button>
         </DialogFooter>
       </DialogContent>

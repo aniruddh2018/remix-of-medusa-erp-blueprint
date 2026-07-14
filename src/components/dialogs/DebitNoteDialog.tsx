@@ -388,7 +388,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
           {/* Selected order info */}
           {selectedOrder && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm flex flex-wrap gap-4">
-              <span><strong>Order:</strong> {selectedOrder.invoice_number || selectedOrder.challan_number || selectedOrder.order_number}</span>
+              <span><strong>Bill #:</strong> {(selectedOrder as { supplier_invoice_number?: string }).supplier_invoice_number || selectedOrder.invoice_number || selectedOrder.challan_number || selectedOrder.order_number}</span>
               <span><strong>Supplier:</strong> {(selectedOrder as any).suppliers?.name || "-"}</span>
               <Badge variant="outline">₹{Number(selectedOrder.total_amount).toFixed(2)}</Badge>
             </div>

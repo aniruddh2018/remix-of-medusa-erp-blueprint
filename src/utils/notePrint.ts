@@ -13,7 +13,7 @@ interface CompanyLite {
 async function loadCompany(companyId: string): Promise<CompanyLite> {
   const { data } = await supabase
     .from("invoice_settings")
-    .select("company_name, company_address, company_gstin, phone, email")
+    .select("company_name, company_address, company_gstin, company_phone, company_email")
     .eq("company_id", companyId)
     .maybeSingle();
   if (!data) return { company_name: "" };

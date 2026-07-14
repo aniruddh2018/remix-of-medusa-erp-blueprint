@@ -85,6 +85,8 @@ export default function Accounts() {
 
   useKeyboardShortcut({ key: "/", callback: () => { searchRef.current?.focus(); searchRef.current?.select(); } });
   const [monthRange, setMonthRange] = useState("0");
+  const [customStart, setCustomStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [customEnd, setCustomEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [expandedLedger, setExpandedLedger] = useState<string | null>(null);
   const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null);
   const [ledgerRoleFilter, setLedgerRoleFilter] = useState<string>("all");

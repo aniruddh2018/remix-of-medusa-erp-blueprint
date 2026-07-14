@@ -623,7 +623,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
             data-enter-nav-include="true"
           >
             {createDebitNoteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Issue Debit Note (Ctrl+Enter)
+            {isEditing ? "Update Debit Note (Ctrl+Enter)" : "Issue Debit Note (Ctrl+Enter)"}
           </Button>
         </DialogFooter>
       </DialogContent>

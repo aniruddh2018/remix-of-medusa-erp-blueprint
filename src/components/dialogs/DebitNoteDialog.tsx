@@ -375,7 +375,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
                   {!searchLoading && matchedOrders?.length === 0 && <div className="p-3 text-sm text-muted-foreground">No orders found</div>}
                   {matchedOrders?.map((order: any) => (
                     <button key={order.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm focus:bg-accent outline-none" onClick={() => handleSelectOrder(order)}>
-                      <span className="font-medium">{order.invoice_number || order.challan_number || order.order_number}</span>
+                      <span className="font-medium">{order.supplier_invoice_number || order.invoice_number || order.challan_number || order.order_number}</span>
                       <span className="text-muted-foreground ml-2">— {order.suppliers?.name || "Unknown"}</span>
                       <span className="text-muted-foreground ml-2">₹{Number(order.total_amount).toFixed(2)}</span>
                     </button>

@@ -356,7 +356,7 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-warning font-bold">DN</span> Issue Debit Note
+            <span className="text-warning font-bold">DN</span> {isEditing ? "Edit Debit Note" : "Issue Debit Note"}
           </DialogTitle>
           <DialogDescription>
             Pharmacy returns goods to supplier → debit note issued

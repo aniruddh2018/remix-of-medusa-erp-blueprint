@@ -314,6 +314,41 @@ export async function importMargPurchases(
             opts.financialYearId ?? null,
           );
         }
+
+        // Auto-insert product_conversions row if missing.
+        // Rule: 1 <secondaryUnit> = <factor> <baseUnit>  (e.g. 1 STRIP = 10 TAB).
+        if (
+          !productsWithConv.has(r.p.id) &&
+          r.conv > 1 &&
+          r.secUnit &&
+          r.baseUnit &&
+          r.secUnit !== r.baseUnit
+        ) {
+          const { error: cErr } = await supabase.from("product_conversions").insert({
+            company_id: opts.companyId,
+            product_id: r.p.id,
+            from_unit: r.secUnit,
+            to_unit: r.baseUnit,
+            conversion_factor: r.conv,
+          });
+          if (!cErr) {
+            productsWithConv.add(r.p.id);
+            result.conversionsInserted++;
+          }
+        }
+
+        // Backfill product.form / base_unit if empty on the product master.
+        if (!r.p.form || !r.p.base_unit) {
+          const patch: Record<string, unknown> = {};
+          if (!r.p.form) patch.form = r.form;
+          if (!r.p.base_unit) { patch.base_unit = r.baseUnit; patch.unit = r.baseUnit; }
+          if (Object.keys(patch).length > 0) {
+            await supabase.from("products").update(patch).eq("id", r.p.id);
+            r.p.form = (patch.form as string) ?? r.p.form;
+            r.p.base_unit = (patch.base_unit as string) ?? r.p.base_unit;
+          }
+        }
+
         const qty = Math.max(1, paid);
         itemRows.push({
           purchase_order_id: po.id,

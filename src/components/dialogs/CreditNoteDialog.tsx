@@ -157,19 +157,20 @@ export function CreditNoteDialog({ open, onOpenChange, editingNote }: CreditNote
 
   // Search sales orders
   const { data: matchedInvoices, isLoading: searchLoading } = useQuery({
-    queryKey: ["sales-search-cn", invoiceSearch],
+    queryKey: ["sales-search-cn", companyId, invoiceSearch],
     queryFn: async () => {
-      if (invoiceSearch.length < 2) return [];
+      if (invoiceSearch.length < 2 || !companyId) return [];
       const { data, error } = await supabase
         .from("sales_orders")
         .select("*")
+        .eq("company_id", companyId)
         .or(`invoice_number.ilike.%${invoiceSearch}%,customer_name.ilike.%${invoiceSearch}%`)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
       return data as SalesOrder[];
     },
-    enabled: invoiceSearch.length >= 2,
+    enabled: invoiceSearch.length >= 2 && !!companyId,
   });
 
   // Fetch items for selected invoice

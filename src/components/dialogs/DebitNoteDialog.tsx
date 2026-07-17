@@ -154,19 +154,20 @@ export function DebitNoteDialog({ open, onOpenChange, editingNote }: DebitNoteDi
 
   // Search purchase orders
   const { data: matchedOrders, isLoading: searchLoading } = useQuery({
-    queryKey: ["po-search-dn", orderSearch],
+    queryKey: ["po-search-dn", companyId, orderSearch],
     queryFn: async () => {
-      if (orderSearch.length < 2) return [];
+      if (orderSearch.length < 2 || !companyId) return [];
       const { data, error } = await supabase
         .from("purchase_orders")
         .select(`*, suppliers(name)`)
+        .eq("company_id", companyId)
         .or(`supplier_invoice_number.ilike.%${orderSearch}%,invoice_number.ilike.%${orderSearch}%,challan_number.ilike.%${orderSearch}%,order_number.ilike.%${orderSearch}%`)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
       return data;
     },
-    enabled: orderSearch.length >= 2,
+    enabled: orderSearch.length >= 2 && !!companyId,
   });
 
   // Fetch items for selected order

@@ -317,7 +317,7 @@ export const DrugBrandSearch = forwardRef<DrugBrandSearchHandle, DrugBrandSearch
         {open && flatResults.length > 0 && (
           <div
             ref={listRef}
-            className="absolute z-50 mt-1 w-full min-w-[340px] max-h-[280px] overflow-y-auto rounded-md border bg-popover shadow-lg"
+            className="absolute z-50 mt-1 w-full sm:min-w-[340px] max-h-[280px] overflow-y-auto rounded-md border bg-popover shadow-lg"
           >
             {flatResults.map((product, idx) => {
               const isAlt = alternateIds.has(product.id);

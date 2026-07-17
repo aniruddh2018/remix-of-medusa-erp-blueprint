@@ -226,7 +226,9 @@ export default function PurchaseOrders() {
         .from("purchase_orders")
         .select("*")
         .eq("company_id", companyId!);
-      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      // Include rows in the active FY *and* legacy rows with no FY assigned yet,
+      // so imported / pre-FY purchase history remains visible instead of vanishing.
+      if (activeFinancialYearId) q = q.or(`financial_year_id.eq.${activeFinancialYearId},financial_year_id.is.null`);
       const { data: orders, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       

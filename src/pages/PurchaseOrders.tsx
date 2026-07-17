@@ -262,7 +262,7 @@ export default function PurchaseOrders() {
         .select("reference_id, amount")
         .eq("company_id", companyId!)
         .eq("reference_type", "purchase_order");
-      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      if (activeFinancialYearId) q = q.or(`financial_year_id.eq.${activeFinancialYearId},financial_year_id.is.null`);
       const { data, error } = await q;
       if (error) throw error;
       return data;

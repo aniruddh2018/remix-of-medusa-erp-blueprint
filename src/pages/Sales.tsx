@@ -1071,10 +1071,10 @@ export default function Sales() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Sales & Billing</h1>
-          <p className="text-muted-foreground text-sm">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold truncate">Sales & Billing</h1>
+          <p className="text-muted-foreground text-xs hidden md:block">
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">Ctrl+Enter</kbd> save
             <span className="mx-1">·</span>
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">F4</kbd> submit
@@ -1088,7 +1088,7 @@ export default function Sales() {
             <kbd className="px-1 py-0.5 bg-muted rounded border text-[10px]">N</kbd> new
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button variant="outline" size="sm" className="gap-1" onClick={() => setCreditNoteOpen(true)}>
             <RotateCcw className="h-3 w-3" /> Credit Note
           </Button>
@@ -1282,8 +1282,9 @@ export default function Sales() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
               <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
                 <Label className="text-[10px] text-muted-foreground mb-0.5 block">Product</Label>
-                <div className="flex gap-1">
-                  <div className="flex-1">
+                <div className="flex gap-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+
                     <DrugBrandSearch
                       ref={(node) => {
                         productSearchRef.current = node;

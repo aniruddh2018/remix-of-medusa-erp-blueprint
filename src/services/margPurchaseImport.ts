@@ -19,6 +19,7 @@ export interface PurchaseImportResult {
   suppliersCreated: number;
   batchesCreated: number;
   batchesUpdated: number;
+  conversionsInserted: number;
   unmatchedProducts: { name: string; count: number }[];
   errors: string[];
 }
@@ -31,6 +32,52 @@ interface ProductLite {
   name: string;
   brand: string | null;
   base_unit: string | null;
+  form: string | null;
+}
+
+/**
+ * Detect dosage form from product name / pack / base_unit tokens.
+ * Returns { baseUnit, secondaryUnit } — the atomic sale unit and the
+ * pack unit typically received from supplier.
+ */
+export function detectForm(
+  name: string,
+  pack: string,
+  currentBase?: string | null,
+): { form: string; baseUnit: string; secondaryUnit: string } {
+  const hay = `${name} ${pack} ${currentBase ?? ""}`.toUpperCase();
+  if (/\bINJ\b|INJECTION|\bVIAL\b|\bAMP(?:OULE)?\b/.test(hay))
+    return { form: "INJECTION", baseUnit: "VIAL", secondaryUnit: "BOX" };
+  if (/\bSYP\b|SYRUP|SUSP|SUSPENSION|ELIX|\bDROP(?:S)?\b|LIQUID|SOLUTION/.test(hay))
+    return { form: "SYRUP", baseUnit: "BOTTLE", secondaryUnit: "BOX" };
+  if (/\bCAP\b|CAPSULE/.test(hay))
+    return { form: "CAPSULE", baseUnit: "CAP", secondaryUnit: "STRIP" };
+  if (/CREAM|OINT|\bGEL\b|LOTION|BALM|PASTE/.test(hay))
+    return { form: "CREAM", baseUnit: "TUBE", secondaryUnit: "BOX" };
+  if (/POWDER|SACHET|\bGRAN(?:ULES)?\b/.test(hay))
+    return { form: "POWDER", baseUnit: "SACHET", secondaryUnit: "BOX" };
+  if (/\bTAB\b|TABLET/.test(hay))
+    return { form: "TABLET", baseUnit: "TAB", secondaryUnit: "STRIP" };
+  // Fallback to existing base unit or generic
+  const b = (currentBase || "PCS").toUpperCase();
+  return { form: "OTHER", baseUnit: b, secondaryUnit: b === "PCS" ? "BOX" : "STRIP" };
+}
+
+/**
+ * Parse packing size string into a conversion factor.
+ *  "10*10"  → 10   (10 strips of 10 → 10 tabs per strip)
+ *  "10'S"   → 10
+ *  "1*10"   → 10
+ *  "100ML"  → 1
+ */
+export function parsePackFactor(pack: string, form: string): number {
+  const p = (pack ?? "").toUpperCase().replace(/\s+/g, "");
+  const m1 = p.match(/^(\d+)\*(\d+)/);
+  if (m1) return parseInt(m1[2], 10) || 1;
+  const m2 = p.match(/^(\d+)'?S$/);
+  if (m2) return parseInt(m2[1], 10) || 1;
+  if (form === "TABLET" || form === "CAPSULE") return 10; // MARG default
+  return 1;
 }
 
 async function preloadProducts(companyId: string) {

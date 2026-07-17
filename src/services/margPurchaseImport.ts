@@ -250,7 +250,7 @@ export async function importMargPurchases(
         result.billsSkippedDuplicate++; done++; onProgress?.(done, bills.length); continue;
       }
 
-      const resolved: Array<{ it: ParsedPurchaseItem; p: ProductLite; conv: number }> = [];
+      const resolved: Array<{ it: ParsedPurchaseItem; p: ProductLite; conv: number; form: string; secUnit: string; baseUnit: string }> = [];
       for (const it of bill.items) {
         const p = products.get(UPPER(it.name));
         if (!p) {
@@ -258,7 +258,9 @@ export async function importMargPurchases(
           result.itemsSkippedNoProduct++;
           continue;
         }
-        resolved.push({ it, p, conv: inferConversion(it.pack, p.base_unit) });
+        const det = detectForm(p.name || it.name, it.pack, p.base_unit);
+        const factor = parsePackFactor(it.pack, det.form);
+        resolved.push({ it, p, conv: factor, form: det.form, secUnit: det.secondaryUnit, baseUnit: det.baseUnit });
       }
       if (resolved.length === 0) {
         result.billsFailed++;

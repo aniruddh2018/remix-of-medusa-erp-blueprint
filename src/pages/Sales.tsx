@@ -244,7 +244,7 @@ export default function Sales() {
     queryKey: ["sales-orders", companyId, activeFinancialYearId],
     queryFn: async () => {
       let q = supabase.from("sales_orders").select("*").eq("company_id", companyId!);
-      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      if (activeFinancialYearId) q = q.or(`financial_year_id.eq.${activeFinancialYearId},financial_year_id.is.null`);
       const { data, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       return data as SalesOrder[];

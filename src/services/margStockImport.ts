@@ -245,7 +245,8 @@ export async function importMargStock(
       }
 
       const conv = inferPackFromName(row.name) ?? inferConversion(p.pack_size, p.base_unit);
-      const { strips, loose } = splitQty(row.qtyRaw, conv);
+      const unitKind = classifyUnit(row.unit, row.name);
+      const { strips, loose } = interpretQty(row.qtyRaw, conv, unitKind);
 
       // Build the batch number. If MARG gives none, fall back to a synthetic
       // one keyed by received date + row index so multiple no-batch rows for

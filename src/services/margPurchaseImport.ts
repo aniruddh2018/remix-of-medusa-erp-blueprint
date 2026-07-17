@@ -211,6 +211,7 @@ export async function importMargPurchases(
     billsInserted: 0, billsSkippedDuplicate: 0, billsFailed: 0,
     itemsInserted: 0, itemsSkippedNoProduct: 0,
     suppliersCreated: 0, batchesCreated: 0, batchesUpdated: 0,
+    conversionsInserted: 0,
     unmatchedProducts: [], errors: [],
   };
   const skipDup = opts.skipDuplicateBills ?? true;
@@ -221,6 +222,22 @@ export async function importMargPurchases(
     preloadSuppliers(opts.companyId),
     skipDup ? preloadExistingPOs(opts.companyId) : Promise.resolve(new Set<string>()),
   ]);
+
+  // Preload existing product_conversions so we don't duplicate rows.
+  const productsWithConv = new Set<string>();
+  {
+    let from = 0; const PAGE = 1000;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("product_conversions").select("product_id")
+        .eq("company_id", opts.companyId).range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      for (const r of data) productsWithConv.add(r.product_id);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
+
   const batchCache = new Map<string, { id: string; existed: boolean }>();
   const supplierCounters = { created: 0 };
   const batchCounters = { created: 0, updated: 0 };

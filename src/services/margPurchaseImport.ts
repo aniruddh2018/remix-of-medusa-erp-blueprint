@@ -19,6 +19,7 @@ export interface PurchaseImportResult {
   suppliersCreated: number;
   batchesCreated: number;
   batchesUpdated: number;
+  conversionsInserted: number;
   unmatchedProducts: { name: string; count: number }[];
   errors: string[];
 }
@@ -31,6 +32,52 @@ interface ProductLite {
   name: string;
   brand: string | null;
   base_unit: string | null;
+  form: string | null;
+}
+
+/**
+ * Detect dosage form from product name / pack / base_unit tokens.
+ * Returns { baseUnit, secondaryUnit } — the atomic sale unit and the
+ * pack unit typically received from supplier.
+ */
+export function detectForm(
+  name: string,
+  pack: string,
+  currentBase?: string | null,
+): { form: string; baseUnit: string; secondaryUnit: string } {
+  const hay = `${name} ${pack} ${currentBase ?? ""}`.toUpperCase();
+  if (/\bINJ\b|INJECTION|\bVIAL\b|\bAMP(?:OULE)?\b/.test(hay))
+    return { form: "INJECTION", baseUnit: "VIAL", secondaryUnit: "BOX" };
+  if (/\bSYP\b|SYRUP|SUSP|SUSPENSION|ELIX|\bDROP(?:S)?\b|LIQUID|SOLUTION/.test(hay))
+    return { form: "SYRUP", baseUnit: "BOTTLE", secondaryUnit: "BOX" };
+  if (/\bCAP\b|CAPSULE/.test(hay))
+    return { form: "CAPSULE", baseUnit: "CAP", secondaryUnit: "STRIP" };
+  if (/CREAM|OINT|\bGEL\b|LOTION|BALM|PASTE/.test(hay))
+    return { form: "CREAM", baseUnit: "TUBE", secondaryUnit: "BOX" };
+  if (/POWDER|SACHET|\bGRAN(?:ULES)?\b/.test(hay))
+    return { form: "POWDER", baseUnit: "SACHET", secondaryUnit: "BOX" };
+  if (/\bTAB\b|TABLET/.test(hay))
+    return { form: "TABLET", baseUnit: "TAB", secondaryUnit: "STRIP" };
+  // Fallback to existing base unit or generic
+  const b = (currentBase || "PCS").toUpperCase();
+  return { form: "OTHER", baseUnit: b, secondaryUnit: b === "PCS" ? "BOX" : "STRIP" };
+}
+
+/**
+ * Parse packing size string into a conversion factor.
+ *  "10*10"  → 10   (10 strips of 10 → 10 tabs per strip)
+ *  "10'S"   → 10
+ *  "1*10"   → 10
+ *  "100ML"  → 1
+ */
+export function parsePackFactor(pack: string, form: string): number {
+  const p = (pack ?? "").toUpperCase().replace(/\s+/g, "");
+  const m1 = p.match(/^(\d+)\*(\d+)/);
+  if (m1) return parseInt(m1[2], 10) || 1;
+  const m2 = p.match(/^(\d+)'?S$/);
+  if (m2) return parseInt(m2[1], 10) || 1;
+  if (form === "TABLET" || form === "CAPSULE") return 10; // MARG default
+  return 1;
 }
 
 async function preloadProducts(companyId: string) {
@@ -38,7 +85,7 @@ async function preloadProducts(companyId: string) {
   let from = 0; const PAGE = 1000;
   for (;;) {
     const { data, error } = await supabase
-      .from("products").select("id,name,brand,base_unit")
+      .from("products").select("id,name,brand,base_unit,form")
       .eq("company_id", companyId).eq("is_active", true)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -164,6 +211,7 @@ export async function importMargPurchases(
     billsInserted: 0, billsSkippedDuplicate: 0, billsFailed: 0,
     itemsInserted: 0, itemsSkippedNoProduct: 0,
     suppliersCreated: 0, batchesCreated: 0, batchesUpdated: 0,
+    conversionsInserted: 0,
     unmatchedProducts: [], errors: [],
   };
   const skipDup = opts.skipDuplicateBills ?? true;
@@ -174,6 +222,22 @@ export async function importMargPurchases(
     preloadSuppliers(opts.companyId),
     skipDup ? preloadExistingPOs(opts.companyId) : Promise.resolve(new Set<string>()),
   ]);
+
+  // Preload existing product_conversions so we don't duplicate rows.
+  const productsWithConv = new Set<string>();
+  {
+    let from = 0; const PAGE = 1000;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("product_conversions").select("product_id")
+        .eq("company_id", opts.companyId).range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      for (const r of data) productsWithConv.add(r.product_id);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
+
   const batchCache = new Map<string, { id: string; existed: boolean }>();
   const supplierCounters = { created: 0 };
   const batchCounters = { created: 0, updated: 0 };
@@ -186,7 +250,7 @@ export async function importMargPurchases(
         result.billsSkippedDuplicate++; done++; onProgress?.(done, bills.length); continue;
       }
 
-      const resolved: Array<{ it: ParsedPurchaseItem; p: ProductLite; conv: number }> = [];
+      const resolved: Array<{ it: ParsedPurchaseItem; p: ProductLite; conv: number; form: string; secUnit: string; baseUnit: string }> = [];
       for (const it of bill.items) {
         const p = products.get(UPPER(it.name));
         if (!p) {
@@ -194,7 +258,9 @@ export async function importMargPurchases(
           result.itemsSkippedNoProduct++;
           continue;
         }
-        resolved.push({ it, p, conv: inferConversion(it.pack, p.base_unit) });
+        const det = detectForm(p.name || it.name, it.pack, p.base_unit);
+        const factor = parsePackFactor(it.pack, det.form);
+        resolved.push({ it, p, conv: factor, form: det.form, secUnit: det.secondaryUnit, baseUnit: det.baseUnit });
       }
       if (resolved.length === 0) {
         result.billsFailed++;
@@ -248,6 +314,41 @@ export async function importMargPurchases(
             opts.financialYearId ?? null,
           );
         }
+
+        // Auto-insert product_conversions row if missing.
+        // Rule: 1 <secondaryUnit> = <factor> <baseUnit>  (e.g. 1 STRIP = 10 TAB).
+        if (
+          !productsWithConv.has(r.p.id) &&
+          r.conv > 1 &&
+          r.secUnit &&
+          r.baseUnit &&
+          r.secUnit !== r.baseUnit
+        ) {
+          const { error: cErr } = await supabase.from("product_conversions").insert({
+            company_id: opts.companyId,
+            product_id: r.p.id,
+            from_unit: r.secUnit,
+            to_unit: r.baseUnit,
+            conversion_factor: r.conv,
+          });
+          if (!cErr) {
+            productsWithConv.add(r.p.id);
+            result.conversionsInserted++;
+          }
+        }
+
+        // Backfill product.form / base_unit if empty on the product master.
+        if (!r.p.form || !r.p.base_unit) {
+          const patch: Record<string, unknown> = {};
+          if (!r.p.form) patch.form = r.form;
+          if (!r.p.base_unit) { patch.base_unit = r.baseUnit; patch.unit = r.baseUnit; }
+          if (Object.keys(patch).length > 0) {
+            await supabase.from("products").update(patch).eq("id", r.p.id);
+            r.p.form = (patch.form as string) ?? r.p.form;
+            r.p.base_unit = (patch.base_unit as string) ?? r.p.base_unit;
+          }
+        }
+
         const qty = Math.max(1, paid);
         itemRows.push({
           purchase_order_id: po.id,

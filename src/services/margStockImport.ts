@@ -119,6 +119,67 @@ function splitQty(raw: number, conv: number): { strips: number; loose: number } 
   return { strips: s, loose: Number.isFinite(l) ? l : 0 };
 }
 
+/**
+ * Classify the "Unit" column from a MARG stock sheet into the storage semantics
+ * our inventory uses. Different rows can be written in different units even for
+ * the same product — TAB/CAP are usually STRIPS, syrups/injections/creams are
+ * PCS (single bottle/vial/tube), and BOX packs multiple strips.
+ */
+type UnitKind = "STRIP" | "LOOSE" | "BOX" | "PCS";
+function classifyUnit(unit: string, productName: string): UnitKind {
+  const u = (unit || "").toUpperCase().replace(/[.\s]/g, "");
+  const n = (productName || "").toUpperCase();
+  if (!u) {
+    // No unit column value — infer from product form
+    if (/\bTAB|\bCAP/.test(n)) return "STRIP";
+    return "PCS";
+  }
+  if (/^STR|STRIP|BLIST|BLST/.test(u)) return "STRIP";
+  if (/^BOX|CTN|CARTON|PKT|PACK/.test(u)) return "BOX";
+  if (/^TAB|^CAP|^PCS?$|^NOS?$|^PC$|^EA|LOOSE|UNIT/.test(u)) {
+    // "PCS"/"NOS" on a tablet product still means loose tablets in MARG.
+    // For syrups/injections/creams "PCS" means one bottle/vial (base unit).
+    if (/\bTAB|\bCAP/.test(n)) return "LOOSE";
+    return "PCS";
+  }
+  if (/BTL|BOTTLE|VIAL|AMP|TUBE|JAR|SACHET|ML$|GM$|GRM|LTR|KG$/.test(u)) return "PCS";
+  // Fallback: TAB/CAP products default to strip semantics, everything else PCS.
+  if (/\bTAB|\bCAP/.test(n)) return "STRIP";
+  return "PCS";
+}
+
+/**
+ * Convert a MARG stock row's raw qty into (strips, loose) taking the row's
+ * declared unit into account.
+ *   STRIP  → 29.7 = 29 strips + 7 loose (existing decimal-split behaviour)
+ *   LOOSE  → 47   = 4 strips + 7 loose  (pure loose tablets)
+ *   BOX    → 3    = 3 * conv strips     (assumes 1 box = pack of strips)
+ *   PCS    → 12   = 12 strips (base unit; loose = 0)
+ */
+function interpretQty(
+  raw: number,
+  conv: number,
+  kind: UnitKind,
+): { strips: number; loose: number } {
+  if (!Number.isFinite(raw) || raw === 0) return { strips: 0, loose: 0 };
+  switch (kind) {
+    case "STRIP":
+      return splitQty(raw, conv);
+    case "LOOSE": {
+      const total = Math.trunc(raw);
+      const c = Math.max(conv, 1);
+      return { strips: Math.trunc(total / c), loose: total % c };
+    }
+    case "BOX": {
+      const c = Math.max(conv, 1);
+      return { strips: Math.trunc(raw) * c, loose: 0 };
+    }
+    case "PCS":
+    default:
+      return { strips: Math.trunc(raw), loose: 0 };
+  }
+}
+
 /** Generate a stable synthetic batch number when the file has none. */
 function fallbackBatchNo(code: string, receivedDate: string | null | undefined, idx: number): string {
   const d = (receivedDate ?? "").replace(/-/g, "");
@@ -184,7 +245,8 @@ export async function importMargStock(
       }
 
       const conv = inferPackFromName(row.name) ?? inferConversion(p.pack_size, p.base_unit);
-      const { strips, loose } = splitQty(row.qtyRaw, conv);
+      const unitKind = classifyUnit(row.unit, row.name);
+      const { strips, loose } = interpretQty(row.qtyRaw, conv, unitKind);
 
       // Build the batch number. If MARG gives none, fall back to a synthetic
       // one keyed by received date + row index so multiple no-batch rows for

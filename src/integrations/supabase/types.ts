@@ -6121,6 +6121,10 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: Json
       }
+      backfill_units_conversions: {
+        Args: { _company_id: string }
+        Returns: Json
+      }
       batch_match_products: {
         Args: {
           _company_id: string
@@ -6211,6 +6215,15 @@ export type Database = {
         | { Args: { _base_quantity: number; _batch_id: string }; Returns: Json }
         | { Args: { _base_quantity: number; _batch_id: string }; Returns: Json }
       deduct_sale_inventory: { Args: { _items: Json }; Returns: Json }
+      detect_product_form: {
+        Args: { _name: string; _pack: string }
+        Returns: {
+          base_unit: string
+          form: string
+          pack_factor: number
+          secondary_unit: string
+        }[]
+      }
       dispose_expired_batch: {
         Args: { _batch_id: string; _notes?: string; _quantity: number }
         Returns: Json

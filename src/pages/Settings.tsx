@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2, Loader2, Pill, Cpu, ShoppingBag, Save, Lock, Briefcase } from "lucide-react";
 import { BackupSection } from "@/components/BackupSection";
 import { OfflineRecoverySection } from "@/components/OfflineRecoverySection";
+import { BackfillUnitsSection } from "@/components/BackfillUnitsSection";
 import { InvoiceSettingsSection } from "@/components/InvoiceSettingsSection";
 import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
@@ -204,6 +205,10 @@ export default function Settings() {
 
       {/* Offline Recovery — upload a backup .sql or legacy offline .json to restore */}
       <OfflineRecoverySection />
+
+      {/* Backfill units, base units, conversions, and per-line quantities on imported data */}
+      <BackfillUnitsSection />
+
 
       {/* Save */}
       {hasChanges && (

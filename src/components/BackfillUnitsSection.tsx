@@ -15,19 +15,19 @@ interface BackfillResult {
 }
 
 export function BackfillUnitsSection() {
-  const { currentCompany } = useBusiness();
+  const { companyId } = useBusiness();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BackfillResult | null>(null);
 
   const run = async () => {
-    if (!currentCompany?.id) {
+    if (!companyId) {
       toast({ title: "No company selected", variant: "destructive" });
       return;
     }
     setLoading(true);
     setResult(null);
     const { data, error } = await supabase.rpc("backfill_units_conversions", {
-      _company_id: currentCompany.id,
+      _company_id: companyId,
     });
     setLoading(false);
     if (error) {

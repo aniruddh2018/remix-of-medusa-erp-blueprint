@@ -206,6 +206,10 @@ export default function Settings() {
       {/* Offline Recovery — upload a backup .sql or legacy offline .json to restore */}
       <OfflineRecoverySection />
 
+      {/* Backfill units, base units, conversions, and per-line quantities on imported data */}
+      <BackfillUnitsSection />
+
+
       {/* Save */}
       {hasChanges && (
         <div className="sticky bottom-4">

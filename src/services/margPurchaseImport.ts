@@ -219,6 +219,8 @@ export async function importMargPurchases(
         supplier_id: supplierId,
         supplier_invoice_number: bill.bill_no,
         supplier_invoice_date: bill.bill_date,
+        invoice_number: bill.bill_no,
+        is_challan: false,
         total_amount: bill.bill_total || bill.net_amount + bill.tax,
         gst_amount: bill.tax,
         discount_amount: bill.discount,

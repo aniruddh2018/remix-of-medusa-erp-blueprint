@@ -131,12 +131,13 @@ function validateSQL(sql: string): { valid: boolean; error?: string; sanitized?:
     }
   }
 
-  // Basic check for semicolon (prevent multiple statements)
-  if (sql.includes(";")) {
+  // Strip a single trailing semicolon (allowed), then reject any remaining ';' as multi-statement
+  const stripped = sql.replace(/;\s*$/, "");
+  if (stripped.includes(";")) {
     return { valid: false, error: "Multiple SQL statements are not allowed." };
   }
 
-  return { valid: true, sanitized: sql };
+  return { valid: true, sanitized: stripped };
 }
 
 // Generate analysis for numeric columns

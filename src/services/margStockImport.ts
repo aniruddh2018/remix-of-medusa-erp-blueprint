@@ -50,6 +50,7 @@ interface ProductLite {
   brand: string | null;
   pack_size: string | null;
   base_unit: string | null;
+  form: string | null;
 }
 
 async function preloadProducts(companyId: string) {

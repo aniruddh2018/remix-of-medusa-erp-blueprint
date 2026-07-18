@@ -203,6 +203,8 @@ export async function importMargStock(
     batchesUpdated: 0,
     batchesZeroed: 0,
     productsUpdated: 0,
+    conversionsInserted: 0,
+    unitsBackfilled: 0,
     suppliersLinked: 0,
     unmatched: [],
     errors: [],

@@ -4150,6 +4150,7 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          amount_paid: number
           challan_number: string | null
           company_id: string | null
           converted_from_challan_id: string | null
@@ -4173,6 +4174,8 @@ export type Database = {
           order_date: string
           order_number: string
           other_charges: number
+          payment_method: string | null
+          payment_status: string
           place_of_supply: string | null
           status: Database["public"]["Enums"]["order_status"]
           supplier_gstin: string | null
@@ -4184,6 +4187,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          amount_paid?: number
           challan_number?: string | null
           company_id?: string | null
           converted_from_challan_id?: string | null
@@ -4207,6 +4211,8 @@ export type Database = {
           order_date?: string
           order_number: string
           other_charges?: number
+          payment_method?: string | null
+          payment_status?: string
           place_of_supply?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           supplier_gstin?: string | null
@@ -4218,6 +4224,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          amount_paid?: number
           challan_number?: string | null
           company_id?: string | null
           converted_from_challan_id?: string | null
@@ -4241,6 +4248,8 @@ export type Database = {
           order_date?: string
           order_number?: string
           other_charges?: number
+          payment_method?: string | null
+          payment_status?: string
           place_of_supply?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           supplier_gstin?: string | null

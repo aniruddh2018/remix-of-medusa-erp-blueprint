@@ -35,6 +35,8 @@ export interface StockImportResult {
   batchesUpdated: number;
   batchesZeroed: number;
   productsUpdated: number;
+  conversionsInserted: number;
+  unitsBackfilled: number;
   suppliersLinked: number;
   unmatched: { code: string; name: string }[];
   errors: string[];

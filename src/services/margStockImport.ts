@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedStockRow } from "./margStockParse";
+import { extractPackFromName } from "./packInference";
+import { detectForm } from "./margPurchaseImport";
 
 /**
  * MARG Stock Importer — batch-aware.
@@ -33,6 +35,8 @@ export interface StockImportResult {
   batchesUpdated: number;
   batchesZeroed: number;
   productsUpdated: number;
+  conversionsInserted: number;
+  unitsBackfilled: number;
   suppliersLinked: number;
   unmatched: { code: string; name: string }[];
   errors: string[];
@@ -48,6 +52,7 @@ interface ProductLite {
   brand: string | null;
   pack_size: string | null;
   base_unit: string | null;
+  form: string | null;
 }
 
 async function preloadProducts(companyId: string) {
@@ -55,7 +60,7 @@ async function preloadProducts(companyId: string) {
   let from = 0; const PAGE = 1000;
   for (;;) {
     const { data, error } = await supabase
-      .from("products").select("id,name,brand,pack_size,base_unit")
+      .from("products").select("id,name,brand,pack_size,base_unit,form")
       .eq("company_id", companyId).eq("is_active", true)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -97,11 +102,10 @@ function inferConversion(packSize: string | null | undefined, baseUnit: string |
   return 1;
 }
 
-/** Try to infer pack size from the product name suffix (e.g. "1*10", "1*15"). */
+/** Try to infer pack size from the product name suffix. Delegates to shared inference. */
 function inferPackFromName(name: string): number | null {
-  const m = name.match(/(\d+)\s*\*\s*(\d+)/);
-  if (m) return parseInt(m[2], 10) || null;
-  return null;
+  const info = extractPackFromName(name);
+  return info && !info.loose ? info.factor : null;
 }
 
 /** MARG qty like 29.7 with pack 10 → 29 strips + 7 loose. Uses fractional digits. */
@@ -199,6 +203,8 @@ export async function importMargStock(
     batchesUpdated: 0,
     batchesZeroed: 0,
     productsUpdated: 0,
+    conversionsInserted: 0,
+    unitsBackfilled: 0,
     suppliersLinked: 0,
     unmatched: [],
     errors: [],
@@ -218,6 +224,23 @@ export async function importMargStock(
   const pricedProducts = new Set<string>();
   // Track occurrences of same (product, batch) to disambiguate blank batch numbers.
   const rowIdxByKey = new Map<string, number>();
+  // Track products that already have a conversion row so we don't insert duplicates.
+  const productsWithConv = new Set<string>();
+  {
+    let from = 0; const PAGE = 1000;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("product_conversions").select("product_id")
+        .eq("company_id", opts.companyId).range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      for (const r of data) productsWithConv.add(r.product_id);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
+  // Track which products we've already tried to backfill this run.
+  const backfilled = new Set<string>();
+
 
   let done = 0;
 
@@ -244,9 +267,58 @@ export async function importMargStock(
         zeroedProducts.add(p.id);
       }
 
-      const conv = inferPackFromName(row.name) ?? inferConversion(p.pack_size, p.base_unit);
+      const packInfo = extractPackFromName(row.name);
+      const conv = (packInfo && !packInfo.loose ? packInfo.factor : null)
+        ?? inferConversion(p.pack_size, p.base_unit);
       const unitKind = classifyUnit(row.unit, row.name);
       const { strips, loose } = interpretQty(row.qtyRaw, conv, unitKind);
+
+      // Backfill product master (form / base_unit) and product_conversions using
+      // the pack info parsed from the product name. Runs once per product.
+      if (!backfilled.has(p.id)) {
+        backfilled.add(p.id);
+        const det = detectForm(p.name, row.name, p.base_unit);
+        // If the name declares a loose measure (e.g. "1*15 GM"), the base unit
+        // should be that measure and no strip layer exists.
+        const baseUnit = packInfo?.loose && packInfo.measureUnit
+          ? packInfo.measureUnit
+          : det.baseUnit;
+        const secondaryUnit = packInfo?.loose ? baseUnit : det.secondaryUnit;
+
+        const patch: Record<string, unknown> = {};
+        if (!p.form) patch.form = det.form;
+        if (!p.base_unit) { patch.base_unit = baseUnit; patch.unit = baseUnit; }
+        if (Object.keys(patch).length > 0) {
+          const { error: uErr } = await supabase.from("products").update(patch).eq("id", p.id);
+          if (!uErr) {
+            p.form = (patch.form as string) ?? p.form;
+            p.base_unit = (patch.base_unit as string) ?? p.base_unit;
+            result.unitsBackfilled++;
+          }
+        }
+
+        if (
+          !productsWithConv.has(p.id) &&
+          !packInfo?.loose &&
+          conv > 1 &&
+          secondaryUnit &&
+          baseUnit &&
+          secondaryUnit !== baseUnit
+        ) {
+          const { error: cErr } = await supabase.from("product_conversions").insert({
+            company_id: opts.companyId,
+            product_id: p.id,
+            from_unit: secondaryUnit,
+            to_unit: baseUnit,
+            conversion_factor: conv,
+          });
+          if (!cErr) {
+            productsWithConv.add(p.id);
+            result.conversionsInserted++;
+          }
+        }
+      }
+
 
       // Build the batch number. If MARG gives none, fall back to a synthetic
       // one keyed by received date + row index so multiple no-batch rows for

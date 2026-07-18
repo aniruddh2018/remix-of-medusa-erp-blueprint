@@ -273,6 +273,8 @@ export function MargStockImport() {
               <Stat label="Batches zeroed" value={result.batchesZeroed} />
               <Stat label="Suppliers linked" value={result.suppliersLinked} />
               <Stat label="Products updated" value={result.productsUpdated} />
+              <Stat label="Units backfilled" value={result.unitsBackfilled} tone={result.unitsBackfilled ? "success" : "muted"} />
+              <Stat label="Conversions added" value={result.conversionsInserted} tone={result.conversionsInserted ? "success" : "muted"} />
               <Stat label="Unmatched" value={result.productsSkippedNoMatch} tone={result.productsSkippedNoMatch ? "error" : "muted"} />
               <Stat label="Errors" value={result.errors.length} tone={result.errors.length ? "error" : "muted"} />
             </div>

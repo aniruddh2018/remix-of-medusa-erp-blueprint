@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedPurchaseBill, ParsedPurchaseItem } from "./margPurchaseParse";
+import { extractPackFromName } from "./packInference";
 
 export interface PurchaseImportOptions {
   companyId: string;
@@ -70,7 +71,13 @@ export function detectForm(
  *  "1*10"   → 10
  *  "100ML"  → 1
  */
-export function parsePackFactor(pack: string, form: string): number {
+export function parsePackFactor(pack: string, form: string, name?: string): number {
+  // Prefer factor parsed from the product name suffix (e.g. "BACLOF TAB 1*15")
+  // when available — that captures rows where the Pack column is blank or "1".
+  if (name) {
+    const info = extractPackFromName(name);
+    if (info && !info.loose) return info.factor;
+  }
   const p = (pack ?? "").toUpperCase().replace(/\s+/g, "");
   const m1 = p.match(/^(\d+)\*(\d+)/);
   if (m1) return parseInt(m1[2], 10) || 1;
@@ -259,7 +266,7 @@ export async function importMargPurchases(
           continue;
         }
         const det = detectForm(p.name || it.name, it.pack, p.base_unit);
-        const factor = parsePackFactor(it.pack, det.form);
+        const factor = parsePackFactor(it.pack, det.form, p.name || it.name);
         resolved.push({ it, p, conv: factor, form: det.form, secUnit: det.secondaryUnit, baseUnit: det.baseUnit });
       }
       if (resolved.length === 0) {

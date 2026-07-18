@@ -267,9 +267,58 @@ export async function importMargStock(
         zeroedProducts.add(p.id);
       }
 
-      const conv = inferPackFromName(row.name) ?? inferConversion(p.pack_size, p.base_unit);
+      const packInfo = extractPackFromName(row.name);
+      const conv = (packInfo && !packInfo.loose ? packInfo.factor : null)
+        ?? inferConversion(p.pack_size, p.base_unit);
       const unitKind = classifyUnit(row.unit, row.name);
       const { strips, loose } = interpretQty(row.qtyRaw, conv, unitKind);
+
+      // Backfill product master (form / base_unit) and product_conversions using
+      // the pack info parsed from the product name. Runs once per product.
+      if (!backfilled.has(p.id)) {
+        backfilled.add(p.id);
+        const det = detectForm(p.name, row.name, p.base_unit);
+        // If the name declares a loose measure (e.g. "1*15 GM"), the base unit
+        // should be that measure and no strip layer exists.
+        const baseUnit = packInfo?.loose && packInfo.measureUnit
+          ? packInfo.measureUnit
+          : det.baseUnit;
+        const secondaryUnit = packInfo?.loose ? baseUnit : det.secondaryUnit;
+
+        const patch: Record<string, unknown> = {};
+        if (!p.form) patch.form = det.form;
+        if (!p.base_unit) { patch.base_unit = baseUnit; patch.unit = baseUnit; }
+        if (Object.keys(patch).length > 0) {
+          const { error: uErr } = await supabase.from("products").update(patch).eq("id", p.id);
+          if (!uErr) {
+            p.form = (patch.form as string) ?? p.form;
+            p.base_unit = (patch.base_unit as string) ?? p.base_unit;
+            result.unitsBackfilled++;
+          }
+        }
+
+        if (
+          !productsWithConv.has(p.id) &&
+          !packInfo?.loose &&
+          conv > 1 &&
+          secondaryUnit &&
+          baseUnit &&
+          secondaryUnit !== baseUnit
+        ) {
+          const { error: cErr } = await supabase.from("product_conversions").insert({
+            company_id: opts.companyId,
+            product_id: p.id,
+            from_unit: secondaryUnit,
+            to_unit: baseUnit,
+            conversion_factor: conv,
+          });
+          if (!cErr) {
+            productsWithConv.add(p.id);
+            result.conversionsInserted++;
+          }
+        }
+      }
+
 
       // Build the batch number. If MARG gives none, fall back to a synthetic
       // one keyed by received date + row index so multiple no-batch rows for

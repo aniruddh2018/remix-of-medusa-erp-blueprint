@@ -266,7 +266,7 @@ export async function importMargPurchases(
           continue;
         }
         const det = detectForm(p.name || it.name, it.pack, p.base_unit);
-        const factor = parsePackFactor(it.pack, det.form);
+        const factor = parsePackFactor(it.pack, det.form, p.name || it.name);
         resolved.push({ it, p, conv: factor, form: det.form, secUnit: det.secondaryUnit, baseUnit: det.baseUnit });
       }
       if (resolved.length === 0) {

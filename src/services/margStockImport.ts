@@ -100,11 +100,10 @@ function inferConversion(packSize: string | null | undefined, baseUnit: string |
   return 1;
 }
 
-/** Try to infer pack size from the product name suffix (e.g. "1*10", "1*15"). */
+/** Try to infer pack size from the product name suffix. Delegates to shared inference. */
 function inferPackFromName(name: string): number | null {
-  const m = name.match(/(\d+)\s*\*\s*(\d+)/);
-  if (m) return parseInt(m[2], 10) || null;
-  return null;
+  const info = extractPackFromName(name);
+  return info && !info.loose ? info.factor : null;
 }
 
 /** MARG qty like 29.7 with pack 10 → 29 strips + 7 loose. Uses fractional digits. */

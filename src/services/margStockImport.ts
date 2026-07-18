@@ -224,6 +224,23 @@ export async function importMargStock(
   const pricedProducts = new Set<string>();
   // Track occurrences of same (product, batch) to disambiguate blank batch numbers.
   const rowIdxByKey = new Map<string, number>();
+  // Track products that already have a conversion row so we don't insert duplicates.
+  const productsWithConv = new Set<string>();
+  {
+    let from = 0; const PAGE = 1000;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("product_conversions").select("product_id")
+        .eq("company_id", opts.companyId).range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      for (const r of data) productsWithConv.add(r.product_id);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
+  // Track which products we've already tried to backfill this run.
+  const backfilled = new Set<string>();
+
 
   let done = 0;
 

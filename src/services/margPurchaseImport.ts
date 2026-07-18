@@ -71,7 +71,13 @@ export function detectForm(
  *  "1*10"   → 10
  *  "100ML"  → 1
  */
-export function parsePackFactor(pack: string, form: string): number {
+export function parsePackFactor(pack: string, form: string, name?: string): number {
+  // Prefer factor parsed from the product name suffix (e.g. "BACLOF TAB 1*15")
+  // when available — that captures rows where the Pack column is blank or "1".
+  if (name) {
+    const info = extractPackFromName(name);
+    if (info && !info.loose) return info.factor;
+  }
   const p = (pack ?? "").toUpperCase().replace(/\s+/g, "");
   const m1 = p.match(/^(\d+)\*(\d+)/);
   if (m1) return parseInt(m1[2], 10) || 1;

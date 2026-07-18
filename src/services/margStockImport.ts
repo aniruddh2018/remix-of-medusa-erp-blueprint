@@ -58,7 +58,7 @@ async function preloadProducts(companyId: string) {
   let from = 0; const PAGE = 1000;
   for (;;) {
     const { data, error } = await supabase
-      .from("products").select("id,name,brand,pack_size,base_unit")
+      .from("products").select("id,name,brand,pack_size,base_unit,form")
       .eq("company_id", companyId).eq("is_active", true)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;

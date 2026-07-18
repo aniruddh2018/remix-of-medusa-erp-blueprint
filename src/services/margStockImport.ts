@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedStockRow } from "./margStockParse";
+import { extractPackFromName } from "./packInference";
+import { detectForm } from "./margPurchaseImport";
 
 /**
  * MARG Stock Importer — batch-aware.

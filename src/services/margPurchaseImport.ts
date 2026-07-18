@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedPurchaseBill, ParsedPurchaseItem } from "./margPurchaseParse";
+import { extractPackFromName } from "./packInference";
 
 export interface PurchaseImportOptions {
   companyId: string;

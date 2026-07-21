@@ -79,6 +79,12 @@ const STEPS: StepDef[] = [
     guard: "stock",
     Component: MargStockImport,
   },
+  {
+    key: "ledger-openings",
+    label: "7. Opening Ledger Balances (current FY only)",
+    description: "MARG trial balance → opening balances for parties/cash/bank/tax ledgers. Movement already posted in the current FY is subtracted so nothing is double-counted.",
+    Component: MargLedgerBalanceImport,
+  },
 ];
 
 function storageKey(companyId: string) {

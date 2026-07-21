@@ -46,7 +46,11 @@ export function detectForm(
   pack: string,
   currentBase?: string | null,
 ): { form: string; baseUnit: string; secondaryUnit: string } {
-  const hay = `${name} ${pack} ${currentBase ?? ""}`.toUpperCase();
+  // Ignore non-atomic values in currentBase (STRIP/BOX/PACK) when sniffing form,
+  // otherwise the fallback branch echoes them back as base_unit for tablets.
+  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+  const cbClean = currentBase && !NON_ATOMIC.test(currentBase.trim()) ? currentBase : "";
+  const hay = `${name} ${pack} ${cbClean}`.toUpperCase();
   if (/\bINJ\b|INJECTION|\bVIAL\b|\bAMP(?:OULE)?\b/.test(hay))
     return { form: "INJECTION", baseUnit: "VIAL", secondaryUnit: "BOX" };
   if (/\bSYP\b|SYRUP|SUSP|SUSPENSION|ELIX|\bDROP(?:S)?\b|LIQUID|SOLUTION/.test(hay))
@@ -59,9 +63,36 @@ export function detectForm(
     return { form: "POWDER", baseUnit: "SACHET", secondaryUnit: "BOX" };
   if (/\bTAB\b|TABLET/.test(hay))
     return { form: "TABLET", baseUnit: "TAB", secondaryUnit: "STRIP" };
-  // Fallback to existing base unit or generic
-  const b = (currentBase || "PCS").toUpperCase();
+  const b = (cbClean || "PCS").toUpperCase();
   return { form: "OTHER", baseUnit: b, secondaryUnit: b === "PCS" ? "BOX" : "STRIP" };
+}
+
+/**
+ * Normalize a sheet-provided base_unit against the detected form.
+ * MARG frequently exports base_unit="STRIP" for tablets, but our
+ * conversion model requires the ATOMIC unit (TAB/CAP) as base so that
+ * `1 STRIP = N TAB` reads correctly. Returns the atomic base unit and
+ * the pack/secondary unit to use for the conversion row.
+ */
+export function normalizeUnits(
+  form: string,
+  sheetBase: string,
+  sheetSecondary: string,
+  detected: { baseUnit: string; secondaryUnit: string },
+): { baseUnit: string; secondaryUnit: string } {
+  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+  const atomicForms = new Set(["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"]);
+  let baseUnit = (sheetBase || "").toUpperCase();
+  let secUnit = (sheetSecondary || "").toUpperCase();
+  // Force atomic base for tablet-like forms, regardless of what the sheet says.
+  if (atomicForms.has(form) && (!baseUnit || NON_ATOMIC.test(baseUnit))) {
+    // Sheet's "base" is actually the pack unit — promote it to secondary.
+    if (baseUnit && NON_ATOMIC.test(baseUnit) && !secUnit) secUnit = baseUnit;
+    baseUnit = detected.baseUnit;
+  }
+  if (!baseUnit) baseUnit = detected.baseUnit;
+  if (!secUnit) secUnit = detected.secondaryUnit;
+  return { baseUnit, secondaryUnit: secUnit };
 }
 
 /**

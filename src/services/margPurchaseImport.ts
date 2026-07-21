@@ -375,11 +375,17 @@ export async function importMargPurchases(
           }
         }
 
-        // Backfill product.form / base_unit if empty on the product master.
-        if (!r.p.form || !r.p.base_unit) {
+        // Backfill product.form / base_unit if empty OR previously stored as
+        // a non-atomic pack unit (STRIP/BOX) for a tablet-like form.
+        const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+        const atomic = ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"];
+        const wrongBase = !!r.p.base_unit
+          && NON_ATOMIC.test(r.p.base_unit)
+          && atomic.includes(r.form);
+        if (!r.p.form || !r.p.base_unit || wrongBase) {
           const patch: Record<string, unknown> = {};
           if (!r.p.form) patch.form = r.form;
-          if (!r.p.base_unit) { patch.base_unit = r.baseUnit; patch.unit = r.baseUnit; }
+          if (!r.p.base_unit || wrongBase) { patch.base_unit = r.baseUnit; patch.unit = r.baseUnit; }
           if (Object.keys(patch).length > 0) {
             await supabase.from("products").update(patch).eq("id", r.p.id);
             r.p.form = (patch.form as string) ?? r.p.form;

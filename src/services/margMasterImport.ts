@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { extractPackFromName } from "./packInference";
-import { detectForm } from "./margPurchaseImport";
+import { detectForm, normalizeUnits } from "./margPurchaseImport";
 
 /**
  * Row shape produced by the merged MARG master CSV

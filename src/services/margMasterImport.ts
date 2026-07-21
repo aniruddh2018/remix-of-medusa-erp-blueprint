@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { extractPackFromName } from "./packInference";
-import { detectForm } from "./margPurchaseImport";
+import { detectForm, normalizeUnits } from "./margPurchaseImport";
 
 /**
  * Row shape produced by the merged MARG master CSV
@@ -180,22 +180,24 @@ export async function importMargMasterRows(
     const packInfo = extractPackFromName(rawName);
     const detected = detectForm(rawName, "", str(r.base_unit) || null);
 
-    let baseUnit = str(r.base_unit).toUpperCase();
-    let secUnit = str(r.secondary_unit).toUpperCase();
     let conv = num(r.conversion);
-    let form = str(r.form);
+    let form = str(r.form) || detected.form;
 
+    // Resolve base + secondary units.
+    let baseUnit: string;
+    let secUnit: string;
     if (packInfo?.loose && packInfo.measureUnit) {
-      if (!baseUnit) baseUnit = packInfo.measureUnit;
-      if (!secUnit) secUnit = packInfo.measureUnit;
+      baseUnit = str(r.base_unit).toUpperCase() || packInfo.measureUnit;
+      secUnit = str(r.secondary_unit).toUpperCase() || packInfo.measureUnit;
       if (!conv) conv = 1;
-    } else if (packInfo && !packInfo.loose) {
-      if (!conv) conv = packInfo.factor;
+    } else {
+      // For tablet/capsule/etc., FORCE atomic base unit — MARG sheets often
+      // put "STRIP" in the base column which reverses conversion direction.
+      const n = normalizeUnits(form, str(r.base_unit), str(r.secondary_unit), detected);
+      baseUnit = n.baseUnit;
+      secUnit = n.secondaryUnit;
+      if (packInfo && !packInfo.loose && !conv) conv = packInfo.factor;
     }
-
-    if (!baseUnit) baseUnit = detected.baseUnit;
-    if (!secUnit) secUnit = detected.secondaryUnit;
-    if (!form) form = detected.form;
     if (!baseUnit) baseUnit = "PCS";
 
     // Strict default for tablets / capsules — MARG ships 10 per strip when the
@@ -213,8 +215,14 @@ export async function importMargMasterRows(
     const existRow = existing.get(fp);
     if (existRow) {
       result.skipped++;
+      // Also correct a previously wrong base_unit (STRIP/BOX/PACK for a
+      // tablet-like form) so downstream conversions read correctly.
+      const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+      const wrongBase = !!existRow.base_unit
+        && NON_ATOMIC.test(existRow.base_unit)
+        && ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"].includes(form);
       const needForm = !existRow.form && !!form;
-      const needBase = !existRow.base_unit && !!baseUnit;
+      const needBase = (!existRow.base_unit || wrongBase) && !!baseUnit;
       if (needForm || needBase) {
         backfillProducts.push({
           id: existRow.id,

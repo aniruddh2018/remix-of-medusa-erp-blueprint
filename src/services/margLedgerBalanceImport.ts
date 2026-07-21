@@ -136,16 +136,16 @@ export async function importMargLedgerBalances(
       }
       const balType = row.balance >= 0 ? "debit" : "credit";
       const { data: created, error } = await supabase
-        .from("ledgers").insert({
+        .from("ledgers").insert([{
           company_id: opts.companyId,
           name: row.ledgerName,
           ledger_group_id: groupId,
-          balance_type: balType,
+          balance_type: balType as never,
           source_system: "marg",
           source_ledger_name: row.ledgerName,
           source_group_name: row.groupName || null,
           import_metadata: { imported_via: "marg_ledger_balance", serial: row.serial },
-        }).select("id, ledger_group_id").single();
+        }]).select("id, ledger_group_id").single();
       if (error) {
         result.errors.push(`Ledger "${row.ledgerName}": ${error.message}`);
         continue;

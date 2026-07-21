@@ -110,12 +110,12 @@ export async function importMargLedgerBalances(
       else {
         const gt = mapGroupType(row.groupName);
         const { data: created, error } = await supabase
-          .from("ledger_groups").insert({
+          .from("ledger_groups").insert([{
             company_id: opts.companyId,
             name: row.groupName,
-            group_type: gt,
+            group_type: gt as never,
             source_system: "marg",
-          }).select("id").single();
+          }]).select("id").single();
         if (error) {
           result.errors.push(`Group "${row.groupName}": ${error.message}`);
         } else if (created) {

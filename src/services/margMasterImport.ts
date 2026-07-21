@@ -215,8 +215,14 @@ export async function importMargMasterRows(
     const existRow = existing.get(fp);
     if (existRow) {
       result.skipped++;
+      // Also correct a previously wrong base_unit (STRIP/BOX/PACK for a
+      // tablet-like form) so downstream conversions read correctly.
+      const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+      const wrongBase = !!existRow.base_unit
+        && NON_ATOMIC.test(existRow.base_unit)
+        && ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"].includes(form);
       const needForm = !existRow.form && !!form;
-      const needBase = !existRow.base_unit && !!baseUnit;
+      const needBase = (!existRow.base_unit || wrongBase) && !!baseUnit;
       if (needForm || needBase) {
         backfillProducts.push({
           id: existRow.id,

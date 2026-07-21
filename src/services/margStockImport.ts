@@ -285,9 +285,18 @@ export async function importMargStock(
           : det.baseUnit;
         const secondaryUnit = packInfo?.loose ? baseUnit : det.secondaryUnit;
 
+        // Fix products whose base_unit was previously stored as STRIP/BOX
+        // (a pack unit) for a tablet-like form — conversion must be atomic-based.
+        const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+        const atomic = ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"];
+        const wrongBase = !!p.base_unit
+          && NON_ATOMIC.test(p.base_unit)
+          && atomic.includes(det.form)
+          && !packInfo?.loose;
+
         const patch: Record<string, unknown> = {};
         if (!p.form) patch.form = det.form;
-        if (!p.base_unit) { patch.base_unit = baseUnit; patch.unit = baseUnit; }
+        if (!p.base_unit || wrongBase) { patch.base_unit = baseUnit; patch.unit = baseUnit; }
         if (Object.keys(patch).length > 0) {
           const { error: uErr } = await supabase.from("products").update(patch).eq("id", p.id);
           if (!uErr) {

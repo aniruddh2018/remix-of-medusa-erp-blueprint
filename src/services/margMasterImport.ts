@@ -48,11 +48,16 @@ const num = (v: unknown, fallback = 0): number => {
 
 const str = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
 
-/** Build a deterministic fingerprint per product to detect duplicates within a company. */
-const fingerprintOf = (r: MargMasterRow): string => {
-  const name = (str(r.clean_name) || str(r.original_name)).toUpperCase();
-  return [name, str(r.strength).toUpperCase(), str(r.manufacturer).toUpperCase()].join("|");
-};
+/** Normalize a product name for dedup: uppercase + collapse whitespace + trim. */
+const normName = (s: string): string => s.trim().toUpperCase().replace(/\s+/g, " ");
+
+/** Fingerprint = normalized name only. Strength / manufacturer often diverge
+ *  between the master sheet and rows created by stock/purchase imports; using
+ *  them as part of the key causes re-imports to create duplicate products. */
+const fingerprintOf = (r: MargMasterRow): string =>
+  normName(str(r.clean_name) || str(r.original_name));
+
+type ExistingProduct = { id: string; form: string | null; base_unit: string | null };
 
 export async function importMargMasterRows(
   rows: MargMasterRow[],
@@ -68,15 +73,17 @@ export async function importMargMasterRows(
     errors: [],
   };
 
-  // 1. Pre-fetch existing fingerprints for this company to skip duplicates fast.
-  const existing = new Set<string>();
+  // 1. Pre-fetch existing products for this company. On re-import we want to
+  //    backfill missing form/base_unit and conversions on the EXISTING row
+  //    rather than insert a duplicate.
+  const existing = new Map<string, ExistingProduct>();
   {
     let from = 0;
     const PAGE = 1000;
     while (true) {
       const { data, error } = await supabase
         .from("products")
-        .select("name,strength,manufacturer")
+        .select("id,name,form,base_unit")
         .eq("company_id", companyId)
         .range(from, from + PAGE - 1);
       if (error) {
@@ -85,16 +92,32 @@ export async function importMargMasterRows(
       }
       if (!data || data.length === 0) break;
       for (const p of data) {
-        existing.add(
-          [
-            String(p.name ?? "").toUpperCase(),
-            String(p.strength ?? "").toUpperCase(),
-            String(p.manufacturer ?? "").toUpperCase(),
-          ].join("|"),
-        );
+        existing.set(normName(String(p.name ?? "")), {
+          id: p.id as string,
+          form: (p.form as string | null) ?? null,
+          base_unit: (p.base_unit as string | null) ?? null,
+        });
       }
       if (data.length < PAGE) break;
       from += PAGE;
+    }
+  }
+
+  // Preload conversion pairs to avoid inserting duplicates during backfill.
+  const existingConv = new Set<string>();
+  {
+    const ids = Array.from(existing.values()).map((e) => e.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      const slice = ids.slice(i, i + 500);
+      const { data } = await supabase
+        .from("product_conversions")
+        .select("product_id,from_unit,to_unit")
+        .in("product_id", slice);
+      data?.forEach((c) =>
+        existingConv.add(
+          `${c.product_id}|${String(c.from_unit).toUpperCase()}|${String(c.to_unit).toUpperCase()}`,
+        ),
+      );
     }
   }
 
@@ -128,30 +151,34 @@ export async function importMargMasterRows(
   };
   type Pending = { payload: ProductInsert; conv: { from: string; to: string; factor: number } | null };
   const pending: Pending[] = [];
+  // Products that already exist but need form / base_unit / conversion filled in.
+  const backfillProducts: Array<{ id: string; form: string | null; base_unit: string }> = [];
+  const backfillConv: ConversionInsert[] = [];
+  const seenThisRun = new Set<string>();
+
   for (const r of rows) {
-    const name = str(r.clean_name) || str(r.original_name);
-    if (!name) {
+    const rawName = str(r.clean_name) || str(r.original_name);
+    if (!rawName) {
       result.failed++;
       continue;
     }
     const mrp = num(r.mrp);
     if (mrp <= 0) {
       result.failed++;
-      result.errors.push(`Skipped "${name}": MRP is 0`);
+      result.errors.push(`Skipped "${rawName}": MRP is 0`);
       continue;
     }
 
     const fp = fingerprintOf(r);
-    if (existing.has(fp)) {
+    if (seenThisRun.has(fp)) {
       result.skipped++;
       continue;
     }
-    existing.add(fp); // avoid intra-batch dupes too
+    seenThisRun.add(fp);
 
-    // Infer pack / form when the sheet lacks explicit values so callers who
-    // import a plain product list (name only) still get correct units + conversions.
-    const packInfo = extractPackFromName(name);
-    const detected = detectForm(name, "", str(r.base_unit) || null);
+    // Infer pack / form when the sheet lacks explicit values.
+    const packInfo = extractPackFromName(rawName);
+    const detected = detectForm(rawName, "", str(r.base_unit) || null);
 
     let baseUnit = str(r.base_unit).toUpperCase();
     let secUnit = str(r.secondary_unit).toUpperCase();
@@ -159,7 +186,6 @@ export async function importMargMasterRows(
     let form = str(r.form);
 
     if (packInfo?.loose && packInfo.measureUnit) {
-      // "1*15 GM" style — sold loose by the measured unit, no strip layer.
       if (!baseUnit) baseUnit = packInfo.measureUnit;
       if (!secUnit) secUnit = packInfo.measureUnit;
       if (!conv) conv = 1;
@@ -172,10 +198,52 @@ export async function importMargMasterRows(
     if (!form) form = detected.form;
     if (!baseUnit) baseUnit = "PCS";
 
+    // Strict default for tablets / capsules — MARG ships 10 per strip when the
+    // name gives no explicit factor. Prevents "1 STRIP = 1 TAB" garbage rows.
+    if (conv <= 1 && (form === "TABLET" || form === "CAPSULE") && secUnit !== baseUnit) {
+      conv = 10;
+    }
+
+    const convRow =
+      secUnit && conv > 1 && secUnit !== baseUnit
+        ? { from: secUnit, to: baseUnit, factor: conv }
+        : null;
+
+    // ------- Existing product path: backfill instead of inserting a duplicate.
+    const existRow = existing.get(fp);
+    if (existRow) {
+      result.skipped++;
+      const needForm = !existRow.form && !!form;
+      const needBase = !existRow.base_unit && !!baseUnit;
+      if (needForm || needBase) {
+        backfillProducts.push({
+          id: existRow.id,
+          form: needForm ? form : existRow.form,
+          base_unit: needBase ? baseUnit : (existRow.base_unit ?? baseUnit),
+        });
+        existRow.form = needForm ? form : existRow.form;
+        existRow.base_unit = needBase ? baseUnit : existRow.base_unit;
+      }
+      if (convRow) {
+        const key = `${existRow.id}|${convRow.from}|${convRow.to}`;
+        if (!existingConv.has(key)) {
+          backfillConv.push({
+            company_id: companyId,
+            product_id: existRow.id,
+            from_unit: convRow.from,
+            to_unit: convRow.to,
+            conversion_factor: convRow.factor,
+          });
+          existingConv.add(key);
+        }
+      }
+      continue;
+    }
+
     const payload: ProductInsert = {
       company_id: companyId,
-      name,
-      brand: name,
+      name: rawName,
+      brand: rawName,
       manufacturer: str(r.manufacturer) || "Unknown",
       generic_name: str(r.composition) || null,
       composition: str(r.composition) || null,
@@ -193,13 +261,26 @@ export async function importMargMasterRows(
       is_active: true,
     };
 
-    const convRow =
-      secUnit && conv > 1 && secUnit !== baseUnit
-        ? { from: secUnit, to: baseUnit, factor: conv }
-        : null;
-
     pending.push({ payload, conv: convRow });
   }
+
+  // Flush backfill updates + conversion inserts for existing products.
+  for (const b of backfillProducts) {
+    const { error } = await supabase
+      .from("products")
+      .update({ form: b.form, base_unit: b.base_unit, unit: b.base_unit })
+      .eq("id", b.id);
+    if (error) result.errors.push(`Backfill ${b.id}: ${error.message}`);
+  }
+  if (backfillConv.length > 0) {
+    for (let i = 0; i < backfillConv.length; i += 500) {
+      const slice = backfillConv.slice(i, i + 500);
+      const { error } = await supabase.from("product_conversions").insert(slice);
+      if (error) result.errors.push(`Backfill conversions: ${error.message}`);
+      else result.conversionsInserted += slice.length;
+    }
+  }
+
 
   // 3. Insert in batches; capture returned ids to insert conversions in lockstep.
   let done = 0;

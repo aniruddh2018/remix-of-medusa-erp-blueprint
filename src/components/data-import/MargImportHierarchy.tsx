@@ -15,10 +15,11 @@ import { MargDoctorMapImport } from "@/components/data-import/MargDoctorMapImpor
 import { MargStockImport } from "@/components/data-import/MargStockImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
+import { MargLedgerBalanceImport } from "@/components/data-import/MargLedgerBalanceImport";
 
 type StepKey =
   | "products" | "product-list" | "parties" | "doctors"
-  | "stock" | "purchase" | "sales";
+  | "stock" | "purchase" | "sales" | "ledger-openings";
 
 interface StepDef {
   key: StepKey;
@@ -77,6 +78,12 @@ const STEPS: StepDef[] = [
     description: "Adjust current on-hand quantities & batches. Only allowed in the active financial year.",
     guard: "stock",
     Component: MargStockImport,
+  },
+  {
+    key: "ledger-openings",
+    label: "7. Opening Ledger Balances (current FY only)",
+    description: "MARG trial balance → opening balances for parties/cash/bank/tax ledgers. Movement already posted in the current FY is subtracted so nothing is double-counted.",
+    Component: MargLedgerBalanceImport,
   },
 ];
 

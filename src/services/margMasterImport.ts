@@ -151,30 +151,34 @@ export async function importMargMasterRows(
   };
   type Pending = { payload: ProductInsert; conv: { from: string; to: string; factor: number } | null };
   const pending: Pending[] = [];
+  // Products that already exist but need form / base_unit / conversion filled in.
+  const backfillProducts: Array<{ id: string; form: string | null; base_unit: string }> = [];
+  const backfillConv: ConversionInsert[] = [];
+  const seenThisRun = new Set<string>();
+
   for (const r of rows) {
-    const name = str(r.clean_name) || str(r.original_name);
-    if (!name) {
+    const rawName = str(r.clean_name) || str(r.original_name);
+    if (!rawName) {
       result.failed++;
       continue;
     }
     const mrp = num(r.mrp);
     if (mrp <= 0) {
       result.failed++;
-      result.errors.push(`Skipped "${name}": MRP is 0`);
+      result.errors.push(`Skipped "${rawName}": MRP is 0`);
       continue;
     }
 
     const fp = fingerprintOf(r);
-    if (existing.has(fp)) {
+    if (seenThisRun.has(fp)) {
       result.skipped++;
       continue;
     }
-    existing.add(fp); // avoid intra-batch dupes too
+    seenThisRun.add(fp);
 
-    // Infer pack / form when the sheet lacks explicit values so callers who
-    // import a plain product list (name only) still get correct units + conversions.
-    const packInfo = extractPackFromName(name);
-    const detected = detectForm(name, "", str(r.base_unit) || null);
+    // Infer pack / form when the sheet lacks explicit values.
+    const packInfo = extractPackFromName(rawName);
+    const detected = detectForm(rawName, "", str(r.base_unit) || null);
 
     let baseUnit = str(r.base_unit).toUpperCase();
     let secUnit = str(r.secondary_unit).toUpperCase();
@@ -182,7 +186,6 @@ export async function importMargMasterRows(
     let form = str(r.form);
 
     if (packInfo?.loose && packInfo.measureUnit) {
-      // "1*15 GM" style — sold loose by the measured unit, no strip layer.
       if (!baseUnit) baseUnit = packInfo.measureUnit;
       if (!secUnit) secUnit = packInfo.measureUnit;
       if (!conv) conv = 1;
@@ -195,10 +198,52 @@ export async function importMargMasterRows(
     if (!form) form = detected.form;
     if (!baseUnit) baseUnit = "PCS";
 
+    // Strict default for tablets / capsules — MARG ships 10 per strip when the
+    // name gives no explicit factor. Prevents "1 STRIP = 1 TAB" garbage rows.
+    if (conv <= 1 && (form === "TABLET" || form === "CAPSULE") && secUnit !== baseUnit) {
+      conv = 10;
+    }
+
+    const convRow =
+      secUnit && conv > 1 && secUnit !== baseUnit
+        ? { from: secUnit, to: baseUnit, factor: conv }
+        : null;
+
+    // ------- Existing product path: backfill instead of inserting a duplicate.
+    const existRow = existing.get(fp);
+    if (existRow) {
+      result.skipped++;
+      const needForm = !existRow.form && !!form;
+      const needBase = !existRow.base_unit && !!baseUnit;
+      if (needForm || needBase) {
+        backfillProducts.push({
+          id: existRow.id,
+          form: needForm ? form : existRow.form,
+          base_unit: needBase ? baseUnit : (existRow.base_unit ?? baseUnit),
+        });
+        existRow.form = needForm ? form : existRow.form;
+        existRow.base_unit = needBase ? baseUnit : existRow.base_unit;
+      }
+      if (convRow) {
+        const key = `${existRow.id}|${convRow.from}|${convRow.to}`;
+        if (!existingConv.has(key)) {
+          backfillConv.push({
+            company_id: companyId,
+            product_id: existRow.id,
+            from_unit: convRow.from,
+            to_unit: convRow.to,
+            conversion_factor: convRow.factor,
+          });
+          existingConv.add(key);
+        }
+      }
+      continue;
+    }
+
     const payload: ProductInsert = {
       company_id: companyId,
-      name,
-      brand: name,
+      name: rawName,
+      brand: rawName,
       manufacturer: str(r.manufacturer) || "Unknown",
       generic_name: str(r.composition) || null,
       composition: str(r.composition) || null,
@@ -216,13 +261,26 @@ export async function importMargMasterRows(
       is_active: true,
     };
 
-    const convRow =
-      secUnit && conv > 1 && secUnit !== baseUnit
-        ? { from: secUnit, to: baseUnit, factor: conv }
-        : null;
-
     pending.push({ payload, conv: convRow });
   }
+
+  // Flush backfill updates + conversion inserts for existing products.
+  for (const b of backfillProducts) {
+    const { error } = await supabase
+      .from("products")
+      .update({ form: b.form, base_unit: b.base_unit, unit: b.base_unit })
+      .eq("id", b.id);
+    if (error) result.errors.push(`Backfill ${b.id}: ${error.message}`);
+  }
+  if (backfillConv.length > 0) {
+    for (let i = 0; i < backfillConv.length; i += 500) {
+      const slice = backfillConv.slice(i, i + 500);
+      const { error } = await supabase.from("product_conversions").insert(slice);
+      if (error) result.errors.push(`Backfill conversions: ${error.message}`);
+      else result.conversionsInserted += slice.length;
+    }
+  }
+
 
   // 3. Insert in batches; capture returned ids to insert conversions in lockstep.
   let done = 0;

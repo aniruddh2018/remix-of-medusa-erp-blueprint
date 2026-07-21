@@ -48,11 +48,16 @@ const num = (v: unknown, fallback = 0): number => {
 
 const str = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
 
-/** Build a deterministic fingerprint per product to detect duplicates within a company. */
-const fingerprintOf = (r: MargMasterRow): string => {
-  const name = (str(r.clean_name) || str(r.original_name)).toUpperCase();
-  return [name, str(r.strength).toUpperCase(), str(r.manufacturer).toUpperCase()].join("|");
-};
+/** Normalize a product name for dedup: uppercase + collapse whitespace + trim. */
+const normName = (s: string): string => s.trim().toUpperCase().replace(/\s+/g, " ");
+
+/** Fingerprint = normalized name only. Strength / manufacturer often diverge
+ *  between the master sheet and rows created by stock/purchase imports; using
+ *  them as part of the key causes re-imports to create duplicate products. */
+const fingerprintOf = (r: MargMasterRow): string =>
+  normName(str(r.clean_name) || str(r.original_name));
+
+type ExistingProduct = { id: string; form: string | null; base_unit: string | null };
 
 export async function importMargMasterRows(
   rows: MargMasterRow[],
@@ -68,15 +73,17 @@ export async function importMargMasterRows(
     errors: [],
   };
 
-  // 1. Pre-fetch existing fingerprints for this company to skip duplicates fast.
-  const existing = new Set<string>();
+  // 1. Pre-fetch existing products for this company. On re-import we want to
+  //    backfill missing form/base_unit and conversions on the EXISTING row
+  //    rather than insert a duplicate.
+  const existing = new Map<string, ExistingProduct>();
   {
     let from = 0;
     const PAGE = 1000;
     while (true) {
       const { data, error } = await supabase
         .from("products")
-        .select("name,strength,manufacturer")
+        .select("id,name,form,base_unit")
         .eq("company_id", companyId)
         .range(from, from + PAGE - 1);
       if (error) {
@@ -85,16 +92,32 @@ export async function importMargMasterRows(
       }
       if (!data || data.length === 0) break;
       for (const p of data) {
-        existing.add(
-          [
-            String(p.name ?? "").toUpperCase(),
-            String(p.strength ?? "").toUpperCase(),
-            String(p.manufacturer ?? "").toUpperCase(),
-          ].join("|"),
-        );
+        existing.set(normName(String(p.name ?? "")), {
+          id: p.id as string,
+          form: (p.form as string | null) ?? null,
+          base_unit: (p.base_unit as string | null) ?? null,
+        });
       }
       if (data.length < PAGE) break;
       from += PAGE;
+    }
+  }
+
+  // Preload conversion pairs to avoid inserting duplicates during backfill.
+  const existingConv = new Set<string>();
+  {
+    const ids = Array.from(existing.values()).map((e) => e.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      const slice = ids.slice(i, i + 500);
+      const { data } = await supabase
+        .from("product_conversions")
+        .select("product_id,from_unit,to_unit")
+        .in("product_id", slice);
+      data?.forEach((c) =>
+        existingConv.add(
+          `${c.product_id}|${String(c.from_unit).toUpperCase()}|${String(c.to_unit).toUpperCase()}`,
+        ),
+      );
     }
   }
 

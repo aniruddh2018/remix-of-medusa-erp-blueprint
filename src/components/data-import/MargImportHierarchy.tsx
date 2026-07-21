@@ -15,10 +15,11 @@ import { MargDoctorMapImport } from "@/components/data-import/MargDoctorMapImpor
 import { MargStockImport } from "@/components/data-import/MargStockImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
+import { MargLedgerBalanceImport } from "@/components/data-import/MargLedgerBalanceImport";
 
 type StepKey =
   | "products" | "product-list" | "parties" | "doctors"
-  | "stock" | "purchase" | "sales";
+  | "stock" | "purchase" | "sales" | "ledger-openings";
 
 interface StepDef {
   key: StepKey;

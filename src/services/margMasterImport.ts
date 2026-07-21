@@ -148,9 +148,29 @@ export async function importMargMasterRows(
     }
     existing.add(fp); // avoid intra-batch dupes too
 
-    const baseUnit = str(r.base_unit).toUpperCase() || "PCS";
-    const secUnit = str(r.secondary_unit).toUpperCase();
-    const conv = num(r.conversion);
+    // Infer pack / form when the sheet lacks explicit values so callers who
+    // import a plain product list (name only) still get correct units + conversions.
+    const packInfo = extractPackFromName(name);
+    const detected = detectForm(name, "", str(r.base_unit) || null);
+
+    let baseUnit = str(r.base_unit).toUpperCase();
+    let secUnit = str(r.secondary_unit).toUpperCase();
+    let conv = num(r.conversion);
+    let form = str(r.form);
+
+    if (packInfo?.loose && packInfo.measureUnit) {
+      // "1*15 GM" style — sold loose by the measured unit, no strip layer.
+      if (!baseUnit) baseUnit = packInfo.measureUnit;
+      if (!secUnit) secUnit = packInfo.measureUnit;
+      if (!conv) conv = 1;
+    } else if (packInfo && !packInfo.loose) {
+      if (!conv) conv = packInfo.factor;
+    }
+
+    if (!baseUnit) baseUnit = detected.baseUnit;
+    if (!secUnit) secUnit = detected.secondaryUnit;
+    if (!form) form = detected.form;
+    if (!baseUnit) baseUnit = "PCS";
 
     const payload: ProductInsert = {
       company_id: companyId,
@@ -160,7 +180,7 @@ export async function importMargMasterRows(
       generic_name: str(r.composition) || null,
       composition: str(r.composition) || null,
       strength: str(r.strength) || null,
-      form: str(r.form) || null,
+      form: form || null,
       unit: baseUnit,
       base_unit: baseUnit,
       mrp,
@@ -174,7 +194,7 @@ export async function importMargMasterRows(
     };
 
     const convRow =
-      secUnit && conv > 0 && secUnit !== baseUnit
+      secUnit && conv > 1 && secUnit !== baseUnit
         ? { from: secUnit, to: baseUnit, factor: conv }
         : null;
 

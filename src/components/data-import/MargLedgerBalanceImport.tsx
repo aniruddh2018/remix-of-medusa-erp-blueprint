@@ -192,12 +192,10 @@ export function MargLedgerBalanceImport() {
               )}
             </div>
 
-            {(fyBlocked || !activeFinancialYearId) && (
+            {!activeFinancialYearId && (
               <Alert variant="destructive">
                 <AlertDescription>
-                  {!activeFinancialYearId
-                    ? "Select a financial year in the top bar before importing openings."
-                    : "This financial year is locked. Switch to the active (current) FY to post openings."}
+                  Select a financial year in the top bar before importing openings.
                 </AlertDescription>
               </Alert>
             )}

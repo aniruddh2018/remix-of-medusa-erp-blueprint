@@ -306,8 +306,20 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       setFinancialYears(years);
       setActiveFyIdState((current) => {
         if (current && years.some((y) => y.id === current)) return current;
+        const today = new Date().toISOString().slice(0, 10);
+        // 1. FY that contains today
+        const containing = years.find(
+          (y) => y.start_date <= today && y.end_date >= today,
+        );
+        if (containing) return containing.id;
+        // 2. Explicitly active FY
         const active = years.find((y) => y.status === "active");
-        return active?.id ?? years[0]?.id ?? null;
+        if (active) return active.id;
+        // 3. Most recent FY by start_date (never the oldest)
+        const sorted = [...years].sort((a, b) =>
+          b.start_date.localeCompare(a.start_date),
+        );
+        return sorted[0]?.id ?? null;
       });
     } catch (err) {
       console.error("[Business] refreshFinancialYears failed:", err);

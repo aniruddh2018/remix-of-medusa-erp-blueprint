@@ -166,29 +166,37 @@ export async function importMargLedgerBalances(
       result.ledgersMatched++;
     }
 
-    // 3. Compute opening = balance - (net FY movement so far)
-    let opening = row.balance;
-    if (opts.reconcileAgainstFy) {
-      const { data: movRows } = await supabase
-        .from("ledger_entries")
-        .select("debit, credit")
-        .eq("company_id", opts.companyId)
-        .eq("ledger_account_id", ledger.id)
-        .gte("entry_date", fyStart)
-        .lte("entry_date", fyEnd);
-      let dr = 0, cr = 0;
-      for (const m of movRows ?? []) {
-        dr += Number(m.debit ?? 0);
-        cr += Number(m.credit ?? 0);
-      }
-      // Debit-positive convention: net = dr - cr
-      opening = row.balance - (dr - cr);
+    // 3. Reconcile like stock: our_balance = current-FY entries (dr - cr)
+    //    + any existing opening. Post only the EXCESS vs MARG balance.
+    const { data: movRows } = await supabase
+      .from("ledger_entries")
+      .select("debit, credit")
+      .eq("company_id", opts.companyId)
+      .eq("ledger_account_id", ledger.id)
+      .gte("entry_date", fyStart)
+      .lte("entry_date", fyEnd);
+    let dr = 0, cr = 0;
+    for (const m of movRows ?? []) {
+      dr += Number(m.debit ?? 0);
+      cr += Number(m.credit ?? 0);
     }
+    const existing = openingByLedger.get(ledger.id);
+    const existingSigned = existing
+      ? (existing.balance_type === "DR" ? existing.amount : -existing.amount)
+      : 0;
+    // Debit-positive convention throughout.
+    const ourBalance = existingSigned + (dr - cr);
+    const excess = row.balance - ourBalance;
 
-    if (Math.abs(opening) < 0.005) { result.skippedZero++; continue; }
+    // Matches within a rupee → skip (party already reconciled, like stock).
+    if (Math.abs(excess) < 1) { result.skippedMatched++; continue; }
 
-    const balance_type = opening >= 0 ? "DR" : "CR";
-    const amount = Math.round(Math.abs(opening) * 100) / 100;
+    // Final opening we want on the books = existingSigned + excess
+    const finalOpening = existingSigned + excess;
+    if (Math.abs(finalOpening) < 0.005) { result.skippedZero++; continue; }
+
+    const balance_type = finalOpening >= 0 ? "DR" : "CR";
+    const amount = Math.round(Math.abs(finalOpening) * 100) / 100;
 
     const already = openingSet.has(ledger.id);
     const { error: upErr } = await supabase

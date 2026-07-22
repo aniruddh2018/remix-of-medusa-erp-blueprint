@@ -71,7 +71,7 @@ export function MargLedgerBalanceImport() {
       title: "Ledger openings imported",
       description: `${r.ledgersCreated} new · ${r.ledgersMatched} matched · ${r.openingsInserted + r.openingsUpdated} openings posted`,
     });
-  }, [parsed, companyId, activeFinancialYearId, asOfDate, reconcile, createMissing, fyBlocked, toast]);
+  }, [parsed, companyId, activeFinancialYearId, asOfDate, reconcile, createMissing, toast]);
 
   const downloadUnmatched = useCallback(() => {
     if (!result) return;

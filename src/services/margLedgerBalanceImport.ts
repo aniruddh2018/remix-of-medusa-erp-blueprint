@@ -34,6 +34,7 @@ export interface LedgerBalanceImportResult {
   openingsInserted: number;
   openingsUpdated: number;
   skippedZero: number;
+  skippedMatched: number;
   skippedNoFy: number;
   unmatched: string[];
   errors: string[];
@@ -49,7 +50,7 @@ export async function importMargLedgerBalances(
   const result: LedgerBalanceImportResult = {
     groupsCreated: 0, ledgersCreated: 0, ledgersMatched: 0,
     openingsInserted: 0, openingsUpdated: 0,
-    skippedZero: 0, skippedNoFy: 0,
+    skippedZero: 0, skippedMatched: 0, skippedNoFy: 0,
     unmatched: [], errors: [],
   };
 
@@ -76,22 +77,30 @@ export async function importMargLedgerBalances(
     ledgerByName.set(norm(l.name), { id: l.id, ledger_group_id: l.ledger_group_id });
   }
 
-  // Preload existing openings for this FY so we know insert vs update
+  // Preload existing openings for this FY (amount + type) so we can compare
+  // MARG balance vs our current book balance and post only the excess.
   const { data: existingOpenings } = await supabase
-    .from("ledger_opening_balances").select("ledger_account_id")
-    .eq("company_id", opts.companyId).eq("financial_year_id", opts.financialYearId);
-  const openingSet = new Set((existingOpenings ?? []).map((o) => o.ledger_account_id));
+    .from("ledger_opening_balances")
+    .select("ledger_account_id, amount, balance_type")
+    .eq("company_id", opts.companyId)
+    .eq("financial_year_id", opts.financialYearId);
+  const openingByLedger = new Map<string, { amount: number; balance_type: string }>();
+  for (const o of existingOpenings ?? []) {
+    openingByLedger.set(o.ledger_account_id, {
+      amount: Number(o.amount ?? 0),
+      balance_type: String(o.balance_type ?? "DR"),
+    });
+  }
+  const openingSet = new Set(openingByLedger.keys());
 
-  // Fetch the FY range for reconciliation window
+  // Fetch the FY range so we only look at entries inside the selected FY.
   let fyStart = "1900-01-01", fyEnd = opts.asOfDate;
-  if (opts.reconcileAgainstFy) {
-    const { data: fy } = await supabase
-      .from("financial_years").select("start_date, end_date")
-      .eq("id", opts.financialYearId).maybeSingle();
-    if (fy) {
-      fyStart = fy.start_date;
-      fyEnd = opts.asOfDate < fy.end_date ? opts.asOfDate : fy.end_date;
-    }
+  const { data: fy } = await supabase
+    .from("financial_years").select("start_date, end_date")
+    .eq("id", opts.financialYearId).maybeSingle();
+  if (fy) {
+    fyStart = fy.start_date;
+    fyEnd = opts.asOfDate < fy.end_date ? opts.asOfDate : fy.end_date;
   }
 
   let done = 0;
@@ -157,29 +166,37 @@ export async function importMargLedgerBalances(
       result.ledgersMatched++;
     }
 
-    // 3. Compute opening = balance - (net FY movement so far)
-    let opening = row.balance;
-    if (opts.reconcileAgainstFy) {
-      const { data: movRows } = await supabase
-        .from("ledger_entries")
-        .select("debit, credit")
-        .eq("company_id", opts.companyId)
-        .eq("ledger_account_id", ledger.id)
-        .gte("entry_date", fyStart)
-        .lte("entry_date", fyEnd);
-      let dr = 0, cr = 0;
-      for (const m of movRows ?? []) {
-        dr += Number(m.debit ?? 0);
-        cr += Number(m.credit ?? 0);
-      }
-      // Debit-positive convention: net = dr - cr
-      opening = row.balance - (dr - cr);
+    // 3. Reconcile like stock: our_balance = current-FY entries (dr - cr)
+    //    + any existing opening. Post only the EXCESS vs MARG balance.
+    const { data: movRows } = await supabase
+      .from("ledger_entries")
+      .select("debit, credit")
+      .eq("company_id", opts.companyId)
+      .eq("ledger_account_id", ledger.id)
+      .gte("entry_date", fyStart)
+      .lte("entry_date", fyEnd);
+    let dr = 0, cr = 0;
+    for (const m of movRows ?? []) {
+      dr += Number(m.debit ?? 0);
+      cr += Number(m.credit ?? 0);
     }
+    const existing = openingByLedger.get(ledger.id);
+    const existingSigned = existing
+      ? (existing.balance_type === "DR" ? existing.amount : -existing.amount)
+      : 0;
+    // Debit-positive convention throughout.
+    const ourBalance = existingSigned + (dr - cr);
+    const excess = row.balance - ourBalance;
 
-    if (Math.abs(opening) < 0.005) { result.skippedZero++; continue; }
+    // Matches within a rupee → skip (party already reconciled, like stock).
+    if (Math.abs(excess) < 1) { result.skippedMatched++; continue; }
 
-    const balance_type = opening >= 0 ? "DR" : "CR";
-    const amount = Math.round(Math.abs(opening) * 100) / 100;
+    // Final opening we want on the books = existingSigned + excess
+    const finalOpening = existingSigned + excess;
+    if (Math.abs(finalOpening) < 0.005) { result.skippedZero++; continue; }
+
+    const balance_type = finalOpening >= 0 ? "DR" : "CR";
+    const amount = Math.round(Math.abs(finalOpening) * 100) / 100;
 
     const already = openingSet.has(ledger.id);
     const { error: upErr } = await supabase

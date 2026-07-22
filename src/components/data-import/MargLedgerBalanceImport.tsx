@@ -201,10 +201,24 @@ export function MargLedgerBalanceImport() {
               )}
             </div>
 
-            <div className="flex gap-2">
+            {(fyBlocked || !activeFinancialYearId) && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {!activeFinancialYearId
+                    ? "Select a financial year in the top bar before importing openings."
+                    : "This financial year is locked. Switch to the active (current) FY to post openings."}
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex flex-wrap gap-2 sticky bottom-0 bg-background pt-2 border-t">
               <Button variant="outline" onClick={reset}>Cancel</Button>
-              <Button onClick={handleImport} disabled={parsed.rows.length === 0 || fyBlocked || !activeFinancialYearId}>
-                Import openings for {parsed.rows.length.toLocaleString()} ledgers
+              <Button
+                size="lg"
+                onClick={handleImport}
+                disabled={parsed.rows.length === 0}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import openings ({parsed.rows.length.toLocaleString()})
               </Button>
             </div>
           </CardContent>
@@ -240,7 +254,8 @@ export function MargLedgerBalanceImport() {
               <Stat label="Ledgers matched" value={result.ledgersMatched} />
               <Stat label="Openings inserted" value={result.openingsInserted} tone="success" />
               <Stat label="Openings updated" value={result.openingsUpdated} />
-              <Stat label="Skipped (zero)" value={result.skippedZero} />
+              <Stat label="Matched (skipped)" value={result.skippedMatched} />
+              <Stat label="Zero balance" value={result.skippedZero} />
               <Stat label="Unmatched" value={result.unmatched.length} tone={result.unmatched.length ? "error" : "muted"} />
               <Stat label="Errors" value={result.errors.length} tone={result.errors.length ? "error" : "muted"} />
             </div>

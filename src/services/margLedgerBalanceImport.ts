@@ -50,7 +50,7 @@ export async function importMargLedgerBalances(
   const result: LedgerBalanceImportResult = {
     groupsCreated: 0, ledgersCreated: 0, ledgersMatched: 0,
     openingsInserted: 0, openingsUpdated: 0,
-    skippedZero: 0, skippedNoFy: 0,
+    skippedZero: 0, skippedMatched: 0, skippedNoFy: 0,
     unmatched: [], errors: [],
   };
 

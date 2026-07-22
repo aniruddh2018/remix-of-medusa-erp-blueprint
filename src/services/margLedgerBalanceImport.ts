@@ -34,6 +34,7 @@ export interface LedgerBalanceImportResult {
   openingsInserted: number;
   openingsUpdated: number;
   skippedZero: number;
+  skippedMatched: number;
   skippedNoFy: number;
   unmatched: string[];
   errors: string[];

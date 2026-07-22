@@ -24,7 +24,6 @@ type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 export function MargLedgerBalanceImport() {
   const { companyId, activeFinancialYearId, activeFinancialYear } = useBusiness();
   const { toast } = useToast();
-  const fyBlocked = !!activeFinancialYear && activeFinancialYear.status !== "active";
 
   const [stage, setStage] = useState<Stage>("idle");
   useUnloadGuard(stage === "importing");

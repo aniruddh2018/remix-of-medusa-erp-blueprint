@@ -77,22 +77,30 @@ export async function importMargLedgerBalances(
     ledgerByName.set(norm(l.name), { id: l.id, ledger_group_id: l.ledger_group_id });
   }
 
-  // Preload existing openings for this FY so we know insert vs update
+  // Preload existing openings for this FY (amount + type) so we can compare
+  // MARG balance vs our current book balance and post only the excess.
   const { data: existingOpenings } = await supabase
-    .from("ledger_opening_balances").select("ledger_account_id")
-    .eq("company_id", opts.companyId).eq("financial_year_id", opts.financialYearId);
-  const openingSet = new Set((existingOpenings ?? []).map((o) => o.ledger_account_id));
+    .from("ledger_opening_balances")
+    .select("ledger_account_id, amount, balance_type")
+    .eq("company_id", opts.companyId)
+    .eq("financial_year_id", opts.financialYearId);
+  const openingByLedger = new Map<string, { amount: number; balance_type: string }>();
+  for (const o of existingOpenings ?? []) {
+    openingByLedger.set(o.ledger_account_id, {
+      amount: Number(o.amount ?? 0),
+      balance_type: String(o.balance_type ?? "DR"),
+    });
+  }
+  const openingSet = new Set(openingByLedger.keys());
 
-  // Fetch the FY range for reconciliation window
+  // Fetch the FY range so we only look at entries inside the selected FY.
   let fyStart = "1900-01-01", fyEnd = opts.asOfDate;
-  if (opts.reconcileAgainstFy) {
-    const { data: fy } = await supabase
-      .from("financial_years").select("start_date, end_date")
-      .eq("id", opts.financialYearId).maybeSingle();
-    if (fy) {
-      fyStart = fy.start_date;
-      fyEnd = opts.asOfDate < fy.end_date ? opts.asOfDate : fy.end_date;
-    }
+  const { data: fy } = await supabase
+    .from("financial_years").select("start_date, end_date")
+    .eq("id", opts.financialYearId).maybeSingle();
+  if (fy) {
+    fyStart = fy.start_date;
+    fyEnd = opts.asOfDate < fy.end_date ? opts.asOfDate : fy.end_date;
   }
 
   let done = 0;

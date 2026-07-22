@@ -24,7 +24,6 @@ type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 export function MargLedgerBalanceImport() {
   const { companyId, activeFinancialYearId, activeFinancialYear } = useBusiness();
   const { toast } = useToast();
-  const fyBlocked = !!activeFinancialYear && activeFinancialYear.status !== "active";
 
   const [stage, setStage] = useState<Stage>("idle");
   useUnloadGuard(stage === "importing");
@@ -54,14 +53,6 @@ export function MargLedgerBalanceImport() {
       toast({ title: "Select a financial year first", variant: "destructive" });
       return;
     }
-    if (fyBlocked) {
-      toast({
-        title: "Opening balances blocked",
-        description: "Switch to the active (current) financial year.",
-        variant: "destructive",
-      });
-      return;
-    }
     setStage("importing");
     setProgress({ done: 0, total: parsed.rows.length });
     const r = await importMargLedgerBalances(
@@ -80,7 +71,7 @@ export function MargLedgerBalanceImport() {
       title: "Ledger openings imported",
       description: `${r.ledgersCreated} new · ${r.ledgersMatched} matched · ${r.openingsInserted + r.openingsUpdated} openings posted`,
     });
-  }, [parsed, companyId, activeFinancialYearId, asOfDate, reconcile, createMissing, fyBlocked, toast]);
+  }, [parsed, companyId, activeFinancialYearId, asOfDate, reconcile, createMissing, toast]);
 
   const downloadUnmatched = useCallback(() => {
     if (!result) return;
@@ -99,7 +90,7 @@ export function MargLedgerBalanceImport() {
 
   return (
     <div className="space-y-4">
-      <FyImportBadge requireActive />
+      <FyImportBadge />
       {stage === "idle" && (
         <Card>
           <CardHeader><CardTitle>MARG Ledger Openings Importer</CardTitle></CardHeader>
@@ -201,12 +192,10 @@ export function MargLedgerBalanceImport() {
               )}
             </div>
 
-            {(fyBlocked || !activeFinancialYearId) && (
+            {!activeFinancialYearId && (
               <Alert variant="destructive">
                 <AlertDescription>
-                  {!activeFinancialYearId
-                    ? "Select a financial year in the top bar before importing openings."
-                    : "This financial year is locked. Switch to the active (current) FY to post openings."}
+                  Select a financial year in the top bar before importing openings.
                 </AlertDescription>
               </Alert>
             )}

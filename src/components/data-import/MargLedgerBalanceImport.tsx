@@ -53,14 +53,6 @@ export function MargLedgerBalanceImport() {
       toast({ title: "Select a financial year first", variant: "destructive" });
       return;
     }
-    if (fyBlocked) {
-      toast({
-        title: "Opening balances blocked",
-        description: "Switch to the active (current) financial year.",
-        variant: "destructive",
-      });
-      return;
-    }
     setStage("importing");
     setProgress({ done: 0, total: parsed.rows.length });
     const r = await importMargLedgerBalances(

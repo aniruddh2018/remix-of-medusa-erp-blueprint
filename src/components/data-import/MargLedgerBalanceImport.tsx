@@ -254,7 +254,8 @@ export function MargLedgerBalanceImport() {
               <Stat label="Ledgers matched" value={result.ledgersMatched} />
               <Stat label="Openings inserted" value={result.openingsInserted} tone="success" />
               <Stat label="Openings updated" value={result.openingsUpdated} />
-              <Stat label="Skipped (zero)" value={result.skippedZero} />
+              <Stat label="Matched (skipped)" value={result.skippedMatched} />
+              <Stat label="Zero balance" value={result.skippedZero} />
               <Stat label="Unmatched" value={result.unmatched.length} tone={result.unmatched.length ? "error" : "muted"} />
               <Stat label="Errors" value={result.errors.length} tone={result.errors.length ? "error" : "muted"} />
             </div>

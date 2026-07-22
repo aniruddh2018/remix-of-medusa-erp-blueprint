@@ -90,7 +90,7 @@ export function MargLedgerBalanceImport() {
 
   return (
     <div className="space-y-4">
-      <FyImportBadge requireActive />
+      <FyImportBadge />
       {stage === "idle" && (
         <Card>
           <CardHeader><CardTitle>MARG Ledger Openings Importer</CardTitle></CardHeader>

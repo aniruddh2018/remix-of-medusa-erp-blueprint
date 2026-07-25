@@ -16,6 +16,8 @@ import { MargStockImport } from "@/components/data-import/MargStockImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 import { MargLedgerBalanceImport } from "@/components/data-import/MargLedgerBalanceImport";
+import { RemoveImportsButton } from "@/components/data-import/RemoveImportsButton";
+import type { CleanupScope } from "@/services/margImportCleanup";
 
 type StepKey =
   | "products" | "product-list" | "parties" | "doctors"
@@ -27,6 +29,7 @@ interface StepDef {
   description: string;
   optional?: boolean;
   guard?: "products" | "sales" | "purchase" | "stock";
+  cleanupScope?: CleanupScope;
   Component: () => JSX.Element;
 }
 
@@ -36,6 +39,7 @@ const STEPS: StepDef[] = [
     label: "1. Product Master",
     description: "Import product catalog (name, composition, MRP, GST, HSN). Everything else depends on this.",
     guard: "products",
+    cleanupScope: "products",
     Component: MargMasterImport,
   },
   {
@@ -49,6 +53,7 @@ const STEPS: StepDef[] = [
     key: "parties",
     label: "2. Parties (Customers & Suppliers)",
     description: "Import party master — required before sales or purchases can link to their party.",
+    cleanupScope: "parties",
     Component: MargPartyMasterImport,
   },
   {
@@ -56,6 +61,7 @@ const STEPS: StepDef[] = [
     label: "3. Purchase History",
     description: "Historical purchase bills. Builds stock via FIFO — import before sales.",
     guard: "purchase",
+    cleanupScope: "purchase",
     Component: MargPurchaseImport,
   },
   {
@@ -63,6 +69,7 @@ const STEPS: StepDef[] = [
     label: "4. Sales History",
     description: "Historical sales bills. Depends on products, parties, and purchase-built stock.",
     guard: "sales",
+    cleanupScope: "sales",
     Component: MargSalesImport,
   },
   {
@@ -70,6 +77,7 @@ const STEPS: StepDef[] = [
     label: "5. Doctor Mapping",
     description: "Bill ↔ Doctor mapping for prescription reports. Optional, can be done anytime after sales.",
     optional: true,
+    cleanupScope: "doctors",
     Component: MargDoctorMapImport,
   },
   {
@@ -77,12 +85,14 @@ const STEPS: StepDef[] = [
     label: "6. Opening Stock (current FY only)",
     description: "Adjust current on-hand quantities & batches. Only allowed in the active financial year.",
     guard: "stock",
+    cleanupScope: "stock",
     Component: MargStockImport,
   },
   {
     key: "ledger-openings",
     label: "7. Opening Ledger Balances (current FY only)",
     description: "MARG trial balance → opening balances for parties/cash/bank/tax ledgers. Movement already posted in the current FY is subtracted so nothing is double-counted.",
+    cleanupScope: "ledger-openings",
     Component: MargLedgerBalanceImport,
   },
 ];
@@ -230,7 +240,14 @@ export function MargImportHierarchy() {
                     <span className="text-xs text-muted-foreground">
                       When you're finished importing this step, mark it done to unlock the next.
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                      {step.cleanupScope && (
+                        <RemoveImportsButton
+                          scope={step.cleanupScope}
+                          label={step.label}
+                          onDone={() => markDone(step.key, false)}
+                        />
+                      )}
                       {done ? (
                         <Button variant="outline" size="sm" onClick={() => markDone(step.key, false)}>
                           Undo done

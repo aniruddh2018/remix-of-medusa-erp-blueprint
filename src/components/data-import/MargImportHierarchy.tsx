@@ -16,6 +16,8 @@ import { MargStockImport } from "@/components/data-import/MargStockImport";
 import { MargPurchaseImport } from "@/components/data-import/MargPurchaseImport";
 import { MargSalesImport } from "@/components/data-import/MargSalesImport";
 import { MargLedgerBalanceImport } from "@/components/data-import/MargLedgerBalanceImport";
+import { RemoveImportsButton } from "@/components/data-import/RemoveImportsButton";
+import type { CleanupScope } from "@/services/margImportCleanup";
 
 type StepKey =
   | "products" | "product-list" | "parties" | "doctors"
@@ -27,6 +29,7 @@ interface StepDef {
   description: string;
   optional?: boolean;
   guard?: "products" | "sales" | "purchase" | "stock";
+  cleanupScope?: CleanupScope;
   Component: () => JSX.Element;
 }
 

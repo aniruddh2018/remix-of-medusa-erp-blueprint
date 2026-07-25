@@ -302,20 +302,43 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const refreshFinancialYears = useCallback(async () => {
     if (!companyId) { setFinancialYears([]); return; }
     try {
-      const years = await listFinancialYears(companyId);
+      let years = await listFinancialYears(companyId);
+      const today = new Date().toISOString().slice(0, 10);
+      let containing = years.find(
+        (y) => y.start_date <= today && y.end_date >= today,
+      );
+      // Auto-create current FY row if none covers today, so importers
+      // always have a real financial_year_id to write against.
+      if (!containing) {
+        const now = new Date();
+        const startYear = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+        const startDate = `${startYear}-04-01`;
+        const endDate = `${startYear + 1}-03-31`;
+        const name = `FY ${startYear}-${String((startYear + 1) % 100).padStart(2, "0")}`;
+        const { data: created, error: createErr } = await supabase
+          .from("financial_years")
+          .insert([{
+            company_id: companyId,
+            name,
+            start_date: startDate,
+            end_date: endDate,
+            status: "active",
+          }])
+          .select("*")
+          .maybeSingle();
+        if (createErr) {
+          console.warn("[Business] auto-create current FY failed:", createErr.message);
+        } else if (created) {
+          years = await listFinancialYears(companyId);
+          containing = years.find((y) => y.id === (created as { id: string }).id);
+        }
+      }
       setFinancialYears(years);
       setActiveFyIdState((current) => {
         if (current && years.some((y) => y.id === current)) return current;
-        const today = new Date().toISOString().slice(0, 10);
-        // 1. FY that contains today
-        const containing = years.find(
-          (y) => y.start_date <= today && y.end_date >= today,
-        );
         if (containing) return containing.id;
-        // 2. Explicitly active FY
         const active = years.find((y) => y.status === "active");
         if (active) return active.id;
-        // 3. Most recent FY by start_date (never the oldest)
         const sorted = [...years].sort((a, b) =>
           b.start_date.localeCompare(a.start_date),
         );

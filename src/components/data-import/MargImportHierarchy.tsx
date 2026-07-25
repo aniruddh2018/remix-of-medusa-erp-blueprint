@@ -39,6 +39,7 @@ const STEPS: StepDef[] = [
     label: "1. Product Master",
     description: "Import product catalog (name, composition, MRP, GST, HSN). Everything else depends on this.",
     guard: "products",
+    cleanupScope: "products",
     Component: MargMasterImport,
   },
   {
@@ -52,6 +53,7 @@ const STEPS: StepDef[] = [
     key: "parties",
     label: "2. Parties (Customers & Suppliers)",
     description: "Import party master — required before sales or purchases can link to their party.",
+    cleanupScope: "parties",
     Component: MargPartyMasterImport,
   },
   {
@@ -59,6 +61,7 @@ const STEPS: StepDef[] = [
     label: "3. Purchase History",
     description: "Historical purchase bills. Builds stock via FIFO — import before sales.",
     guard: "purchase",
+    cleanupScope: "purchase",
     Component: MargPurchaseImport,
   },
   {
@@ -66,6 +69,7 @@ const STEPS: StepDef[] = [
     label: "4. Sales History",
     description: "Historical sales bills. Depends on products, parties, and purchase-built stock.",
     guard: "sales",
+    cleanupScope: "sales",
     Component: MargSalesImport,
   },
   {
@@ -73,6 +77,7 @@ const STEPS: StepDef[] = [
     label: "5. Doctor Mapping",
     description: "Bill ↔ Doctor mapping for prescription reports. Optional, can be done anytime after sales.",
     optional: true,
+    cleanupScope: "doctors",
     Component: MargDoctorMapImport,
   },
   {
@@ -80,12 +85,14 @@ const STEPS: StepDef[] = [
     label: "6. Opening Stock (current FY only)",
     description: "Adjust current on-hand quantities & batches. Only allowed in the active financial year.",
     guard: "stock",
+    cleanupScope: "stock",
     Component: MargStockImport,
   },
   {
     key: "ledger-openings",
     label: "7. Opening Ledger Balances (current FY only)",
     description: "MARG trial balance → opening balances for parties/cash/bank/tax ledgers. Movement already posted in the current FY is subtracted so nothing is double-counted.",
+    cleanupScope: "ledger-openings",
     Component: MargLedgerBalanceImport,
   },
 ];

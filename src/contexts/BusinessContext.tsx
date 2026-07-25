@@ -335,8 +335,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       }
       setFinancialYears(years);
       setActiveFyIdState((current) => {
-        if (current && years.some((y) => y.id === current)) return current;
+        // On reload, always prefer the FY that contains today's date.
         if (containing) return containing.id;
+        if (current && years.some((y) => y.id === current)) return current;
         const active = years.find((y) => y.status === "active");
         if (active) return active.id;
         const sorted = [...years].sort((a, b) =>

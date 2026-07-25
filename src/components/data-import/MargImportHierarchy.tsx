@@ -240,7 +240,14 @@ export function MargImportHierarchy() {
                     <span className="text-xs text-muted-foreground">
                       When you're finished importing this step, mark it done to unlock the next.
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                      {step.cleanupScope && (
+                        <RemoveImportsButton
+                          scope={step.cleanupScope}
+                          label={step.label}
+                          onDone={() => markDone(step.key, false)}
+                        />
+                      )}
                       {done ? (
                         <Button variant="outline" size="sm" onClick={() => markDone(step.key, false)}>
                           Undo done

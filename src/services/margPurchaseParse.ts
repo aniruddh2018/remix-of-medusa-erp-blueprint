@@ -72,11 +72,15 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const QTY_RE = /^(\d+)(?::(\d+))?(?:\+(\d+)(?::(\d+))?)?$/;
+const QTY_RE = /^(\d+)(?::(\d+))?(?:\+(\d+)(?::(\d+))?)?$|^(\d+)\+(\d+)$/;
 
 function parseQty(tok: string): { ps: number; pl: number; fs: number; fl: number } | null {
   const m = tok.match(QTY_RE);
   if (!m) return null;
+  if (m[5]) {
+    // N+M format: paid strips + free strips
+    return { ps: parseInt(m[5], 10) || 0, pl: 0, fs: parseInt(m[6], 10) || 0, fl: 0 };
+  }
   return {
     ps: parseInt(m[1], 10) || 0,
     pl: m[2] ? parseInt(m[2], 10) : 0,
@@ -85,7 +89,19 @@ function parseQty(tok: string): { ps: number; pl: number; fs: number; fl: number
   };
 }
 
-/** Split combined col1 "  desc  pack  batch  qty" right-to-left. */
+function isPackPattern(tok: string): boolean {
+  const t = tok.toUpperCase().replace(/\s+/g, "");
+  return /^(\d+)\*(\d+)$/.test(t) || /^(\d+)'S$/.test(t) || /^\d+(?:TAB|CAP|TABS|CAPS|PCS|NOS|UNITS?|S|ML|GM|G|MG|MCG|L)$/.test(t);
+}
+
+function isBatchLike(tok: string): boolean {
+  return /[A-Za-z]/.test(tok) && /\d/.test(tok);
+}
+
+/** Split combined col1 "  desc  pack  batch  qty" right-to-left.
+ *  Heuristics: qty is rightmost; next is batch (alphanumeric) or pack (10*10, 10'S, etc.);
+ *  everything before is description.
+ */
 function splitItemDetails(s: string): {
   description: string;
   pack: string;
@@ -104,20 +120,108 @@ function splitItemDetails(s: string): {
     return { description: toks.join(" "), pack: "", batch: "", qty };
   }
   const before = toks.slice(0, qtyIdx);
-  // Batch = last token before qty (alphanumeric / digits / can include - or /)
-  const batch = before.length > 0 ? before.pop()! : "";
-  // Pack = next-from-last token before qty; combine trailing two if last looks like a unit (ML/GM/G/MG etc)
+  let batch = "";
   let pack = "";
-  if (before.length > 0) {
-    const last = before[before.length - 1];
-    if (/^(ML|GM|G|MG|MCG|L|S|TAB|CAP|GEL)$/i.test(last) && before.length >= 2) {
+
+  if (before.length >= 3) {
+    batch = before.pop()!;
+    const next = before[before.length - 1];
+    if (/^(ML|GM|G|MG|MCG|L|S|TAB|CAP|GEL)$/i.test(next) && before.length >= 2) {
       pack = before.pop()!;
       pack = before.pop()! + " " + pack;
     } else {
       pack = before.pop()!;
     }
+  } else if (before.length === 2) {
+    const last = before.pop()!;
+    if (isPackPattern(last)) {
+      pack = last;
+      // first token stays as description
+    } else if (isBatchLike(last)) {
+      batch = last;
+      const first = before[0];
+      if (isPackPattern(first)) {
+        pack = first;
+        before.pop();
+      }
+    } else {
+      batch = last;
+      // first token stays as description
+    }
+  } else if (before.length === 1) {
+    const only = before.pop()!;
+    if (isPackPattern(only)) pack = only;
+    else batch = only;
   }
+
   return { description: before.join(" ").trim(), pack, batch, qty };
+}
+
+/**
+ * Given an original set (invoices + challans) and an invoices-only set,
+ * split the original into two groups:
+ *   - invoices: bills whose bill_no exists in invoicesOnly
+ *   - challans: bills whose bill_no exists only in original (not in invoicesOnly)
+ */
+export function splitPurchaseBills(
+  original: ParsedPurchaseBill[],
+  invoicesOnly: ParsedPurchaseBill[],
+): {
+  invoices: ParsedPurchaseBill[];
+  challans: ParsedPurchaseBill[];
+  unmatchedInvoiceBills: ParsedPurchaseBill[];
+  stats: {
+    totalOriginalBills: number;
+    totalOriginalItems: number;
+    invoiceBills: number;
+    invoiceItems: number;
+    challanBills: number;
+    challanItems: number;
+    unmatchedInvoiceBillsCount: number;
+    unmatchedInvoiceItems: number;
+  };
+} {
+  const invoiceNos = new Set(invoicesOnly.map((b) => b.bill_no.toUpperCase().trim()));
+  const originalNos = new Set(original.map((b) => b.bill_no.toUpperCase().trim()));
+
+  const invoices: ParsedPurchaseBill[] = [];
+  const challans: ParsedPurchaseBill[] = [];
+  const unmatchedInvoiceBills: ParsedPurchaseBill[] = [];
+
+  for (const b of original) {
+    if (invoiceNos.has(b.bill_no.toUpperCase().trim())) {
+      invoices.push(b);
+    } else {
+      challans.push(b);
+    }
+  }
+
+  for (const b of invoicesOnly) {
+    if (!originalNos.has(b.bill_no.toUpperCase().trim())) {
+      unmatchedInvoiceBills.push(b);
+    }
+  }
+
+  const totalOriginalItems = original.reduce((s, b) => s + b.items.length, 0);
+  const invoiceItems = invoices.reduce((s, b) => s + b.items.length, 0);
+  const challanItems = challans.reduce((s, b) => s + b.items.length, 0);
+  const unmatchedInvoiceItems = unmatchedInvoiceBills.reduce((s, b) => s + b.items.length, 0);
+
+  return {
+    invoices,
+    challans,
+    unmatchedInvoiceBills,
+    stats: {
+      totalOriginalBills: original.length,
+      totalOriginalItems,
+      invoiceBills: invoices.length,
+      invoiceItems,
+      challanBills: challans.length,
+      challanItems,
+      unmatchedInvoiceBillsCount: unmatchedInvoiceBills.length,
+      unmatchedInvoiceItems,
+    },
+  };
 }
 
 export async function parseMargPurchaseFile(file: File): Promise<PurchaseParseResult> {

@@ -181,7 +181,7 @@ export async function importMargMasterRows(
     const detected = detectForm(rawName, "", str(r.base_unit) || null);
 
     let conv = num(r.conversion);
-    let form = str(r.form) || detected.form;
+    const form = str(r.form) || detected.form;
 
     // Resolve base + secondary units.
     let baseUnit: string;
@@ -206,6 +206,13 @@ export async function importMargMasterRows(
       conv = 10;
     }
 
+    // MARG master files list MRP and rate per PACK (strip / bottle / tube).
+    // Convert to per-unit price so the product's unit_price reflects one base unit.
+    const perUnitMRP = conv > 1 ? Math.round((mrp / conv) * 100) / 100 : mrp;
+    const perUnitRate = conv > 1
+      ? Math.round((num(r.rate, mrp) / conv) * 100) / 100
+      : num(r.rate, mrp);
+
     const convRow =
       secUnit && conv > 1 && secUnit !== baseUnit
         ? { from: secUnit, to: baseUnit, factor: conv }
@@ -215,9 +222,9 @@ export async function importMargMasterRows(
     const existRow = existing.get(fp);
     if (existRow) {
       result.skipped++;
-      // Also correct a previously wrong base_unit (STRIP/BOX/PACK for a
+      // Also correct a previously wrong base_unit (STRIP/BOX/PACK/BOTTLE/VIAL for a
       // tablet-like form) so downstream conversions read correctly.
-      const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+      const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE|BOTTLE|VIAL|AMP|TUBE|SACHET)$/i;
       const wrongBase = !!existRow.base_unit
         && NON_ATOMIC.test(existRow.base_unit)
         && ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"].includes(form);
@@ -259,9 +266,9 @@ export async function importMargMasterRows(
       form: form || null,
       unit: baseUnit,
       base_unit: baseUnit,
-      mrp,
-      sale_price: mrp,
-      purchase_price: num(r.rate, mrp),
+      mrp: perUnitMRP,
+      sale_price: perUnitMRP,
+      purchase_price: perUnitRate,
       gst_percentage: num(r.gst_percent),
       drug_schedule: "none",
       batch_tracking_enabled: true,

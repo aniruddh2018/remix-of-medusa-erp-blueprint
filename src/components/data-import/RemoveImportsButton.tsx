@@ -67,6 +67,7 @@ export function RemoveImportsButton({ scope, label, onDone }: Props) {
   };
 
   const blocked = (preview?.blockedBy.length ?? 0) > 0;
+  const hasWarnings = (preview?.warn.length ?? 0) > 0;
   const canConfirm = confirmText.trim().toUpperCase() === "DELETE";
 
   return (
@@ -107,6 +108,17 @@ export function RemoveImportsButton({ scope, label, onDone }: Props) {
                     <div className="font-medium">Cannot delete — remove dependent data first:</div>
                     <ul className="list-disc pl-4">
                       {preview.blockedBy.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {hasWarnings && !blocked && (
+                <Alert>
+                  <AlertDescription className="text-xs space-y-1">
+                    <div className="font-medium">The following will also be deleted automatically:</div>
+                    <ul className="list-disc pl-4">
+                      {preview.warn.map((w, i) => <li key={i}>{w}</li>)}
                     </ul>
                   </AlertDescription>
                 </Alert>

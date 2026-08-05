@@ -32,22 +32,26 @@ interface ParsedItem {
   header: string; // active manufacturer / composition header
 }
 
-const FORM_TOKENS = [
-  "TAB", "TABS", "CAP", "CAPS", "SYP", "SYRUP", "INJ", "SUSP",
-  "CRM", "CREAM", "OIN", "OINT", "GEL", "DRO", "DROPS", "POW", "POWDER",
-  "LOT", "LOTION", "SOL", "SOLN", "SPR", "SPRAY", "LIQ", "LIQUID",
-  "SACHET", "RESP", "RES", "TUBE", "BTL", "BOTTLE", "TON", "TONIC",
-  "SUPP", "PESSARY", "GRAN", "GRANULES", "INH", "INHALER", "OIL",
-  "SHAMPOO", "SOAP", "MOUTHWASH", "GARGLE", "ENEMA", "CARTRIDGE",
-  "AMP", "VIAL", "PFS", "INFUS",
+const FORM_PATTERNS = [
+  { re: /\b(TABLETS?|TAB)\b/i, code: "TABLET" },
+  { re: /\b(CAPSULES?|CAP)\b/i, code: "CAPSULE" },
+  { re: /\b(INJECTIONS?|INJ|VIALS?|AMPOULES?|AMP|PF)\b/i, code: "INJECTION" },
+  { re: /\b(SYRUPS?|SYP|SUSPENSIONS?|SUSP|ELIXIRS?|ELIX)\b/i, code: "SYRUP" },
+  { re: /\b(DROPS?|DRO)\b/i, code: "DROPS" },
+  { re: /\b(CREAMS?|CRM|OINTMENTS?|OINT|GELS?|LOTIONS?|LOT|BALMS?|PASTES?)\b/i, code: "CREAM" },
+  { re: /\b(POWDERS?|POW|SACHETS?|GRANULES?|GRAN)\b/i, code: "POWDER" },
+  { re: /\b(SPRAYS?|SPR|INHALERS?|INH|NASAL)\b/i, code: "SPRAY" },
+  { re: /\b(LIQUIDS?|LIQ|SOLUTIONS?|SOLN?|SOL|MOUTHWASH|GARGLE|SHAMPOOS?|SOAPS?|OILS?|ENEMAS?|TONICS?|TON|CARTRIDGES?|PFS|INFUS)\b/i, code: "LIQUID" },
+  { re: /\b(SUPPOSITORIES?|PESSARIES?|SUPP)\b/i, code: "SUPPOSITORY" },
 ];
-const FORM_SET = new Set(FORM_TOKENS);
 
 const STRENGTH_RE =
   /(\d+(?:\.\d+)?)\s*(MG|MCG|GM|G|IU|%|MEQ|UNITS?|U|KU|MIU|LAC)\b/i;
 const PACK_MEASURE_RE = /(\d+(?:\.\d+)?)\s*(ML|GM|G|GR)\b/i;
-const NX_RE = /\b(\d+)\s*[xX*]\s*(\d+)\b/;
-const TRAILING_QTY_RE = /\b(\d{1,4})\s*(TAB|CAP|TABS|CAPS|PCS|NOS|UNITS?)?\s*$/i;
+// NxM pack: e.g. 10*10, 10x10, 1*10, 1X10 (with optional spaces)
+const NX_RE = /\b(\d+)\s*[*xX]\s*(\d+)\b/;
+// Trailing qty in description: e.g. "10 TAB", "10", "10'S", "10 S", "10S", "10S."
+const TRAILING_QTY_RE = /\b(\d{1,4})\s*(?:TAB|CAP|TABS|CAPS|PCS|NOS|UNITS?|'S|S\b)?\s*\.?\s*$/i;
 
 function num(v: unknown, fallback = 0): number {
   if (v === null || v === undefined || v === "") return fallback;
@@ -129,23 +133,10 @@ interface Extracted {
 function extractAttributes(item: string, description: string): Extracted {
   const text = `${item} ${description}`.toUpperCase();
 
-  // Form: first FORM_SET token we see
+  // Form: regex-match first applicable pattern (handles full words like TABLET / CAPSULE).
   let form = "";
-  for (const tok of text.split(/[^A-Z]+/)) {
-    if (tok && FORM_SET.has(tok)) {
-      form = tok.replace(/S$/, ""); // normalise plural TABS→TAB
-      if (form === "OINT") form = "OIN";
-      if (form === "SYRUP") form = "SYP";
-      if (form === "CREAM") form = "CRM";
-      if (form === "DROPS") form = "DRO";
-      if (form === "POWDER") form = "POW";
-      if (form === "LOTION") form = "LOT";
-      if (form === "SOLN") form = "SOL";
-      if (form === "SPRAY") form = "SPR";
-      if (form === "LIQUID") form = "LIQ";
-      if (form === "TONIC") form = "TON";
-      break;
-    }
+  for (const fp of FORM_PATTERNS) {
+    if (fp.re.test(text)) { form = fp.code; break; }
   }
 
   // Strength: number + (MG|MCG|%|IU|MEQ…)
@@ -169,31 +160,40 @@ function extractAttributes(item: string, description: string): Extracted {
   let secondary_unit = "";
   let conversion = 0;
 
-  if (form === "TAB" || form === "CAP") {
-    base_unit = form;
+  if (form === "TABLET" || form === "CAPSULE") {
+    base_unit = form === "TABLET" ? "TAB" : "CAP";
     secondary_unit = "STRIP";
     if (mNx) conversion = parseInt(mNx[2], 10);
     else if (mTail) conversion = parseInt(mTail[1], 10);
-  } else if (packUnit === "ML" || form === "SYP" || form === "DRO" || form === "SUSP" || form === "LIQ" || form === "TON" || form === "SOL" || form === "SPR") {
+  } else if (packUnit === "ML" || form === "SYRUP" || form === "DROPS" || form === "LIQUID" || form === "SPRAY") {
     base_unit = "ML";
-    secondary_unit = form === "DRO" ? "BOTTLE" : "BOTTLE";
+    secondary_unit = "BOTTLE";
     if (packUnit === "ML" && packSize > 0) conversion = packSize;
-  } else if (packUnit === "GM" || packUnit === "G" || form === "CRM" || form === "OIN" || form === "GEL" || form === "POW") {
+  } else if (packUnit === "GM" || packUnit === "G" || form === "CREAM" || form === "POWDER" || form === "SUPPOSITORY") {
     base_unit = "GM";
     secondary_unit = "TUBE";
     if ((packUnit === "GM" || packUnit === "G") && packSize > 0) conversion = packSize;
-  } else if (form === "INJ") {
+  } else if (form === "INJECTION") {
     base_unit = "ML";
     secondary_unit = "VIAL";
     if (packUnit === "ML" && packSize > 0) conversion = packSize;
   } else {
-    base_unit = form || "PCS";
-    if (mNx) {
-      secondary_unit = "PACK";
-      conversion = parseInt(mNx[2], 10);
-    } else if (mTail && mTail[1]) {
-      secondary_unit = "PACK";
-      conversion = parseInt(mTail[1], 10);
+    // Fallback heuristic: strip-like pack without liquid measure suggests tablet/capsule.
+    if (!/\b(?:ML|GM|G|L|KG|BOTTLE|VIAL|AMP|TUBE)\b/i.test(text) &&
+        /\b\d+\s*[*xX]\s*\d+\b|\b\d+\s*'\s*S\b/.test(text)) {
+      base_unit = "TAB";
+      secondary_unit = "STRIP";
+      if (mNx) conversion = parseInt(mNx[2], 10);
+      else if (mTail && mTail[1]) conversion = parseInt(mTail[1], 10);
+    } else {
+      base_unit = "PCS";
+      if (mNx) {
+        secondary_unit = "PACK";
+        conversion = parseInt(mNx[2], 10);
+      } else if (mTail && mTail[1]) {
+        secondary_unit = "PACK";
+        conversion = parseInt(mTail[1], 10);
+      }
     }
   }
 
@@ -205,11 +205,16 @@ function extractAttributes(item: string, description: string): Extracted {
 
 function cleanProductName(item: string, description: string): string {
   // Strip the trailing pack-size noise from item so the canonical name stays compact.
-  const raw = `${item} ${description}`.trim();
-  return raw
+  let raw = `${item} ${description}`.trim();
+  // Remove pack patterns: 10*10, 10x10, 10'S, 10 S, 10 TAB, 10 CAP, etc.
+  raw = raw
+    .replace(/\b\d+\s*[*xX]\s*\d+\b/g, "")
+    .replace(/\b\d+\s*'\s*S\b/gi, "")
+    .replace(/\b\d+\s*(?:TAB|CAP|TABS|CAPS|PCS|NOS|UNITS?)(?:\b|$)/gi, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s*\(\s*\)\s*/g, " ")
     .trim();
+  return raw;
 }
 
 export interface MergeResult {

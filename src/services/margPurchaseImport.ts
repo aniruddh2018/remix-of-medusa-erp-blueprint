@@ -8,6 +8,8 @@ export interface PurchaseImportOptions {
   financialYearId?: string | null;
   skipDuplicateBills?: boolean; // default true (by order_number)
   seedInventory?: boolean; // default true — create/update inventory_batches with qty
+  /** When true, import as challan (is_challan=true). Otherwise import as regular invoice. */
+  isChallan?: boolean;
 }
 
 export interface PurchaseImportResult {
@@ -48,21 +50,26 @@ export function detectForm(
 ): { form: string; baseUnit: string; secondaryUnit: string } {
   // Ignore non-atomic values in currentBase (STRIP/BOX/PACK) when sniffing form,
   // otherwise the fallback branch echoes them back as base_unit for tablets.
-  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE|BOTTLE|VIAL|AMP|AMP(?:OULE)?|TUBE|SACHET|PCS|UNIT|UNITS?)$/i;
   const cbClean = currentBase && !NON_ATOMIC.test(currentBase.trim()) ? currentBase : "";
   const hay = `${name} ${pack} ${cbClean}`.toUpperCase();
   if (/\bINJ\b|INJECTION|\bVIAL\b|\bAMP(?:OULE)?\b/.test(hay))
-    return { form: "INJECTION", baseUnit: "VIAL", secondaryUnit: "BOX" };
+    return { form: "INJECTION", baseUnit: "ML", secondaryUnit: "VIAL" };
   if (/\bSYP\b|SYRUP|SUSP|SUSPENSION|ELIX|\bDROP(?:S)?\b|LIQUID|SOLUTION/.test(hay))
-    return { form: "SYRUP", baseUnit: "BOTTLE", secondaryUnit: "BOX" };
+    return { form: "SYRUP", baseUnit: "ML", secondaryUnit: "BOTTLE" };
   if (/\bCAP\b|CAPSULE/.test(hay))
     return { form: "CAPSULE", baseUnit: "CAP", secondaryUnit: "STRIP" };
   if (/CREAM|OINT|\bGEL\b|LOTION|BALM|PASTE/.test(hay))
-    return { form: "CREAM", baseUnit: "TUBE", secondaryUnit: "BOX" };
+    return { form: "CREAM", baseUnit: "GM", secondaryUnit: "TUBE" };
   if (/POWDER|SACHET|\bGRAN(?:ULES)?\b/.test(hay))
-    return { form: "POWDER", baseUnit: "SACHET", secondaryUnit: "BOX" };
+    return { form: "POWDER", baseUnit: "GM", secondaryUnit: "TUBE" };
   if (/\bTAB\b|TABLET/.test(hay))
     return { form: "TABLET", baseUnit: "TAB", secondaryUnit: "STRIP" };
+  // Heuristic: strip-like pack pattern without liquid/measure units suggests tablet/capsule.
+  if (!/\b(?:ML|GM|G|L|KG|BOTTLE|VIAL|AMP|TUBE)\b/i.test(hay) &&
+      /\b\d+\s*'\s*S\b|\b\d+\s*[*xX]\s*\d+\b/.test(hay)) {
+    return { form: "OTHER", baseUnit: "TAB", secondaryUnit: "STRIP" };
+  }
   const b = (cbClean || "PCS").toUpperCase();
   return { form: "OTHER", baseUnit: b, secondaryUnit: b === "PCS" ? "BOX" : "STRIP" };
 }
@@ -80,7 +87,7 @@ export function normalizeUnits(
   sheetSecondary: string,
   detected: { baseUnit: string; secondaryUnit: string },
 ): { baseUnit: string; secondaryUnit: string } {
-  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE|BOTTLE|VIAL|AMP|AMP(?:OULE)?|TUBE|SACHET|PCS|UNIT|UNITS?)$/i;
   const atomicForms = new Set(["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"]);
   let baseUnit = (sheetBase || "").toUpperCase();
   let secUnit = (sheetSecondary || "").toUpperCase();
@@ -324,7 +331,7 @@ export async function importMargPurchases(
         supplier_invoice_number: bill.bill_no,
         supplier_invoice_date: bill.bill_date,
         invoice_number: bill.bill_no,
-        is_challan: false,
+        is_challan: opts.isChallan ?? false,
         total_amount: bill.bill_total || bill.net_amount + bill.tax,
         gst_amount: bill.tax,
         discount_amount: bill.discount,
@@ -376,8 +383,8 @@ export async function importMargPurchases(
         }
 
         // Backfill product.form / base_unit if empty OR previously stored as
-        // a non-atomic pack unit (STRIP/BOX) for a tablet-like form.
-        const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE)$/i;
+        // a non-atomic pack unit (STRIP/BOX/BOTTLE/VIAL/TUBE) for a tablet-like form.
+  const NON_ATOMIC = /^(STRIP|BOX|PACK|CTN|CARTON|CASE|BOTTLE|VIAL|AMP|AMP(?:OULE)?|TUBE|SACHET|PCS|UNIT|UNITS?)$/i;
         const atomic = ["TABLET", "CAPSULE", "INJECTION", "SYRUP", "CREAM", "POWDER"];
         const wrongBase = !!r.p.base_unit
           && NON_ATOMIC.test(r.p.base_unit)
@@ -394,13 +401,15 @@ export async function importMargPurchases(
         }
 
         const qty = Math.max(1, paid);
+        // MARG purchase rates are per pack (strip / bottle). Convert to per-unit price.
+        const perUnitPrice = r.conv > 1 ? Math.round((r.it.rate / r.conv) * 100) / 100 : r.it.rate;
         itemRows.push({
           purchase_order_id: po.id,
           company_id: opts.companyId,
           product_id: r.p.id,
           quantity: qty,
           free_quantity: free,
-          unit_price: r.it.rate,
+          unit_price: perUnitPrice,
           discount_percentage: 0,
           gst_percentage: 0,
           total_price: r.it.amount,

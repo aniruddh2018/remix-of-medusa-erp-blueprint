@@ -31,6 +31,10 @@ export function extractPackFromName(name: string): PackInfo | null {
   if (!name) return null;
   const upper = name.toUpperCase();
 
+  // Match N'S or N S (strips) first — e.g. "10'S" or "10 S" in the name.
+  const mStrip = upper.match(/(\d+)\s*'\s*S\b/);
+  if (mStrip) return { factor: parseInt(mStrip[1], 10) || 1, loose: false };
+
   // Match A*B or AxB (with optional spaces) optionally followed by a measurement unit.
   //   groups: [1]=A [2]=B [3]=optional measure
   const m = upper.match(/(\d+)\s*[*xX]\s*(\d+)\s*(GM|ML|MG|L|KG|LTR|GRM)?\b/);

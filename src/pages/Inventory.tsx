@@ -81,7 +81,10 @@ export default function Inventory() {
           supplier:suppliers(name)
         `)
         .eq("company_id", companyId);
-      if (activeFinancialYearId) q = q.eq("financial_year_id", activeFinancialYearId);
+      // Include legacy/untagged batches (financial_year_id IS NULL) alongside the selected FY
+      if (activeFinancialYearId) {
+        q = q.or(`financial_year_id.eq.${activeFinancialYearId},financial_year_id.is.null`);
+      }
       const { data, error } = await q.order("expiry_date", { ascending: true });
 
       if (error) throw error;

@@ -342,7 +342,6 @@ export type Database = {
           legal_name: string | null
           name: string
           phone: string | null
-          pincode: string | null
           state_code: string | null
           state_name: string | null
           updated_at: string
@@ -360,7 +359,6 @@ export type Database = {
           legal_name?: string | null
           name: string
           phone?: string | null
-          pincode?: string | null
           state_code?: string | null
           state_name?: string | null
           updated_at?: string
@@ -378,7 +376,6 @@ export type Database = {
           legal_name?: string | null
           name?: string
           phone?: string | null
-          pincode?: string | null
           state_code?: string | null
           state_name?: string | null
           updated_at?: string
@@ -729,7 +726,6 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
-          pincode: string | null
           state_code: string | null
           total_purchases: number
           updated_at: string
@@ -747,7 +743,6 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
-          pincode?: string | null
           state_code?: string | null
           total_purchases?: number
           updated_at?: string
@@ -765,7 +760,6 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
-          pincode?: string | null
           state_code?: string | null
           total_purchases?: number
           updated_at?: string
@@ -1590,143 +1584,6 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gst_einvoice_credentials: {
-        Row: {
-          api_base_url: string
-          auth_path: string
-          auth_token: string | null
-          cancel_ewb_path: string
-          cancel_irn_path: string
-          client_id: string | null
-          client_secret: string | null
-          company_id: string
-          created_at: string
-          env: string
-          generate_ewb_path: string
-          generate_irn_path: string
-          gstin: string | null
-          id: string
-          is_active: boolean
-          password: string | null
-          public_key_pem: string | null
-          sek: string | null
-          token_expiry: string | null
-          updated_at: string
-          username: string | null
-        }
-        Insert: {
-          api_base_url?: string
-          auth_path?: string
-          auth_token?: string | null
-          cancel_ewb_path?: string
-          cancel_irn_path?: string
-          client_id?: string | null
-          client_secret?: string | null
-          company_id: string
-          created_at?: string
-          env?: string
-          generate_ewb_path?: string
-          generate_irn_path?: string
-          gstin?: string | null
-          id?: string
-          is_active?: boolean
-          password?: string | null
-          public_key_pem?: string | null
-          sek?: string | null
-          token_expiry?: string | null
-          updated_at?: string
-          username?: string | null
-        }
-        Update: {
-          api_base_url?: string
-          auth_path?: string
-          auth_token?: string | null
-          cancel_ewb_path?: string
-          cancel_irn_path?: string
-          client_id?: string | null
-          client_secret?: string | null
-          company_id?: string
-          created_at?: string
-          env?: string
-          generate_ewb_path?: string
-          generate_irn_path?: string
-          gstin?: string | null
-          id?: string
-          is_active?: boolean
-          password?: string | null
-          public_key_pem?: string | null
-          sek?: string | null
-          token_expiry?: string | null
-          updated_at?: string
-          username?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gst_einvoice_credentials_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: true
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gst_einvoice_log: {
-        Row: {
-          action: string
-          company_id: string
-          created_at: string
-          created_by: string | null
-          error_message: string | null
-          id: string
-          is_mock: boolean
-          request_payload: Json | null
-          response_payload: Json | null
-          sales_order_id: string | null
-          success: boolean
-        }
-        Insert: {
-          action: string
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          error_message?: string | null
-          id?: string
-          is_mock?: boolean
-          request_payload?: Json | null
-          response_payload?: Json | null
-          sales_order_id?: string | null
-          success: boolean
-        }
-        Update: {
-          action?: string
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          error_message?: string | null
-          id?: string
-          is_mock?: boolean
-          request_payload?: Json | null
-          response_payload?: Json | null
-          sales_order_id?: string | null
-          success?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gst_einvoice_log_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gst_einvoice_log_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -4774,29 +4631,10 @@ export type Database = {
           delivery_charges: number
           device_id: string | null
           discount_amount: number
-          distance_km: number | null
           doctor_id: string | null
           doctor_name: string | null
           doctor_registration_number: string | null
           due_date: string | null
-          einvoice_ack_date: string | null
-          einvoice_ack_no: string | null
-          einvoice_cancel_reason: string | null
-          einvoice_cancelled_at: string | null
-          einvoice_error: string | null
-          einvoice_generated_at: string | null
-          einvoice_irn: string | null
-          einvoice_is_mock: boolean
-          einvoice_signed_invoice: string | null
-          einvoice_signed_qr_code: string | null
-          einvoice_status: string
-          eway_bill_date: string | null
-          eway_bill_no: string | null
-          eway_cancelled_at: string | null
-          eway_error: string | null
-          eway_is_mock: boolean
-          eway_status: string
-          eway_valid_till: string | null
           financial_year_id: string | null
           freight_charges: number
           gst_amount: number
@@ -4820,12 +4658,7 @@ export type Database = {
           sale_date: string
           status: Database["public"]["Enums"]["order_status"]
           total_amount: number
-          transport_doc_number: string | null
-          transport_mode: string | null
-          transporter_id: string | null
-          transporter_name: string | null
           updated_at: string
-          vehicle_number: string | null
           version: number
         }
         Insert: {
@@ -4845,29 +4678,10 @@ export type Database = {
           delivery_charges?: number
           device_id?: string | null
           discount_amount?: number
-          distance_km?: number | null
           doctor_id?: string | null
           doctor_name?: string | null
           doctor_registration_number?: string | null
           due_date?: string | null
-          einvoice_ack_date?: string | null
-          einvoice_ack_no?: string | null
-          einvoice_cancel_reason?: string | null
-          einvoice_cancelled_at?: string | null
-          einvoice_error?: string | null
-          einvoice_generated_at?: string | null
-          einvoice_irn?: string | null
-          einvoice_is_mock?: boolean
-          einvoice_signed_invoice?: string | null
-          einvoice_signed_qr_code?: string | null
-          einvoice_status?: string
-          eway_bill_date?: string | null
-          eway_bill_no?: string | null
-          eway_cancelled_at?: string | null
-          eway_error?: string | null
-          eway_is_mock?: boolean
-          eway_status?: string
-          eway_valid_till?: string | null
           financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
@@ -4891,12 +4705,7 @@ export type Database = {
           sale_date?: string
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
-          transport_doc_number?: string | null
-          transport_mode?: string | null
-          transporter_id?: string | null
-          transporter_name?: string | null
           updated_at?: string
-          vehicle_number?: string | null
           version?: number
         }
         Update: {
@@ -4916,29 +4725,10 @@ export type Database = {
           delivery_charges?: number
           device_id?: string | null
           discount_amount?: number
-          distance_km?: number | null
           doctor_id?: string | null
           doctor_name?: string | null
           doctor_registration_number?: string | null
           due_date?: string | null
-          einvoice_ack_date?: string | null
-          einvoice_ack_no?: string | null
-          einvoice_cancel_reason?: string | null
-          einvoice_cancelled_at?: string | null
-          einvoice_error?: string | null
-          einvoice_generated_at?: string | null
-          einvoice_irn?: string | null
-          einvoice_is_mock?: boolean
-          einvoice_signed_invoice?: string | null
-          einvoice_signed_qr_code?: string | null
-          einvoice_status?: string
-          eway_bill_date?: string | null
-          eway_bill_no?: string | null
-          eway_cancelled_at?: string | null
-          eway_error?: string | null
-          eway_is_mock?: boolean
-          eway_status?: string
-          eway_valid_till?: string | null
           financial_year_id?: string | null
           freight_charges?: number
           gst_amount?: number
@@ -4962,12 +4752,7 @@ export type Database = {
           sale_date?: string
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
-          transport_doc_number?: string | null
-          transport_mode?: string | null
-          transporter_id?: string | null
-          transporter_name?: string | null
           updated_at?: string
-          vehicle_number?: string | null
           version?: number
         }
         Relationships: [

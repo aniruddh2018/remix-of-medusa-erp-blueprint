@@ -16,6 +16,7 @@ import { FormConfigEditor } from "@/components/settings/FormConfigEditor";
 import { WhatsAppTemplatesSection } from "@/components/settings/WhatsAppTemplatesSection";
 import { TwilioSection } from "@/components/settings/TwilioSection";
 import { GSTSetupSection } from "@/components/settings/GSTSetupSection";
+import { GSTEInvoiceSetupSection } from "@/components/settings/GSTEInvoiceSetupSection";
 
 const iconMap: Record<BusinessType, React.ElementType> = {
   pharmacy: Pill,
@@ -184,6 +185,9 @@ export default function Settings() {
 
       {/* GST Filing Setup */}
       <GSTSetupSection />
+
+      {/* GST e-Invoicing (IRN via NIC API) */}
+      <GSTEInvoiceSetupSection />
 
       {/* Form & Rules Configuration */}
       <FormConfigEditor />

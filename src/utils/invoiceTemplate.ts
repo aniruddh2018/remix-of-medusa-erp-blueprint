@@ -41,6 +41,15 @@ interface InvoiceTemplateData {
   valid_till?: string;
   /** Quotation-only: terms text shown above the standard T&C footer */
   terms?: string;
+  /** GST e-Invoice (IRN) details, when generated via the NIC e-Invoice API */
+  irn?: string;
+  irn_ack_no?: string;
+  irn_ack_date?: string;
+  /** Data-URL (PNG) rendering of the signed QR code string returned with the IRN */
+  irn_qr_data_url?: string;
+  /** True when the IRN is a local test-mode mock, not a real NIC-issued IRN */
+  irn_is_mock?: boolean;
+  eway_bill_no?: string;
 }
 
 function numberToWords(num: number): string {
@@ -215,6 +224,15 @@ export function generateConfigurableInvoice(
       ${data.customer_address ? `<div style="font-size:${font.small};">${data.customer_address}</div>` : ''}
       ${settings.show_customer_gstin && data.customer_gstin ? `<div style="font-size:${font.small};">GSTIN: ${data.customer_gstin}</div>` : ''}
     </div>
+    ${data.irn ? `
+    <div style="text-align:right;max-width:${isThermal ? '100%' : '220px'};">
+      ${data.irn_qr_data_url ? `<img src="${data.irn_qr_data_url}" alt="e-Invoice QR" style="width:${isThermal ? '90px' : '110px'};height:${isThermal ? '90px' : '110px'};margin-left:auto;" />` : ''}
+      <div style="font-size:${font.small};color:#888;margin-top:2px;">${data.irn_is_mock ? '<span style="color:#b45309;font-weight:bold;">TEST MODE — NOT A REAL IRN</span><br/>' : ''}IRN:</div>
+      <div style="font-size:9px;word-break:break-all;font-family:monospace;">${data.irn}</div>
+      ${data.irn_ack_no ? `<div style="font-size:${font.small};color:#888;">Ack No: <span style="font-family:monospace;">${data.irn_ack_no}</span></div>` : ''}
+      ${data.irn_ack_date ? `<div style="font-size:${font.small};color:#888;">Ack Date: ${format(new Date(data.irn_ack_date), "dd/MM/yyyy HH:mm")}</div>` : ''}
+      ${data.eway_bill_no ? `<div style="font-size:${font.small};color:#888;">e-Way Bill: <span style="font-family:monospace;">${data.eway_bill_no}</span></div>` : ''}
+    </div>` : ''}
   </div>
 
   <!-- Items Table -->

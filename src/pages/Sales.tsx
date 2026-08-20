@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown, History, Undo2 } from "lucide-react";
+import { Plus, Search, Trash2, Receipt, CreditCard, Banknote, PlusCircle, AlertTriangle, Pencil, Printer, FileText, FileSpreadsheet, Download, ChevronDown, Loader2, RotateCcw, UserPlus, Check, ChevronsUpDown, History, Undo2, FileSignature } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,6 +29,7 @@ import { format, differenceInDays } from "date-fns";
 import { ProductFormDialog } from "@/components/forms/ProductFormDialog";
 import { EditSaleDialog } from "@/components/dialogs/EditSaleDialog";
 import { CreditNoteDialog } from "@/components/dialogs/CreditNoteDialog";
+import { EInvoiceDialog } from "@/components/dialogs/EInvoiceDialog";
 import { allocateBatchesFIFO, getTotalAvailableStock } from "@/utils/fifoAllocation";
 import { DrugBrandSearch, type DrugBrandSearchHandle } from "@/components/DrugBrandSearch";
 import { useEnterNavigation, advanceToNextField } from "@/hooks/useEnterNavigation";
@@ -40,6 +41,7 @@ import { DoctorSelector } from "@/components/DoctorSelector";
 import { CustomerHistoryDialog, type RepeatItem } from "@/components/dialogs/CustomerHistoryDialog";
 import { QuickTextEntry } from "@/components/QuickTextEntry";
 import { printConfigurableInvoice, downloadConfigurableInvoiceHTML, downloadConfigurableInvoicePDF, type InvoiceTemplateData } from "@/utils/invoiceTemplate";
+import QRCode from "qrcode";
 import { downloadBillCSV, type BillData } from "@/utils/billGenerator";
 import { SalesItemsTable, type CartItem } from "@/components/billing/SalesItemsTable";
 import { BillingTotals } from "@/components/billing/BillingTotals";
@@ -81,6 +83,7 @@ export default function Sales() {
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditNoteOpen, setCreditNoteOpen] = useState(false);
+  const [eInvoiceOrder, setEInvoiceOrder] = useState<SalesOrder | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -251,6 +254,14 @@ export default function Sales() {
     },
     enabled: !!companyId,
   });
+
+  // Keep the open e-Invoice dialog's order in sync with the refetched list
+  // (e.g. after generating/cancelling an IRN) instead of showing a stale snapshot.
+  useEffect(() => {
+    if (!eInvoiceOrder || !salesOrders) return;
+    const fresh = salesOrders.find((o) => o.id === eInvoiceOrder.id);
+    if (fresh && fresh !== eInvoiceOrder) setEInvoiceOrder(fresh);
+  }, [salesOrders, eInvoiceOrder]);
 
   const { data: salesPayments } = useQuery({
     queryKey: ["payments-sales", companyId, activeFinancialYearId],
@@ -944,7 +955,23 @@ export default function Sales() {
       payment_method: order.payment_method || "cash",
       notes: order.notes || undefined,
     };
-    const tpl: InvoiceTemplateData = { ...base, gstInclusive } as InvoiceTemplateData;
+    let irnQrDataUrl: string | undefined;
+    if (order.einvoice_status === "generated" && order.einvoice_signed_qr_code) {
+      try {
+        irnQrDataUrl = await QRCode.toDataURL(order.einvoice_signed_qr_code, { margin: 1, width: 220 });
+      } catch { /* non-fatal: print without the QR image if encoding fails */ }
+    }
+    const tpl: InvoiceTemplateData = {
+      ...base, gstInclusive,
+      ...(order.einvoice_status === "generated" ? {
+        irn: order.einvoice_irn || undefined,
+        irn_ack_no: order.einvoice_ack_no || undefined,
+        irn_ack_date: order.einvoice_ack_date || undefined,
+        irn_qr_data_url: irnQrDataUrl,
+        irn_is_mock: order.einvoice_is_mock,
+        eway_bill_no: order.eway_status === "generated" ? order.eway_bill_no || undefined : undefined,
+      } : {}),
+    } as InvoiceTemplateData;
     return Object.assign(base, { __tpl: tpl });
   };
 
@@ -1616,6 +1643,13 @@ export default function Sales() {
                                     <DropdownMenuItem onClick={() => handleBillAction(order, "csv")}><FileSpreadsheet className="h-4 w-4 mr-2" /> CSV</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
+                                <Button
+                                  variant="outline" size="icon" className="h-7 w-7"
+                                  title="GST e-Invoice / e-Way Bill"
+                                  onClick={() => setEInvoiceOrder(order)}
+                                >
+                                  <FileSignature className={`h-3 w-3 ${order.einvoice_status === "generated" ? "text-green-600" : order.einvoice_status === "failed" ? "text-destructive" : ""}`} />
+                                </Button>
                                 <WhatsAppButton
                                   phone={order.customer_phone}
                                   templateKey="invoice_sent"
@@ -1684,6 +1718,7 @@ export default function Sales() {
 
       {editDialogOpen && editSaleId && <EditSaleDialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { queryClient.invalidateQueries({ queryKey: ["sales-orders"] }); queryClient.invalidateQueries({ queryKey: ["all-batches-for-sale"] }); } setEditDialogOpen(open); }} saleId={editSaleId} />}
       {creditNoteOpen && <CreditNoteDialog open={creditNoteOpen} onOpenChange={setCreditNoteOpen} />}
+      {eInvoiceOrder && <EInvoiceDialog open={!!eInvoiceOrder} onOpenChange={(o) => { if (!o) setEInvoiceOrder(null); }} order={eInvoiceOrder} />}
       {paymentDialog && <RecordPaymentDialog open={!!paymentDialog} onOpenChange={open => { if (!open) { queryClient.invalidateQueries({ queryKey: ["payments-sales"] }); setPaymentDialog(null); } }} referenceId={paymentDialog.referenceId} referenceType="sales_order" referenceNumber={paymentDialog.referenceNumber} partyName={paymentDialog.partyName} partyType="customer" totalAmount={paymentDialog.totalAmount} paidAmount={paymentDialog.paidAmount} paymentType="received" />}
       {postSaleDialog && <PostSalePaymentDialog open={!!postSaleDialog} onOpenChange={(o) => { if (!o) setPostSaleDialog(null); }} salesOrderId={postSaleDialog.id} invoiceNumber={postSaleDialog.invoice_number} customerName={postSaleDialog.customer_name} totalAmount={postSaleDialog.total_amount} defaultPaymentMethod={(settings.default_payment_method as "cash" | "upi" | "bank_transfer" | "cheque" | "card" | "other") || "cash"} />}
       {showProductDialog && <ProductFormDialog open={showProductDialog} onOpenChange={setShowProductDialog} onSuccess={(id) => { refetchProducts(); if (id) setSelectedProduct(id); setShowProductDialog(false); }} />}

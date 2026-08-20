@@ -36,6 +36,7 @@ interface Customer {
   device_id: string | null;
   deleted: boolean;
   state_code: string | null;
+  pincode: string | null;
   currentBalance?: number;
   roles?: string[];
 }

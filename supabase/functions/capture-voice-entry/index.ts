@@ -127,7 +127,8 @@ serve(async (req) => {
         "You correct speech-to-text transcripts of Indian shop voice notes and extract line items. " +
         "Fix any mis-transcribed product/brand names using ONLY the given catalog list when a close " +
         "phonetic match exists; otherwise keep the spoken name as-is. Also extract the unit if one " +
-        "is spoken (strip, box, tablet, pcs, etc) — null if no unit was mentioned.",
+        "is spoken (strip, box, tablet, pcs, etc) — null if no unit was mentioned. " +
+        "You MUST respond by calling the extract_voice_order tool — never respond with plain text.",
       messages: [
         {
           role: "user",
@@ -135,7 +136,6 @@ serve(async (req) => {
         },
       ],
       tools: [VOICE_CAPTURE_TOOL],
-      forceToolName: "extract_voice_order",
     });
 
     const toolUseBlock = response.output.message.content.find((b) => b.toolUse);

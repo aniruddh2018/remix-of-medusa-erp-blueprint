@@ -73,7 +73,6 @@ export async function callBedrockConverse(params: {
   system?: string;
   messages: { role: "user" | "assistant"; content: { text: string }[] }[];
   tools?: ConverseToolSpec[];
-  forceToolName?: string;
   maxTokens?: number;
 }): Promise<ConverseResponse> {
   const bearerToken = Deno.env.get("AWS_BEARER_TOKEN_BEDROCK");
@@ -87,14 +86,12 @@ export async function callBedrockConverse(params: {
   };
   if (params.system) body.system = [{ text: params.system }];
   if (params.tools?.length) {
-    // Llama 4 Scout doesn't support toolChoice.tool (forcing one specific
-    // named tool) — only .any (must use some tool) / .auto. Since callers
-    // only ever pass exactly one tool when forcing, .any has the same
-    // effect here without needing a model-specific branch.
-    body.toolConfig = {
-      tools: params.tools.map((t) => ({ toolSpec: t })),
-      ...(params.forceToolName ? { toolChoice: { any: {} } } : {}),
-    };
+    // Llama 4 Scout doesn't support toolConfig.toolChoice at all (neither
+    // .tool nor .any) — omitting it defaults to .auto, so tool use here
+    // relies entirely on the prompt instructing the model to call it and
+    // there being exactly one tool available. Callers must handle the case
+    // where the model responds with plain text instead of a tool call.
+    body.toolConfig = { tools: params.tools.map((t) => ({ toolSpec: t })) };
   }
 
   const res = await fetch(`https://bedrock-runtime.${region}.amazonaws.com/model/${BEDROCK_MODEL}/converse`, {

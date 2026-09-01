@@ -106,7 +106,9 @@ RULES:
 5. Extract ALL items from the text, even if names are abbreviated or broken.
 6. Return the matched product ID if you find a match. If no match, return null for product_id and put the original text in product_name_raw.
 
-Examples of broken words: "para" = "Paracetamol", "amox" = "Amoxicillin", "crocin" = "Crocin Advance", "dolo" = "Dolo 650"`;
+Examples of broken words: "para" = "Paracetamol", "amox" = "Amoxicillin", "crocin" = "Crocin Advance", "dolo" = "Dolo 650"
+
+You MUST respond by calling the parse_order_items tool — never respond with plain text.`;
 
     let response;
     try {
@@ -119,7 +121,6 @@ Examples of broken words: "para" = "Paracetamol", "amox" = "Amoxicillin", "croci
           },
         ],
         tools: [PARSE_ORDER_TOOL],
-        forceToolName: "parse_order_items",
       });
     } catch (aiErr: any) {
       if (aiErr?.status === 429) {

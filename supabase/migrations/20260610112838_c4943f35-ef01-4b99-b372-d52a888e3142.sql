@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS public.manufacturers (
   UNIQUE(company_id, name)
 );
 ALTER TABLE public.manufacturers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS manufacturers_view_own ON public.manufacturers;
 CREATE POLICY manufacturers_view_own ON public.manufacturers FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS manufacturers_manage_own ON public.manufacturers;
 CREATE POLICY manufacturers_manage_own ON public.manufacturers FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_manufacturers_company_id ON public.manufacturers(company_id);
 CREATE INDEX IF NOT EXISTS idx_manufacturers_name ON public.manufacturers(company_id, name);
@@ -29,7 +31,9 @@ CREATE TABLE IF NOT EXISTS public.gst_tax_structures (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.gst_tax_structures ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS gst_tax_structures_view_own ON public.gst_tax_structures;
 CREATE POLICY gst_tax_structures_view_own ON public.gst_tax_structures FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS gst_tax_structures_manage_own ON public.gst_tax_structures;
 CREATE POLICY gst_tax_structures_manage_own ON public.gst_tax_structures FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_gst_tax_structures_company_id ON public.gst_tax_structures(company_id);
 CREATE INDEX IF NOT EXISTS idx_gst_tax_structures_hsn ON public.gst_tax_structures(company_id, hsn_code);
@@ -51,7 +55,9 @@ CREATE TABLE IF NOT EXISTS public.import_sessions (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.import_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS import_sessions_view_own ON public.import_sessions;
 CREATE POLICY import_sessions_view_own ON public.import_sessions FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS import_sessions_manage_own ON public.import_sessions;
 CREATE POLICY import_sessions_manage_own ON public.import_sessions FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_import_sessions_company_id ON public.import_sessions(company_id);
 CREATE INDEX IF NOT EXISTS idx_import_sessions_status ON public.import_sessions(status);
@@ -85,7 +91,9 @@ CREATE TABLE IF NOT EXISTS public.staging_products (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.staging_products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS staging_products_view_own ON public.staging_products;
 CREATE POLICY staging_products_view_own ON public.staging_products FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS staging_products_manage_own ON public.staging_products;
 CREATE POLICY staging_products_manage_own ON public.staging_products FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_staging_products_session ON public.staging_products(session_id);
 CREATE INDEX IF NOT EXISTS idx_staging_products_company ON public.staging_products(company_id);
@@ -114,7 +122,9 @@ CREATE TABLE IF NOT EXISTS public.staging_batches (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.staging_batches ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS staging_batches_view_own ON public.staging_batches;
 CREATE POLICY staging_batches_view_own ON public.staging_batches FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS staging_batches_manage_own ON public.staging_batches;
 CREATE POLICY staging_batches_manage_own ON public.staging_batches FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_staging_batches_session ON public.staging_batches(session_id);
 CREATE INDEX IF NOT EXISTS idx_staging_batches_company ON public.staging_batches(company_id);
@@ -142,7 +152,9 @@ CREATE TABLE IF NOT EXISTS public.staging_suppliers (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.staging_suppliers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS staging_suppliers_view_own ON public.staging_suppliers;
 CREATE POLICY staging_suppliers_view_own ON public.staging_suppliers FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS staging_suppliers_manage_own ON public.staging_suppliers;
 CREATE POLICY staging_suppliers_manage_own ON public.staging_suppliers FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_staging_suppliers_session ON public.staging_suppliers(session_id);
 CREATE INDEX IF NOT EXISTS idx_staging_suppliers_company ON public.staging_suppliers(company_id);
@@ -209,7 +221,9 @@ CREATE INDEX IF NOT EXISTS idx_ledger_groups_path ON public.ledger_groups(compan
 CREATE INDEX IF NOT EXISTS idx_ledger_groups_type ON public.ledger_groups(company_id, group_type);
 CREATE INDEX IF NOT EXISTS idx_ledger_groups_active ON public.ledger_groups(company_id, is_active);
 ALTER TABLE public.ledger_groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledger_groups_view ON public.ledger_groups;
 CREATE POLICY ledger_groups_view ON public.ledger_groups FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS ledger_groups_manage ON public.ledger_groups;
 CREATE POLICY ledger_groups_manage ON public.ledger_groups FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.ledgers (
@@ -261,7 +275,9 @@ CREATE INDEX IF NOT EXISTS idx_ledgers_active ON public.ledgers(company_id, is_a
 CREATE INDEX IF NOT EXISTS idx_ledgers_source ON public.ledgers(company_id, source_system);
 CREATE INDEX IF NOT EXISTS idx_ledgers_search ON public.ledgers USING gin(to_tsvector('english', coalesce(name,'') || ' ' || coalesce(alias,'')));
 ALTER TABLE public.ledgers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledgers_view ON public.ledgers;
 CREATE POLICY ledgers_view ON public.ledgers FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS ledgers_manage ON public.ledgers;
 CREATE POLICY ledgers_manage ON public.ledgers FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.ledger_roles (
@@ -280,7 +296,9 @@ CREATE INDEX IF NOT EXISTS idx_ledger_roles_company ON public.ledger_roles(compa
 CREATE INDEX IF NOT EXISTS idx_ledger_roles_type ON public.ledger_roles(company_id, role_type);
 CREATE INDEX IF NOT EXISTS idx_ledger_roles_primary ON public.ledger_roles(ledger_id, is_primary);
 ALTER TABLE public.ledger_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledger_roles_view ON public.ledger_roles;
 CREATE POLICY ledger_roles_view ON public.ledger_roles FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS ledger_roles_manage ON public.ledger_roles;
 CREATE POLICY ledger_roles_manage ON public.ledger_roles FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.ledger_balances (
@@ -303,7 +321,9 @@ CREATE INDEX IF NOT EXISTS idx_ledger_balances_ledger ON public.ledger_balances(
 CREATE INDEX IF NOT EXISTS idx_ledger_balances_company ON public.ledger_balances(company_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_balances_year ON public.ledger_balances(company_id, financial_year);
 ALTER TABLE public.ledger_balances ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledger_balances_view ON public.ledger_balances;
 CREATE POLICY ledger_balances_view ON public.ledger_balances FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS ledger_balances_manage ON public.ledger_balances;
 CREATE POLICY ledger_balances_manage ON public.ledger_balances FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.ledger_import_sessions (
@@ -328,7 +348,9 @@ CREATE TABLE IF NOT EXISTS public.ledger_import_sessions (
 CREATE INDEX IF NOT EXISTS idx_ledger_import_sessions_company ON public.ledger_import_sessions(company_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_import_sessions_status ON public.ledger_import_sessions(status);
 ALTER TABLE public.ledger_import_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledger_import_sessions_view ON public.ledger_import_sessions;
 CREATE POLICY ledger_import_sessions_view ON public.ledger_import_sessions FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS ledger_import_sessions_manage ON public.ledger_import_sessions;
 CREATE POLICY ledger_import_sessions_manage ON public.ledger_import_sessions FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.staging_ledger_groups (
@@ -352,7 +374,9 @@ CREATE TABLE IF NOT EXISTS public.staging_ledger_groups (
 CREATE INDEX IF NOT EXISTS idx_staging_ledger_groups_session ON public.staging_ledger_groups(session_id);
 CREATE INDEX IF NOT EXISTS idx_staging_ledger_groups_status ON public.staging_ledger_groups(validation_status);
 ALTER TABLE public.staging_ledger_groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS staging_ledger_groups_view ON public.staging_ledger_groups;
 CREATE POLICY staging_ledger_groups_view ON public.staging_ledger_groups FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS staging_ledger_groups_manage ON public.staging_ledger_groups;
 CREATE POLICY staging_ledger_groups_manage ON public.staging_ledger_groups FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 CREATE TABLE IF NOT EXISTS public.staging_ledgers (
@@ -391,7 +415,9 @@ CREATE TABLE IF NOT EXISTS public.staging_ledgers (
 CREATE INDEX IF NOT EXISTS idx_staging_ledgers_session ON public.staging_ledgers(session_id);
 CREATE INDEX IF NOT EXISTS idx_staging_ledgers_status ON public.staging_ledgers(validation_status);
 ALTER TABLE public.staging_ledgers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS staging_ledgers_view ON public.staging_ledgers;
 CREATE POLICY staging_ledgers_view ON public.staging_ledgers FOR SELECT USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+DROP POLICY IF EXISTS staging_ledgers_manage ON public.staging_ledgers;
 CREATE POLICY staging_ledgers_manage ON public.staging_ledgers FOR ALL USING ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid())) WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_super_admin(auth.uid())) AND company_id = public.get_user_company_id(auth.uid()));
 
 -- Functions & triggers

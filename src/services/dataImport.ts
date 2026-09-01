@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
+import { getActiveProjectUrl } from '@/integrations/supabase/client';
 import type {
   ImportEntityType,
   FieldMapping,
@@ -289,8 +290,10 @@ export async function parseTallyMasters(
   const { data: session } = await supabase.auth.getSession();
   const accessToken = session?.session?.access_token;
 
+  // Must hit THIS tenant's own project, not the build-time control-plane
+  // URL — see src/integrations/supabase/client.ts:getActiveProjectUrl.
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tally-import`,
+    `${getActiveProjectUrl()}/functions/v1/tally-import`,
     {
       method: 'POST',
       headers: {

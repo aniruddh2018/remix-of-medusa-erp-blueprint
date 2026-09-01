@@ -13,9 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy, UserPlus, AlertTriangle } from "lucide-react";
+import { Building2, Plus, Users, Loader2, ShieldCheck, Pencil, Trash2, KeyRound, Copy, UserPlus, AlertTriangle, Database } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
+import { ClientBackendsTab } from "@/components/super-admin/ClientBackendsTab";
 
 type Company = Tables<"companies">;
 
@@ -426,6 +427,7 @@ export default function SuperAdmin() {
         <TabsList>
           <TabsTrigger value="companies" className="gap-2"><Building2 className="h-4 w-4" />Companies</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" />All Users</TabsTrigger>
+          <TabsTrigger value="client-backends" className="gap-2"><Database className="h-4 w-4" />Client Backends</TabsTrigger>
         </TabsList>
 
         {/* Companies Tab */}
@@ -682,6 +684,13 @@ export default function SuperAdmin() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Client Backends Tab — one row per client's dedicated Supabase
+            project (physical isolation, layered on top of the existing
+            per-company RLS tenancy managed in the Companies tab above). */}
+        <TabsContent value="client-backends">
+          <ClientBackendsTab />
         </TabsContent>
       </Tabs>
 

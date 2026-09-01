@@ -4,10 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { FocusProvider } from "@/contexts/FocusContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
+import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Inventory from "./pages/Inventory";
@@ -53,6 +55,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <TenantProvider>
         <AuthProvider>
           <BusinessProvider>
             <FocusProvider>
@@ -61,6 +64,9 @@ const App = () => (
               <Route path="/" element={<LandingPage />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/auth" element={<Auth />} />
+              {/* Platform owner's own login — activates the control-plane
+                  project directly, bypassing per-client tenant resolution. */}
+              <Route path="/admin-login" element={<AdminLogin />} />
               <Route path="/install" element={<Install />} />
               <Route path="/onboarding" element={<Onboarding />} />
               {/* Protected app pages */}
@@ -103,6 +109,7 @@ const App = () => (
             </FocusProvider>
           </BusinessProvider>
         </AuthProvider>
+        </TenantProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

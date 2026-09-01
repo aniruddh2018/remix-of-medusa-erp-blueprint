@@ -92,7 +92,8 @@ CREATE POLICY data_favorites_user_isolation ON data_favorites
 -- RLS Policies for user_companies (if not already exists)
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_companies' AND policyname = 'user_companies_user_access') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_companies')
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_companies' AND policyname = 'user_companies_user_access') THEN
     ALTER TABLE user_companies ENABLE ROW LEVEL SECURITY;
     CREATE POLICY user_companies_user_access ON user_companies
       FOR ALL USING (user_id = auth.uid());

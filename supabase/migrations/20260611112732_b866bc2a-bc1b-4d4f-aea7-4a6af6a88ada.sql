@@ -29,6 +29,7 @@ GRANT ALL ON public.prescriptions TO service_role;
 
 ALTER TABLE public.prescriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS prescriptions_company_select ON public.prescriptions;
 CREATE POLICY "prescriptions_company_select" ON public.prescriptions
   FOR SELECT TO authenticated
   USING (
@@ -36,12 +37,14 @@ CREATE POLICY "prescriptions_company_select" ON public.prescriptions
     OR company_id IN (SELECT p.company_id FROM public.profiles p WHERE p.id = auth.uid())
   );
 
+DROP POLICY IF EXISTS prescriptions_company_insert ON public.prescriptions;
 CREATE POLICY "prescriptions_company_insert" ON public.prescriptions
   FOR INSERT TO authenticated
   WITH CHECK (
     company_id IN (SELECT p.company_id FROM public.profiles p WHERE p.id = auth.uid())
   );
 
+DROP POLICY IF EXISTS prescriptions_company_update ON public.prescriptions;
 CREATE POLICY "prescriptions_company_update" ON public.prescriptions
   FOR UPDATE TO authenticated
   USING (
@@ -49,6 +52,7 @@ CREATE POLICY "prescriptions_company_update" ON public.prescriptions
     OR company_id IN (SELECT p.company_id FROM public.profiles p WHERE p.id = auth.uid())
   );
 
+DROP POLICY IF EXISTS prescriptions_company_delete ON public.prescriptions;
 CREATE POLICY "prescriptions_company_delete" ON public.prescriptions
   FOR DELETE TO authenticated
   USING (
@@ -86,6 +90,7 @@ GRANT ALL ON public.prescription_items TO service_role;
 
 ALTER TABLE public.prescription_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS prescription_items_company_all ON public.prescription_items;
 CREATE POLICY "prescription_items_company_all" ON public.prescription_items
   FOR ALL TO authenticated
   USING (

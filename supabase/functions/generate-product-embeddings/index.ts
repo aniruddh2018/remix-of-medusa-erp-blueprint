@@ -1,12 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { embedText, NOVA_EMBEDDING_MODEL } from "../_shared/bedrock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EMBEDDING_MODEL = "google/gemini-embedding-001";
 const BATCH_SIZE = 20;
 
 serve(async (req) => {
@@ -15,9 +15,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
 
@@ -59,70 +56,49 @@ serve(async (req) => {
       });
     }
 
-    // Generate embeddings in batches
+    // Generate embeddings in batches. Nova embeds one text per call (no
+    // batch endpoint), so each chunk is embedded concurrently instead.
     let embeddedCount = 0;
     const errors: string[] = [];
 
     for (let i = 0; i < products.length; i += BATCH_SIZE) {
       const batch = products.slice(i, i + BATCH_SIZE);
-      const names = batch.map((p: any) => p.name);
 
-      try {
-        const embedRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: EMBEDDING_MODEL,
-            input: names,
-          }),
-        });
+      const results = await Promise.allSettled(
+        batch.map((p: any) => embedText(p.name, "GENERIC_INDEX"))
+      );
 
-        if (!embedRes.ok) {
-          const errText = await embedRes.text();
-          throw new Error(`Embedding API error ${embedRes.status}: ${errText}`);
+      for (let j = 0; j < batch.length; j++) {
+        const product = batch[j];
+        const result = results[j];
+
+        if (result.status === "rejected") {
+          errors.push(`No embedding returned for product ${product.id}: ${product.name} (${result.reason})`);
+          continue;
         }
 
-        const embedJson = await embedRes.json();
-        const embeddings = embedJson.data?.map((d: any) => d.embedding) || [];
+        const { error: upsertError } = await serviceClient
+          .from("product_embeddings")
+          .upsert({
+            product_id: product.id,
+            company_id: product.company_id,
+            embedding: JSON.stringify(result.value),
+            model: NOVA_EMBEDDING_MODEL,
+            generated_at: new Date().toISOString(),
+          }, { onConflict: "product_id" });
 
-        // Upsert each embedding into product_embeddings
-        for (let j = 0; j < batch.length; j++) {
-          const product = batch[j];
-          const embedding = embeddings[j];
-
-          if (!embedding) {
-            errors.push(`No embedding returned for product ${product.id}: ${product.name}`);
-            continue;
-          }
-
-          const { error: upsertError } = await serviceClient
-            .from("product_embeddings")
-            .upsert({
-              product_id: product.id,
-              company_id: product.company_id,
-              embedding: JSON.stringify(embedding),
-              model: EMBEDDING_MODEL,
-              generated_at: new Date().toISOString(),
-            }, { onConflict: "product_id" });
-
-          if (upsertError) {
-            errors.push(`Failed to store embedding for ${product.name}: ${upsertError.message}`);
-            continue;
-          }
-
-          // Clear the needs-update flag
-          await serviceClient
-            .from("products")
-            .update({ embedding_needs_update: false })
-            .eq("id", product.id);
-
-          embeddedCount++;
+        if (upsertError) {
+          errors.push(`Failed to store embedding for ${product.name}: ${upsertError.message}`);
+          continue;
         }
-      } catch (batchError) {
-        errors.push(`Batch ${i / BATCH_SIZE + 1} failed: ${batchError instanceof Error ? batchError.message : "Unknown error"}`);
+
+        // Clear the needs-update flag
+        await serviceClient
+          .from("products")
+          .update({ embedding_needs_update: false })
+          .eq("id", product.id);
+
+        embeddedCount++;
       }
     }
 

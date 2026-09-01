@@ -1,4 +1,34 @@
 
+-- financial_years + its fy_status enum were never captured by any migration
+-- (created out-of-band before this point in the project's history) — every
+-- later migration and edge function (close-financial-year, fy-backfill)
+-- assumes both already exist. Recreated here, at the earliest point they're
+-- referenced, from how those callers use the table.
+DO $$ BEGIN
+  CREATE TYPE public.fy_status AS ENUM ('active', 'closed', 'archived');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.financial_years (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  status public.fy_status NOT NULL DEFAULT 'active',
+  closed_at TIMESTAMPTZ,
+  closed_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.financial_years TO authenticated;
+GRANT ALL ON public.financial_years TO service_role;
+ALTER TABLE public.financial_years ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS financial_years_company_access ON public.financial_years;
+CREATE POLICY financial_years_company_access ON public.financial_years FOR ALL TO authenticated
+  USING (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()))
+  WITH CHECK (company_id = public.get_user_company_id(auth.uid()) OR public.is_super_admin(auth.uid()));
+
 DO $$ BEGIN
   ALTER TABLE public.financial_years ADD CONSTRAINT financial_years_company_start_uk UNIQUE (company_id, start_date);
 EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;

@@ -58,18 +58,21 @@ GRANT ALL ON public.quotations TO service_role;
 -- 4. RLS
 ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS quotations_select ON public.quotations;
 CREATE POLICY "quotations_select" ON public.quotations FOR SELECT TO authenticated
   USING (
     public.is_super_admin(auth.uid())
     OR company_id IN (SELECT uc.company_id FROM public.user_companies uc WHERE uc.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS quotations_insert ON public.quotations;
 CREATE POLICY "quotations_insert" ON public.quotations FOR INSERT TO authenticated
   WITH CHECK (
     public.is_super_admin(auth.uid())
     OR company_id IN (SELECT uc.company_id FROM public.user_companies uc WHERE uc.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS quotations_update ON public.quotations;
 CREATE POLICY "quotations_update" ON public.quotations FOR UPDATE TO authenticated
   USING (
     public.is_super_admin(auth.uid())
@@ -80,6 +83,7 @@ CREATE POLICY "quotations_update" ON public.quotations FOR UPDATE TO authenticat
     OR company_id IN (SELECT uc.company_id FROM public.user_companies uc WHERE uc.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS quotations_delete ON public.quotations;
 CREATE POLICY "quotations_delete" ON public.quotations FOR DELETE TO authenticated
   USING (
     public.is_super_admin(auth.uid())

@@ -16,7 +16,7 @@ import {
 import { MessageSquare, Copy, Save, Loader2, Send, Inbox, AlertTriangle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, getActiveProjectUrl } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 type Settings = {
@@ -39,14 +39,16 @@ type MessageRow = {
   created_at: string;
 };
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-
 export function TwilioSection() {
   const { companyId } = useBusiness();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const webhookUrl = `${SUPABASE_URL}/functions/v1/twilio-inbound`;
+  // Must be THIS company's own tenant project, not the build-time control
+  // plane URL — Twilio needs to call the inbound function on whichever
+  // project actually holds this company's data (see
+  // src/integrations/supabase/client.ts:getActiveProjectUrl).
+  const webhookUrl = `${getActiveProjectUrl() ?? ""}/functions/v1/twilio-inbound`;
 
   const settingsQ = useQuery({
     queryKey: ["twilio-settings", companyId],

@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS public.gst_einvoice_credentials (
 ALTER TABLE public.gst_einvoice_credentials ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.gst_einvoice_credentials TO service_role;
 
+DROP TRIGGER IF EXISTS trg_gst_einvoice_credentials_updated_at ON public.gst_einvoice_credentials;
 CREATE TRIGGER trg_gst_einvoice_credentials_updated_at
   BEFORE UPDATE ON public.gst_einvoice_credentials
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -123,6 +124,7 @@ GRANT SELECT ON public.gst_einvoice_log TO authenticated;
 GRANT ALL ON public.gst_einvoice_log TO service_role;
 ALTER TABLE public.gst_einvoice_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "gst_einvoice_log company read" ON public.gst_einvoice_log;
 CREATE POLICY "gst_einvoice_log company read"
   ON public.gst_einvoice_log FOR SELECT TO authenticated
   USING (company_id IN (SELECT company_id FROM public.user_companies WHERE user_id = auth.uid())

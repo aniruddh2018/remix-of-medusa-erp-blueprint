@@ -46,24 +46,34 @@ WHERE id = '77904247-334b-4007-9577-97f917cfccec'
 DELETE FROM public.ledger_balances 
 WHERE ledger_id = '77904247-334b-4007-9577-97f917cfccec';
 
--- Re-insert correct balance by summing all journal lines
-INSERT INTO public.ledger_balances (
-  ledger_id, company_id, financial_year, opening_balance, opening_balance_type,
-  current_balance, total_debit, total_credit, closing_balance, closing_balance_type
-)
-SELECT 
-  '77904247-334b-4007-9577-97f917cfccec' as ledger_id,
-  '1e98ddf2-6152-401b-8c12-da78cc41dd3f' as company_id,
-  public.get_financial_year(CURRENT_DATE) as financial_year,
-  0 as opening_balance,
-  'debit'::public.balance_type as opening_balance_type,
-  COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) as current_balance,
-  COALESCE(SUM(debit_amount), 0) as total_debit,
-  COALESCE(SUM(credit_amount), 0) as total_credit,
-  COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) as closing_balance,
-  CASE WHEN COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) >= 0 
-    THEN 'debit'::public.balance_type 
-    ELSE 'credit'::public.balance_type 
-  END as closing_balance_type
-FROM public.journal_voucher_lines
-WHERE ledger_id = '77904247-334b-4007-9577-97f917cfccec';
+-- Re-insert correct balance by summing all journal lines.
+-- Guarded in a DO block (not just a WHERE clause) because the aggregate
+-- SELECT below returns exactly one row via COALESCE even when zero
+-- journal_voucher_lines match — a bare WHERE can't stop that row from
+-- being produced and failing the ledger_balances FK on a database where
+-- this hardcoded ledger id never existed (e.g. a fresh install).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.ledgers WHERE id = '77904247-334b-4007-9577-97f917cfccec') THEN
+    INSERT INTO public.ledger_balances (
+      ledger_id, company_id, financial_year, opening_balance, opening_balance_type,
+      current_balance, total_debit, total_credit, closing_balance, closing_balance_type
+    )
+    SELECT
+      '77904247-334b-4007-9577-97f917cfccec' as ledger_id,
+      '1e98ddf2-6152-401b-8c12-da78cc41dd3f' as company_id,
+      public.get_financial_year(CURRENT_DATE) as financial_year,
+      0 as opening_balance,
+      'debit'::public.balance_type as opening_balance_type,
+      COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) as current_balance,
+      COALESCE(SUM(debit_amount), 0) as total_debit,
+      COALESCE(SUM(credit_amount), 0) as total_credit,
+      COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) as closing_balance,
+      CASE WHEN COALESCE(SUM(debit_amount) - SUM(credit_amount), 0) >= 0
+        THEN 'debit'::public.balance_type
+        ELSE 'credit'::public.balance_type
+      END as closing_balance_type
+    FROM public.journal_voucher_lines
+    WHERE ledger_id = '77904247-334b-4007-9577-97f917cfccec';
+  END IF;
+END $$;

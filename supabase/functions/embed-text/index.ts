@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { embedText } from "../_shared/bedrock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,15 +8,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
 
@@ -34,25 +31,9 @@ serve(async (req) => {
       throw new Error("texts array is required");
     }
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-embedding-001",
-        input: texts,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Embedding API error ${res.status}: ${err}`);
-    }
-
-    const json = await res.json();
-    const embeddings = json.data?.map((d: any) => d.embedding) || [];
+    // Query-side usage (matching incoming text against the stored catalog),
+    // so TEXT_RETRIEVAL — see the shared purpose split in _shared/bedrock.ts.
+    const embeddings = await Promise.all(texts.map((t: string) => embedText(t, "TEXT_RETRIEVAL")));
 
     return new Response(JSON.stringify({ embeddings }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

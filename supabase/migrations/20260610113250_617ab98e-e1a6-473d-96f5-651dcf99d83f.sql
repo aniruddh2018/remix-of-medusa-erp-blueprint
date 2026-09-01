@@ -670,6 +670,7 @@ CREATE TRIGGER trg_recalculate_balance
   FOR EACH ROW EXECUTE FUNCTION public.recalculate_ledger_balance();
 
 -- View: ledger_transaction_history
+DROP VIEW IF EXISTS public.ledger_transaction_history CASCADE;
 CREATE OR REPLACE VIEW public.ledger_transaction_history AS
 SELECT
   jvl.ledger_id,
@@ -753,6 +754,7 @@ END;
 $$;
 
 -- View: ledger_balances_with_names
+DROP VIEW IF EXISTS public.ledger_balances_with_names CASCADE;
 CREATE OR REPLACE VIEW public.ledger_balances_with_names AS
 SELECT
   l.id,

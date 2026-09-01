@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "sync:schema": "node scripts/sync-schema-migrations.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

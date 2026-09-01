@@ -67,6 +67,7 @@ CREATE TRIGGER trg_post_sale_voucher
   FOR EACH ROW EXECUTE FUNCTION public.post_sale_voucher();
 
 -- Party transaction history view
+DROP VIEW IF EXISTS public.party_transaction_history CASCADE;
 CREATE OR REPLACE VIEW public.party_transaction_history AS
 SELECT
   l.id AS ledger_id,

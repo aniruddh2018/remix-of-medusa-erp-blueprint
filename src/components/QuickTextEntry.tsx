@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { FileText, Loader2, AlertTriangle, Check, RefreshCw, X } from "lucide-react";
+import { FileText, Loader2, AlertTriangle, Check, RefreshCw, X, Mic, Square } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
@@ -19,6 +19,7 @@ export interface ParsedItem {
   product_name_matched: string;
   product_name_raw: string;
   quantity: number;
+  spoken_unit?: string | null;
   free_quantity: number | null;
   rate: number | null;
   confidence: number;
@@ -46,7 +47,11 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
   const [isParsing, setIsParsing] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
   const [parseError, setParseError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -68,7 +73,10 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       const { data, error } = await supabase.functions.invoke("parse-order-text", {
         body: { text: text.trim(), company_id: companyId, type },
       });
-      if (error) throw error;
+      if (error) {
+        const body = await (error as any)?.context?.json?.().catch(() => null);
+        throw new Error(body?.error || error.message);
+      }
       if (data?.error) throw new Error(data.error);
       setParsedItems(data.items || []);
       setStep("review");
@@ -104,10 +112,94 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
       confidence: 1,
     };
     setParsedItems(updated);
+
+    // Remember this correction for next time (voice + text both hit this).
+    const rawPhrase = updated[index].product_name_raw?.trim().toLowerCase();
+    if (companyId && rawPhrase) {
+      (supabase as any)
+        .from("company_product_aliases")
+        .upsert(
+          { company_id: companyId, raw_phrase: rawPhrase, product_id: productId, last_used_at: new Date().toISOString() },
+          { onConflict: "company_id,raw_phrase" }
+        )
+        .then(({ error }: { error: Error | null }) => {
+          if (error) console.warn("[QuickTextEntry] alias upsert failed:", error.message);
+        });
+    }
   };
 
   const removeItem = (index: number) => {
     setParsedItems(parsedItems.filter((_, i) => i !== index));
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        handleVoiceCapture(new Blob(audioChunksRef.current, { type: "audio/webm" }));
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      toast({ title: "Microphone access denied", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const handleVoiceCapture = async (audioBlob: Blob) => {
+    if (!companyId) return;
+    setIsTranscribing(true);
+    setParseError(null);
+    try {
+      const audio_base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+      const { data, error } = await supabase.functions.invoke("capture-voice-entry", {
+        body: { audio_base64, transaction_type: type },
+      });
+      if (error) {
+        // supabase-js swallows the actual response body for non-2xx edge
+        // function responses — the real {error: "..."} message we return
+        // server-side is only reachable via error.context, not `data`.
+        const body = await (error as any)?.context?.json?.().catch(() => null);
+        throw new Error(body?.error || error.message);
+      }
+      if (data?.error) throw new Error(data.error);
+
+      // Enrich matched items with full product details, same as remapProduct.
+      const enriched: ParsedItem[] = (data.line_items || []).map((item: ParsedItem) => {
+        const product = products?.find((p) => p.id === item.product_id);
+        return {
+          ...item,
+          product_name_matched: product ? `${product.name}${product.strength ? ` ${product.strength}` : ""}` : "",
+          mrp: product ? Number(product.mrp) : undefined,
+          purchase_price: product ? Number(product.purchase_price) : undefined,
+          sale_price: product ? Number(product.sale_price || product.mrp) : undefined,
+          gst_percentage: product ? Number(product.gst_percentage) : undefined,
+          hsn_code: product?.hsn_code || "",
+        };
+      });
+      setParsedItems(enriched);
+      setStep("review");
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to process voice note";
+      setParseError(errorMessage);
+      toast({ title: "Voice capture failed", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   const handleConfirm = () => {
@@ -184,11 +276,28 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                   <p className="text-sm text-destructive/80">{parseError}</p>
                 </div>
               )}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleClose}>Cancel</Button>
-                <Button onClick={handleParse} disabled={!text.trim() || isParsing}>
-                  {isParsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing...</> : "Parse & Match"}
+              <div className="flex justify-between items-center gap-2">
+                <Button
+                  variant={isRecording ? "destructive" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                  disabled={isTranscribing}
+                  onClick={isRecording ? stopRecording : startRecording}
+                >
+                  {isTranscribing ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Transcribing...</>
+                  ) : isRecording ? (
+                    <><Square className="h-4 w-4" /> Stop</>
+                  ) : (
+                    <><Mic className="h-4 w-4" /> Voice Entry</>
+                  )}
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                  <Button onClick={handleParse} disabled={!text.trim() || isParsing}>
+                    {isParsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing...</> : "Parse & Match"}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -265,6 +374,11 @@ export function QuickTextEntry({ type, products, onItemsConfirmed, triggerLabel 
                             onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
                             className="w-16 h-8 text-center"
                           />
+                          {item.spoken_unit && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5 text-center">
+                              from "{item.spoken_unit}" — verify converted qty
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input

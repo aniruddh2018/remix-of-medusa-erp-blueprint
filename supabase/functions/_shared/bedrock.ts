@@ -10,7 +10,10 @@
 // removed _shared/claude.ts) aren't worth it when Converse is one plain
 // POST with a bearer token, and (b) it works identically for any model on
 // Bedrock without a provider-specific SDK.
-export const BEDROCK_MODEL = "meta.llama4-scout-17b-instruct-v1:0";
+// Llama 4 Scout isn't invocable by its bare model ID on Bedrock — it only
+// supports on-demand throughput via a cross-region inference profile.
+// "us." matches our AWS_REGION (us-east-1).
+export const BEDROCK_MODEL = "us.meta.llama4-scout-17b-instruct-v1:0";
 
 export interface ConverseToolSpec {
   name: string;

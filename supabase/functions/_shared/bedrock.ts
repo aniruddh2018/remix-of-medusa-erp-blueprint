@@ -87,9 +87,13 @@ export async function callBedrockConverse(params: {
   };
   if (params.system) body.system = [{ text: params.system }];
   if (params.tools?.length) {
+    // Llama 4 Scout doesn't support toolChoice.tool (forcing one specific
+    // named tool) — only .any (must use some tool) / .auto. Since callers
+    // only ever pass exactly one tool when forcing, .any has the same
+    // effect here without needing a model-specific branch.
     body.toolConfig = {
       tools: params.tools.map((t) => ({ toolSpec: t })),
-      ...(params.forceToolName ? { toolChoice: { tool: { name: params.forceToolName } } } : {}),
+      ...(params.forceToolName ? { toolChoice: { any: {} } } : {}),
     };
   }
 

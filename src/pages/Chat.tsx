@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Brain, ChevronDown, ChevronRight, Loader2, Send, User, Wrench } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronRight, Loader2, Mic, MicOff, PhoneOff, Send, User, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PendingActionCard, type PendingActionStatus } from "@/components/chat/PendingActionCard";
+import { useVoiceAgent } from "@/lib/voiceAgent/useVoiceAgent";
 
 interface ThinkingStep {
   step: number;
@@ -48,9 +49,17 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const voice = useVoiceAgent();
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  useEffect(() => {
+    if (voice.errorMessage) {
+      toast({ title: "Voice error", description: voice.errorMessage, variant: "destructive" });
+    }
+  }, [voice.errorMessage]);
 
   const send = async (text: string) => {
     const userText = text.trim();
@@ -98,7 +107,46 @@ export default function Chat() {
       <PageHeader
         title="Automation Chat"
         description="AI assistant — ask, confirm, done"
+        actions={
+          voice.isActive ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Listening…
+              </span>
+              <Button variant={voice.isMuted ? "secondary" : "outline"} size="icon" className="h-9 w-9" onClick={() => voice.toggleMute()}>
+                {voice.isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+              <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => voice.closeSession()}>
+                <PhoneOff className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" disabled={voice.isLoading} onClick={() => voice.startSession()}>
+              {voice.isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mic className="h-4 w-4 mr-2" />}
+              {voice.isLoading ? "Connecting…" : "Talk"}
+            </Button>
+          )
+        }
       />
+
+      {(voice.isActive || voice.isLoading) && (
+        <div className="border-b bg-muted/30 px-4 py-3 max-w-3xl w-full mx-auto">
+          {voice.messages.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center">
+              {voice.isLoading ? "Connecting to the voice agent…" : "Say something — I'm listening."}
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {voice.messages.map((m) => (
+                <div key={m.id} className={`text-sm ${m.role === "USER" || m.role === "user" ? "text-foreground" : "text-primary"}`}>
+                  <span className="font-medium">{m.role === "USER" || m.role === "user" ? "You" : "Agent"}: </span>
+                  {m.text}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
         {messages.length === 0 && (

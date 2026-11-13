@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: erp-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: erp-frontend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
